@@ -2,7 +2,9 @@
 SHEAP: Spectral Handling and Estimation of AGN Parameters
 =======
 
-<img src="docs/images/sheap_white_logo.png" alt="SHEAP Screenshot" width="200">
+.. image:: docs/images/sheap_white_logo.png
+   :alt: SHEAP Screenshot
+   :width: 200
 
 .. .https://python-package-generator.readthedocs.io/en/master/
 .. .| |build| |coverage| |docs| |maintainability| |codacy| |tech-debt|
