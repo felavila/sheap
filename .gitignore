@@ -1,6 +1,14 @@
 .idea/
 .vscode/
 
+notebooks/images/*
+notebooks/pickles/*
+notebooks/images/
+notebooks/pickles/
+
+.ipynb_checkpoints
+*/.ipynb_checkpoints/
+
 *.egg-info/
 *.pyc
 *\.bak

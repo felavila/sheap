@@ -1,100 +1,48 @@
-SHEAP
-
+=======
 SHEAP: Spectral Handling and Estimation of AGN Parameters
+=======
 
-.. start-badges
+<img src="docs/images/sheap_white_logo.png" alt="SHEAP Screenshot" width="200">
 
-| |build| |release_version| |wheel| |supported_versions|
-| |docs| |coverage| |maintainability| |tech-debt|
-| |ruff| |gh-lic| |commits_since_specific_tag_on_main| |commits_since_latest_github_release|
+.. .https://python-package-generator.readthedocs.io/en/master/
+.. .| |build| |coverage| |docs| |maintainability| |codacy| |tech-debt|
+.. .| |release_version| |wheel| |supported_versions| |commits_since_specific_tag_on_master| |commits_since_latest_github_release|
+.. .| |pypi_stats| |ossf| |ruff| |black| |gh-lic||
 
-|
-| **Code:** https://github.com/favila/sheap
-| **Docs:** https://sheap.readthedocs.io/en/main/
-| **PyPI:** https://pypi.org/project/sheap/
-| **CI:** https://github.com/favila/sheap/actions/
-
+SHEAP (Spectral Handling and Estimation of AGN Parameters) is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
 Features
-========
+=======
 
-1. **sheap** `python package`
+- **Spectral Fitting**: Automatically fits AGN spectra to estimate key physical parameters.
 
-   a. TODO Document a **Great Feature**
-   b. TODO Document another **Nice Feature**
-2. Tested against multiple `platforms` and `python` versions
+- **Model Customization**: Allows flexible models for AGN spectra to suit a variety of use cases.
 
+- **AGN Parameter Estimation**: Extract black hole mass from observed spectra.
 
-Development
------------
+Installation
+=======
 
-| Get started:
-
-.. code-block:: shell
-
-    python3 -m pip install --user 'tox<4'
-
-OR: **`pipx install tox`**
-
-Then, to see all out-of-the-box available `tox` commands:
+You can locally install SHEAP locally using the following command:
 
 .. code-block:: shell
-
-    tox -a
     
-
-OR **`tox -av`** for showing `description` of each command
-
-Development Notes
-~~~~~~~~~~~~~~~~~
-Testing, Documentation Building, Scripts, CI/CD, Static Code Analysis for this project.
-
-1. **Test Suite**, using `pytest`_, located in `tests` dir
-2. **Parallel Execution** of Unit Tests, on multiple cpu's
-3. **Documentation Pages**, hosted on `readthedocs` server, located in `docs` dir
-4. **CI/CD Pipeline**, running on `Github Actions`_, defined in `.github/`
-
-   a. **Test Job Matrix**, spanning different `platform`'s and `python version`'s
-
-      1. Platforms: `ubuntu-latest`, `macos-latest`, `windows-latest`
-      2. Python Interpreters: `3.8`, `3.9`, `3.10`, `3.11`
-   b. **Continuous Deployment**
-   
-      `Production`
-      
-         1. **Python Distristribution** to `pypi.org`_, on `tags` **v***, pushed to `main` branch
-         2. **Docker Image** to `Dockerhub`_, on every push, with automatic `Image Tagging`
-      
-      `Staging`
-
-         1. **Python Distristribution** to `test.pypi.org`_, on "pre-release" `tags` **v*-rc**, pushed to `release` branch
-
-   c. **Configurable Policies** for `Docker`, and `Static Code Analysis` Workflows
-5. **Automation**, using `tox`_, driven by single `tox.ini` file
-
-   a. **Code Coverage** measuring
-   b. **Build Command**, using the `build`_ python package
-   c. **Pypi Deploy Command**, supporting upload to both `pypi.org`_ and `test.pypi.org`_ servers
-   d. **Type Check Command**, using `mypy`_
-   e. **Lint** *Check* and `Apply` commands, using the fast `Ruff`_ linter, along with `isort`_ and `black`_
-
+    pip install -e .
 
 Prerequisites
 =============
 
 You need to have `Python` installed.
 
-Quickstart
-==========
+References
+=======
 
-Using `pip` is the approved way for installing `sheap`.
+SHEAP is based on methodologies and models outlined in the following paper(s):
 
-.. code-block:: sh
-
-    python3 -m pip install sheap
-
-
-TODO Document a use case
+**Mejía-Restrepo, J. E., et al. (2016). 
+Active galactic nuclei at z ∼ 1.5 - II. Black hole mass estimation by means of broad emission lines.
+2016MNRAS.460..187M **  
+Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_  
 
 
 License
@@ -111,88 +59,93 @@ License
 * Free software: GNU Affero General Public License v3.0
 
 
-
-.. LINKS
-
-.. _tox: https://tox.wiki/en/latest/
-
-.. _pytest: https://docs.pytest.org/en/7.1.x/
-
-.. _build: https://github.com/pypa/build
-
-.. _Dockerhub: https://hub.docker.com/
-
-.. _pypi.org: https://pypi.org/
-
-.. _test.pypi.org: https://test.pypi.org/
-
-.. _mypy: https://mypy.readthedocs.io/en/stable/
-
-.. _Ruff: https://docs.astral.sh/ruff/
-
-.. _isort: https://pycqa.github.io/isort/
-
-.. _black: https://black.readthedocs.io/en/stable/
-
-.. _Github Actions: https://github.com/favila/sheap/actions
-
-.. _GNU Affero General Public License v3.0: https://github.com/favila/sheap/blob/main/LICENSE
-
-
 .. BADGE ALIASES
 
 .. Build Status
 .. Github Actions: Test Workflow Status for specific branch <branch>
 
-.. |build| image:: https://img.shields.io/github/workflow/status/favila/sheap/Test%20Python%20Package/main?label=build&logo=github-actions&logoColor=%233392FF
-    :alt: GitHub Workflow Status (branch)
-    :target: https://github.com/favila/sheap/actions/workflows/test.yaml?query=branch%3Amain
+.. |build| image:: https://img.shields.io/github/actions/workflow/status/boromir674/cookiecutter-python-package/test.yaml?link=https%3A%2F%2Fgithub.com%2Fboromir674%2Fcookiecutter-python-package%2Factions%2Fworkflows%2Ftest.yaml%3Fquery%3Dbranch%253Amaster
+   :alt: GitHub Workflow Status (with event)
+
+.. build target https://github.com/boromir674/cookiecutter-python-package/actions/workflows/test.yaml?query=branch%3Amaster
 
 
 .. Documentation
 
-.. |docs| image:: https://img.shields.io/readthedocs/sheap/main?logo=readthedocs&logoColor=lightblue
+.. |docs| image:: https://img.shields.io/readthedocs/python-package-generator/master?logo=readthedocs&logoColor=lightblue
     :alt: Read the Docs (version)
-    :target: https://sheap.readthedocs.io/en/main/
+    :target: https://python-package-generator.readthedocs.io/en/master/
 
 .. Code Coverage
 
-.. |coverage| image:: https://img.shields.io/codecov/c/github/favila/sheap/main?logo=codecov
+.. |coverage| image:: https://img.shields.io/codecov/c/github/boromir674/cookiecutter-python-package/master?logo=codecov
     :alt: Codecov
-    :target: https://app.codecov.io/gh/favila/sheap
+    :target: https://app.codecov.io/gh/boromir674/cookiecutter-python-package
 
 .. PyPI
 
-.. |release_version| image:: https://img.shields.io/pypi/v/sheap
+.. |release_version| image:: https://img.shields.io/pypi/v/cookiecutter_python
     :alt: Production Version
-    :target: https://pypi.org/project/sheap/
+    :target: https://pypi.org/project/cookiecutter-python/
 
-.. |wheel| image:: https://img.shields.io/pypi/wheel/sheap?color=green&label=wheel
+.. |wheel| image:: https://img.shields.io/pypi/wheel/cookiecutter-python?color=green&label=wheel
     :alt: PyPI - Wheel
-    :target: https://pypi.org/project/sheap
+    :target: https://pypi.org/project/cookiecutter-python
 
-.. |supported_versions| image:: https://img.shields.io/pypi/pyversions/sheap?color=blue&label=python&logo=python&logoColor=%23ccccff
+.. |supported_versions| image:: https://img.shields.io/pypi/pyversions/cookiecutter-python?color=blue&label=python&logo=python&logoColor=%23ccccff
     :alt: Supported Python versions
-    :target: https://pypi.org/project/sheap
+    :target: https://pypi.org/project/cookiecutter-python
+
+.. |pypi_stats| image:: https://img.shields.io/pypi/dm/cookiecutter-python?logo=pypi&logoColor=%23849ED9&color=%23849ED9&link=https%3A%2F%2Fpypi.org%2Fproject%2Fcookiecutter-python%2F&link=https%3A%2F%2Fpypistats.org%2Fpackages%2Fcookiecutter-python
+    :alt: PyPI - Downloads
+    :target: https://pypistats.org/packages/cookiecutter-python
 
 .. Github Releases & Tags
 
-.. |commits_since_specific_tag_on_main| image:: https://img.shields.io/github/commits-since/favila/sheap/v0.0.1/main?color=blue&logo=github
+.. |commits_since_specific_tag_on_master| image:: https://img.shields.io/github/commits-since/boromir674/cookiecutter-python-package/v2.5.0/master?color=blue&logo=github
     :alt: GitHub commits since tagged version (branch)
-    :target: https://github.com/favila/sheap/compare/v0.0.1..main
+    :target: https://github.com/boromir674/cookiecutter-python-package/compare/v2.5.0..master
 
-.. |commits_since_latest_github_release| image:: https://img.shields.io/github/commits-since/favila/sheap/latest?color=blue&logo=semver&sort=semver
+.. |commits_since_latest_github_release| image:: https://img.shields.io/github/commits-since/boromir674/cookiecutter-python-package/latest?color=blue&logo=semver&sort=semver
     :alt: GitHub commits since latest release (by SemVer)
+
 
 .. LICENSE (eg AGPL, MIT)
 .. Github License
 
-.. |gh-lic| image:: https://img.shields.io/github/license/favila/sheap
+.. |gh-lic| image:: https://img.shields.io/github/license/boromir674/cookiecutter-python-package
     :alt: GitHub
-    :target: https://github.com/favila/sheap/blob/main/LICENSE
+    :target: https://github.com/boromir674/cookiecutter-python-package/blob/master/LICENSE
+
+
+.. Free/Libre Open Source Software
+.. Open Source Software Best Practices
+
+.. |ossf| image:: https://bestpractices.coreinfrastructure.org/projects/5988/badge
+    :alt: OpenSSF
+    :target: https://bestpractices.coreinfrastructure.org/en/projects/5988
 
 
 .. CODE QUALITY
+
+.. Codacy
+.. Code Quality, Style, Security
+
+.. |codacy| image:: https://app.codacy.com/project/badge/Grade/5be4a55ff1d34b98b491dc05e030f2d7
+    :alt: Codacy
+    :target: https://app.codacy.com/gh/boromir674/cookiecutter-python-package/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=boromir674/cookiecutter-python-package&amp;utm_campaign=Badge_Grade
+
+
+.. Code Climate CI
+.. Code maintainability & Technical Debt
+
+.. |maintainability| image:: https://api.codeclimate.com/v1/badges/1d347d7dfaa134fd944e/maintainability
+   :alt: Maintainability
+   :target: https://codeclimate.com/github/boromir674/cookiecutter-python-package/
+
+.. |tech-debt| image:: https://img.shields.io/codeclimate/tech-debt/boromir674/cookiecutter-python-package
+    :alt: Code Climate technical debt
+    :target: https://codeclimate.com/github/boromir674/cookiecutter-python-package/
 
 .. Ruff linter for Fast Python Linting
 
@@ -200,13 +153,8 @@ License
     :alt: Ruff
     :target: https://docs.astral.sh/ruff/
 
-.. Code Climate CI
-.. Code maintainability & Technical Debt
+.. Code Style with Black
 
-.. |maintainability| image:: https://img.shields.io/codeclimate/maintainability/favila/sheap
-    :alt: Code Climate Maintainability
-    :target: https://codeclimate.com/github/favila/sheap
-
-.. |tech-debt| image:: https://img.shields.io/codeclimate/tech-debt/favila/sheap
-    :alt: Technical Debt
-    :target: https://codeclimate.com/github/favila/sheap
+.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :alt: Black
+    :target: https://github.com/psf/black

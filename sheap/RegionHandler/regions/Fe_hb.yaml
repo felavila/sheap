@@ -1,0 +1,14 @@
+#Hbeta Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - how: template
+    line_name: Fe
+    which: OP
+    kind: Fe
+    
+tied_params_step_1: []
+tied_params_step_2: []
+
+inner_limits: [4500, 5020]
+outer_limits: [4400, 5600]

@@ -1,0 +1,36 @@
+#taked from https://github.com/yukawa1/fantasy/blob/main/fantasy_agn/input/helium.csv
+region:
+  # HeII lines
+  - center: 1640.42
+    line_name: HeIIa
+  - center: 2733.29
+    line_name: HeIIb
+  - center: 3203.10
+    line_name: HeIIc
+  - center: 4685.710
+    line_name: HeIId
+  - center: 8236.790
+    line_name: HeIIe
+  # HeI lines
+  - center: 2945.106
+    line_name: HeIa
+  - center: 3187.745
+    line_name: HeIb
+  - center: 4143.761
+    line_name: HeIc
+  - center: 4471.479
+    line_name: HeId
+  - center: 5877.2539
+    line_name: HeIe
+  - center: 7065.196
+    line_name: HeIf
+  - center: 7281.349
+    line_name: HeIg
+  - center: 7816.136
+    line_name: HeIh
+  - center: 10027.730
+    line_name: HeIi
+  - center: 10031.160
+    line_name: HeIj
+  - center: 10830.340
+    line_name: HeIk

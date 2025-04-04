@@ -1,0 +1,76 @@
+#Halpha Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#upload with the addition of second broad like
+#https://iopscience.iop.org/article/10.3847/1538-4365/acd783/pdf
+#TODO work in the tieds 
+region:
+  - center: 6562.8
+    kind: broad
+    amplitude: 0.1
+    line_name: Halpha
+  - center: 6562.8
+    kind: narrow
+    amplitude: 1
+    line_name: Halpha
+  - center: 6562.8
+    kind: broad
+    amplitude: 0.2
+    line_name: Halpha
+  - center: 7067.2
+    kind: narrow
+    amplitude: 0.4
+    line_name: HeIb
+  - center: 5877.29
+    kind: narrow
+    amplitude: 0.4
+    line_name: HeIa
+  - center: 6365.54
+    kind: narrow
+    amplitude: 0.4
+    line_name: OIb
+  - center: 6302.05
+    kind: narrow
+    amplitude: 0.4
+    line_name: OIa
+  - center: 6583.39
+    kind: narrow
+    amplitude: 0.4
+    line_name: NIIb
+  - center: 6548.06
+    kind: narrow
+    amplitude: 0.4
+    line_name: NIIa
+  - center: 6730.85
+    kind: narrow
+    amplitude: 0.4
+    line_name: SIIb
+  - center: 6716.47
+    kind: narrow
+    amplitude: 0.4
+    line_name: SIIa
+
+tied_params_step_1:
+  - [amplitude_Halpha_narrow, amplitude_NIIb_narrow, "*3."]
+  - [amplitude_NIIa_narrow, amplitude_NIIb_narrow, "*0.3"]
+  - [center_SIIb_narrow, center_NIIb_narrow]
+  - [center_OIb_narrow, center_NIIb_narrow]
+  - [center_OIa_narrow, center_NIIb_narrow]
+  - [center_SIIa_narrow, center_NIIb_narrow]
+  - [center_NIIa_narrow, center_NIIb_narrow]
+  - [width_NIIa_narrow, width_NIIb_narrow]
+  - [width_SIIb_narrow, width_NIIb_narrow]
+  - [width_SIIa_narrow, width_NIIb_narrow]
+  - [width_OIa_narrow, width_NIIb_narrow]
+  - [width_OIb_narrow, width_NIIb_narrow]
+
+tied_params_step_2:
+  - [amplitude_NIIa_narrow, amplitude_NIIb_narrow, "*0.3"]
+  - [center_NIIa_narrow, center_NIIb_narrow]
+  - [width_NIIa_narrow, width_NIIb_narrow]
+  - [center_SIIb_narrow, center_NIIb_narrow]
+  - [center_SIIa_narrow, center_NIIb_narrow]
+
+inner_limits: [5700,7200]
+#Limits associated to the continuum 
+outer_limits: [5600,7300]
+# The complete region

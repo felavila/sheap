@@ -1,0 +1,42 @@
+#CIII] Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - center: 1908.73
+    kind: narrow
+    amplitude: 0.2
+    line_name: CIII]
+  - center: 1908.73
+    kind: broad
+    amplitude: 0.2
+    line_name: CIII]
+  - center: 1892.03
+    kind: narrow
+    amplitude: 0.2
+    line_name: SiIII]
+  - center: 1892.03
+    kind: broad
+    amplitude: 0.2
+    line_name: SiIII]
+  - center: 1854.72
+    kind: narrow
+    amplitude: 0.2
+    line_name: AlIII]a
+  - center: 1862.78
+    kind: narrow
+    amplitude: 0.2
+    line_name: AlIII]b
+
+tied_params_step_1:
+  - ["center_AlIII]a_narrow","center_CIII]_narrow"]
+  - ["center_AlIII]b_narrow","center_CIII]_narrow"]
+  - ["center_CIII]_broad","center_CIII]_narrow"]
+  - ["center_SIII]_broad","center_CIII]_narrow"]
+  - ["center_SIII]_narrow","center_CIII]_narrow"]
+  - ["width_SIII]_narrow","width_CIII]_narrow"]
+  - ["width_SIII]_broad","width_CIII]_broad"]
+  - ["amplitude_AlIII]a_broad","amplitude_AlIII]b_broad"]
+tied_params_step_2: []
+
+inner_limits: [1700, 1900]
+outer_limits: [1600, 2000]

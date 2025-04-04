@@ -1,0 +1,69 @@
+#C IV Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - center: 1486.50
+    kind: broad
+    amplitude: 0.2
+    line_name: NIV]
+  - center: 1548.20
+    kind: broad
+    amplitude: 0.2
+    line_name: CIVa
+  - center: 1548.20
+    kind: narrow
+    amplitude: 0.2
+    line_name: CIVa
+  - center: 1550.77
+    kind: broad
+    amplitude: 0.2
+    line_name: CIVb
+  - center: 1550.77
+    kind: narrow
+    amplitude: 0.2
+    line_name: CIVb
+  - center: 1640.72
+    kind: narrow
+    amplitude: 0.2
+    line_name: HeII
+  - center: 1640.72
+    kind: broad
+    amplitude: 0.2
+    line_name: HeII
+  - center: 1660.80
+    kind: narrow
+    amplitude: 0.2
+    line_name: OIII]a
+  - center: 1666.14
+    kind: narrow
+    amplitude: 0.2
+    line_name: OIII]b
+  - center: 1660.80
+    kind: narrow
+    amplitude: 0.2
+    line_name: OIII]a
+  - center: 1748.65
+    kind: narrow
+    amplitude: 0.2
+    line_name: NIII]a
+  - center: 1752.16
+    kind: narrow
+    amplitude: 0.2
+    line_name: NIII]b
+  - center: 1754.00
+    kind: narrow
+    amplitude: 0.2
+    line_name: NIII]c
+
+tied_params_step_1:
+  - ["center_CIVb_narrow","center_CIVa_narrow"]
+  - ["center_CIVb_broad","center_CIVa_broad"]
+  - ["amplitude_CIVb_narrow","amplitude_CIVa_narrow"]
+  - ["amplitude_CIVb_broad","amplitude_CIVa_broad"]
+  - ["width_CIVb_narrow","width_CIVa_narrow"]
+  - ["width_CIVb_broad","width_CIVa_broad"]
+  - ["width_CIVb_broad","width_CIVa_broad"]
+tied_params_step_2: []
+
+inner_limits: [1300, 1800]
+outer_limits: [1100, 2000]

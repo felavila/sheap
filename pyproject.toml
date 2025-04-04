@@ -12,8 +12,8 @@ build-backend = "poetry.core.masonry.api"
 name = "sheap"
 version = "0.0.1"
 description = "SHEAP: Spectral Handling and Estimation of AGN Parameters"
-authors = ["Felipe Avila-Vera <john_doe@protonmail.com>"]
-maintainers = ["Felipe Avila-Vera <john_doe@protonmail.com>"]
+authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
+maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 license = "AGPL-3.0-only"
 readme = "README.rst"
 
@@ -47,7 +47,7 @@ classifiers = [
 ]
 
 packages = [
-    { include = "sheap", from = "src" },
+    { include = "sheap" },
 ]
 
 include = [
@@ -109,6 +109,8 @@ exclude = [
 ### Dependency Constraints, aka Requirements ###
 [tool.poetry.dependencies]
 python = ">=3.10, <3.13"
+optax = ">0.2.3"
+sfdmap2 = "*"
 
 # Test: packages imported in test code and packages required for the "test runner"
 pytest = { version = "^8.0.0", optional = true }
@@ -207,4 +209,4 @@ skips = [
 ]
 
 [tool.software-release]
-version_variable = "src/sheap/__init__.py:__version__"
+version_variable = "sheap/__init__.py:__version__"

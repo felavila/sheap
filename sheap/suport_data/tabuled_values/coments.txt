@@ -1,0 +1,73 @@
+#originales codigo MR16
+
+#---- Typical wavelengths of almost emission-line-free emission where continuum is calculated---#
+continuum_bands={}
+continuum_bands['Lya']=1350
+continuum_bands['SiOIV']=1350
+continuum_bands['CIV']=1450
+continuum_bands['MgII']=3000
+continuum_bands['CIII']=2000
+continuum_bands['Hbeta']=5100
+continuum_bands['Halpha']=6200
+#----------- CONSTANTS TO CALCULATE MBH TAKEN FROM MEJIA-RESTREPO et al 2016 ---------#
+#-------logMbh = logK + alpha*log(Llambda/1e44ergs) + slope*log(FWHM/1000kms)---------#
+#----------- you can change them for whichever other calibrations------------#
+logK={}
+logK['CIV']=6.353
+logK['MgII']=6.925
+logK['Hbeta']=6.740
+#logK['Halpha']=6.891  MR16
+#logK['Halpha']=6.68 Sanchez+17 continuum below
+logK['Halpha']=6.78
+logK['SiOIV']=0 #Sanchez+17
+logK['Lya']=0 #Sanchez+17
+logK['CIII']=0
+#########################################################
+alpha={}
+
+alpha['CIV']=0.599
+alpha['MgII']=0.609
+alpha['Hbeta']=0.650
+alpha['Halpha']=0.65
+#alpha['Halpha']=0.634 #MR16
+alpha['SiOIV']=0
+alpha['Lya']=0
+alpha['CIII']=0
+
+slope={}
+
+slope['CIV']=2.0
+slope['MgII']=2.0
+slope['Hbeta']=2.0
+slope['Halpha']=2.0
+slope['SiOIV']=0
+slope['Lya']=0
+slope['CIII']=0
+#-------logMbh = logK + alpha*log(Llambda/1e44ergs) + slope*log(FWHM/1000kms)---------#
+#----------- CONSTANTS TO CONVERT  Llambda INTO AN ESTIMATION OF  L5100 TAKEN FROM MEJIA-RESTREPO et al 2016 ---------#
+#-------logL5100pred=log(A) + B*log(Llambda). This will assist to calculate Mdot---------#
+#---------------- you can change them for whichever other calibrations-------------------#
+A={}
+
+
+A['CIV']=0.56
+A['MgII']=0.67
+A['Hbeta']=1.0
+#A['Halpha']=1.23 MR16
+#A['Halpha']=0.87 Sanchez+17 5100 cont below
+A['Halpha']=1.0  # Better fits Sanchez+17
+A['SiOIV']=0
+A['Lya']=0
+A['CIII']=0
+
+B={}
+
+B['CIV']=0.88
+B['MgII']=0.92
+B['Hbeta']=1.0
+#B['Halpha']=0.98 # MR16
+B['Halpha']=1.00 #  Sanchez+17
+B['SiOIV']=0
+B['Lya']=0
+B['CIII']=0
+#-------logL5100pred=log(A) + B*log(Llambda)---------#

@@ -1,0 +1,64 @@
+# #---- Typical wavelengths of almost emission-line-free emission where continuum is calculated---#
+continuum_bands:
+  Lya: 1350       # Wavelength for Lyman-alpha (Lya) line
+  SiOIV: 1350     # Wavelength for Silicon IV (SiOIV) line
+  CIV: 1450       # Wavelength for Carbon IV (CIV) line
+  MgII: 3000      # Wavelength for Magnesium II (MgII) line
+  CIII: 2000      # Wavelength for Carbon III (CIII) line
+  Hbeta: 5100     # Wavelength for Hydrogen beta (Hβ) line
+  Halpha: 6200    # Wavelength for Hydrogen alpha (Hα) line
+#----------- CONSTANTS TO CALCULATE MBH TAKEN FROM MEJIA-RESTREPO et al 2016 ---------#
+#-------logMbh = logK + alpha*log(Llambda/1e44ergs) + slope*log(FWHM/1000kms)---------#
+#----------- you can change them for whichever other calibrations------------#
+logK:
+  CIV: 6.353     # LogK for Carbon IV (CIV)
+  MgII: 6.925    # LogK for Magnesium II (MgII)
+  Hbeta: 6.74    # LogK for Hydrogen beta (Hβ)
+  Halpha: 6.78   # LogK for Hydrogen alpha (Hα)
+  SiOIV: 0       # LogK for Silicon IV (SiOIV)
+  Lya: 0         # LogK for Lyman-alpha (Lya)
+  CIII: 0        # LogK for Carbon III (CIII)
+
+# Power-law index α for the relationship between luminosity and black hole mass
+alpha:
+  CIV: 0.599     # Alpha for Carbon IV (CIV)
+  MgII: 0.609    # Alpha for Magnesium II (MgII)
+  Hbeta: 0.65    # Alpha for Hydrogen beta (Hβ)
+  Halpha: 0.65   # Alpha for Hydrogen alpha (Hα)
+  SiOIV: 0       # Alpha for Silicon IV (SiOIV)
+  Lya: 0         # Alpha for Lyman-alpha (Lya)
+  CIII: 0        # Alpha for Carbon III (CIII)
+
+# Slope parameter for the relationship between luminosity and black hole mass
+slope:
+  CIV: 2.0       # Slope for Carbon IV (CIV)
+  MgII: 2.0      # Slope for Magnesium II (MgII)
+  Hbeta: 2.0     # Slope for Hydrogen beta (Hβ)
+  Halpha: 2.0    # Slope for Hydrogen alpha (Hα)
+  SiOIV: 0       # Slope for Silicon IV (SiOIV)
+  Lya: 0         # Slope for Lyman-alpha (Lya)
+  CIII: 0        # Slope for Carbon III (CIII)
+
+#-------logMbh = logK + alpha*log(Llambda/1e44ergs) + slope*log(FWHM/1000kms)---------#
+#----------- CONSTANTS TO CONVERT  Llambda INTO AN ESTIMATION OF  L5100 TAKEN FROM MEJIA-RESTREPO et al 2016 ---------#
+#-------logL5100pred=log(A) + B*log(Llambda). This will assist to calculate Mdot---------#
+#---------------- you can change them for whichever other calibrations-------------------#
+A:
+  CIV: 0.56      # Constant A for Carbon IV (CIV)
+  MgII: 0.67     # Constant A for Magnesium II (MgII)
+  Hbeta: 1.0     # Constant A for Hydrogen beta (Hβ)
+  Halpha: 1.0    # Constant A for Hydrogen alpha (Hα)
+  SiOIV: 0       # Constant A for Silicon IV (SiOIV)
+  Lya: 0         # Constant A for Lyman-alpha (Lya)
+  CIII: 0        # Constant A for Carbon III (CIII)
+
+# Constant B in the black hole mass estimation formula
+B:
+  CIV: 0.88      # Constant B for Carbon IV (CIV)
+  MgII: 0.92     # Constant B for Magnesium II (MgII)
+  Hbeta: 1.0     # Constant B for Hydrogen beta (Hβ)
+  Halpha: 1.0    # Constant B for Hydrogen alpha (Hα)
+  SiOIV: 0       # Constant B for Silicon IV (SiOIV)
+  Lya: 0         # Constant B for Lyman-alpha (Lya)
+  CIII: 0        # Constant B for Carbon III (CIII)
+  #-------logL5100pred=log(A) + B*log(Llambda)---------#

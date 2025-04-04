@@ -1,0 +1,87 @@
+#Ly alpha Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - center: 1215.67
+    kind: narrow
+    amplitude: 0.2
+    line_name: Lyalpha
+  - center: 1215.67
+    kind: broad
+    amplitude: 0.2
+    line_name: Lyalpha
+  - center: 1215.67
+    kind: broad
+    amplitude: 0.2
+    line_name: Lyalpha
+  - center: 1238.81
+    kind: narrow
+    line_name: Nva
+  - center: 1238.81
+    kind: broad
+    line_name: Nva
+  - center: 1242.80
+    kind: narrow
+    line_name: Nvb
+  - center: 1242.80
+    kind: broad
+    line_name: Nvb
+  - center: 1260.42
+    kind: narrow
+    line_name: SiIIa
+  - center: 1264.73
+    kind: narrow
+    line_name: SiIIb
+  - center: 1265.02
+    kind: narrow
+    line_name: SiIIc
+  - center: 1302.17
+    kind: narrow
+    line_name: OIa
+  - center: 1304.87
+    kind: narrow
+    line_name: OIb
+  - center: 1306.04
+    kind: narrow
+    line_name: OIc
+  - center: 1306.04
+    kind: narrow
+    line_name: OIc
+  - center: 1335.31
+    kind: narrow
+    line_name: CII
+
+tied_params_step_1:
+  - [center_Nva_narrow, center_Lyalpha_narrow]
+  - [center_CII_narrow, center_Lyalpha_narrow]
+  - [center_Nvb_narrow, center_Lyalpha_narrow]
+  - [center_SiIIa_narrow, center_Lyalpha_narrow]
+  - [center_SiIIb_narrow, center_Lyalpha_narrow]
+  - [center_SiIIc_narrow, center_Lyalpha_narrow]
+  - [center_OIa_narrow, center_Lyalpha_narrow]
+  - [center_OIb_narrow, center_Lyalpha_narrow]
+  - [center_OIc_narrow, center_Lyalpha_narrow]
+  - [center_Nva_broad, center_Lyalpha_broad]
+  - [center_Nvb_broad, center_Lyalpha_broad]
+  - [amplitude_SiIIb_narrow, amplitude_SiIIa_narrow, "*0.198"]
+  - [amplitude_SiIIc_narrow, amplitude_SiIIa_narrow, "*0.0231"]
+  - [amplitude_Nva_broad, amplitude_Nvb_broad]
+  - [amplitude_Nva_narrow, amplitude_Nvb_narrow]
+  - [amplitude_OIb_narrow, amplitude_OIa_narrow]
+  - [amplitude_OIc_narrow, amplitude_OIa_narrow]
+  - [width_CII_narrow, width_Lyalpha_narrow]
+  - [width_Nva_narrow, width_Lyalpha_narrow]
+  - [width_Nvb_narrow, width_Lyalpha_narrow]
+  - [width_SiIIa_narrow, width_Lyalpha_narrow]
+  - [width_SiIIb_narrow, width_Lyalpha_narrow]
+  - [width_SiIIc_narrow, width_Lyalpha_narrow]
+  - [width_OIa_narrow, width_Lyalpha_narrow]
+  - [width_OIb_narrow, width_Lyalpha_narrow]
+  - [width_OIc_narrow, width_Lyalpha_narrow]
+  - [width_Nva_broad, width_Lyalpha_broad]
+  - [width_Nvb_broad, width_Lyalpha_broad]
+
+tied_params_step_2: []
+
+inner_limits: [1100,1400]
+outer_limits: [1000,1500]

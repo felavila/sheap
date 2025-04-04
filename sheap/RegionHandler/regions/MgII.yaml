@@ -1,0 +1,40 @@
+#MgII Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - center: 2795.53
+    kind: narrow
+    amplitude: 0.2
+    line_name: MgIIa
+  - center: 2795.53
+    kind: broad
+    amplitude: 0.2
+    line_name: MgIIa
+  - center: 2802.71
+    kind: broad
+    amplitude: 0.2
+    line_name: MgIIb
+  - center: 2802.71
+    kind: narrow
+    amplitude: 0.2
+    line_name: MgIIb
+  - center: 2802.71
+    kind: narrow
+    amplitude: 0.2
+    line_name: MgIIb
+  - how: template
+    which: UV
+    line_name: Fe
+
+tied_params_step_1:
+  - [center_MgIIb_narrow, center_MgIIa_narrow]
+  - [center_MgIIb_broad, center_MgIIa_broad]
+  - [amplitude_MgIIa_narrow, amplitude_MgIIa_narrow, "*2"]
+  - [amplitude_MgIIa_broad, amplitude_MgIIa_broad, "*2"]
+  - [width_MgIIb_narrow, width_MgIIa_narrow]
+  - [width_MgIIb_broad, width_MgIIa_broad]
+
+tied_params_step_2: []
+
+inner_limits: [2600, 2900]
+outer_limits: [2500, 3000]

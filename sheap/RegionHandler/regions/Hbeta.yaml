@@ -1,0 +1,54 @@
+#Hbeta Region
+#based on https://iopscience.iop.org/article/10.1086/518505/pdf
+#TODO work in the tieds 
+region:
+  - center: 4685.65
+    kind: narrow
+    amplitude: 0.2
+    line_name: HeIIb
+  - center: 4685.65
+    kind: broad
+    amplitude: 0.2
+    line_name: HeIIb
+  - center: 4861.32
+    kind: narrow
+    amplitude: 0.2
+    line_name: Hbeta
+  - center: 4861.32
+    kind: broad
+    amplitude: 0.2
+    line_name: Hbeta
+  - center: 4861.32
+    kind: broad
+    amplitude: 0.2
+    line_name: Hbeta
+  - center: 5006.84
+    kind: narrow
+    amplitude: 0.2
+    line_name: OIIIb
+  - center: 4958.91
+    kind: narrow
+    amplitude: 0.2
+    line_name: OIIIa
+  - center: 5006.84
+    kind: broad
+    amplitude: 0.2
+    line_name: OIIIb
+  - center: 4958.91
+    kind: broad
+    amplitude: 0.2
+    line_name: OIIIb
+  - how: template
+    line_name: Fe
+    which: OP
+    kind: Fe
+tied_params_step_1:
+  - [amplitude_OIIIa_narrow, amplitude_OIIIb_narrow, "*0.3"]
+  - [center_OIIIa_narrow, center_OIIIb_narrow]
+  - [width_OIIIa_narrow, width_OIIIb_narrow]
+  - [width_HeIIb_narrow, width_OIIIb_narrow]
+  - [center_HeIIb_narrow, center_OIIIb_narrow]
+tied_params_step_2: []
+
+inner_limits: [4500, 5020]
+outer_limits: [4400, 5600]
