@@ -2,9 +2,9 @@ from typing import Union
 import jax.numpy as jnp
 import numpy as np
 #from .sfdmap import SFDMap_2
-from SHEAP.tools.unred import unred
-from SHEAP.tools.others import _deredshift
-from SHEAP.utils import prepare_uncertainties #?
+from sheap.tools.unred import unred
+from sheap.tools.others import _deredshift
+from sheap.utils import prepare_uncertainties #?
 
 import os 
 from sfdmap2 import sfdmap

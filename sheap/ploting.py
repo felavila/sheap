@@ -1,4 +1,4 @@
-import seaborn as sns
+#import seaborn as sns
 import numpy as np 
 import pandas as pd 
 import jax.numpy as jnp 
@@ -189,7 +189,7 @@ class Sheap_ploting:
     # ax1.tick_params(which="both", length=10, width=2, labelsize=35)
     # plt.savefig("AGNvsEW.png", bbox_inches='tight')
 
-from SHEAP.fitting.functions import linear_combination
+from sheap.fitting.functions import linear_combination
 class Sheap_pca_ploting:
     import numpy as np 
     def __init__(self,test_clase,masked_uncertainties,fit_array,eigenvectors,params_linear):

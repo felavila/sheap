@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jax import jit,vmap
 import functools as ft
 import jax
-from SHEAP.tools.interp_tools import cubic_spline_coefficients,spline_eval
+from sheap.tools.interp_tools import cubic_spline_coefficients,spline_eval
 
 @jit
 @ft.partial(vmap, in_axes=(0, 0,0), out_axes=0)

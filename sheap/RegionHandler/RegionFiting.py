@@ -1,16 +1,16 @@
 
 #import profile
-from SHEAP.fitting.functions import GaussianSum,linear,loglinear,gaussian_func,lorentzian_func,power_law
-from SHEAP.fitting.Fe_fit import fitFeOP,fitFeUV
-from SHEAP.fitting.utils import combine_auto
+from sheap.fitting.functions import GaussianSum,linear,loglinear,gaussian_func,lorentzian_func,power_law
+from sheap.fitting.Fe_fit import fitFeOP,fitFeUV
+from sheap.fitting.utils import combine_auto
 import os 
-from SHEAP.tools.others import  kms_to_wl
+from sheap.tools.others import  kms_to_wl
 import jax.numpy as jnp
 from jax import jit 
 from typing import Union
 import yaml
-from SHEAP.utils import mask_builder,prepare_spectra
-from SHEAP.fitting.MasterMinimizer import MasterMinimizer
+from sheap.utils import mask_builder,prepare_spectra
+from sheap.fitting.MasterMinimizer import MasterMinimizer
 
 region_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"regions")
 
