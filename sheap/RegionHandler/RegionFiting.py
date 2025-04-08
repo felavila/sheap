@@ -240,8 +240,8 @@ class RegionFiting:
         lower_bound = jnp.array(lower_bound)
         initial_params = jnp.array(initial_params)
         
-        self.params_dict = params_dict
-        self.initial_params = initial_params
+        #self.params_dict = params_dict
+        #self.initial_params = initial_params
         self.get_param_coord_value = make_get_param_coord_value(params_dict, initial_params)
         self.profile_index_list = profile_index_list
         self.profile_list = profile_list

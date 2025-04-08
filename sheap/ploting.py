@@ -383,7 +383,7 @@ class SheapRegionplot:
         self.region_class = ComplexRegion
         #self.pandas_r = pd.DataFrame(params,columns=list(region_class.params_dict.keys()))
         
-    def plot(self,n,save=None,**kwargs):
+    def plot(self,n,save=None,add_name=False,**kwargs):
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         filtered_default_colors = [color for color in default_colors if color not in ['black', 'red',"grey","#7f7f7f"]]*50
         ylim = kwargs.get("ylim",[0,self.max_value[n]])
@@ -396,9 +396,9 @@ class SheapRegionplot:
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(35, 15),gridspec_kw={'height_ratios': [2, 1]})
         for i,profile in enumerate(self.region_class.profile_list):
             #print(profile)
-            min,max = profile_index_list[i]
+            min_,max_ = profile_index_list[i]
             profile_func = self.region_class.profile_function_list[i]
-            values = self.params[n][min:max]
+            values = self.params[n][min_:max_]
             local_y = profile_func(x_axis,values)
             c = "k"
             #ax1.text(values[1],max(ylim),text,verticalalignment="bottom",horizontalalignment="center")
@@ -409,6 +409,9 @@ class SheapRegionplot:
                 else:
                     color = filtered_default_colors[i]
                     ax1.axvline(values[1],ls="--",linewidth=1,c=c)
+                    #ylim = ax.get_ylim() 
+                    if add_name and max(xlim)>values[1]>min(xlim):
+                        ax1.text(values[1],ylim[1]*0.95,self.region_class.dict_region["region"][i]['line_name']+self.region_class.dict_region["region"][i]['kind'],rotation=90)
                     #print(self.region_class.lines[i],color)
                 ax1.plot(x_axis, local_y,zorder=3,ls='-.',color=color)
             elif "Fe" in profile:

@@ -31,7 +31,7 @@ class RegionBuilder:
             self.full_regions[key] = region
         self.regions_available = self.full_regions.keys()
     def make_region(self,xmin=None,xmax=None,n_broad=None,n_narrow=None, 
-                main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv'],narrow_plus=False,verbose=False,tied_to=[],force_linear=False):
+                main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv'],narrow_plus=False,verbose=False,tied_to=[],force_linear=False,out_flow=False):
         """_summary_
         summary of regions 'FeII_coronal', 'FeII_IZw1', 'narrow_basic', 'narrow_plus', 'Fe_uv', 'oiii_nii', 'feII_forbidden'
         Args:
@@ -68,14 +68,12 @@ class RegionBuilder:
                             if n < n_narrow:
                                 kind = "narrow"
                                 if n>0:
-                                     local_copy.update({"line_name": f"{local_copy['line_name']}{n + 1}","amplitude":0.5})  
+                                    local_copy.update({"line_name": f"{local_copy['line_name']}{n + 1}","amplitude":0.5})  
                             else:
                                 kind = "broad"
-                                if n-n_narrow>=1:
-                                    #print(f"{local_copy['line_name']}{n-n_narrow + 1}")
-                                    if local_copy['line_name'] not in self.main_region_lines.keys():
+                                if local_copy['line_name'] not in self.main_region_lines.keys():
                                         self.main_region_lines[local_copy['line_name']] = local_copy['center']
-                                        
+                                if n-n_narrow>=1:
                                     local_copy.update({"line_name": f"{local_copy['line_name']}{n-n_narrow +1}","amplitude":0.5})
                             local_copy.update({"kind": kind})
                             #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
@@ -85,9 +83,13 @@ class RegionBuilder:
                             local_copy = values.copy()
                             local_copy.update({"kind": "narrow"})
                             if n>0:
-                                 local_copy.update({"line_name": f"{local_copy['line_name']}{n-1}","amplitude":0.5})
+                                local_copy.update({"line_name": f"{local_copy['line_name']}{n-1}","amplitude":0.5})
                             #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
                             list_.append(local_copy)
+                            if out_flow:
+                                local_copy.update({"kind": "outflow"})
+                                list_.append(local_copy)
+                                 
                     elif key == "broad":
                         for n in range(n_broad):
                             local_copy = values.copy()
@@ -111,7 +113,7 @@ class RegionBuilder:
                     if sum(line in pair for line in available_lines)==2:
                         tied_list.append(factor)
                         super_tied.append(factor)
-                        
+        self.tied_fe = []              
         if any("Fe" in  key for key in self.regions_as_fantasy.keys()):
             params = ["center","width"]
             #print(self.regions_as_fantasy.keys())
@@ -124,12 +126,15 @@ class RegionBuilder:
                 if _ == n_r:
                     continue
                 for p in params:
-                    tied_list.append([f"{p}_{fe["line_name"]}_{fe["kind"]}",f"{p}_{center_line["line_name"]}_{center_line["kind"]}"])
+                    tied_ = [f"{p}_{fe["line_name"]}_{fe["kind"]}",f"{p}_{center_line["line_name"]}_{center_line["kind"]}"]
+                    tied_list.append(tied_)
+                    self.tied_fe.append(tied_)
         #_Halpha_narrow
         if all(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
             mainline = "Halpha"
         elif any(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
             mainline = next(key for key in ("Halpha", "Hbeta") if key in self.main_region_lines.keys())
+        
         params = ["center","width"]
         tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_narrow"] for line in self.regions_to_fit if (line['kind'] == "narrow" and line["line_name"] != "Halpha") for p in params]
         tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_broad"] for line in self.regions_to_fit if (line['kind'] == "broad" and line["line_name"] != "Halpha") for p in params]
@@ -173,10 +178,12 @@ class RegionBuilder:
             else:
                 continue
         #self.tied_list 
-    def to_complex(self,add_free=True):
+    def to_complex(self,add_free=True,free_Fe= True):
         complex = {"region":self.regions_to_fit,"tied_params_step_1":self.tied_list,"inner_limits": [self.xmin+50 , self.xmax-50 ], "outer_limits": [self.xmin , self.xmax ]}
         if add_free:
             complex["tied_params_step_2"] = self.super_tied
+            if not free_Fe:
+                complex["tied_params_step_2"] = self.super_tied + self.tied_fe
         return complex
     
 

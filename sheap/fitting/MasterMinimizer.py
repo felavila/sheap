@@ -35,37 +35,6 @@ class MasterMinimizer:
         self.learning_rate = learning_rate  or 1e-1
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-        
-        # init_value = 1e-1       # learning rate at start of warmup
-        # peak_value = 1e-3      # peak learning rate after warmup
-        # warmup_steps = num_steps*0.1    # number of warmup steps
-        # decay_steps = num_steps-(num_steps*0.1)    # number of steps over which we decay from peak_value
-        # end_value = 1e-5       # final learning rate after decay
-
-        # # # # Build the warmup + cosine decay schedule
-        # learning_rate_fn = optax.warmup_cosine_decay_schedule(
-        #       init_value=init_value,
-        #       peak_value=peak_value,
-        #       warmup_steps=warmup_steps,
-        #       decay_steps=decay_steps,
-        #       end_value=end_value
-        #   )
-
-        # # # # Create the AdaBelief optimizer that uses our schedule
-        # adabelief_optimizer = optax.adabelief(
-        #       learning_rate=learning_rate_fn,
-        #       b1=0.9,     # default first-moment decay
-        #       b2=0.999,   # default second-moment decay
-        #       eps=1e-8,   # epsilon for numerical stability
-        #       eps_root=0.0
-        #   )
-
-        # # # # Optionally, chain additional transforms, e.g. gradient clipping or weight decay:
-        # self.optimizer = optax.chain(
-        #       optax.clip_by_global_norm(1.0),  # example transform
-        #       adabelief_optimizer)
-
-        #maybe test with a gaussian worm or something similar later but actually adabelief works well
         self.optimizer = kwargs.get("optimizer",optax.adabelief(self.learning_rate)) 
         #print('optimizer:',self.optimizer)
         
@@ -165,6 +134,7 @@ class MasterMinimizer:
             # #wmse =optax.losses.cosine_distance(y_pred,y)
             loss = jnp.log(jnp.cosh(y_pred - y))
             wmse = jnp.nansum(weights * loss) / jnp.nansum(weights) #jnp.nansum(loss)#
+            wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
             return wmse 
         
         def optimize_model(
