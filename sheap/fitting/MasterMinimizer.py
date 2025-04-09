@@ -28,7 +28,7 @@ class MasterMinimizer:
     """
     
     def __init__(self,func: Callable,non_optimize_in_axis: int = 3,constraints: Optional[Callable] = None,
-                num_steps: int = 1000,optimizer: optax.GradientTransformation = None,learning_rate=None,list_dependencies=[],**kwargs):
+                num_steps: int = 1000,optimizer: optax.GradientTransformation = None,learning_rate=None,list_dependencies=[],weighted=True,**kwargs):
         self.func = func #TODO desing the function class 
         self.non_optimize_in_axis = non_optimize_in_axis #axis in where is require enter data of same dimension
         self.num_steps = num_steps
@@ -38,7 +38,7 @@ class MasterMinimizer:
         self.optimizer = kwargs.get("optimizer",optax.adabelief(self.learning_rate)) 
         #print('optimizer:',self.optimizer)
         
-        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func)
+        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,weighted=weighted)
         
         self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0) #?
     def __call__(self,initial_params,y,x,yerror,constraints,learning_rate=None,num_steps=None,optimizer=None,non_optimize_in_axis=None,list_dependencies=None):
@@ -100,7 +100,7 @@ class MasterMinimizer:
     @staticmethod
     def minimization_function(
     func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray]
-    ) -> Callable[..., jnp.ndarray]:
+    ,weighted:bool =True) -> Callable[..., jnp.ndarray]:
         """
         Factory function to create a JIT-compiled constrained loss function with multiple input variables.
 
@@ -118,24 +118,32 @@ class MasterMinimizer:
             
             return jnp.abs(y - predictions) / y_uncertainties
 
-        @jit
-        def loss_function(
-            params: jnp.ndarray,
-            xs: List[jnp.ndarray],
-            y: jnp.ndarray,
-            y_uncertainties: jnp.ndarray
-            ) -> jnp.ndarray:
-            
-            y_pred = func(xs, params)
-            weights = 1.0 / y_uncertainties**2
-            #wmse = jnp.nansum(weights * (y - y_pred)**2) / jnp.nansum(weights)
-            # #wmse = jnp.nanmean(((y - y_pred)/y_uncertainties) ** 2)
-            # #wmse = jnp.nanmean((y - y_pred))**2
-            # #wmse =optax.losses.cosine_distance(y_pred,y)
-            loss = jnp.log(jnp.cosh(y_pred - y))
-            wmse = jnp.nansum(weights * loss) / jnp.nansum(weights) #jnp.nansum(loss)#
-            #wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
-            return wmse 
+        if weighted:
+            @jit
+            def loss_function(
+                params: jnp.ndarray,
+                xs: List[jnp.ndarray],
+                y: jnp.ndarray,
+                y_uncertainties: jnp.ndarray
+                ) -> jnp.ndarray:
+                
+                y_pred = func(xs, params)
+                weights = 1.0 / y_uncertainties**2
+                loss = jnp.log(jnp.cosh(y_pred - y))
+                wmse = jnp.nansum(weights * loss) / jnp.nansum(weights)
+                return wmse
+        else:
+            @jit
+            def loss_function(
+                params: jnp.ndarray,
+                xs: List[jnp.ndarray],
+                y: jnp.ndarray,
+                y_uncertainties: jnp.ndarray
+                ) -> jnp.ndarray:
+                y_pred = func(xs, params)
+                loss = jnp.log(jnp.cosh(y_pred - y))
+                wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
+                return wmse
         
         def optimize_model(
             initial_params: jnp.ndarray,

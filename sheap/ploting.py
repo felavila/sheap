@@ -403,7 +403,7 @@ class SheapRegionplot:
             c = "k"
             #ax1.text(values[1],max(ylim),text,verticalalignment="bottom",horizontalalignment="center")
             if profile != "linear" and "Fe" not in profile:
-                if "Fe" in self.region_class.lines[i]:
+                if "Fe" in self.region_class.lines_list[i]:
                     color = "grey"
                     c =  "grey"
                 else:
@@ -411,7 +411,7 @@ class SheapRegionplot:
                     ax1.axvline(values[1],ls="--",linewidth=1,c=c)
                     #ylim = ax.get_ylim() 
                     if add_name and max(xlim)>values[1]>min(xlim):
-                        ax1.text(values[1],ylim[1]*0.95,self.region_class.dict_region["region"][i]['line_name']+self.region_class.dict_region["region"][i]['kind'],rotation=90)
+                        ax1.text(values[1],ylim[1]*0.95,self.region_class.lines_list[i],rotation=90)
                     #print(self.region_class.lines[i],color)
                 ax1.plot(x_axis, local_y,zorder=3,ls='-.',color=color)
             elif "Fe" in profile:

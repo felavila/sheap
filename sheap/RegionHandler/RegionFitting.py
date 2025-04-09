@@ -21,7 +21,7 @@ region_available = {"Halpha": os.path.join(region_path,"Halpha.yaml"),"Hbeta": o
 
 
     
-class RegionFiting:
+class RegionFitting:
     """
     Class to represent and process a complex spectral region for fitting emission lines.
     """
@@ -91,9 +91,9 @@ class RegionFiting:
         self.narrow_broad_center_shift_limit = narrow_broad_center_shift_limit
 
         # Build the firts fitting region and function mostly to check 
+        #self.create_region_to_be_fit()
         self.create_region_to_be_fit()
-            
-    def __call__(self,spectra,inner_limits=None,outer_limits=None,force_cut=False,**kwargs):
+    def __call__(self,spectra,inner_limits=None,outer_limits=None,force_cut=False,weighted=True,**kwargs):
         """_summary_
             main fitting sequence 
         """
@@ -108,7 +108,7 @@ class RegionFiting:
         num_steps = int(kwargs.get("num_steps",1000))
         
         if isinstance(spectra,list):
-             spectral_region,mask_region=prepare_spectra(spectra)
+            spectral_region,mask_region=prepare_spectra(spectra)
         elif isinstance(spectra,jnp.ndarray):
             spectral_region, _,_,mask_region = mask_builder(spectra,outer_limits=outer_limits)
             if force_cut:
@@ -117,7 +117,7 @@ class RegionFiting:
             raise "Spectra type not avlaible"
         max_value = jnp.nanmax(jnp.where(mask_region,0, spectral_region[:, 1, :]),axis=1)
         spectral_region = spectral_region.at[:,[1,2],:].divide(jnp.moveaxis(jnp.tile(max_value,(2,1)),0,1)[:,:,None])
-        Master_region = MasterMinimizer(self.profile_function_combine, non_optimize_in_axis=3,num_steps=num_steps,list_dependencies=self.list_dependencies)
+        Master_region = MasterMinimizer(self.profile_function_combine, non_optimize_in_axis=3,num_steps=num_steps,list_dependencies=self.list_dependencies,weighted=weighted)
         if len(self.tied_params_sequence)>0:
             print("Runing:",self.tied_params_sequence[0])
         else:
@@ -139,9 +139,118 @@ class RegionFiting:
         self.max_value = max_value
     def free_constrains_list(self):
         self.constrains_list = []
-    
-    
-    def create_region_to_be_fit(self,**kwargs):
+    def create_region_to_be_fit(self,profile="guassian",**kwargs):
+        """
+        Build the region constraints and ties for the spectral fitting.
+        #TODO what to do when the user add the multicomponent option maybe given it already did it maybe they also can define itselft is multi index option?
+        Parameters:
+            as_array (bool): Whether to store the region constraints as a JAX array.
+            tied_params (list, optional): Overrides the instance tied_params if provided.
+            tie param_target to param_source
+            [param_target, param_source,operand,value]
+            limits_list (list, optional): Overrides the instance limits_list if provided.
+        """
+        tied_params = kwargs.get("tied_params",self.tied_params)
+        list_dependencies = []
+        params_dict,initial_params,upper_bound,lower_bound,profile_list,profile_index_list,profile_function_list,lines_list,multi_comp = {},[],[],[],[],[],[],[],set()
+        add_cont = True
+        fit_Fe = []
+        parameter_position = 0
+        for _,line in enumerate(self.region):
+            if "Fe" in line.get("kind") and line.get("how"):
+                fit_Fe.append(line)
+                continue
+            if not line.get("component"):
+                print(line,"change to new method")
+                line.update({"component":1})
+            if not line.get("profile"):
+                line.update({"profile":profile})
+            if not line.get("amplitude"):
+                line.update({"amplitude":1.0})
+            local_pararameters = []
+            local_pararameters.append(parameter_position)
+            line.update(kwargs)
+            _,kind,line_name,component = (line[i]  for i in ["center","kind","line_name","component"])
+            initial_params_,upper_bound_,lower_bound_,profile,params = self.constrains(**line)
+            if profile=="guassian":
+                profile_function_list.append(gaussian_func)
+            
+            elif profile=="power_law":
+                add_cont = False
+                profile_function_list.append(power_law)
+            
+            elif profile=="lorentzian":
+                profile_function_list.append(lorentzian_func)
+            
+            initial_params += initial_params_
+            upper_bound +=  upper_bound_
+            lower_bound += lower_bound_
+            
+            profile_list.append(profile)
+            line_name_component_kind = f"{line_name}_{component}_{kind}"
+            params_dict.update({f"{p}_{line_name_component_kind}":n+parameter_position for n,p in enumerate(params)})
+            parameter_position += len(params)
+            local_pararameters.append(parameter_position)
+            profile_index_list.append(local_pararameters) # ?
+            lines_list.append(line_name_component_kind)
+        
+        if add_cont:
+            print("We assume a local linear continuum")
+            profile_function_list.append(linear)
+            self.linear_func = linear
+            initial_params += [0.1e-4,0.5]
+            upper_bound += [10.,10.]
+            lower_bound += [-10.,-10.]
+            profile_list.append("linear")
+            profile_index_list.append([parameter_position,parameter_position+2])
+            params_dict.update({f"{p}_{"cont"}":n+parameter_position for n,p in enumerate(["m","b"])})
+            
+            parameter_position += 2
+            
+        upper_bound = jnp.array(upper_bound)
+        lower_bound = jnp.array(lower_bound)
+        initial_params = jnp.array(initial_params)
+        self.params_dict = params_dict
+        self.initial_params = initial_params
+        #print(params_dict)
+        self.get_param_coord_value = make_get_param_coord_value(params_dict, initial_params)
+        self.profile_index_list = profile_index_list
+        self.profile_list = profile_list
+        
+        if len(tied_params)>0:
+            for tied in tied_params:
+                param1, param2 = tied[:2]
+                pos_param1, val_param1,param_1 = self.get_param_coord_value(*param1.split("_"))
+                pos_param2, val_param2,param_2 = self.get_param_coord_value(*param2.split("_"))
+                if  len(tied)==2:
+                    if param_1==param_2=="center" and len(tied):
+                        delta = val_param1 - val_param2
+                        tied_val = "+" + str(delta) if delta>0 else "-" + str(abs(delta))
+                        #if log_mode:        
+                    elif param_1==param_2:
+                        tied_val = "*1"
+                    else:
+                        print(f"Define constraints properly. {tied_params}")
+                else:
+                    tied_val = tied[-1]
+                
+                if isinstance(tied_val, str):
+                    list_dependencies.append(f"{pos_param1} {pos_param2} {tied_val}")
+                else:
+                    print("Define constraints properly.")
+        else:
+            list_dependencies = []
+        
+        self.list_dependencies = list_dependencies
+        self.params_dict  = params_dict
+        self.constraints = jnp.stack([lower_bound,upper_bound]).T  #this also can came from the class maybe is the user wants to edit them also is possible 
+        self.initial_params = initial_params
+        self.profile_function_list = profile_function_list
+        self.profile_function_combine = jit(combine_auto([*profile_function_list])) 
+        #self.multi_comp = multi_comp
+        self.lines_list = lines_list
+        
+    def create_region_to_be_fit_old(self,**kwargs):
         """
         Build the region constraints and ties for the spectral fitting.
         #TODO what to do when the user add the multicomponent option maybe given it already did it maybe they also can define itselft is multi index option?
@@ -374,7 +483,7 @@ class RegionFiting:
             center_lower = center - kms_to_wl(narrow_broad_center_shift_limit, center)
             width_upper = kms_to_wl(narrow_broad_upper_width, center)
             width_lower = kms_to_wl(narrow_broad_lower_width, center)
-            width = width_lower
+            width = 2*width_lower
             amplitude_upper, amplitude_lower = 10,0.0 
             gamma_upper = 1.1775*width_upper
             gamma_lower = 1.1775*width_lower
@@ -399,9 +508,10 @@ class RegionFiting:
 
 
 #This should be move to utils 
+#line_name_component_kind
 def make_get_param_coord_value(params_dict, initial_params):
-        def get_param_coord_value(param, line_name, kind,verbose=False):
-            key = f"{param}_{line_name}_{kind}"
+        def get_param_coord_value(param, line_name,component, kind,verbose=False):
+            key = f"{param}_{line_name}_{component}_{kind}"
             pos = params_dict.get(key)
             if verbose:
                 print(key,initial_params[pos],param)
