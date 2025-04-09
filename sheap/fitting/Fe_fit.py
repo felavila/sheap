@@ -22,7 +22,7 @@ fe_template_UV_read = jnp.array(np.loadtxt(fe_template_UV_file,comments='#').tra
 fe_template_UV_read_norm = fe_template_UV_read.at[1].divide(jnp.max(fe_template_UV_read[1]))
 
 @param_count(3)
-def fitFeOP_(x,params):
+def fitFeOP(x,params):
     #log_FWHM_broad,shift_,scale_ = params
     log_FWHM_broad,shift_,scale = params
     central_wl = 4650
@@ -50,7 +50,7 @@ def fitFeOP_(x,params):
     return interpolated_broad_scaled_template
 
 @param_count(3)
-def fitFeOP(x,params):
+def fitFeOP_(x,params):
     #log_FWHM_broad,shift_,scale_ = params
     log_FWHM_broad,shift,scale = params
     central_wl = 4650

@@ -219,7 +219,7 @@ class RegionFiting:
                 if i["how"]=="template":
                     if i["which"]=="OP":
                         profile_function_list.append(fitFeOP)
-                        initial_params += [7., 2., 0.1]
+                        initial_params += [4., 2., 0.1]
                         upper_bound += [8.3010300e+00,10,0.5]
                         lower_bound +=[2.0000000e+00,-10,0]
                         profile_list.append("Fe_OP")

@@ -134,7 +134,7 @@ class MasterMinimizer:
             # #wmse =optax.losses.cosine_distance(y_pred,y)
             loss = jnp.log(jnp.cosh(y_pred - y))
             wmse = jnp.nansum(weights * loss) / jnp.nansum(weights) #jnp.nansum(loss)#
-            wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
+            #wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
             return wmse 
         
         def optimize_model(
