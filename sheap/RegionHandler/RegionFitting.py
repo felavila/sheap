@@ -30,7 +30,8 @@ class RegionFitting:
     #I suppose from here the best option is do all the stats 
     def __init__(self, dict_region: [str, dict],limits_list=None,broad_upper_width=5000.0,broad_lower_width=425,narrow_upper_width=200.0,\
                 narrow_lower_width=50.,narrow_broad_lower_width=1000.,narrow_broad_upper_width=300,broad_center_shift_limit=5000.0,
-                narrow_center_shift_limit=2500.,narrow_broad_center_shift_limit=2000.,
+                narrow_center_shift_limit=2500.,narrow_broad_center_shift_limit=2000.,outflow_upper_width=5000.0,outflow_lower_width=425,
+                outflow_center_shift_limit=2500.,
                 log_mode=False,tied_params=None):
         """
         #10000/2.355 4246.284501061571 gamma_lorentian = 1.1775sigma
@@ -80,6 +81,8 @@ class RegionFitting:
         # Width limits in km/s
         self.broad_upper_width = broad_upper_width  # Maximum width for broad emission lines
         self.broad_lower_width = broad_lower_width  # Minimum width for broad emission lines (sigma)
+        self.outflow_upper_width = outflow_upper_width  # Maximum width for outflow emission lines
+        self.outflow_lower_width = outflow_lower_width  # Minimum width for outflow emission lines (sigma)
         self.narrow_upper_width = narrow_upper_width  # Maximum width for narrow emission lines (sigma)
         self.narrow_lower_width = narrow_lower_width   # Minimum width for narrow emission lines (sigma)
         self.narrow_broad_lower_width = narrow_broad_lower_width
@@ -89,7 +92,7 @@ class RegionFitting:
         self.broad_center_shift_limit = broad_center_shift_limit
         self.narrow_center_shift_limit = narrow_center_shift_limit
         self.narrow_broad_center_shift_limit = narrow_broad_center_shift_limit
-
+        self.outflow_center_shift_limit = outflow_center_shift_limit
         # Build the firts fitting region and function mostly to check 
         #self.create_region_to_be_fit()
         self.create_region_to_be_fit()
@@ -118,6 +121,7 @@ class RegionFitting:
         max_value = jnp.nanmax(jnp.where(mask_region,0, spectral_region[:, 1, :]),axis=1)
         spectral_region = spectral_region.at[:,[1,2],:].divide(jnp.moveaxis(jnp.tile(max_value,(2,1)),0,1)[:,:,None])
         Master_region = MasterMinimizer(self.profile_function_combine, non_optimize_in_axis=3,num_steps=num_steps,list_dependencies=self.list_dependencies,weighted=weighted)
+        Master_region.learning_rate = 1e-3
         if len(self.tied_params_sequence)>0:
             print("Runing:",self.tied_params_sequence[0])
         else:
@@ -425,6 +429,9 @@ class RegionFitting:
         broad_center_shift_limit = kwargs.get("broad_center_shift_limit",self.broad_center_shift_limit)
         broad_upper_width = kwargs.get("broad_upper_width",self.broad_upper_width)
         broad_lower_width = kwargs.get("broad_lower_width",self.broad_lower_width)
+        outflow_center_shift_limit = kwargs.get("outflow_center_shift_limit",self.outflow_center_shift_limit)
+        outflow_upper_width = kwargs.get("outflow_upper_width",self.outflow_upper_width)
+        outflow_lower_width = kwargs.get("outflow_lower_width",self.outflow_lower_width)
         narrow_center_shift_limit = kwargs.get("narrow_center_shift_limit",self.narrow_center_shift_limit)
         narrow_upper_width = kwargs.get("narrow_upper_width",self.narrow_upper_width)
         narrow_lower_width = kwargs.get("narrow_lower_width",self.narrow_lower_width)
@@ -464,6 +471,17 @@ class RegionFitting:
             gamma_upper = 1.1775*width_upper
             gamma_lower = 1.1775*width_lower
             gamma = gamma_lower/2
+        elif kind.lower() == "outflow":
+            center = center - 5 #move a little the outflow
+            center_upper = center + kms_to_wl(outflow_center_shift_limit, center)
+            center_lower = center - kms_to_wl(outflow_center_shift_limit, center)
+            width_upper = kms_to_wl(outflow_upper_width, center)
+            width_lower = kms_to_wl(outflow_lower_width, center)
+            width =  width_lower
+            amplitude_upper, amplitude_lower =  10,0.0
+            gamma_upper = 1.1775*width_upper
+            gamma_lower = 1.1775*width_lower
+            gamma = gamma_lower/2
         elif kind.lower() == "cont":
             if profile == "power_law":
                 init_ = [-1., 0.]
@@ -483,7 +501,7 @@ class RegionFitting:
             center_lower = center - kms_to_wl(narrow_broad_center_shift_limit, center)
             width_upper = kms_to_wl(narrow_broad_upper_width, center)
             width_lower = kms_to_wl(narrow_broad_lower_width, center)
-            width = 2*width_lower
+            width = width_upper
             amplitude_upper, amplitude_lower = 10,0.0 
             gamma_upper = 1.1775*width_upper
             gamma_lower = 1.1775*width_lower
