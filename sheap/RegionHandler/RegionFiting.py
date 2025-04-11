@@ -219,9 +219,9 @@ class RegionFiting:
                 if i["how"]=="template":
                     if i["which"]=="OP":
                         profile_function_list.append(fitFeOP)
-                        initial_params += [4., 2., 0.1]
-                        upper_bound += [8.3010300e+00,10,0.5]
-                        lower_bound +=[2.0000000e+00,-10,0]
+                        initial_params += [5.0, 2., 0.1]
+                        upper_bound += [8.3010300e+00,20,10]
+                        lower_bound +=[2.0000000e+00,-20,0]
                         profile_list.append("Fe_OP")
                         profile_index_list.append([C,C+3])
                         params_dict.update({f"{p}_{"Fe_OP"}":n+C for n,p in enumerate(["log_FWHM_broad","shift","scale"])})
