@@ -453,6 +453,8 @@ class SheapRegionplot:
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)
         ax1.text(ax1.get_xlim()[0],ax1.get_ylim()[1],f"Obj {n}",fontsize=30)
+        ax1.tick_params(axis='both', labelsize=20)
+        ax2.tick_params(axis='both', labelsize=20)
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')
             plt.close()

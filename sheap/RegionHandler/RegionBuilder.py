@@ -4,6 +4,10 @@ import glob
 import numpy as np 
 regions_as_fantasy_path = glob.glob(os.path.dirname(os.path.abspath(__file__))+"/regions_as_fantasy/*.yaml")
 
+
+
+# Balmer continuum, Balmer High order emission lines
+
 class RegionBuilder:
     """"
     
@@ -18,10 +22,8 @@ class RegionBuilder:
         self.n_narrow = n_narrow
         self.n_broad = n_broad
         #Known relations
-        self.tied_pairs = [(["OIIIb","OIIIc"],["amplitude_OIIIb_narrow", "amplitude_OIIIc_narrow", "*0.3"]),
-                        (["NIIb","NIIa"],["amplitude_NIIb_narrow", "amplitude_NIIa_narrow", "*0.3"])]
-        #this can be updated for the different "components"
-        #TODO this have to be added for the different components for instance if one of this is cover have to be added for component 1,2,3 
+       # self.tied_pairs = [(["OIIIb","OIIIc"],["amplitude_OIIIb_narrow", "amplitude_OIIIc_narrow", "*0.3"]),
+        #                (["NIIb","NIIa"],["amplitude_NIIb_narrow", "amplitude_NIIa_narrow", "*0.3"])]
         self.known_tied_relations = [(["OIIIb","OIIIc"],["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.3"]),
                         (["NIIb","NIIa"],["amplitude_NIIb_component_narrow", "amplitude_NIIa_component_narrow", "*0.3"]),
                          (["NIIb","NIIa"],["center_NIIb_component_narrow", "center_NIIa_component_narrow"]),
@@ -67,6 +69,7 @@ class RegionBuilder:
             local_.append(local_copy)
         
         return local_
+    
     def narrow_lines_handler(self,values,n_narrow,add_out_flow):
         local_ = []
         for n in range(n_narrow):
@@ -76,7 +79,7 @@ class RegionBuilder:
             if n>0:
                 local_copy.update({"line_name": f"{local_copy['line_name']}","amplitude":0.5,"component":n+1})
             local_.append(local_copy)
-            if add_out_flow and n==0:
+            if add_out_flow and n==0 and "OIII" in local_copy.get("line_name"):
                 local_copy = values.copy()
                 #maybe add list of names 
                 local_copy.update({"kind": "outflow","component": 10}) #the idea is this never get attached or it is?
@@ -97,7 +100,7 @@ class RegionBuilder:
     def make_region(self,xmin=None,xmax=None,n_broad=None,n_narrow=None, 
                 main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv']
                 ,narrow_plus= False,verbose= False,force_linear= False,add_out_flow= False
-                ,main_lines = ["Hbeta","Halpha"],tied_narrow_to = None ,tied_broad_to = None):
+                ,main_lines = ["Hbeta","Halpha"],tied_narrow_to = None ,tied_broad_to = None,template_mode_Fe=False):
         
         """_summary_
         summary of regions 'FeII_coronal', 'FeII_IZw1', 'narrow_basic', 'narrow_plus', 'Fe_uv', 'oiii_nii', 'feII_forbidden'
@@ -112,15 +115,23 @@ class RegionBuilder:
         
         xmin = xmin or self.xmin
         xmax = xmax or self.xmax
-        self.n_broad = n_broad or self.n_broad
-        self.n_narrow = n_narrow or self.n_narrow
+        covered_wavelength = xmax-xmin 
+        n_broad = n_broad or self.n_broad
+        n_narrow = n_narrow or self.n_narrow
         narrow_regions = ["narrow_basic"]
         self.tied_params = []
         self.tied_params_ = [] #super tied
         self.tied_fe = []
-        
         if narrow_plus:
             narrow_regions += ["narrow_plus"]
+        template = None
+        if template_mode_Fe and covered_wavelength > 1000:
+            #TODO here only we can accept certain range of wavelenght  
+            if xmin>=4400 and xmax<=6000:
+                template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
+            else:
+                print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
+                template_mode_Fe = False
         self.main_region_lines = []
         local_region_list = []
         for key,region in self.full_regions.items(): #full_regions this should already have reduce the regions?
@@ -133,16 +144,20 @@ class RegionBuilder:
                     local_ = self.narrow_lines_handler(values,n_narrow,add_out_flow)
                 elif key in ["broad"] and xmin <= values["center"] <= xmax:
                     local_ = self.broad_regions_handler(values,n_broad)
-                elif key in Fe_regions:
+                elif key in Fe_regions and xmin <= values["center"] <= xmax and not template_mode_Fe:
                     local_copy = values.copy()
-                    local_copy.update({"kind": "Fe","component":20,"amplitude":0.1})
+                    local_copy.update({"kind": "fe","component":20,"amplitude":0.1,"how":"sum"})
                     local_.append(local_copy)
                 local_region_list += local_
+        if template:
+            local_region_list += [template]
+            
         available_lines =  np.array([line.get("line_name") for line in local_region_list if "line_name" in line]).ravel()
         available_lines = np.unique(available_lines) # it is necesary make it unique?
         available_kind = np.array([line.get("kind") for line in local_region_list if "line_name" in line]).ravel()
                     
-        if sum("Fe" in key for key in available_kind)>=2:
+        if sum("Fe" in key for key in available_kind)>=2 and not template_mode_Fe:
+            #TODO can be suplement?
             params = ["center","width"]
             centers,line_names,kinds = np.array([[region.get("center"),region.get("line_name"),region.get("kind")] for region in local_region_list if "Fe" in region.get("kind")]).T
             centers = centers.astype(float)
@@ -160,7 +175,7 @@ class RegionBuilder:
             if line_dic.get("line_name") in main_lines:
                 main_list_available.append(line_dic.get("line_name"))
                 #main_list_available.append([line_dic.get("line_name"),line_dic.get("component")])
-        mainline = main_list_available[0] #?
+        mainline =  main_list_available[0] if len(main_list_available) >0 else "mm"#?
         
         if tied_broad_to:
             assert isinstance(tied_broad_to,str) or  isinstance(tied_broad_to,dict), "tied_broad_to only can be dict or str "
@@ -199,156 +214,10 @@ class RegionBuilder:
         
         self.xmax = xmax
         self.xmin = xmin
+        self.n_broad = n_broad
+        self.n_narrow = n_narrow
         self.regions_to_fit = local_region_list
-        #return local_region_list,self.main_region_lines
     
-    # def make_region_old(self,xmin=None,xmax=None,n_broad=None,n_narrow=None, 
-    #             main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv'],narrow_plus=False,verbose=False,tied_to=[],force_linear=False,out_flow=False):
-    #     """_summary_
-    #     summary of regions 'FeII_coronal', 'FeII_IZw1', 'narrow_basic', 'narrow_plus', 'Fe_uv', 'oiii_nii', 'feII_forbidden'
-    #     Args:
-    #         xmin (_type_, optional): _description_. Defaults to None.
-    #         xmax (_type_, optional): _description_. Defaults to None.
-    #         n_broad (_type_, optional): _description_. Defaults to None.
-    #         n_narrow (_type_, optional): _description_. Defaults to None.
-    #         main_regions (list, optional): _description_. Defaults to ['hydrogen', "helium"].
-    #         Fe_regions (list, optional): _description_. Defaults to [].
-    #     """
-    #     xmin = xmin or self.xmin
-    #     xmax = xmax or self.xmax
-    #     n_broad = n_broad or self.n_broad
-    #     n_narrow = n_narrow or self.n_narrow
-    #     narrow_regions = ["narrow_basic"]
-    #     if narrow_plus:
-    #         narrow_regions += ["narrow_plus"]
-    #     #Fe_regions = None or Fe_regions
-    #     n_components = n_broad + n_narrow
-    #     self.regions_as_fantasy = {}
-    #     self.regions_to_fit = []
-    #     tied_list = []
-    #     super_tied = []
-    #     self.main_region_lines = {}#
-    #     if verbose:
-    #         print(f"A region with limits {xmin} to {xmax} (A), \nwith n_broad = {n_broad} and n_narrow = {n_narrow} \nand Fe regions {Fe_regions}, \nwill be created")
-    #     for key,region in self.full_regions.items():
-    #         list_ = []
-    #         for values in  region['region']:
-    #             if xmin <= values["center"] <= xmax:
-    #                 if key in main_regions:
-    #                     for n in range(n_components):
-    #                         local_copy = values.copy()
-    #                         if n < n_narrow:
-    #                             kind = "narrow"
-    #                             if n>0:
-    #                                 local_copy.update({"line_name": f"{local_copy['line_name']}{n + 1}","amplitude":0.5})  
-    #                         else:
-    #                             kind = "broad"
-    #                             if local_copy['line_name'] not in self.main_region_lines.keys():
-    #                                     self.main_region_lines[local_copy['line_name']] = local_copy['center']
-    #                             if n-n_narrow>=1:
-    #                                 local_copy.update({"line_name": f"{local_copy['line_name']}{n-n_narrow +1}","amplitude":0.5})
-    #                         local_copy.update({"kind": kind})
-    #                         #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-    #                         list_.append(local_copy)
-    #                 elif key in narrow_regions:
-    #                     for n in range(n_narrow):
-    #                         local_copy = values.copy()
-    #                         local_copy.update({"kind": "narrow"})
-    #                         if n>0:
-    #                             local_copy.update({"line_name": f"{local_copy['line_name']}{n-1}","amplitude":0.5})
-    #                         #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-    #                         list_.append(local_copy)
-    #                         if out_flow:
-    #                             local_copy.update({"kind": "outflow"})
-    #                             list_.append(local_copy)
-    #                 elif key == "broad":
-    #                     for n in range(n_broad):
-    #                         local_copy = values.copy()
-    #                         local_copy.update({"kind": "broad"})
-    #                         #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-    #                         list_.append(local_copy)
-    #                 elif key in Fe_regions:
-    #                     local_copy = values.copy()
-    #                     local_copy.update({"kind": "Fe"})
-    #                     #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-    #                     list_.append(local_copy)
-    #                 elif key =="outflow":
-    #                     print("COMING")
-    #             else:
-    #                 continue
-    #         if list_:
-    #             self.regions_as_fantasy[key] = list_
-    #             self.regions_to_fit += list_
-    #             available_lines = np.array([line.get("line_name") for line in list_ if "line_name" in line]).ravel()
-    #             for pair,factor in self.tied_pairs:
-    #                 if sum(line in pair for line in available_lines)==2:
-    #                     tied_list.append(factor)
-    #                     super_tied.append(factor)
-    #     self.tied_fe = []              
-    #     if any("Fe" in  key for key in self.regions_as_fantasy.keys()):
-    #         params = ["center","width"]
-    #         #print(self.regions_as_fantasy.keys())
-    #         centers = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-    #         fe_region = [line for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region]
-    #         n_r = np.argmin(abs(centers - np.median(centers)))
-    #         center_line = fe_region[n_r]
-    #         #self.fe_region = fe_region
-    #         for _,fe in enumerate(fe_region):
-    #             if _ == n_r:
-    #                 continue
-    #             for p in params:
-    #                 tied_ = [f"{p}_{fe["line_name"]}_{fe["kind"]}",f"{p}_{center_line["line_name"]}_{center_line["kind"]}"]
-    #                 tied_list.append(tied_)
-    #                 self.tied_fe.append(tied_)
-    #     #_Halpha_narrow
-    #     if all(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
-    #         mainline = "Halpha"
-    #     elif any(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
-    #         mainline = next(key for key in ("Halpha", "Hbeta") if key in self.main_region_lines.keys())
-        
-    #     params = ["center","width"]
-    #     tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_narrow"] for line in self.regions_to_fit if (line['kind'] == "narrow" and line["line_name"] != "Halpha") for p in params]
-    #     tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_broad"] for line in self.regions_to_fit if (line['kind'] == "broad" and line["line_name"] != "Halpha") for p in params]
-    #     #self.narrows = narrows
-    #     #[line for key, region in self.regions_as_fantasy.items() if "narrow" in line["kind"] for line in region]
-        
-    #     #if any("narrow" == line["kind"] for key, region in self.regions_as_fantasy.items() if "Fe" not in key for line in region)
-    #     #narrows = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-    #     #broads = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-    #     #self.narrows
-        
-    #     if len(tied_to)>0:
-    #         for t in tied_to:
-    #             region,params,line_kind = t
-    #             if isinstance(region,str):
-    #                 region = [region]
-    #             if isinstance(params,str):
-    #                 params = [params]
-    #             for r in region:
-    #                 for ii in self.regions_as_fantasy.get(r,[]):
-    #                     #print(ii )
-    #                     local_ = f'{ii["line_name"]}_{ii["kind"]}'
-    #                     if line_kind==local_:
-    #                         continue
-    #                     for p in params:
-    #                         tied_list.append([f"{p}_{local_}",f"{p}_{line_kind}"])
-    #     if (xmax-xmin > 2000) and not force_linear:
-    #         self.regions_to_fit += [{"center":0,"kind":"cont","line_name":"cont","profile":"power_law"}]
-    #     self.xmax = xmax
-    #     self.xmin = xmin
-    #     self.tied_list = []
-    #     self.super_tied = []
-    #     for i in tied_list:
-    #         if i not in self.tied_list:
-    #             self.tied_list.append(i)
-    #         else:
-    #             continue
-    #     for i in super_tied:
-    #         if i not in self.super_tied:
-    #             self.super_tied.append(i)
-    #         else:
-    #             continue
-    #     #self.tied_list 
     def to_complex(self,add_free=True,free_Fe= True):
         complex = {"region":self.regions_to_fit,"tied_params_step_1":self.tied_params,"inner_limits": [self.xmin+50 , self.xmax-50 ], "outer_limits": [self.xmin , self.xmax ]}
         if add_free:

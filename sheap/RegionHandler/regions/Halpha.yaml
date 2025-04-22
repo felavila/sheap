@@ -48,27 +48,27 @@ region:
     kind: narrow
     amplitude: 0.4
     line_name: SIIa
-
+#"param_line_component_kind"
 tied_params_step_1:
-  - [amplitude_Halpha_narrow, amplitude_NIIb_narrow, "*3."]
-  - [amplitude_NIIa_narrow, amplitude_NIIb_narrow, "*0.3"]
-  - [center_SIIb_narrow, center_NIIb_narrow]
-  - [center_OIb_narrow, center_NIIb_narrow]
-  - [center_OIa_narrow, center_NIIb_narrow]
-  - [center_SIIa_narrow, center_NIIb_narrow]
-  - [center_NIIa_narrow, center_NIIb_narrow]
-  - [width_NIIa_narrow, width_NIIb_narrow]
-  - [width_SIIb_narrow, width_NIIb_narrow]
-  - [width_SIIa_narrow, width_NIIb_narrow]
-  - [width_OIa_narrow, width_NIIb_narrow]
-  - [width_OIb_narrow, width_NIIb_narrow]
+  - [amplitude_Halpha_1_narrow, amplitude_NIIb_1_narrow, "*3."]
+  - [amplitude_NIIa_1_narrow, amplitude_NIIb_1_narrow, "*0.3"]
+  - [center_SIIb_1_narrow, center_NIIb_1_narrow]
+  - [center_OIb_1_narrow, center_NIIb_1_narrow]
+  - [center_OIa_1_narrow, center_NIIb_1_narrow]
+  - [center_SIIa_1_narrow, center_NIIb_1_narrow]
+  - [center_NIIa_1_narrow, center_NIIb_1_narrow]
+  - [width_NIIa_1_narrow, width_NIIb_1_narrow]
+  - [width_SIIb_1_narrow, width_NIIb_1_narrow]
+  - [width_SIIa_1_narrow, width_NIIb_1_narrow]
+  - [width_OIa_1_narrow, width_NIIb_1_narrow]
+  - [width_OIb_1_narrow, width_NIIb_1_narrow]
 
 tied_params_step_2:
-  - [amplitude_NIIa_narrow, amplitude_NIIb_narrow, "*0.3"]
-  - [center_NIIa_narrow, center_NIIb_narrow]
-  - [width_NIIa_narrow, width_NIIb_narrow]
-  - [center_SIIb_narrow, center_NIIb_narrow]
-  - [center_SIIa_narrow, center_NIIb_narrow]
+  - [amplitude_NIIa_1_narrow, amplitude_NIIb_1_narrow, "*0.3"]
+  - [center_NIIa_1_narrow, center_NIIb_1_narrow]
+  - [width_NIIa_1_narrow, width_NIIb_1_narrow]
+  - [center_SIIb_1_narrow, center_NIIb_1_narrow]
+  - [center_SIIa_1_narrow, center_NIIb_1_narrow]
 
 inner_limits: [5700,7200]
 #Limits associated to the continuum 
