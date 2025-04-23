@@ -1,8 +1,8 @@
 
-#import profile
-from sheap.fitting.functions import GaussianSum,linear,loglinear,gaussian_func,lorentzian_func,power_law
-from sheap.fitting.Fe_fit import fitFeOP,fitFeUV
-from sheap.fitting.utils import combine_auto
+#save spectra,region masked,xmax xmin, params, initial params, limits, functions list (this then have to be readed again ). that is? 
+from sheap.Fitting.functions import linear,gaussian_func,lorentzian_func,power_law
+from sheap.Fitting.template_fe_func import fitFeOP,fitFeUV
+from sheap.Fitting.utils import combine_auto
 import os 
 from sheap.tools.others import  kms_to_wl
 import jax.numpy as jnp
@@ -10,8 +10,10 @@ from jax import jit
 from typing import Union
 import yaml
 from sheap.utils import mask_builder,prepare_spectra
-from sheap.fitting.MasterMinimizer import MasterMinimizer
+from sheap.Fitting.MasterMinimizer import MasterMinimizer
 import pandas as pd 
+import pickle
+
 region_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"regions")
 
 
@@ -100,7 +102,7 @@ class RegionFitting:
         #self.create_region_to_be_fit()
         self.create_region_to_be_fit()
 
-    def __call__(self,spectra,inner_limits=None,outer_limits=None,force_cut=False,weighted=True,re_normalize=True,**kwargs):
+    def __call__(self,spectra,inner_limits=None,outer_limits=None,force_cut=False,weighted=True,re_normalize=True, exp_factor= jnp.array([0]),**kwargs):
         """_summary_
             main fitting sequence 
         """
@@ -110,8 +112,7 @@ class RegionFitting:
         self.outer_limits = outer_limits
         constraints =  kwargs.get("constraints",self.constraints)
         if inner_limits is None or outer_limits is None:
-            Exception("Check the limits")
-        
+            Exception("Check the limits")    
         num_steps = int(kwargs.get("num_steps",1000))
         
         if isinstance(spectra,list):
@@ -123,6 +124,8 @@ class RegionFitting:
         else:
             raise "Spectra type not avlaible"
         max_value = jnp.nanmax(jnp.where(mask_region,0, spectral_region[:, 1, :]),axis=1)
+        if exp_factor.shape != max_value.shape:
+            exp_factor = 0
         spectral_region = spectral_region.at[:,[1,2],:].divide(jnp.moveaxis(jnp.tile(max_value,(2,1)),0,1)[:,:,None])
         Master_region = MasterMinimizer(self.profile_function_combine, non_optimize_in_axis=3,num_steps=num_steps,list_dependencies=self.list_dependencies,weighted=weighted)
         #Master_region.learning_rate = 1e-3
@@ -136,11 +139,12 @@ class RegionFitting:
                 print("Runing:",self.tied_params_sequence[i])
                 self.create_region_to_be_fit(tied_params=self.dict_region.get(self.tied_params_sequence[i]))
                 Master_region.non_optimize_in_axis = 4
-                Master_region.num_steps = 500
+                Master_region.num_steps = 1000 #500 works better 
                 Master_region.learning_rate = 1e-2
                 params,_ = Master_region(params,*spectral_region.transpose(1, 0, 2),constraints,list_dependencies=self.list_dependencies)
         #self.Master_region  = Master_region #This could be remove
         self.loss = _
+        max_value = max_value / (10**exp_factor)
         if re_normalize:
             self.params = params.at[:,self.mapping_params([["amplitude"],["cont"],["scale"]])].multiply(max_value[:,None])
             self.region_to_fit =  spectral_region.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_value,(2,1)),0,1)[:,:,None]) #This could be forget after 
@@ -150,16 +154,17 @@ class RegionFitting:
             self.max_value = jnp.ones_like(max_value)
             self.params = params 
             self.region_to_fit =  spectral_region
-    
-    
+            
     @property
     def panda_params(self):
         return pd.DataFrame(self.params,columns= list(self.params_dict.keys())) 
     @property
     def panda_region(self):
         return pd.DataFrame(self.region)
-    def free_constrains_list(self):
-        self.constrains_list = []
+    
+    # def free_constrains_list(self):
+    #     self.constrains_list = []
+    
     def create_region_to_be_fit(self,profile="guassian",**kwargs):
         """
         Build the region constraints and ties for the spectral fitting.
@@ -199,7 +204,7 @@ class RegionFitting:
             if line_name_component_kind in lines_list:
                 component = line.get("component")+1
                 line.update({"component":component})    
-            initial_params_,upper_bound_,lower_bound_,profile,params = self.constrains(**line,**kwargs)
+            initial_params_,upper_bound_,lower_bound_,profile,params = self.create_constrains(**line,**kwargs)
             if profile=="guassian":
                 profile_function_list.append(gaussian_func)
             elif profile=="power_law":
@@ -298,7 +303,7 @@ class RegionFitting:
         return unique_arr
     
     
-    def constrains(self, center: float, kind: str, amplitude, **kwargs):
+    def create_constrains(self, center: float, kind: str, amplitude, **kwargs):
         """
         Compute constraint parameters for a given emission line.
         #TODO this is a very gaussian way if in some point this should be upgrade.

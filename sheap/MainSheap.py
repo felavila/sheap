@@ -62,10 +62,12 @@ class Sheapectral:
             self.spectra = self.spectra[jnp.newaxis,:]
         self.spectra_shape = self.spectra.shape#?
         self.spectra_nans = jnp.isnan(self.spectra)
-        self.spectra_exp = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
+        self.spectra_exp_ = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
         #maybe add a filter here to see whats going on? 
-        self.spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp[:,jnp.newaxis,jnp.newaxis]))
-        
+        self.spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp_[:,jnp.newaxis,jnp.newaxis]))
+    @property
+    def spectra_exp(self):
+        return -1 * self.spectra_exp_
     # def run_host_subtraction(self,method="star_method"):
     #     return self.spectra
     

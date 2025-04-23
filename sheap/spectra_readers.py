@@ -6,11 +6,12 @@ import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
 
+
 n_cpu = os.cpu_count()  # Number of CPUs to use
 def fits_reader_sdss(file):
     # we have to check for the all the important things that came in the fits file from SDSS
     hdul = fits.open(file)
-    aD = np.array([10**hdul[1].data[key] if key == "loglam" else (1 / np.sqrt(hdul[1].data[key]) if key == "ivar" else hdul[1].data[key]) for key in ["loglam", "flux", "ivar"]])
+    aD = np.array([10**hdul[1].data[key] if key == "loglam" else (float(hdul[0].header["BUNIT"].split(" ")[0]) / np.sqrt(hdul[1].data[key]) if key == "ivar" else hdul[1].data[key]*float(hdul[0].header["BUNIT"].split(" ")[0])) for key in ["loglam", "flux", "ivar"]])
     aH = np.array([hdul[0].header[key] for key in ["PLUG_RA", "PLUG_DEC"]])
     return aD, aH
 def fits_reader_pyqso(file):

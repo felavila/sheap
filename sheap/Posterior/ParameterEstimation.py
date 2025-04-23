@@ -2,14 +2,15 @@ import os
 import yaml
 from astropy.cosmology import FlatLambdaCDM
 import jax.numpy as jnp 
+from pathlib import Path
 
 #from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
 #from SHEAP.numpy.monte_carlo import monte_carlo
+# this file’s directory: mypackage/submodule
+here = Path(__file__).resolve().parent
+data_file = here.parent / "suport_data" / "tabuled_values"/ "dictionary_values.yaml"
 
-
-module_dir = os.path.dirname(os.path.abspath(__file__))
-
-with open(os.path.join(module_dir,"suport_data/tabuled_values/dictionary_values.yaml"), 'r') as file:
+with open(data_file, 'r') as file:
     #this should be done more eficiently in some way
     #TODO add references to this 
     tabuled_values = yaml.safe_load(file)

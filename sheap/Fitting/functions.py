@@ -2,7 +2,7 @@ from typing import Callable, Dict, Tuple, Optional
 import jax.numpy as jnp
 from jax import jit,vmap
 import jax 
-from sheap.fitting.utils import param_count
+from sheap.Fitting.utils import param_count
 
 #maybe move to linear without this parameter? in the end will be require add 1e-3
 #what is the best option ?

@@ -8,7 +8,7 @@ from sheap.tools.interp_tools import _interp_jax
 import jax.scipy as jsp
 import os 
 import numpy as np 
-from sheap.fitting.utils import param_count
+from sheap.Fitting.utils import param_count
 
 
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"suport_data","templates")

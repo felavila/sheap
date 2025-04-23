@@ -21,16 +21,11 @@ class RegionBuilder:
         self.read_ymls()
         self.n_narrow = n_narrow
         self.n_broad = n_broad
-        #Known relations
-       # self.tied_pairs = [(["OIIIb","OIIIc"],["amplitude_OIIIb_narrow", "amplitude_OIIIc_narrow", "*0.3"]),
-        #                (["NIIb","NIIa"],["amplitude_NIIb_narrow", "amplitude_NIIa_narrow", "*0.3"])]
         self.known_tied_relations = [(["OIIIb","OIIIc"],["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.3"]),
                         (["NIIb","NIIa"],["amplitude_NIIb_component_narrow", "amplitude_NIIa_component_narrow", "*0.3"]),
                          (["NIIb","NIIa"],["center_NIIb_component_narrow", "center_NIIa_component_narrow"]),
                          (["OIIIb","OIIIc"],["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),
-                         #(["NIIb","NIIa","2"],["amplitude_NIIb_2_narrow", "amplitude_NIIa_2_narrow", "*0.3"]),
-                         #(["NIIb","NIIa","2"],["center_NIIb_2_narrow", "center_NIIa_2_narrow"])
-                         ]
+                                                ]
     def read_ymls(self):
         paths = regions_as_fantasy_path
         self.full_regions = {}
@@ -111,6 +106,8 @@ class RegionBuilder:
             n_narrow (_type_, optional): _description_. Defaults to None.
             main_regions (list, optional): _description_. Defaults to ['hydrogen', "helium"].
             Fe_regions (list, optional): _description_. Defaults to [].
+        TODO: Add balmer continium max wavelenght at 3646 e.g. Dietrich et al. 2003; Tsuzuki et al. 2006 and check fantasay what they did 
+        TODO: select cleary how to orgnaice the files broad,Hydrogen, Helium, an broad, maybe put all the lines promt to have broad in broad and the rest in narrow. like a duplicate? 
         """
         
         xmin = xmin or self.xmin

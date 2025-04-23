@@ -35,7 +35,7 @@ class MasterMinimizer:
         self.learning_rate = learning_rate  or 1e-1
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-        self.optimizer = kwargs.get("optimizer",optax.adabelief(self.learning_rate)) 
+        self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate)) 
         #print('optimizer:',self.optimizer)
         
         self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,weighted=weighted)
