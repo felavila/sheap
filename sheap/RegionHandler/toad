@@ -1,0 +1,17 @@
+#this should be added in some point 
+from astropy.modeling.physical_models import BlackBody
+
+def Balmer_conti(self, xval, pp):
+        """Fit the Balmer continuum from the model of Dietrich+02"""
+        # xval = input wavelength, in units of A
+        # pp=[norm, Te, tau_BE] -- in units of [--, K, --]
+        xval = xval * u.AA
+        lambda_BE = 3646.  # A
+        bb_lam = BlackBody(pp[1] * u.K, scale=1.0 * u.erg / (u.cm ** 2 * u.AA * u.s * u.sr))
+        bbflux = bb_lam(xval).value * 3.14  # in units of ergs/cm2/s/A
+        tau = pp[2] * (xval.value / lambda_BE) ** 3
+        result = pp[0] * bbflux * (1 - np.exp(-tau))
+        ind = np.where(xval.value > lambda_BE, True, False)
+        if ind.any() == True:
+            result[ind] = 0
+        return result

@@ -23,7 +23,7 @@ fe_template_UV_read_norm = fe_template_UV_read.at[1].divide(jnp.max(fe_template_
 
 @param_count(3)
 def fitFeOP(x, params):
-    # Unpack parameters: log_FWHM_broad, shift_, and scale.
+    "Fit the optical FeII on the continuum from 3686 to 7484 A based on Vestergaard & Wilkes 2001"
     log_FWHM_broad, shift_, scale = params
     central_wl = 4650.0  # Reference wavelength
 
@@ -85,6 +85,7 @@ def fitFeOP(x, params):
 
 @param_count(3)
 def fitFeUV(x,params):
+    "Fit the UV FeII component on the continuum from 1200 to 3500 A based on Boroson & Green 1992."
     #TODO look for the sigma of template
     #log_FWHM_broad,shift_,scale_ = params
     log_FWHM_broad,shift_,scale = params

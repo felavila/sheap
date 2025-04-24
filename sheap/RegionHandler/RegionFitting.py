@@ -1,5 +1,5 @@
 
-#save spectra,region masked,xmax xmin, params, initial params, limits, functions list (this then have to be readed again ). that is? 
+#save spectra,region masked,xmax xmin, params, initial params, limits, functions list (this then have to be readed again ). all the required for parameter estimation, it is important be able to reconstruct the results.
 from sheap.Fitting.functions import linear,gaussian_func,lorentzian_func,power_law
 from sheap.Fitting.template_fe_func import fitFeOP,fitFeUV
 from sheap.Fitting.utils import combine_auto
@@ -32,7 +32,7 @@ class RegionFitting:
     #I suppose from here the best option is do all the stats 
     def __init__(self, dict_region: [str, dict],limits_list=None,broad_upper_width=5000.0,broad_lower_width=425,narrow_upper_width=200.0,\
                 narrow_lower_width=50.,narrow_broad_lower_width=1000.,narrow_broad_upper_width=300,broad_center_shift_limit=5000.0,
-                narrow_center_shift_limit=2500.,narrow_broad_center_shift_limit=2000.,outflow_upper_width=5000.0,outflow_lower_width=425,
+                narrow_center_shift_limit=2500.,narrow_broad_center_shift_limit=2000.,outflow_upper_width = 5000.0,outflow_lower_width=425,
                 outflow_center_shift_limit=2500., fe_upper_width = 3000, fe_lower_width = 210,fe_center_shift_limit = 2500,
                 log_mode=False,tied_params=None):
         """
@@ -145,6 +145,7 @@ class RegionFitting:
         #self.Master_region  = Master_region #This could be remove
         self.loss = _
         max_value = max_value / (10**exp_factor)
+        self.mask_region = mask_region
         if re_normalize:
             self.params = params.at[:,self.mapping_params([["amplitude"],["cont"],["scale"]])].multiply(max_value[:,None])
             self.region_to_fit =  spectral_region.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_value,(2,1)),0,1)[:,:,None]) #This could be forget after 
@@ -301,6 +302,7 @@ class RegionFitting:
         match_list = jnp.array(match_list)
         unique_arr =jnp.unique(match_list)
         return unique_arr
+    
     
     
     def create_constrains(self, center: float, kind: str, amplitude, **kwargs):

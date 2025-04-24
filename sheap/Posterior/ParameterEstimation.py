@@ -3,7 +3,10 @@ import yaml
 from astropy.cosmology import FlatLambdaCDM
 import jax.numpy as jnp 
 from pathlib import Path
-
+import pandas as pd 
+import numpy as np 
+from jax import vmap 
+from sheap.tools.others import vmap_get_EQW_mask
 #from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
 #from SHEAP.numpy.monte_carlo import monte_carlo
 # this file’s directory: mypackage/submodule
@@ -25,8 +28,9 @@ cm_per_mpc = 3.08568e+24
 
 class ParameterEstimation:
     #TODO big how to combine distributions 
-    def __init__(self,RegionClass,fluxnorm=None,z=None,d=None,cosmo=None,multi_comp=None):
+    def __init__(self,RegionClass,fluxnorm=None,z=None,d=None,cosmo=None,multi_comp=None,c = 299792.458):
         """_summary_
+        i think the best is if you are calling this you already have your flux in flux units "classical"
         Dimensional reduction in this step could be 2hard maybe we can move the combination for later steps
         Args:
             RegionClass (_type_): _description_
@@ -34,15 +38,20 @@ class ParameterEstimation:
             z (_type_, optional): _description_. Defaults to None.
             d (_type_, optional): _description_. Defaults to None.
             cosmo (_type_, optional): _description_. Defaults to None.
+            c speed of light in km/s
         """
         ####
-        self.lines = RegionClass.lines
-        self.multi_comp = list(RegionClass.multi_comp)
-        self.multi_comp_index = RegionClass.mapping_params(self.multi_comp)
+        #self.lines = RegionClass.lines
+        #self.multi_comp = list(RegionClass.multi_comp)
+        #self.multi_comp_index = RegionClass.mapping_params(self.multi_comp)
         ####
-        self.sigma = RegionClass.params.at[:,RegionClass.mapping_params(["width"])].get()
-        self.norm_amplitude = RegionClass.params.at[:,RegionClass.mapping_params(["amplitude"])].get()
-        self.center = RegionClass.params.at[:,RegionClass.mapping_params(["center"])].get()
+        self.c = c
+        self.RegionClass = RegionClass
+        self.params_cont = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["cont"]])]].ravel()
+        self.params_fe = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["fe"]])]].ravel()
+        self.sigma = self.RegionClass.params.at[:,RegionClass.mapping_params(["width"])].get()
+        self.norm_amplitude = self.RegionClass.params.at[:,RegionClass.mapping_params(["amplitude"])].get()
+        self.center = self.RegionClass.params.at[:,RegionClass.mapping_params(["center"])].get()
         ####
         self.d = None
         if d is not None:
@@ -55,7 +64,12 @@ class ParameterEstimation:
             self.fluxnorm = jnp.ones_like(self.d)
         else:
             self.fluxnorm = fluxnorm
-        
+        #calculate baseline?  
+        profile_index_list = self.RegionClass.profile_index_list
+        min_,max_ = profile_index_list[-1]
+        self.values = self.RegionClass.params[:,min_:max_]
+        self.profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(0, 0))
+        self.baselines = self.profile_func(self.RegionClass.region_to_fit[:,0,:],self.values)
         
     def __call__(self):
         """
@@ -65,24 +79,17 @@ class ParameterEstimation:
         self.fwhm = self.compute_fwhm() 
         self.amplitude = self.compute_amplitude()
         self.luminosity = self.compute_luminosity()
-            
-            # for line in self.lines.keys():
-            #     if self.debug:
-            #         print("Computing parameters for line %s" % line)
+        self.EW = self.compute_EW()
 
-            #     self.lines[line]['fwhm'] = self.compute_fwhm(self.lines[line]['modelpars'])
-            #     self.lines[line]['flux'] = self.compute_flux(self.lines[line]['modelpars'])
-            #     self.lines[line]['amp'] = self.compute_amplitude(self.lines[line]['modelpars'])
-            #     self.lines[line]['pos'] = self.lines[line]['modelpars'][1]
-    
     def compute_flux(self):
         """
         Calculate integrated flux of emission line Unnormalized.
+        big thing here what happened when is changed the profile ?
         """
             
         flux =  jnp.sqrt(2. * jnp.pi) * self.norm_amplitude * self.sigma 
         return flux * self.fluxnorm[:,None]
-
+        
     def compute_amplitude(self):
         """
         Calculate amplitude of emission line.  Should be easy - add multiple components if they exist.
@@ -94,6 +101,10 @@ class ParameterEstimation:
         """
         Determine luminosity of line (need distance and flux units).
         """
+        if not hasattr(self, 'flux'):
+            self.flux = self.compute_flux()
+        if not hasattr(self, 'd'):
+            print("it is required defined z if you want to calculate this ")
         return 4. * jnp.pi * self.d[:,None]**2 * self.flux
 
     def compute_fwhm(self):
@@ -102,7 +113,118 @@ class ParameterEstimation:
         
         """
         return 2. * jnp.sqrt(2. * jnp.log(2.)) * self.sigma
+
+    def compute_EW(self):
+        profile_index_list = self.RegionClass.profile_index_list
+        x_axis = self.RegionClass.region_to_fit[:,0,:]
+        mask = self.RegionClass.mask_region
+        #this is based on the idea about the continium is the last profile added to the code maybe could be a good idea have the exacto position of it 
+        EW = []
+        for i,profile in enumerate(self.RegionClass.profile_list):
+            profile_func = vmap(self.RegionClass.profile_function_list[i],in_axes=(0, 0))#maybe ask is the previous one is other proflie?
+            min_,max_ = profile_index_list[i]
+            values = self.RegionClass.params[:,min_:max_]
+            if profile != "linear" and "Fe" not in profile:
+                #we filter after the fe      
+                emission_line = profile_func(x_axis,values) 
+                c = jnp.stack([x_axis, emission_line], axis=1)
+                ew = vmap_get_EQW_mask(c,self.baselines,mask)
+                EW.append(ew)
+        else:
+            pass 
+        EW = jnp.stack(EW, axis=1)
+        return EW
     
+    def L5100(self):
+        #in 5100 this should be 0 ? because we are working with Halpha?
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 5100.0, atol=1e-1)
+        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
+        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
+        flux = jnp.where(valid,profile_func(jnp.array([5100.0]),self.values),0)
+        return 4. * jnp.pi * self.d[:,None]**2 * flux
+    
+    def L3000(self):
+        #in 3000 this should be 0 ? because we are working with Halpha?
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 3000, atol=1e-1)
+        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
+        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
+        flux = jnp.where(valid,profile_func(jnp.array([3000]),self.values),0)
+        return 4. * jnp.pi * self.d[:,None]**2 * flux
+    
+    def L1350(self):
+        #in 1350 this should be 0 ? because we are working with Halpha?
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1350.0, atol=1e-1)
+        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
+        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
+        flux = jnp.where(valid,profile_func(jnp.array([1350.0]),self.values),0)
+        return 4. * jnp.pi * self.d[:,None]**2 * flux
+    def L6200(self):
+        #in 1350 this should be 0 ? because we are working with Halpha?
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 6200.0, atol=1e-1)
+        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
+        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
+        flux = jnp.where(valid,profile_func(jnp.array([6200.0]),self.values),0)
+        return 4. * jnp.pi * self.d[:,None]**2 * flux
+    
+    def L1450(self):
+        #in 1350 this should be 0 ? because we are working with Halpha?
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1450.0, atol=1e-1)
+        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
+        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
+        flux = jnp.where(valid,profile_func(jnp.array([1450.0]),self.values),0)
+        return 4. * jnp.pi * self.d[:,None]**2 * flux
+    # def Lbool(self):
+    #     from jax.scipy.integrate import trapezoid
+    #     baselines_s = jnp.where(self.RegionClass.mask_region,0,self.baselines)
+    #     x = jnp.where(self.RegionClass.mask_region,0,self.RegionClass.region_to_fit[:,0,:])
+    #     flux = trapezoid(baselines_s, x=x, axis=1)
+    #     #flux = jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1)
+    #     return 4. * jnp.pi * self.d**2 * flux 
+        #jnp.where(jnp.isnan(line_center),0,-1.0*jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1))
+    #def _calculate_Fe_flux(self, measure_range, pp):(https://github.com/legolason/PyQSOFit/blob/master/src/pyqsofit/PyQSOFit.py)
+    #important to know we have to separate lines from continums from Fe
+    def FWHMkm_s(self):
+        if not hasattr(self, 'fwhm'):
+            self.fwhm = self.compute_fwhm()
+        lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
+        fwhmkms =  (self.fwhm*self.c)/lambda0
+        return fwhmkms
+    
+    def velocityshift(self):
+        lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
+        velocityshift_ = ((self.center-lambda0)/lambda0)*self.c
+        return velocityshift_
+    
+    @property
+    def panda_fwhm(self):
+        if not hasattr(self, 'fwhm'):
+            self.fwhm = self.compute_fwhm()
+        return pd.DataFrame(self.fwhm,columns=self.RegionClass.lines_list) 
+    
+    @property
+    def panda_luminosity(self):
+        if not hasattr(self, 'luminosity'):
+            self.luminosity = self.compute_luminosity()
+        return pd.DataFrame(self.luminosity, columns=self.RegionClass.lines_list)
+    
+    @property
+    def panda_flux(self):
+        if not hasattr(self, 'flux'):
+            self.flux = self.compute_flux()
+        return pd.DataFrame(self.flux,columns=self.RegionClass.lines_list)
+    
+    @property 
+    def panda_EW(self):
+        if not hasattr(self,"EW"):
+            self.EW = self.compute_EW()
+        return pd.DataFrame(self.EW,columns=self.RegionClass.lines_list)
+    @property
+    def panda_fwhmkm_s(self):
+        fwhmkms = self.FWHMkm_s()
+        return pd.DataFrame(fwhmkms,columns=self.RegionClass.lines_list)
+    @property
+    def panda_velocityshift(self):
+        return pd.DataFrame(self.velocityshift(),columns=self.RegionClass.lines_list) 
     
     
     
