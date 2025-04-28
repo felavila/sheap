@@ -30,10 +30,10 @@ class RegionFitting:
     #TODO dinting maybe the outflows of the semi broad or narrow broad or similar
     #TODO save routine and read routine 
     #I suppose from here the best option is do all the stats 
-    def __init__(self, dict_region: [str, dict],limits_list=None,broad_upper_width=5000.0,broad_lower_width=425,narrow_upper_width=200.0,\
-                narrow_lower_width=50.,narrow_broad_lower_width=1000.,narrow_broad_upper_width=300,broad_center_shift_limit=5000.0,
+    def __init__(self, dict_region: [str, dict],limits_list=None,broad_upper_width=5000.0,broad_lower_width=425.,narrow_upper_width=200.0,\
+                narrow_lower_width=50.,narrow_broad_lower_width=1000.,narrow_broad_upper_width=300.,broad_center_shift_limit=5000.0,
                 narrow_center_shift_limit=2500.,narrow_broad_center_shift_limit=2000.,outflow_upper_width = 5000.0,outflow_lower_width=425,
-                outflow_center_shift_limit=2500., fe_upper_width = 3000, fe_lower_width = 210,fe_center_shift_limit = 2500,
+                outflow_center_shift_limit=2500., fe_upper_width = 3000, fe_lower_width = 210.,fe_center_shift_limit = 2500,
                 log_mode=False,tied_params=None):
         """
         #10000/2.355 4246.284501061571 gamma_lorentian = 1.1775sigma
@@ -139,7 +139,7 @@ class RegionFitting:
                 print("Runing:",self.tied_params_sequence[i])
                 self.create_region_to_be_fit(tied_params=self.dict_region.get(self.tied_params_sequence[i]))
                 Master_region.non_optimize_in_axis = 4
-                Master_region.num_steps = 1000 #500 works better 
+                Master_region.num_steps = 2000 #works better 
                 Master_region.learning_rate = 1e-2
                 params,_ = Master_region(params,*spectral_region.transpose(1, 0, 2),constraints,list_dependencies=self.list_dependencies)
         #self.Master_region  = Master_region #This could be remove
@@ -405,8 +405,8 @@ class RegionFitting:
                 center_lower = center - kms_to_wl(fe_center_shift_limit, center)
                 width_upper = kms_to_wl(fe_upper_width, center)
                 width_lower = kms_to_wl(fe_lower_width, center)
-                width =  width_lower
-                amplitude_upper, amplitude_lower =  10,0.0
+                width =  (width_lower+width_upper)/2.
+                amplitude_upper, amplitude_lower =  0.07, 0.0
                 gamma_upper = 1.1775*width_upper
                 gamma_lower = 1.1775*width_lower
                 gamma = gamma_lower/2

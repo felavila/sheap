@@ -43,7 +43,7 @@ class SheapPlot:
             c = "k"
             #ax1.text(values[1],max(ylim),text,verticalalignment="bottom",horizontalalignment="center")
             if profile != "linear" and "Fe" not in profile:
-                if "Fe" in self.region_class.lines_list[i]:
+                if "fe" in self.region_class.dict_region["region"][i].get("region","non").lower():
                     color = "grey"
                     c =  "grey"
                 else:

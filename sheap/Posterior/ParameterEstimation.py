@@ -105,7 +105,7 @@ class ParameterEstimation:
             self.flux = self.compute_flux()
         if not hasattr(self, 'd'):
             print("it is required defined z if you want to calculate this ")
-        return 4. * jnp.pi * self.d[:,None]**2 * self.flux
+        return 4. * jnp.pi * self.d[:,None]**2 * self.flux*self.center
 
     def compute_fwhm(self):
         """
@@ -137,42 +137,42 @@ class ParameterEstimation:
     
     def L5100(self):
         #in 5100 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 5100.0, atol=1e-1)
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 5100.0, atol=1)
         valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
         profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
         flux = jnp.where(valid,profile_func(jnp.array([5100.0]),self.values),0)
-        return 4. * jnp.pi * self.d[:,None]**2 * flux
+        return (5100.0 * 4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
     
     def L3000(self):
         #in 3000 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 3000, atol=1e-1)
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 3000, atol=1)
         valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
         profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
         flux = jnp.where(valid,profile_func(jnp.array([3000]),self.values),0)
-        return 4. * jnp.pi * self.d[:,None]**2 * flux
+        return (3000.0 *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
     
     def L1350(self):
         #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1350.0, atol=1e-1)
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1350.0, atol=1)
         valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
         profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
         flux = jnp.where(valid,profile_func(jnp.array([1350.0]),self.values),0)
-        return 4. * jnp.pi * self.d[:,None]**2 * flux
+        return (1350. *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
     def L6200(self):
         #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 6200.0, atol=1e-1)
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 6200.0, atol=1)
         valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
         profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
         flux = jnp.where(valid,profile_func(jnp.array([6200.0]),self.values),0)
-        return 4. * jnp.pi * self.d[:,None]**2 * flux
+        return (6200. *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
     
     def L1450(self):
         #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1450.0, atol=1e-1)
+        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1450.0, atol=1)
         valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
         profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
         flux = jnp.where(valid,profile_func(jnp.array([1450.0]),self.values),0)
-        return 4. * jnp.pi * self.d[:,None]**2 * flux
+        return (1450*4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
     # def Lbool(self):
     #     from jax.scipy.integrate import trapezoid
     #     baselines_s = jnp.where(self.RegionClass.mask_region,0,self.baselines)
@@ -183,6 +183,7 @@ class ParameterEstimation:
         #jnp.where(jnp.isnan(line_center),0,-1.0*jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1))
     #def _calculate_Fe_flux(self, measure_range, pp):(https://github.com/legolason/PyQSOFit/blob/master/src/pyqsofit/PyQSOFit.py)
     #important to know we have to separate lines from continums from Fe
+    
     def FWHMkm_s(self):
         if not hasattr(self, 'fwhm'):
             self.fwhm = self.compute_fwhm()
@@ -218,10 +219,12 @@ class ParameterEstimation:
         if not hasattr(self,"EW"):
             self.EW = self.compute_EW()
         return pd.DataFrame(self.EW,columns=self.RegionClass.lines_list)
+    
     @property
     def panda_fwhmkm_s(self):
         fwhmkms = self.FWHMkm_s()
         return pd.DataFrame(fwhmkms,columns=self.RegionClass.lines_list)
+    
     @property
     def panda_velocityshift(self):
         return pd.DataFrame(self.velocityshift(),columns=self.RegionClass.lines_list) 

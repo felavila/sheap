@@ -23,8 +23,8 @@ class RegionBuilder:
         self.n_narrow = n_narrow
         self.n_broad = n_broad
         self.known_tied_relations = [(["OIIIb","OIIIc"],["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.3"]),
-                        (["NIIb","NIIa"],["amplitude_NIIb_component_narrow", "amplitude_NIIa_component_narrow", "*0.3"]),
-                         (["NIIb","NIIa"],["center_NIIb_component_narrow", "center_NIIa_component_narrow"]),
+                        (["NIIa","NIIb"],["amplitude_NIIa_component_narrow", "amplitude_NIIb_component_narrow", "*0.3"]),
+                         (["NIIa","NIIb"],["center_NIIa_component_narrow", "center_NIIb_component_narrow"]),
                          (["OIIIb","OIIIc"],["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),
                                                 ]
     def read_ymls(self):
@@ -94,7 +94,7 @@ class RegionBuilder:
         return local_
             
     def make_region(self,xmin=None,xmax=None,n_broad=None,n_narrow=None, 
-                main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv']
+                main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv',"FeII_IZw1","FeII_coronal"]
                 ,narrow_plus= False,verbose= False,force_linear= False,add_out_flow= False
                 ,main_lines = ["Hbeta","Halpha"],tied_narrow_to = None ,tied_broad_to = None,template_mode_Fe=False):
         
@@ -106,7 +106,7 @@ class RegionBuilder:
             n_broad (_type_, optional): _description_. Defaults to None.
             n_narrow (_type_, optional): _description_. Defaults to None.
             main_regions (list, optional): _description_. Defaults to ['hydrogen', "helium"].
-            Fe_regions (list, optional): _description_. Defaults to [].
+            Fe_regions (list, optional): _description_. Defaults to ['Fe_uv',"FeII_IZw1","FeII_coronal"] extra could be feII_forbidden. 
         TODO: Add balmer continium max wavelenght at 3646 e.g. Dietrich et al. 2003; Tsuzuki et al. 2006 and check fantasay what they did 
         TODO: select cleary how to orgnaice the files broad,Hydrogen, Helium, an broad, maybe put all the lines promt to have broad in broad and the rest in narrow. like a duplicate? 
         """
@@ -144,7 +144,7 @@ class RegionBuilder:
                     local_ = self.broad_regions_handler(values,n_broad)
                 elif key in Fe_regions and xmin <= values["center"] <= xmax and not template_mode_Fe:
                     local_copy = values.copy()
-                    local_copy.update({"kind": "fe","component":20,"amplitude":0.1,"how":"sum"})
+                    local_copy.update({"kind": "fe","component":20,"amplitude":0.01,"how":"sum","region":key})
                     local_.append(local_copy)
                 local_region_list += local_
         if template:
@@ -152,12 +152,15 @@ class RegionBuilder:
             
         available_lines =  np.array([line.get("line_name") for line in local_region_list if "line_name" in line]).ravel()
         available_lines = np.unique(available_lines) # it is necesary make it unique?
-        available_kind = np.array([line.get("kind") for line in local_region_list if "line_name" in line]).ravel()
-                    
-        if sum("Fe" in key for key in available_kind)>=2 and not template_mode_Fe:
+        available_kind = np.array([line.get("kind") for line in local_region_list if "line_name" in line])
+        #print(sum(["fe" in key for key in available_kind]))
+        #print(available_lines)
+        if sum(["fe" in key for key in available_kind])>=2 and  not template_mode_Fe:
             #TODO can be suplement?
             params = ["center","width"]
-            centers,line_names,kinds = np.array([[region.get("center"),region.get("line_name"),region.get("kind")] for region in local_region_list if "Fe" in region.get("kind")]).T
+            centers,line_names,kinds,region = np.array([[region.get("center"),region.get("line_name"),region.get("kind"),region.get("region")] for region in local_region_list if "fe" in region.get("kind")]).T
+            
+            #print(region)
             centers = centers.astype(float)
             n_central_line = np.argmin(abs(centers - np.median(centers))) #problematic if you thing about the central one could be in the center of the region this means hbeta
             for _,fe in enumerate(line_names):
