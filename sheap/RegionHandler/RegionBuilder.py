@@ -1,4 +1,3 @@
-#Check logic for the lines left ro right a,b,c 
 import os 
 import yaml
 import glob 

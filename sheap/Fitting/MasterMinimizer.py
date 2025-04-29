@@ -72,9 +72,9 @@ class MasterMinimizer:
                         self.optimizer,
                         False)
         
-        print('learning_rate:',self.learning_rate)
-        print('optimizer:',optax.adabelief.__name__)
-        print('num_steps:',self.num_steps)
+        #print('learning_rate:',self.learning_rate)
+        #print('optimizer:',optax.adabelief.__name__)
+        #print('num_steps:',self.num_steps)
         
         if non_optimize_in_axis==3:
             #print("vmap Optimize over y,x,yerror")
