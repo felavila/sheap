@@ -9,7 +9,7 @@ Changelog
 | The package is open source and is part of the **SHEAP** Project.
 | The project is hosted in a public repository on github at https://github.com/favila/sheap
 | The project was scaffolded using the `Cookiecutter Python Package`_ (cookiecutter) Template at https://github.com/boromir674/cookiecutter-python-package/tree/master/src/cookiecutter_python
-
+| I should think about the next steps 
 | Scaffolding included:
 
 - **CI Pipeline** running on Github Actions at https://github.com/favila/sheap/actions

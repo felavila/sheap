@@ -1,7 +1,9 @@
-import os 
+import glob
+import os
+
+import numpy as np
 import yaml
-import glob 
-import numpy as np 
+
 regions_as_fantasy_path = glob.glob(os.path.dirname(os.path.abspath(__file__))+"/regions_as_fantasy/*.yaml")
 
 
@@ -205,10 +207,19 @@ class RegionBuilder:
                         self.tied_params_.append(factor)
         
         params = ["center","width"]
-        self.tied_params += [[f"{p}_{line['line_name']}_{line["component"]}_{line['kind']}", f"{p}_{tied_narrow_to.get(line["component"]).get("line_name")}_{tied_narrow_to.get(line["component"]).get("component")}_narrow"] for line in local_region_list if (line['kind'] == "narrow" and line["line_name"] != tied_narrow_to) for p in params]
-        
-        self.tied_params += [[f"{p}_{line['line_name']}_{line["component"]}_{line['kind']}", f"{p}_{tied_broad_to.get(line["component"]).get("line_name")}_{tied_broad_to.get(line["component"]).get("component")}_broad"] for line in local_region_list if (line['kind'] == "broad" and line["line_name"] != tied_broad_to) for p in params]       
-        
+        self.tied_params += [
+                                [
+                                    f"{p}_{line['line_name']}_{line['component']}_{line['kind']}",
+                                    f"{p}_{tied_narrow_to.get(line['component']).get('line_name')}_{tied_narrow_to.get(line['component']).get('component')}_narrow"
+                                ]
+                                for line in local_region_list
+                                if (line['kind'] == "narrow" and line['line_name'] != tied_narrow_to.get(line['component']).get('line_name'))
+                                for p in params
+]
+
+        self.tied_params += [[f"{p}_{line['line_name']}_{line['component']}_{line['kind']}", f"{p}_{tied_broad_to.get(line['component']).get('line_name')}_{tied_broad_to.get(line['component']).get('component')}_broad"] for line in local_region_list if (line['kind'] == "broad" and line['line_name'] != tied_broad_to.get(line['component']).get('line_name')) for p in params]
+
+
         if (xmax-xmin > 2000) and not force_linear:
             local_region_list += [{"center":0,"kind":"cont","line_name":"cont","profile":"power_law"}]
         

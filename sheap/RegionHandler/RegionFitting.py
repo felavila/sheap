@@ -1,18 +1,20 @@
 
 #save spectra,region masked,xmax xmin, params, initial params, limits, functions list (this then have to be readed again ). all the required for parameter estimation, it is important be able to reconstruct the results.
-from sheap.Fitting.functions import linear,gaussian_func,lorentzian_func,power_law
-from sheap.Fitting.template_fe_func import fitFeOP,fitFeUV
-from sheap.Fitting.utils import combine_auto
-import os 
-from sheap.tools.others import  kms_to_wl
-import jax.numpy as jnp
-from jax import jit 
-from typing import Union
-import yaml
-from sheap.utils import mask_builder,prepare_spectra
-from sheap.Fitting.MasterMinimizer import MasterMinimizer
-import pandas as pd 
+import os
 import pickle
+from typing import Union
+
+import jax.numpy as jnp
+import pandas as pd
+import yaml
+from jax import jit
+
+from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, power_law
+from sheap.Fitting.MasterMinimizer import MasterMinimizer
+from sheap.Fitting.template_fe_func import fitFeOP, fitFeUV
+from sheap.Fitting.utils import combine_auto
+from sheap.tools.others import kms_to_wl
+from sheap.utils import mask_builder, prepare_spectra
 
 region_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),"regions")
 
@@ -237,7 +239,8 @@ class RegionFitting:
             lower_bound += [-10.,-10.]
             profile_list.append("linear")
             profile_index_list.append([parameter_position,parameter_position+2])
-            params_dict.update({f"{p}_{"cont"}":n+parameter_position for n,p in enumerate(["m","b"])})
+            params_dict.update({f"{p}_cont": n + parameter_position for n, p in enumerate(["m", "b"])})
+
             
             parameter_position += 2
             

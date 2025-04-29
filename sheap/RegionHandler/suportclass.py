@@ -1,7 +1,8 @@
-from typing import List, Tuple, Union, Dict, Any
 from dataclasses import dataclass
-from typing import Optional
-import numpy as np 
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
+
 
 @dataclass
 class SpectralLine:

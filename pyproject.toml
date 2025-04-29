@@ -50,8 +50,8 @@ include = [
     { path = "tests", format = "sdist" },
     { path = "docs/**/*.rst", format = "sdist" },
     { path = "docs/conf.py", format = "sdist" },
-    { path = "src/**/*.typed", format = "sdist" },
-    { path = "src/stubs/*.pyi", format = "sdist" },
+    { path = "sheap/**/*.typed", format = "sdist" },
+    { path = "sheap/stubs/*.pyi", format = "sdist" },
     "pyproject.toml",
     "LICENSE",
     "README.rst",
@@ -176,6 +176,10 @@ sheap = 'sheap.cli:main'
 export = "poetry_plugin_export.plugins:ExportApplicationPlugin"
 
 # TOOLS
+
+[tool.poetry.group.typing.dependencies]
+types-pyyaml = "^6.0.12.20250402"
+
 [tool.pytest.ini_options]
 minversion = "6.2"
 addopts = "--strict-markers"
@@ -206,6 +210,13 @@ tests = []
 skips = [
     "B101",
 ]
+
+[tool.mypy]
+ignore_missing_imports = true      # quick blanket, or …
+
+[[tool.mypy.overrides]]
+module = ["optax.*", "jax.*", "astropy.*", "sfdmap2"]
+ignore_missing_imports = true
 
 [tool.software-release]
 version_variable = "sheap/__init__.py:__version__"

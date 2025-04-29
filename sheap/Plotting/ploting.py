@@ -1,11 +1,12 @@
 #import seaborn as sns
-import numpy as np 
-import pandas as pd 
-import jax.numpy as jnp 
-import matplotlib.pyplot as plt
+import jax.numpy as jnp
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+
 from sheap.Fitting.functions import linear_combination
+
 
 class Sheap_pca_ploting:
     import numpy as np 

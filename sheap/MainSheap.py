@@ -1,15 +1,17 @@
+import os
 from typing import Union
+
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FixedLocator
+from sfdmap2 import sfdmap
+
+from sheap.tools.others import _deredshift
+
 #from .sfdmap import SFDMap_2
 from sheap.tools.unred import unred
-from sheap.tools.others import _deredshift
-from sheap.utils import prepare_uncertainties #?
-
-import os 
-from sfdmap2 import sfdmap
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FixedLocator
+from sheap.utils import prepare_uncertainties  # ?
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
 

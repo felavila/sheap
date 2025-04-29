@@ -1,8 +1,10 @@
  
-import jax.numpy as jnp
-from jax import jit, lax,vmap
 import warnings
 from copy import deepcopy
+
+import jax.numpy as jnp
+from jax import jit, lax, vmap
+
 "The idea will be keep here all the tools for interpolation"
 @jit
 def cubic_spline_coefficients(x, y):
@@ -155,6 +157,8 @@ def _interp_jax(x, xp, fp, left=None, right=None, period=None):
     return jnp.interp(x, xp, fp, left=left, right=right,period=period)
 
 import functools as ft
+
+
 @ft.partial(vmap, in_axes=(None, None,0), out_axes=0)
 def vmap_interp(wavelength,wavelength_xp,flux_xp):
     return jnp.interp(wavelength,wavelength_xp,flux_xp)

@@ -1,21 +1,23 @@
 from __future__ import annotations
+
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from sheap.RegionHandler.suportclass import SpectralLine
 
-import yaml
 import jax.numpy as jnp
-from jax import jit
+import numpy as np
 import pandas as pd
-import numpy as np 
-from sheap.Fitting.functions import linear, gaussian_func, lorentzian_func, power_law
+import yaml
+from jax import jit
+
+from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, power_law
+from sheap.Fitting.MasterMinimizer import MasterMinimizer
 from sheap.Fitting.template_fe_func import fitFeOP, fitFeUV
 from sheap.Fitting.utils import combine_auto
+from sheap.RegionHandler.suportclass import SpectralLine
 from sheap.tools.others import kms_to_wl
 from sheap.utils import mask_builder, prepare_spectra
-from sheap.Fitting.MasterMinimizer import MasterMinimizer
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -350,7 +352,7 @@ class RegionFittingv2:
             high_list.extend([10.,10.])
             low_list.extend([-10.,-10.])
             for i, name in enumerate(["m","b"]):
-                key = f"{name}_{"continiumm"}_{0}_{"linear"}"
+                key = f"{name}_{'continiumm'}_{0}_{'linear'}"
                 self.params_dict[key] = idx + i
             self.profile_params_index.append([idx,idx+2])
         # Always add a linear continuum fallback

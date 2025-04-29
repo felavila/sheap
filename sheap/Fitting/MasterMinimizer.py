@@ -1,10 +1,11 @@
+from typing import Callable, Dict, List, Optional, Tuple
+
 import jax
 import jax.numpy as jnp
-from jax import jit,vmap
 import optax
-from typing import Callable, Dict, Tuple,List,Optional
-from .utils import project_params,parse_dependencies
+from jax import jit, vmap
 
+from .utils import parse_dependencies, project_params
 
 
 class MasterMinimizer:

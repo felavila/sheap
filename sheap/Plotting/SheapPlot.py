@@ -1,9 +1,10 @@
-import numpy as np 
-import pandas as pd 
-import jax.numpy as jnp 
-import matplotlib.pyplot as plt
+import jax.numpy as jnp
 import matplotlib.gridspec as gridspec
-import matplotlib.transforms as mtransforms 
+import matplotlib.pyplot as plt
+import matplotlib.transforms as mtransforms
+import numpy as np
+import pandas as pd
+
 
 class SheapPlot:
     def __init__(self,ComplexRegion):

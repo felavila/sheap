@@ -1,15 +1,15 @@
-import numpy  as np 
-from SHEAP.host_sub.start_method import Extract_host_star_new
-from SHEAP.fitting.functions import GaussianSum,linear2,combine_auto
-from SHEAP.utils import mask_builder
-from SHEAP.fitting.main_fitting_I import MasterMinimizer
-from jax import vmap 
-from SHEAP.tools.others import vmap_get_EQW_mask
-import jax.numpy as jnp
+import os
 from pathlib import Path
-import os 
-import matplotlib.pyplot as plt 
 
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
+from jax import vmap
+from SHEAP.fitting.functions import GaussianSum, combine_auto, linear2
+from SHEAP.fitting.main_fitting_I import MasterMinimizer
+from SHEAP.host_sub.start_method import Extract_host_star_new
+from SHEAP.tools.others import vmap_get_EQW_mask
+from SHEAP.utils import mask_builder
 
 module_dir = Path(__file__).resolve().parent.parent
 #Small code that can use to check how we got the values in the star method 

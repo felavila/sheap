@@ -1,3 +1,4 @@
+#ok
 FROM python:3.9.16-slim-bullseye as builder
 
 COPY poetry.lock pyproject.toml ./

@@ -1,10 +1,13 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-from sheap.RegionHandler.suportclass import SpectralLine,fe_ties,region_ties
-import yaml
+
 import numpy as np
+import yaml
+
+from sheap.RegionHandler.suportclass import SpectralLine, fe_ties, region_ties
 
 #yaml_files = 
 # Named constants for special components

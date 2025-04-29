@@ -1,8 +1,8 @@
-from typing import Callable, Dict, Tuple, Optional
-import jax.numpy as jnp
-from jax import  lax,jit,vmap
-import numpy as np 
+from typing import Callable, Dict, Optional, Tuple
 
+import jax.numpy as jnp
+import numpy as np
+from jax import jit, lax, vmap
 
 
 def prepare_spectra(spectra_list,outer_limits):

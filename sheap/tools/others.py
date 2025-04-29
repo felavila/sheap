@@ -1,11 +1,9 @@
-from typing import Callable, Dict, Tuple, Optional
-import jax.numpy as jnp
-from jax import  lax,jit,vmap
 import functools as ft
-import numpy as np 
+from typing import Callable, Dict, Optional, Tuple
 
-
-
+import jax.numpy as jnp
+import numpy as np
+from jax import jit, lax, vmap
 
 
 @jit

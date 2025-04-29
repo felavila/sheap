@@ -1,14 +1,16 @@
+import os
+from pathlib import Path
+
 import jax.numpy as jnp
 import jax.scipy as jsp
-from SHEAP.utils import mask_builder
+import numpy as np
+from jax import jit, vmap
+from SHEAP.fitting.functions import GaussianSum, linear
 from SHEAP.fitting.main_fitting_I import MasterMinimizer
-from SHEAP.fitting.functions import linear,GaussianSum
 from SHEAP.fitting.utils import combine_auto
 from SHEAP.tools.others import vmap_get_EQW_mask
-import os 
-from pathlib import Path
-import numpy as np
-from jax import vmap,jit
+from SHEAP.utils import mask_builder
+
 """code to substarct the galactic component of an AGN, asuming that a template of a K-giant star is sufficient.
 Following the method explained in Greene & Ho 2005b and Kim & Ho 2006 (https://ui.adsabs.harvard.edu/abs/2006ApJ...642..702K/abstract).
 translation from Paula Sanchez's code . 

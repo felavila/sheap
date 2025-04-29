@@ -1,8 +1,8 @@
-from jax import jit
-import jax.numpy as jnp 
-from typing import Callable, Dict, Tuple,List,Optional
 from functools import partial
+from typing import Callable, Dict, List, Optional, Tuple
 
+import jax.numpy as jnp
+from jax import jit
 
 
 #TODO add continium to gaussian sum as and option 

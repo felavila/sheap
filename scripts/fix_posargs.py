@@ -1,5 +1,6 @@
 import sys
 
+
 def main():
     args = sys.argv[1:]
     new_args = []

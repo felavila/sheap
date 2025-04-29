@@ -1,14 +1,15 @@
-import jax.numpy as jnp
-from jax import jit,vmap,value_and_grad
-from SHEAP.utils import mask_builder
-from SHEAP.tools.others import vac_to_air
-from SHEAP.tools.interp_tools import vmap_interp
-from SHEAP.fitting.functions import linear_combination
-from SHEAP.fitting.utils import project_params
-from SHEAP.fitting.main_fitting_I import MasterMinimizer
 from pathlib import Path
-from astropy.io import fits
+
+import jax.numpy as jnp
 import optax
+from astropy.io import fits
+from jax import jit, value_and_grad, vmap
+from SHEAP.fitting.functions import linear_combination
+from SHEAP.fitting.main_fitting_I import MasterMinimizer
+from SHEAP.fitting.utils import project_params
+from SHEAP.tools.interp_tools import vmap_interp
+from SHEAP.tools.others import vac_to_air
+from SHEAP.utils import mask_builder
 
 #print("xaaxaxaas")
 module_dir = Path(__file__).resolve().parent.parent
