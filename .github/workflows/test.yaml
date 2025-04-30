@@ -342,7 +342,7 @@ jobs:
     with:
       run_policy: ${{ needs.set_github_outputs.outputs.PIPE_SQA_POLICY }}
       dedicated_branches: 'main, master, dev'
-      source_code_targets: 'src,tests,scripts'
+      source_code_targets: 'sheap,tests,scripts'
       python_version: ${{ needs.set_github_outputs.outputs.PIPE_SQA_PY }}
       pylint_threshold: ${{ needs.set_github_outputs.outputs.PIPE_SQA_PYLINT_PASS_SCORE }}
 
@@ -364,8 +364,8 @@ jobs:
     with:
       run_policy: '${{ needs.set_github_outputs.outputs.PIPE_CODE_VIZ_POLICY }}'
       branches: 'main, master, dev'
-      source_code_targets: 'src'
-      python_version: '3.10'
+      source_code_targets: 'sheap'
+      python_version: '3.12'
       artifacts_dir: 'dependency-graphs'
 
 ### Make a Github Release ###
