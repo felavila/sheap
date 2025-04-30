@@ -100,8 +100,13 @@ class MasterMinimizer:
         
     @staticmethod
     def minimization_function(
-    func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray]
-    ,weighted:bool =True) -> Callable[..., jnp.ndarray]:
+    func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
+    weighted: bool = True
+) -> Tuple[
+    Callable[..., jnp.ndarray],  # loss_function
+    Callable[..., Tuple[jnp.ndarray, list]],  # optimize_model
+    Callable[..., jnp.ndarray]  # residuals
+]:
         """
         Factory function to create a JIT-compiled constrained loss function with multiple input variables.
 
@@ -151,7 +156,7 @@ class MasterMinimizer:
             xs: List[jnp.ndarray],
             y: jnp.ndarray,
             y_uncertainties: jnp.ndarray,
-            constraints: jnp.ndarray= None,
+            constraints: Optional[jnp.ndarray] = None,
             parsed_dependencies = None,
             learning_rate: float = 1e-2,
             num_steps: int = 1000,

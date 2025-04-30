@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Optional, List, Tuple
 
 import jax.numpy as jnp
 from jax import jit
@@ -137,7 +137,7 @@ def parse_dependencies(dependencies: list[str]):
 def project_params(
     params: jnp.ndarray,
     constraints: jnp.ndarray,
-    parsed_dependencies: list[tuple] = None,
+    parsed_dependencies: Optional[List[Tuple]] = None,
 ) -> jnp.ndarray:
     """
     Project parameters by clipping to individual bounds and then applying dependency constraints.

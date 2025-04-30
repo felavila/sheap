@@ -1,5 +1,5 @@
 import os
-from typing import Union
+from typing import Union, Optional
 
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
@@ -19,7 +19,14 @@ class Sheapectral:
     #the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A 
     #TODO normalization ? a good option or not?
     #TODO I have to take in consideration a think i never thing before the sdss spectras posses some 0 inside the errors the logic will be give to those a really big error in compensation
-    def __init__(self, spectra: Union[str, jnp.ndarray], z: jnp.ndarray = None, coords: jnp.ndarray = None ,names: list[str] = None,host_subtraction: bool = True,**kwargs):
+    def __init__(self,
+    spectra: Union[str, jnp.ndarray],
+    z: Optional[Union[float, jnp.ndarray]] = None,
+    coords: Optional[jnp.ndarray] = None,
+    names: Optional[list[str]] = None,
+    host_subtraction: bool = True,
+    **kwargs
+):
         self.spectra = self._load_spectra(spectra)
         if self.spectra.shape[1]==2:
             print("Warning SHEAP works with arrays (n,3,X); if your array is (n,2,X) it will add an array equal to 1% of signal")
@@ -35,16 +42,18 @@ class Sheapectral:
             self.spectra = self.spectra.at[:,1,:].set(spectra_unred)
         else:
             print("Warning no coords define the code will not correct for extinction")
-       
         self.sheap_set_up()
         self.host_subtraction = host_subtraction
+        self.z: Optional[jnp.ndarray] = None  # helps mypy know the type
+
         if z is not None:
             if isinstance(z, (int, float)):
-                print("Assuming same redsfhit for all the objects ")
-                self.z = jnp.repeat(z,self.spectra.shape[0])
-            else: 
+                print("Assuming same redshift for all the objects ")
+                self.z = jnp.repeat(z, self.spectra.shape[0])
+            else:
                 self.z = jnp.array(z)
-            self.spectra = _deredshift(self.spectra,self.z)
+
+            self.spectra = _deredshift(self.spectra, self.z)
             
         if names is None:
             self.names = np.arange(len(spectra)).astype(str)

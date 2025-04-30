@@ -4,6 +4,23 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 
+
+
+
+
+
+
+@dataclass
+class ConstraintSet:
+    init: List[float]
+    upper: List[float]
+    lower: List[float]
+    profile: str
+    param_names: List[str]
+
+
+
+
 @dataclass
 class SpectralLine:
     center: float
@@ -14,7 +31,6 @@ class SpectralLine:
     how: Optional[str] = None         # None if missing
     region: Optional[str] = None      # None if missing
     profile: Optional[str] = None     # None if missing
-    how : Optional[str] = None 
     which : Optional[str] = None 
     
 def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', 'width')) -> List[List[str]]:
@@ -24,7 +40,7 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
         regions[mask_fe],
         centers[mask_fe],
         kinds[mask_fe],
-        np.array(entries)[np.where(mask_fe)[0]]
+        [entries[i] for i in np.where(mask_fe)[0]]
     )
     
     ties: List[List[str]] = []
@@ -32,7 +48,7 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
     if by_region:
         for reg in np.unique(regions):
             idx_region = np.where(regions == reg)[0]
-            entries_region = entries[idx_region]
+            entries_region = [entries[i] for i in idx_region]
             centers_region = np.array([e.center for e in entries_region])
             idx_center = int(np.argmin(np.abs(centers_region - np.median(centers_region))))
             for i, e in enumerate(entries_region):
@@ -63,10 +79,10 @@ def region_ties(
     mainline_candidates: Union[str, List[str]],
     n_narrow: int,
     n_broad: int,
-    tied_narrow_to: Union[str, Dict[int, Dict[str, Any]]] = None,
-    tied_broad_to: Union[str, Dict[int, Dict[str, Any]]] = None,
-    known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = None,
-    only_known: bool =False
+    tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
+    tied_broad_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
+    known_tied_relations: Optional[List[Tuple[Tuple[str, ...], List[str]]]] = None,
+    only_known: bool = False
 ) -> List[List[str]]:
     """
     Generate ties between narrow and broad components in a local region.
