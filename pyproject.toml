@@ -136,6 +136,13 @@ sphinxcontrib-mermaid = { version = "^0.9.2", optional = true, python = ">=3.12,
 
 
 ### EXTRAS ###
+[tool.poetry.dev-dependencies]
+pytest = "^8.0"
+pytest-cov = "^4.0"
+pytest-xdist = "^3.0"
+coverage = "^7.0"
+exceptiongroup = "^1.1" 
+
 [tool.poetry.extras]
 test = [
     "pytest",
@@ -144,7 +151,8 @@ test = [
     "pytest-xdist",
     "pytest-click",
     "pytest-run-subprocess",
-]
+    "coverage"
+    ,"exceptiongroup"]
 typing = [
     "mypy",
     "types-requests",
@@ -158,6 +166,7 @@ docs = [
     "sphinxcontrib-spelling",
     "sphinx-inline-tabs",
     "sphinxcontrib-mermaid",
+    "furo"
 ]
 docslive = [
     "sphinx",
