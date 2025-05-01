@@ -14,7 +14,8 @@ from sheap.RegionHandler.suportclass import SpectralLine, fe_ties, region_ties
 # Named constants for special components
 OUTFLOW_COMPONENT = 10
 FE_COMPONENT = 20
-POWER_LAW_RANGE_THRESHOLD = 2000
+#hipper parameters should be 
+POWER_LAW_RANGE_THRESHOLD = 1000
 
     
 class RegionBuilder:
@@ -43,7 +44,9 @@ class RegionBuilder:
         template_mode_fe:bool = False,
         add_outflow:bool = False,
         add_narrowplus:bool = False,
-        by_region:bool = False
+        by_region:bool = False,
+        force_linear:bool = False,
+        fe_tied_params = ('center', 'width')
         
     ) -> None:
         self.xmin: float = xmin
@@ -63,6 +66,8 @@ class RegionBuilder:
         self.add_narrowplus = add_narrowplus
         self.fe_regions = fe_regions
         self.by_region = by_region
+        self.fe_tied_params = fe_tied_params
+        self.force_linear = force_linear
         self.make_region()
 
     def _load_region_templates(self, paths: Optional[List[Union[str, Path]]]) -> None:
@@ -98,7 +103,8 @@ class RegionBuilder:
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         force_linear: Optional[bool] = None,
         mainline_candidates = None,
-        by_region: Optional[bool] = None
+        by_region: Optional[bool] = None,
+        fe_tied_params: Optional[Tuple] = None
     ) -> None:
         # Override defaults
         xmin = xmin if xmin is not None else self.xmin
@@ -112,7 +118,9 @@ class RegionBuilder:
         add_outflow = add_outflow if add_outflow is not None else self.add_outflow
         add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
         fe_regions = fe_regions if fe_regions is not None else self.fe_regions
+        force_linear = force_linear if force_linear is not None else self.force_linear
         by_region = by_region if by_region is not None else self.by_region
+        fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
             #template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
         
         self.regions_to_fit.clear()
@@ -121,21 +129,22 @@ class RegionBuilder:
 
         narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
         if template_mode_fe and (xmax - xmin) > 1000:
-            if xmin>=4400 and xmax<=6000:
-               self.regions_to_fit.extend([SpectralLine(
-                    center=0,
-                    line_name="feop",
-                    kind="fe",  # fallback to empty
-                    component= FE_COMPONENT+1,
-                    amplitude=0,
-                    profile="fitFeOP",
-                    how="template",
-                    which="OP",
-                    region = "OP"
-                )])
-            else:
-                print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
-                template_mode_Fe = False
+            #the cuantity of pixels should be related to the the region in where the spectra have to be 
+            #if xmin>=3000 and xmax<=6000:
+            self.regions_to_fit.extend([SpectralLine(
+                center=0,
+                line_name="feop",
+                kind="fe",  # fallback to empty
+                component= FE_COMPONENT+1,
+                amplitude=0,
+                profile="fitFeOP",
+                how="template",
+                which="OP",
+                region = "OP"
+            )])
+        else:
+            print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
+            template_mode_Fe = False
                 
         for name, region in self.lines_regions_available.items():
             for entry in region['region']:
@@ -172,7 +181,7 @@ class RegionBuilder:
 
         # Build tied parameters
         self.tied_params.extend(
-            fe_ties(self.regions_to_fit,by_region=by_region)
+            fe_ties(self.regions_to_fit,by_region=by_region,tied_params=fe_tied_params)
         )
         
         
@@ -283,10 +292,10 @@ class RegionBuilder:
             how='sum',
             region = entry.region
         )
-    def _fitting_rutine(self,add_step=True,tied_fe=False):
+    def _fitting_rutine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
         "build a simple rutine to be fitted"
         _rutine_dict = {"complex_region":self.regions_to_fit,"fitting_rutine":
-            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":1000}},"outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50]}
+            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},"outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50]}
         if add_step:
             _tied_params = []
             _tied_params.extend(
@@ -296,5 +305,5 @@ class RegionBuilder:
                         known_tied_relations=self.known_tied_relations,only_known=True))
             if not self.template_mode_fe and tied_fe:
                 _tied_params.extend(fe_ties(self.regions_to_fit))
-            _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":500}
+            _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
         return _rutine_dict

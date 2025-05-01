@@ -11,7 +11,7 @@ import pandas as pd
 import yaml
 from jax import jit
 
-from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, power_law
+from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, powerlaw
 from sheap.Fitting.MasterMinimizer import MasterMinimizer
 from sheap.Fitting.template_fe_func import fitFeOP, fitFeUV
 from sheap.Fitting.utils import combine_auto
@@ -32,12 +32,12 @@ DEFAULT_LIMITS = {
     'broad': dict(upper_width=5000.0, lower_width=425.0, center_shift=5000.0,max_amplitude=10.),
     'narrow': dict(upper_width=200.0, lower_width=50.0, center_shift=2500.0,max_amplitude=10.),
     'outflow': dict(upper_width=5000.0, lower_width=425.0, center_shift=2500.0,max_amplitude=10.),
-    'fe': dict(upper_width=3000.0, lower_width=210.0, center_shift=2500.0,max_amplitude=0.07),
+    'fe': dict(upper_width=3000.0, lower_width=210., center_shift=2500.0,max_amplitude=0.07),
 }
 PROFILE_FUNC_MAP: Dict[str, Any] = {
     'gaussian': gaussian_func,
     'lorentzian': lorentzian_func,
-    'power_law': power_law,
+    'powerlaw': powerlaw,
     'fitFeOP': fitFeOP,
     'fitFeUV': fitFeUV,
     'linear': linear
@@ -100,6 +100,7 @@ class RegionFitting:
         self.profile_functions: List[Any] = []
         self.profile_params_index: List[List[int]] = []
         self.profile_names:List[str] = []
+        self.profile_params_index_list:List[List[int]] = []
         #self.list_dependencies: List[str] = []
         self.constraints: Optional[jnp.ndarray] = None
         self.params: Optional[jnp.ndarray] = None
@@ -319,20 +320,26 @@ class RegionFitting:
         self.params_dict.clear()
         self.profile_names.clear()
         self.profile_params_index.clear()
+        self.profile_params_index_list.clear()
         add_linear = True
-        idx = 0 #parameter_position
+        
         # Loop over each line configuration
+        idx = 0 #parameter_position
         for cfg in self.region_defs:
-            constraints = _make_constraints(cfg, self.limits_map)
+            #print(cfg)
+            constraints = _make_constraints(cfg, self.limits_map.get(cfg.kind),profile=profile)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
             self.profile_functions.append(PROFILE_FUNC_MAP.get(constraints.profile, gaussian_func))
+            if cfg.kind=="continuum":
+                add_linear = False
             self.profile_names.append(constraints.profile)
             for i, name in enumerate(constraints.param_names):
                 key = f"{name}_{cfg.line_name}_{cfg.component}_{cfg.kind}"
                 self.params_dict[key] = idx + i
             self.profile_params_index.append([idx,idx + len(constraints.param_names)])
+            self.profile_params_index_list.append(np.arange(idx,idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
             
         if add_linear:
@@ -346,6 +353,7 @@ class RegionFitting:
                 key = f"{name}_{'continiumm'}_{0}_{'linear'}"
                 self.params_dict[key] = idx + i
             self.profile_params_index.append([idx,idx+2])
+            self.profile_params_index_list.append(np.arange(idx,idx+2))
         # Always add a linear continuum fallback
         
         self.initial_params = jnp.array(init_list)
@@ -398,7 +406,7 @@ class RegionFitting:
             match_list += ([self.params_dict[key] for key in self.params_dict.keys() if all([p in key for p in param])])
         
         match_list = jnp.array(match_list)
-        unique_arr =jnp.unique(match_list)
+        unique_arr = jnp.unique(match_list)
         if verbose:
             print(np.array(list(self.params_dict.keys()))[unique_arr])#[])
         return unique_arr
@@ -436,6 +444,7 @@ class RegionFitting:
         profile_functions = np.array(self.profile_functions)[mask_idx]
         initial_params = np.array(self.initial_params)[mask_idx]
         profile_params_index = np.array(self.profile_params_index)[mask_idx].astype(int)
+        profile_params_index_list = [item for id in idx for item in self.profile_params_index_list[id]]
         line_names = line_names[mask_idx]
 
         # Return as a dictionary
@@ -449,7 +458,8 @@ class RegionFitting:
             "profile_functions": profile_functions,
             "initial_params": initial_params,
             "profile_params_index": profile_params_index,
-            "line_name": line_names
+            "line_name": line_names,
+            "profile_params_index_list":profile_params_index_list
         }
 
         return result
@@ -509,7 +519,7 @@ def make_get_param_coord_value(
 def _make_constraints(
     cfg: SpectralLine,
     limits: FittingLimits
-) -> ConstraintSet:
+,profile="guassian") -> ConstraintSet:
     """
     Compute initial values and bounds for the profile parameters of a spectral line.
 
@@ -520,14 +530,7 @@ def _make_constraints(
     Returns:
         A ConstraintSet containing init values, upper/lower bounds, profile type, and parameter names.
     """
-    center = cfg.center
-    shift = -5 if cfg.kind == "outflow" else 0
-
-    # Velocity to wavelength conversion
-    center_upper = center + kms_to_wl(limits.center_shift, center)
-    center_lower = center - kms_to_wl(limits.center_shift, center)
-    width_upper = kms_to_wl(limits.upper_width, center)
-    width_lower = kms_to_wl(limits.lower_width, center)
+    
 
     if cfg.kind.lower() == 'fe' and cfg.how == 'template':
         if not cfg.which:
@@ -536,26 +539,35 @@ def _make_constraints(
         return ConstraintSet(
             init=[jnp.log10(1100.), 0.0, 1.0],
             upper=[3.5, 100., 100.],
-            lower=[3.0, -100., 0.0],
+            lower=[2.7, -100., 0.0],
             profile='fitFe' + cfg.which,
             param_names=['log_FWHM', 'shift', 'scale']
         )
 
-    elif cfg.profile == 'power_law':
+    elif cfg.profile == 'powerlaw':
         return ConstraintSet(
-            init=[-1.0, 0.0],
-            upper=[0.0, jnp.inf],
-            lower=[-jnp.inf, -jnp.inf],
-            profile='power_law',
-            param_names=['index', 'b']
+            init= [-1.0,0.0],
+            upper= [0.0,10.],
+            lower= [-10.0,0.0],
+            profile='powerlaw',
+            param_names=['index', 'scale']
         )
-
+    
     else:
+        center = cfg.center
+        shift = -5 if cfg.kind == "outflow" else 0
+
+        # Velocity to wavelength conversion
+        center_upper = center + kms_to_wl(limits.center_shift, center)
+        center_lower = center - kms_to_wl(limits.center_shift, center)
+        width_upper = kms_to_wl(limits.upper_width, center)
+        width_lower = kms_to_wl(limits.lower_width, center)
+        
         return ConstraintSet(
             init = [float(cfg.amplitude), float(center + shift), float(width_lower)],
             upper=[limits.max_amplitude, center_upper, width_upper],
             lower=[0.0, center_lower, width_lower],
-            profile=cfg.profile,
+            profile = cfg.profile or profile,
             param_names=['amplitude', 'center', 'width']
         )
         

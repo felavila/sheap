@@ -45,14 +45,16 @@ class SheapPlot:
             fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(35, 15))
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         for i,profile in enumerate(profile_names):
-            #print(region_defs[i].region)
+            
             min_,max_ = profile_index_list[i]
             profile_function = profile_functions[i]
+            region = region_defs[i]
+            #print(region.region)
             values_ = params[min_:max_] #mmm i am taking alot of adbantage of the "gaussianity of the equation"
             local_y = profile_function(x_axis,values_)
             c = "k"
             #ax1.text(values[1],max(ylim),text,verticalalignment="bottom",horizontalalignment="center")
-            if profile != "linear" and "Fe" not in profile:
+            if region.region != "continuum" and "Fe" not in profile:
                 if "fe" in region_defs[i].region.lower():
                     color = "grey"
                     c =  "grey"
@@ -71,7 +73,7 @@ class SheapPlot:
             elif "Fe" in profile:
                 ax1.plot(x_axis, local_y,zorder=3,ls='-.',color="grey")
             
-            elif profile == "linear":
+            elif region.region == "continuum":
                 #ax1.axvline(values[1],ls="--",linewidth=1,c=c)
                 ax1.plot(x_axis, local_y,zorder=3,ls='-.',color=filtered_default_colors[i])
             ax1.set_ylabel("Flux", fontsize=20)

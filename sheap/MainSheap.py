@@ -14,10 +14,10 @@ from sheap.tools.unred import unred
 from sheap.utils import prepare_uncertainties  # ?
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
-
+#we have to save the nme of the object? that will be the strat after that we will 
 class Sheapectral:
     #the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A 
-    #TODO normalization ? a good option or not?
+    #TODO normalization ? a good option or not? #maybe we can move all the normalization to the pre fitting process? mmm we have to check that
     #TODO I have to take in consideration a think i never thing before the sdss spectras posses some 0 inside the errors the logic will be give to those a really big error in compensation
     def __init__(self,
     spectra: Union[str, jnp.ndarray],

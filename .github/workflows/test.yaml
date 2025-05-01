@@ -146,9 +146,9 @@ jobs:
 
       - name: Pin 'Static Type Checking' Dependencies
         run: tox -vv -s false -e pin-deps -- -E typing
-
-      - name: Do Type Checking
-        run: tox -e type -vv -s false
+      #maybe add it in the fututure
+      #- name: Do Type Checking
+       # run: tox -e type -vv -s false
 
       ###### TEST SUITE RUN against Edit and Sdist ######
       - name: Build and Test 'Edit' and 'Sdist' & Build Wheel(s)

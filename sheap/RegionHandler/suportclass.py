@@ -54,7 +54,7 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
             for i, e in enumerate(entries_region):
                 if i == idx_center or 'fe' not in e.kind:
                     continue
-                for p in ('center', 'width'): #
+                for p in tied_params: #
                     ties.append([
                         f"{p}_{e.line_name}_{e.component}_{e.kind}",
                         f"{p}_{entries_region[idx_center].line_name}_{entries_region[idx_center].component}_{entries_region[idx_center].kind}"
@@ -65,7 +65,7 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
         for i, e in enumerate(entries):
             if i == idx_center or 'fe' not in e.kind:
                 continue
-            for p in ('center', 'width'):
+            for p in tied_params:
                 ties.append([
                     f"{p}_{e.line_name}_{e.component}_{e.kind}",
                     f"{p}_{entries[idx_center].line_name}_{entries[idx_center].component}_{entries[idx_center].kind}"

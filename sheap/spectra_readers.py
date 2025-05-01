@@ -21,6 +21,7 @@ def fits_reader_sdss(file):
         hdul[1].data["flux"] * flux_scale,
         flux_scale / np.sqrt(hdul[1].data["ivar"])
     ])
+    data_array[np.isinf(data_array)] = 1e20
     header_array = np.array([
         hdul[0].header["PLUG_RA"],
         hdul[0].header["PLUG_DEC"]

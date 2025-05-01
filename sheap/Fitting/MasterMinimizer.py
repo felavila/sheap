@@ -33,7 +33,7 @@ class MasterMinimizer:
         self.func = func #TODO desing the function class 
         self.non_optimize_in_axis = non_optimize_in_axis #axis in where is require enter data of same dimension
         self.num_steps = num_steps
-        self.learning_rate = learning_rate  or 1e-1
+        self.learning_rate = learning_rate  or 1e-3
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
         self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate)) 
@@ -67,6 +67,14 @@ class MasterMinimizer:
         self.num_steps = num_steps or self.num_steps
         self.optimizer = optimizer or self.optimizer
         non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
+    #     schedule = optax.join_schedules(
+    # schedules=[
+    #     optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=500),
+    #     optax.exponential_decay(init_value=1e-3, transition_steps=1000, decay_rate=0.95)
+    # ],
+    # boundaries=[500]
+# )
+        #print("eje")
         self.default_args = (self.parsed_dependencies_tuple,
                         self.learning_rate,
                         self.num_steps,
