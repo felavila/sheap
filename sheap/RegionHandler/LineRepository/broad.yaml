@@ -9,9 +9,9 @@ region:
   - center: 1862.79
     line_name: AlIIIb
   - center: 1908.734
-    line_name: CIII]a
+    line_name: CIII]
   - center: 2800
-    line_name: MgIIa
+    line_name: MgII
   - center: 5890
     line_name: NaIa
   - center: 5896

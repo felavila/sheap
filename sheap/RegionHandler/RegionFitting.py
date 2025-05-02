@@ -11,7 +11,7 @@ import pandas as pd
 import yaml
 from jax import jit
 
-from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, powerlaw
+from sheap.Fitting.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti
 from sheap.Fitting.MasterMinimizer import MasterMinimizer
 from sheap.Fitting.template_fe_func import fitFeOP, fitFeUV
 from sheap.Fitting.utils import combine_auto
@@ -40,7 +40,8 @@ PROFILE_FUNC_MAP: Dict[str, Any] = {
     'powerlaw': powerlaw,
     'fitFeOP': fitFeOP,
     'fitFeUV': fitFeUV,
-    'linear': linear
+    'linear': linear,
+    "balmerconti":balmerconti
 }
 
         
@@ -117,6 +118,7 @@ class RegionFitting:
                 renormalize: bool = True
             ) -> None:
         #the idea is that is exp_factor dosent have the same shape of max_flux could be fully renormalice the spectra.
+        print(f"Fitting {spectra.shape[0]} spectra")
         self.model = jit(combine_auto(self.profile_functions)) #maybe this could be taked before
         _, mask, max_flux, norm_spec,exp_factor = self._prep_data(
             spectra, inner_limits, outer_limits, force_cut,exp_factor)
@@ -550,6 +552,18 @@ def _make_constraints(
             upper= [0.0,10.],
             lower= [-10.0,0.0],
             profile='powerlaw',
+            param_names=['index', 'scale']
+        )
+        
+    #pars[0] = A (amplitude)
+    #    pars[1] = T (temperature in K)
+    #    pars[2] = τ0 (optical‐depth scale)
+    elif cfg.profile == "balmerconti":
+        return ConstraintSet(
+            init= [1.0,10000.,1.],
+            upper= [10.0,50000,2.], #mmm
+            lower= [0.0,5000.0,0.01],
+            profile='balmerconti',
             param_names=['index', 'scale']
         )
     

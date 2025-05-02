@@ -32,6 +32,58 @@ def loglinear(x,params):
 @jit
 def linear_combination(eieigenvectors,params):
     return jnp.nansum(eieigenvectors.T*100*params,axis=1)
+
+@jit
+@param_count(3)
+def balmerconti(x,pars):
+    """
+    Compute the Balmer continuum (Dietrich+02) in pure JAX.
+
+    Parameters
+    ----------
+    x : array-like
+        Wavelengths in Angstrom.
+    pars : array-like, shape (3,)
+        pars[0] = A (amplitude)
+        pars[1] = T (temperature in K)
+        pars[2] = τ0 (optical‐depth scale)
+   
+
+    Returns
+    -------
+    result : ndarray
+        Balmer continuum flux in the same shape as x.
+    """
+    # Constants
+    h   = 6.62607015e-34   # Planck’s constant, J·s
+    c   = 2.99792458e8     # Speed of light, m/s
+    k_B = 1.380649e-23     # Boltzmann constant, J/K
+
+    # Edge
+    lambda_BE = 3646.0  # Å
+
+    # Convert Å → m
+    lam_m = x * 1e-10
+
+    # Planck function B_λ(lam_m, T) [SI units]
+    T = pars[1]
+    exponent = h * c / (lam_m * k_B * T)
+    B_lambda = (2.0 * h * c**2) / (lam_m**5 * (jnp.exp(exponent) - 1.0))
+
+    # Apply the same “scale=10000” factor as in astropy’s BlackBody
+    B_lambda *= 1e4
+
+    # Optical depth τ(λ)
+    tau = pars[2] * (x / lambda_BE)**3
+
+    # Balmer-continuum formula
+    result = pars[0] * B_lambda * (1.0 - jnp.exp(-tau))
+
+    # Zero above the Balmer edge
+    result = jnp.where(x > lambda_BE, 0.0, result)/1e18 #factor the normalisacion
+
+    return result
+
 # @jit
 # def linear_combinationv2(eieigenvectors,params):
 #     combination = eieigenvectors.T*100*params

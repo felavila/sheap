@@ -98,13 +98,19 @@ def region_ties(
     Returns a list of [param1, param2] tie declarations.
     """
     # Determine mainline
-    if isinstance(mainline_candidates, (list, tuple)):
+    mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad"] #this can be disscuss in the future
+    mainline_candidates_narrow = ["OIIIc","NIIb","MgII","CIII]","SIIb"] #this can be disscuss in the future
+    
+    if isinstance(mainline_candidates_broad, (list, tuple)):
         available = {e.line_name for e in local_region_list}
-        mainline = next((name for name in mainline_candidates if name in available),
-                        mainline_candidates[0] if mainline_candidates else '')
-    else:
-        mainline = mainline_candidates
-
+        mainline_broad = next((name for name in mainline_candidates_broad if name in available),
+                        mainline_candidates_broad[0] if mainline_candidates_broad else '')
+    if isinstance(mainline_candidates_narrow, (list, tuple)):
+        available = {e.line_name for e in local_region_list}
+        mainline_narrow = next((name for name in mainline_candidates_narrow if name in available),
+                        mainline_candidates_narrow[0] if mainline_candidates_narrow else '')
+  
+    #print(mainline_broad,mainline_narrow)
     ties: List[List[str]] = []
 
     # Validate optional mappings
@@ -113,15 +119,15 @@ def region_ties(
             raise TypeError(f"{name} must be str or dict, got {type(mapping).__name__}")
 
     
-    tied_narrow_to = tied_narrow_to or mainline
-    tied_broad_to = tied_broad_to or mainline
+    tied_narrow_to = tied_narrow_to or mainline_broad
+    tied_broad_to = tied_broad_to or mainline_narrow
     
     # Helper to build mapping dict
     def _to_map(target, count):
         if isinstance(target, str):
             return {k: {"line_name": target, "component": k}
                     for k in range(1, count + 1)}
-        return {k: {"line_name": target.get(k, {}).get("line_name", mainline),
+        return {k: {"line_name": target.get(k, {}).get("line_name", tied_broad_to),
                     "component": target.get(k, {}).get("component", k)}
                 for k in range(1, count + 1)}
 

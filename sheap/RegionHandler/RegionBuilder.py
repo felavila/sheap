@@ -36,10 +36,9 @@ class RegionBuilder:
         xmax: float,
         n_narrow: int = 1,
         n_broad: int = 1,
-        yaml_paths: Optional[List[Union[str, Path]]] = list(Path(__file__).resolve().parent.glob("regions_as_fantasy/*.yaml")),
+        yaml_paths: Optional[List[Union[str, Path]]] = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml")),
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        mainline_candidates = ["Hbeta","Halpha"],
+        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,        
         fe_regions = ['Fe_uv',"FeII_IZw1","feII_forbidden","FeII_coronal"],
         template_mode_fe:bool = False,
         add_outflow:bool = False,
@@ -61,7 +60,7 @@ class RegionBuilder:
         self._load_region_templates(yaml_paths)
         self.tied_params: List[List[str]] = []
         self.template_mode_fe = template_mode_fe
-        self.mainline_candidates = mainline_candidates
+        #self.mainline_candidates = mainline_candidates
         self.add_outflow = add_outflow
         self.add_narrowplus = add_narrowplus
         self.fe_regions = fe_regions
@@ -113,7 +112,7 @@ class RegionBuilder:
         n_narrow = n_narrow if n_narrow is not None else self.n_narrow
         tied_narrow_to = tied_narrow_to if tied_narrow_to is not None else self.tied_narrow_to
         tied_broad_to =  tied_broad_to if tied_broad_to is not None else self.tied_broad_to
-        mainline_candidates =  mainline_candidates if mainline_candidates is not None else self.mainline_candidates
+        mainline_candidates =  mainline_candidates #if mainline_candidates is not None else self.mainline_candidates
         template_mode_fe =  template_mode_fe if template_mode_fe is not None else self.template_mode_fe
         add_outflow = add_outflow if add_outflow is not None else self.add_outflow
         add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
@@ -125,27 +124,45 @@ class RegionBuilder:
         
         self.regions_to_fit.clear()
         self.tied_params.clear()
-        #self.tied_params_step_2.clear()
-
         narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
-        if template_mode_fe and (xmax - xmin) > 1000:
+        if template_mode_fe: #and (xmax - xmin) > 1000:
             #the cuantity of pixels should be related to the the region in where the spectra have to be 
             #if xmin>=3000 and xmax<=6000:
-            self.regions_to_fit.extend([SpectralLine(
-                center=0,
-                line_name="feop",
-                kind="fe",  # fallback to empty
-                component= FE_COMPONENT+1,
-                amplitude=0,
-                profile="fitFeOP",
-                how="template",
-                which="OP",
-                region = "OP"
-            )])
-        else:
-            print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
-            template_mode_Fe = False
-                
+            #tested formes of 
+            t_c = 0
+            if max(0, min(xmax, 7484) - max(xmin, 3686))>= 1000:
+                print("add OP template")
+                self.regions_to_fit.extend([SpectralLine(
+                    center=0,
+                    line_name="feop",
+                    kind="fe",  # fallback to empty
+                    component= FE_COMPONENT+1,
+                    amplitude=0,
+                    profile="fitFeOP",
+                    how="template",
+                    which="OP",
+                    region = "OP"
+                )])
+                t_c += 1
+            if max(0, min(xmax, 3500) - max(xmin, 1200))>= 1000:
+                print("add UV template")
+                self.regions_to_fit.extend([SpectralLine(
+                    center=0,
+                    line_name="feuv",
+                    kind="fe",  # fallback to empty
+                    component= FE_COMPONENT+1,
+                    amplitude=0,
+                    profile="fitFeUV",
+                    how="template",
+                    which="UV",
+                    region = "UV" #NOT SHURE 
+                )])
+                t_c += 1
+            if t_c == 0:
+                print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
+                #template_mode_Fe = False
+        is_tied_broad = False if tied_broad_to is not None else True 
+        is_tied_narrow = False if tied_narrow_to is not None else True 
         for name, region in self.lines_regions_available.items():
             for entry in region['region']:
                 center = float(entry.get('center', -np.inf))
@@ -161,6 +178,20 @@ class RegionBuilder:
                     how=entry.get('how'),
                     region = name
                 )
+                if tied_broad_to is not None:
+                    if isinstance(tied_broad_to,str) and tied_broad_to==base.line_name:
+                        is_tied_broad = True
+                    elif isinstance(tied_broad_to,(list,Tuple)):
+                        is_tied_broad = True
+                        print("work in progress")
+                
+                if tied_narrow_to is not None:
+                    if isinstance(tied_narrow_to,str) and tied_narrow_to==base.line_name:
+                        is_tied_narrow = True
+                    elif isinstance(tied_narrow_to,(list,Tuple)):
+                        is_tied_narrow = True
+                        print("work in progress")                         
+                        
                 if name in main_regions:
                     comps = self._handle_main_line(base, n_narrow, n_broad)
                 elif name in narrow_keys:
@@ -172,7 +203,17 @@ class RegionBuilder:
                 else:
                     continue
                 self.regions_to_fit.extend(comps)
+                
+        assert is_tied_broad, f"'tied_broad_to': {tied_broad_to} not in the region"
+        assert is_tied_narrow, f"'tied_narrow_to': {tied_narrow_to} not in the region"
 
+        #if add_balmercontiniumm:
+        # self.regions_to_fit.append(
+        #         SpectralLine(center=0.0, line_name='balmerconti', kind='continuum', component=0,
+        #                     profile='balmerconti',region='continuum')
+        #     )
+        
+        
         if (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD and not force_linear:
             self.regions_to_fit.append(
                 SpectralLine(center=0.0, line_name='powerlaw', kind='continuum', component=0,
@@ -194,7 +235,7 @@ class RegionBuilder:
     # known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = None,
         
         self.tied_params.extend(
-            region_ties(self.regions_to_fit,self.mainline_candidates,n_narrow,n_broad,
+            region_ties(self.regions_to_fit,None,n_narrow,n_broad,
                         tied_narrow_to=tied_narrow_to,
                         tied_broad_to=tied_broad_to,
                         known_tied_relations=self.known_tied_relations))
@@ -288,7 +329,7 @@ class RegionBuilder:
             line_name=entry.line_name,
             kind='fe',
             component=FE_COMPONENT,
-            amplitude=0.1,
+            amplitude= 0.1 if entry.amplitude==1.0 else entry.amplitude,
             how='sum',
             region = entry.region
         )
@@ -299,7 +340,7 @@ class RegionBuilder:
         if add_step:
             _tied_params = []
             _tied_params.extend(
-            region_ties(self.regions_to_fit,self.mainline_candidates,self.n_narrow,self.n_broad,
+            region_ties(self.regions_to_fit,None,self.n_narrow,self.n_broad,
                         tied_narrow_to=self.tied_narrow_to,
                         tied_broad_to=self.tied_broad_to,
                         known_tied_relations=self.known_tied_relations,only_known=True))

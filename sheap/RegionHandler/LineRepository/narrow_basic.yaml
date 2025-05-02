@@ -30,7 +30,12 @@ region:
   - center: 6548.05
     line_name: NIIb
     kind: narrow 
-
+  - center: 1908.734
+    line_name: CIII]
+    kind: narrow 
+  - center: 2800
+    line_name: MgII
+    kind: narrow 
 # tabulated_tied_params:
 #   - [["OIIIc","OIIIb"],["amplitude_OIIIb_narrow","amplitude_OIIIc_narrow","*0.3"]]
 #   - [["NIIa","NIIb"],["amplitude_NIIb_narrow","amplitude_NIIa_narrow","*0.3"]]
