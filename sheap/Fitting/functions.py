@@ -1,15 +1,25 @@
-from typing import Callable, Dict, Tuple, Optional
+from typing import Callable, Dict, Optional, Tuple
+
+import jax
 import jax.numpy as jnp
-from jax import jit,vmap
-import jax 
-from sheap.fitting.utils import param_count
+from jax import jit, vmap
+
+from sheap.Fitting.utils import param_count
+
 
 #maybe move to linear without this parameter? in the end will be require add 1e-3
 #what is the best option ?
 @jit
 @param_count(2)
 def linear(x,params):
-    return params[0] * (x/1000) + params[1]
+    return params[0] * (x/1000.0) + params[1]
+
+@jit
+@param_count(2)
+def powerlaw(x,params):
+    x = jnp.nan_to_num(x)
+    return  params[1] * jax.lax.pow(x / 1000.,params[0]) #+ params[1]
+
 @jit
 @param_count(2)
 def loglinear(x,params):
@@ -50,10 +60,6 @@ def gaussian_func(x,params):
 def lorentzian_func(x,params):
     amplitude,center,gamma = params
     return amplitude/(1+((x-center)/gamma)**2) 
-@jit
-@param_count(2)
-def power_law(x,params):
-    return  (x/1000)**(params[0]) + params[1]
 
 class GaussianSum:
     def __init__(self, n, constraints=None, inequalities=None):

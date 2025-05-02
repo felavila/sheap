@@ -22,13 +22,13 @@ business_logic:
   - any:
     - changed-files:
       - any-glob-to-any-file:
-        - 'src/sheap/*'
-        - 'src/sheap/*'
+        - 'sheap/*'
+        - 'sheap/*'
 
 stubs:
   - any:
     - changed-files:
-      - any-glob-to-any-file: ['src/stubs/*', 'src/stubs/**/*']
+      - any-glob-to-any-file: ['sheap/stubs/*', 'sheap/stubs/**/*']
 
 ### TESTS ###
 ## Add 'test' label to any change within the 'tests' dir #

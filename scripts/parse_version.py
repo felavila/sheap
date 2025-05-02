@@ -22,7 +22,7 @@ MatchData = t.Union[
 
 
 DEMO_SECTION: str = (
-    "[tool.software-release]\nversion_variable = " "src/package_name/__init__.py:__version__"
+    "[tool.software-release]\nversion_variable = " "package_name/__init__.py:__version__"
 )
 TOML = 'pyproject.toml'
 
@@ -53,7 +53,7 @@ software_release_parser = build_client_callback(
         "Expected to find the '[tool.software-release]' section, in "
         f"the '{file_path}' file, with key 'version_variable'.\nFor example:\n"
         f"{DEMO_SECTION}\n indicates that the version string should be looked "
-        "up in the src/package_name/__init__.py file and specifically "
+        "up in the package_name/__init__.py file and specifically "
         "a '__version__ = 1.2.3' kind of line is expected to be found."
     ),
 )

@@ -1,8 +1,8 @@
-from typing import Callable, Dict, Tuple, Optional
-import jax.numpy as jnp
-from jax import  lax,jit,vmap
-import numpy as np 
+from typing import Callable, Dict, Optional, Tuple
 
+import jax.numpy as jnp
+import numpy as np
+from jax import jit, lax, vmap
 
 
 def prepare_spectra(spectra_list,outer_limits):
@@ -74,7 +74,7 @@ def prepare_uncertainties(y_uncertainties: Optional[jnp.ndarray], y_data: jnp.nd
     nan_positions = jnp.isnan(y_data) | jnp.isnan(y_uncertainties)
     
     # Set uncertainties to 1e11 at positions where y_data is NaN/here i have some corncerns about is it is weight or not 
-    y_uncertainties = jnp.where(nan_positions, 1e11, y_uncertainties)
+    y_uncertainties = jnp.where(nan_positions, 1e31, y_uncertainties)
     
     return y_uncertainties
 

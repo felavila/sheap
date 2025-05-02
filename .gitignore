@@ -33,3 +33,5 @@ pydoer-graphs/
 # LOGS
 
 cookie-py.log
+#txt
+pylint-result.txt

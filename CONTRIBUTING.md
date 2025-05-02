@@ -1,7 +1,7 @@
 # Contributing
 
 Thank you for considering reading this guide!
-Contributions are welcome :)
+Contributions are welcome.
 
 
 * [Types of Contributions](#Types-of-Contributions)

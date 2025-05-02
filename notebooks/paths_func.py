@@ -31,7 +31,8 @@ def cross_pandas_spectra(path_dr16,path_data,name_csv):
     objs_panda_paths_list = [os.path.basename(path).replace(".fits", "") for path in file_paths]
     objs_panda_paths_filtered = objs_panda[objs_panda["dr_name"].isin(objs_panda_paths_list)].reset_index(drop=True)
     if len(objs_panda_paths_filtered)==0:
-        raise "Check the paths your panda is empty"
+        print("mmmm")
+        return None,None
     else:
         print(f"You cross match found {len(objs_panda_paths_filtered)}")
     objs_panda_paths_filtered["fit_path"] = objs_panda_paths_filtered["dr_name"].apply(lambda x: os.path.join(path_dr16,f"{path_data}/{x}.fits")).values

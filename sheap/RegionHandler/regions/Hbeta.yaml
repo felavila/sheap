@@ -39,15 +39,15 @@ region:
     amplitude: 0.2
     line_name: OIIIb
   - how: template
-    line_name: Fe
+    line_name: fe
     which: OP
-    kind: Fe
+    kind: fe
 tied_params_step_1:
-  - [amplitude_OIIIa_narrow, amplitude_OIIIb_narrow, "*0.3"]
-  - [center_OIIIa_narrow, center_OIIIb_narrow]
-  - [width_OIIIa_narrow, width_OIIIb_narrow]
-  - [width_HeIIb_narrow, width_OIIIb_narrow]
-  - [center_HeIIb_narrow, center_OIIIb_narrow]
+  - [amplitude_OIIIa_1_narrow, amplitude_OIIIb_1_narrow, "*0.3"]
+  - [center_OIIIa_1_narrow, center_OIIIb_1_narrow]
+  - [width_OIIIa_1_narrow, width_OIIIb_1_narrow]
+  - [width_HeIIb_1_narrow, width_OIIIb_1_narrow]
+  - [center_HeIIb_1_narrow, center_OIIIb_1_narrow]
 tied_params_step_2: []
 
 inner_limits: [4500, 5020]

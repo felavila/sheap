@@ -1,11 +1,9 @@
-from typing import Callable, Dict, Tuple, Optional
-import jax.numpy as jnp
-from jax import  lax,jit,vmap
 import functools as ft
-import numpy as np 
+from typing import Callable, Dict, Optional, Tuple
 
-
-
+import jax.numpy as jnp
+import numpy as np
+from jax import jit, lax, vmap
 
 
 @jit
@@ -85,7 +83,8 @@ def get_EQW(flux_to_mini,baseline):
     continuum  = jnp.nanmedian(jnp.where(baseline == 0,jnp.nan,baseline))
     return diffspec/continuum#,diffspec,continuum,_dxarr
 
-def get_EQW_with_mask(flux_to_mini,baseline,mask):
+def get_EQW_with_mask(spectra,baseline,mask):
+    "this use spectra an array that contain all the spectra"
     #based as ussual in https://github.com/pyspeckit/pyspeckit/blob/4e1ed1c9c4759728cea04197d00d5c5f867b43f9/pyspeckit/spectrum/fitters.py#L357
     #sp_star_model.specfit.EQW(plot=True, plotcolor='g', fitted=False, components=False, annotate=True, loc='lower left')
     #take care of the units can be use normalize but you should be aware of that 
@@ -96,8 +95,8 @@ def get_EQW_with_mask(flux_to_mini,baseline,mask):
     #return jnp.nansum(jnp.where(mask,0,flux_over_cont))
     baseline = baseline * (~mask).astype(jnp.float64)
     
-    _dxarr = jnp.concatenate([jnp.diff(flux_to_mini[0, :]),jnp.diff(flux_to_mini[0, :])[-1:]])
-    diffspec = jnp.nansum(jnp.where(baseline == 0,jnp.nan,baseline-flux_to_mini[1, :])*jnp.nanmedian(_dxarr))
+    _dxarr = jnp.concatenate([jnp.diff(spectra[0, :]),jnp.diff(spectra[0, :])[-1:]])
+    diffspec = jnp.nansum(jnp.where(baseline == 0,jnp.nan,baseline-spectra[1, :])*jnp.nanmedian(_dxarr))
     continuum  = jnp.nanmedian(jnp.where(baseline == 0,jnp.nan,baseline))
     return diffspec/continuum#,diffspec,continuum,_dxarr
 

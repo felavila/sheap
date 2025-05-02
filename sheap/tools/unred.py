@@ -1,11 +1,14 @@
 """Based in the implementation in numpy from 
 https://github.com/sczesla/PyAstronomy/blob/93f6f0668d6b5aa77d281981e13ba1bf6ded38cd/src/pyasl/asl/unred.py#L4"""
 
-import jax.numpy as jnp
-from jax import jit,vmap
 import functools as ft
+
 import jax
-from sheap.tools.interp_tools import cubic_spline_coefficients,spline_eval
+import jax.numpy as jnp
+from jax import jit, vmap
+
+from sheap.tools.interp_tools import cubic_spline_coefficients, spline_eval
+
 
 @jit
 @ft.partial(vmap, in_axes=(0, 0,0), out_axes=0)

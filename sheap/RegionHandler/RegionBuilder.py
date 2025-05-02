@@ -1,271 +1,309 @@
-import os 
+# Balmer continuum, Balmer High order emission lines
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 import yaml
-import glob 
-import numpy as np 
-regions_as_fantasy_path = glob.glob(os.path.dirname(os.path.abspath(__file__))+"/regions_as_fantasy/*.yaml")
 
+from sheap.RegionHandler.suportclass import SpectralLine, fe_ties, region_ties
+
+#yaml_files = 
+# Named constants for special components
+OUTFLOW_COMPONENT = 10
+FE_COMPONENT = 20
+#hipper parameters should be 
+POWER_LAW_RANGE_THRESHOLD = 1000
+
+    
 class RegionBuilder:
-    """"
-    
-    The regions created from here ussually need around 100 iterations for converge 
-    
     """
-    
-    def __init__(self,xmin,xmax,n_narrow=1,n_broad=1):
-        self.xmax = xmax
-        self.xmin = xmin
-        self.read_ymls()
-        self.n_narrow = n_narrow
-        self.n_broad = n_broad
-        #Known relations
-        self.tied_pairs = [(["OIIIb","OIIIc"],["amplitude_OIIIb_narrow", "amplitude_OIIIc_narrow", "*0.3"]),
-                        (["NIIb","NIIa"],["amplitude_NIIb_narrow", "amplitude_NIIa_narrow", "*0.3"])]
+    Builds spectral fitting regions from YAML templates, with narrow, broad,
+    outflow, and FeII components, plus parameter tying.
+    """
+    known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [
+        (('OIIIb', 'OIIIc'), ['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3']),
+        (('NIIa', 'NIIb'), ['amplitude_NIIa_component_narrow', 'amplitude_NIIb_component_narrow', '*0.3']),
+        (('NIIa', 'NIIb'), ['center_NIIa_component_narrow', 'center_NIIb_component_narrow']),
+        (('OIIIb', 'OIIIc'), ['center_OIIIb_component_narrow', 'center_OIIIc_component_narrow']),
+    ]
 
-    def read_ymls(self):
-        paths = regions_as_fantasy_path
-        self.full_regions = {}
-        for path in paths:
-            with open(path, 'r') as file:
-                key = path.split("/")[-1].replace(".yaml", '')
-                region = yaml.safe_load(file)
-            self.full_regions[key] = region
-        self.regions_available = self.full_regions.keys()
-    def make_region(self,xmin=None,xmax=None,n_broad=None,n_narrow=None, 
-                main_regions = ['hydrogen', "helium"],Fe_regions = ['Fe_uv'],narrow_plus=False,verbose=False,tied_to=[],force_linear=False,out_flow=False):
-        """_summary_
-        summary of regions 'FeII_coronal', 'FeII_IZw1', 'narrow_basic', 'narrow_plus', 'Fe_uv', 'oiii_nii', 'feII_forbidden'
-        Args:
-            xmin (_type_, optional): _description_. Defaults to None.
-            xmax (_type_, optional): _description_. Defaults to None.
-            n_broad (_type_, optional): _description_. Defaults to None.
-            n_narrow (_type_, optional): _description_. Defaults to None.
-            main_regions (list, optional): _description_. Defaults to ['hydrogen', "helium"].
-            Fe_regions (list, optional): _description_. Defaults to [].
+    def __init__(
+        self,
+        xmin: float,
+        xmax: float,
+        n_narrow: int = 1,
+        n_broad: int = 1,
+        yaml_paths: Optional[List[Union[str, Path]]] = list(Path(__file__).resolve().parent.glob("regions_as_fantasy/*.yaml")),
+        tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        mainline_candidates = ["Hbeta","Halpha"],
+        fe_regions = ['Fe_uv',"FeII_IZw1","feII_forbidden","FeII_coronal"],
+        template_mode_fe:bool = False,
+        add_outflow:bool = False,
+        add_narrowplus:bool = False,
+        by_region:bool = False,
+        force_linear:bool = False,
+        fe_tied_params = ('center', 'width')
+        
+    ) -> None:
+        self.xmin: float = xmin
+        self.xmax: float = xmax
+        self.tied_narrow_to = tied_narrow_to
+        self.tied_broad_to = tied_broad_to
+        self.n_narrow: int = n_narrow
+        self.n_broad: int = n_broad
+        self.lines_regions_available: Dict[str, Any] = {}
+        self.regions_available: List[str] = []
+        self.regions_to_fit: List[SpectralLine] = []
+        self._load_region_templates(yaml_paths)
+        self.tied_params: List[List[str]] = []
+        self.template_mode_fe = template_mode_fe
+        self.mainline_candidates = mainline_candidates
+        self.add_outflow = add_outflow
+        self.add_narrowplus = add_narrowplus
+        self.fe_regions = fe_regions
+        self.by_region = by_region
+        self.fe_tied_params = fe_tied_params
+        self.force_linear = force_linear
+        self.make_region()
+
+    def _load_region_templates(self, paths: Optional[List[Union[str, Path]]]) -> None:
         """
-        xmin = xmin or self.xmin
-        xmax = xmax or self.xmax
-        n_broad = n_broad or self.n_broad
-        n_narrow = n_narrow or self.n_narrow
-        narrow_regions = ["narrow_basic"]
-        if narrow_plus:
-            narrow_regions += ["narrow_plus"]
-        #Fe_regions = None or Fe_regions
-        n_components = n_broad + n_narrow
-        self.regions_as_fantasy = {}
-        self.regions_to_fit = []
-        tied_list = []
-        super_tied = []
-        self.main_region_lines = {}#
-        if verbose:
-            print(f"A region with limits {xmin} to {xmax} (A), \nwith n_broad = {n_broad} and n_narrow = {n_narrow} \nand Fe regions {Fe_regions}, \nwill be created")
-        for key,region in self.full_regions.items():
-            list_ = []
-            for values in  region['region']:
-                if xmin <= values["center"] <= xmax:
-                    if key in main_regions:
-                        for n in range(n_components):
-                            local_copy = values.copy()
-                            if n < n_narrow:
-                                kind = "narrow"
-                                if n>0:
-                                    local_copy.update({"line_name": f"{local_copy['line_name']}{n + 1}","amplitude":0.5})  
-                            else:
-                                kind = "broad"
-                                if local_copy['line_name'] not in self.main_region_lines.keys():
-                                        self.main_region_lines[local_copy['line_name']] = local_copy['center']
-                                if n-n_narrow>=1:
-                                    local_copy.update({"line_name": f"{local_copy['line_name']}{n-n_narrow +1}","amplitude":0.5})
-                            local_copy.update({"kind": kind})
-                            #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-                            list_.append(local_copy)
-                    elif key in narrow_regions:
-                        for n in range(n_narrow):
-                            local_copy = values.copy()
-                            local_copy.update({"kind": "narrow"})
-                            if n>0:
-                                local_copy.update({"line_name": f"{local_copy['line_name']}{n-1}","amplitude":0.5})
-                            #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-                            list_.append(local_copy)
-                            if out_flow:
-                                local_copy.update({"kind": "outflow"})
-                                list_.append(local_copy)
-                                 
-                    elif key == "broad":
-                        for n in range(n_broad):
-                            local_copy = values.copy()
-                            local_copy.update({"kind": "broad"})
-                            #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-                            list_.append(local_copy)
-                    elif key in Fe_regions:
-                        local_copy = values.copy()
-                        local_copy.update({"kind": "Fe"})
-                        #local_copy.update({"line_name": f"{values['line_name']}_{values['center']}"})
-                        list_.append(local_copy)
-                    elif key =="outflow":
-                        print("COMING")
+        Load YAML files defining spectral regions.
+        """
+        if not paths:
+            raise ValueError("No YAML paths provided for region templates.")
+
+        for p in paths:
+            path = Path(p)
+            if not path.is_file():
+                raise FileNotFoundError(f"Region YAML not found: {path}")
+            data = yaml.safe_load(path.read_text())
+            key = path.stem
+            if 'region' not in data or not isinstance(data['region'], list):
+                raise KeyError(f"Missing 'region' list in YAML: {path}")
+            self.lines_regions_available[key] = data
+        self.regions_available = list(self.lines_regions_available.keys())
+
+    def make_region(
+        self,
+        xmin: Optional[float] = None,
+        xmax: Optional[float] = None,
+        n_broad: Optional[int] = None,
+        n_narrow: Optional[int] = None,
+        main_regions: List[str] = ['hydrogen', 'helium'],
+        fe_regions: Optional[List[str]] = None,
+        add_outflow: Optional[bool] = None,
+        add_narrowplus: Optional[bool] = None,
+        template_mode_fe: Optional[bool] = None,
+        tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        force_linear: Optional[bool] = None,
+        mainline_candidates = None,
+        by_region: Optional[bool] = None,
+        fe_tied_params: Optional[Tuple] = None
+    ) -> None:
+        # Override defaults
+        xmin = xmin if xmin is not None else self.xmin
+        xmax = xmax if xmax is not None else self.xmax
+        n_broad = n_broad if n_broad is not None else self.n_broad
+        n_narrow = n_narrow if n_narrow is not None else self.n_narrow
+        tied_narrow_to = tied_narrow_to if tied_narrow_to is not None else self.tied_narrow_to
+        tied_broad_to =  tied_broad_to if tied_broad_to is not None else self.tied_broad_to
+        mainline_candidates =  mainline_candidates if mainline_candidates is not None else self.mainline_candidates
+        template_mode_fe =  template_mode_fe if template_mode_fe is not None else self.template_mode_fe
+        add_outflow = add_outflow if add_outflow is not None else self.add_outflow
+        add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
+        fe_regions = fe_regions if fe_regions is not None else self.fe_regions
+        force_linear = force_linear if force_linear is not None else self.force_linear
+        by_region = by_region if by_region is not None else self.by_region
+        fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
+            #template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
+        
+        self.regions_to_fit.clear()
+        self.tied_params.clear()
+        #self.tied_params_step_2.clear()
+
+        narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
+        if template_mode_fe and (xmax - xmin) > 1000:
+            #the cuantity of pixels should be related to the the region in where the spectra have to be 
+            #if xmin>=3000 and xmax<=6000:
+            self.regions_to_fit.extend([SpectralLine(
+                center=0,
+                line_name="feop",
+                kind="fe",  # fallback to empty
+                component= FE_COMPONENT+1,
+                amplitude=0,
+                profile="fitFeOP",
+                how="template",
+                which="OP",
+                region = "OP"
+            )])
+        else:
+            print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
+            template_mode_Fe = False
+                
+        for name, region in self.lines_regions_available.items():
+            for entry in region['region']:
+                center = float(entry.get('center', -np.inf))
+                if not (xmin <= center <= xmax):
+                    continue
+                base = SpectralLine(
+                    center=center,
+                    line_name=str(entry['line_name']),
+                    kind=str(entry.get('kind', '')),  # fallback to empty
+                    component=int(entry.get('component', 1)),
+                    amplitude=entry.get('amplitude'),
+                    profile=entry.get('profile'),
+                    how=entry.get('how'),
+                    region = name
+                )
+                if name in main_regions:
+                    comps = self._handle_main_line(base, n_narrow, n_broad)
+                elif name in narrow_keys:
+                    comps = self._handle_narrow_line(base, n_narrow, add_outflow)
+                elif name == 'broad':
+                    comps = self._handle_broad_line(base, n_broad)
+                elif name in fe_regions and not template_mode_fe:
+                    comps = [self._handle_fe_line(base)]
                 else:
                     continue
-            if list_:
-                self.regions_as_fantasy[key] = list_
-                self.regions_to_fit += list_
-                available_lines = np.array([line.get("line_name") for line in list_ if "line_name" in line]).ravel()
-                for pair,factor in self.tied_pairs:
-                    if sum(line in pair for line in available_lines)==2:
-                        tied_list.append(factor)
-                        super_tied.append(factor)
-        self.tied_fe = []              
-        if any("Fe" in  key for key in self.regions_as_fantasy.keys()):
-            params = ["center","width"]
-            #print(self.regions_as_fantasy.keys())
-            centers = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-            fe_region = [line for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region]
-            n_r = np.argmin(abs(centers - np.median(centers)))
-            center_line = fe_region[n_r]
-            #self.fe_region = fe_region
-            for _,fe in enumerate(fe_region):
-                if _ == n_r:
-                    continue
-                for p in params:
-                    tied_ = [f"{p}_{fe["line_name"]}_{fe["kind"]}",f"{p}_{center_line["line_name"]}_{center_line["kind"]}"]
-                    tied_list.append(tied_)
-                    self.tied_fe.append(tied_)
-        #_Halpha_narrow
-        if all(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
-            mainline = "Halpha"
-        elif any(key in self.main_region_lines.keys() for key in ("Halpha", "Hbeta")):
-            mainline = next(key for key in ("Halpha", "Hbeta") if key in self.main_region_lines.keys())
-        
-        params = ["center","width"]
-        tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_narrow"] for line in self.regions_to_fit if (line['kind'] == "narrow" and line["line_name"] != "Halpha") for p in params]
-        tied_list += [[f"{p}_{line['line_name']}_{line['kind']}", f"{p}_{mainline}_broad"] for line in self.regions_to_fit if (line['kind'] == "broad" and line["line_name"] != "Halpha") for p in params]
-        #self.narrows = narrows
-        #[line for key, region in self.regions_as_fantasy.items() if "narrow" in line["kind"] for line in region]
-        
-        #if any("narrow" == line["kind"] for key, region in self.regions_as_fantasy.items() if "Fe" not in key for line in region)
-        #narrows = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-        #broads = np.array([line["center"] for key, region in self.regions_as_fantasy.items() if "Fe" in key for line in region])
-        #self.narrows
-        
-        if len(tied_to)>0:
-            for t in tied_to:
-                region,params,line_kind = t
-                if isinstance(region,str):
-                    region = [region]
-                if isinstance(params,str):
-                    params = [params]
-                for r in region:
-                    for ii in self.regions_as_fantasy.get(r,[]):
-                        #print(ii )
-                        local_ = f'{ii["line_name"]}_{ii["kind"]}'
-                        if line_kind==local_:
-                            continue
-                        for p in params:
-                            tied_list.append([f"{p}_{local_}",f"{p}_{line_kind}"])
-        if (xmax-xmin > 2000) and not force_linear:
-            self.regions_to_fit += [{"center":0,"kind":"cont","line_name":"cont","profile":"power_law"}]
-        self.xmax = xmax
-        self.xmin = xmin
-        self.tied_list = []
-        self.super_tied = []
-        for i in tied_list:
-            if i not in self.tied_list:
-                self.tied_list.append(i)
-            else:
-                continue
-        for i in super_tied:
-            if i not in self.super_tied:
-                self.super_tied.append(i)
-            else:
-                continue
-        #self.tied_list 
-    def to_complex(self,add_free=True,free_Fe= True):
-        complex = {"region":self.regions_to_fit,"tied_params_step_1":self.tied_list,"inner_limits": [self.xmin+50 , self.xmax-50 ], "outer_limits": [self.xmin , self.xmax ]}
-        if add_free:
-            complex["tied_params_step_2"] = self.super_tied
-            if not free_Fe:
-                complex["tied_params_step_2"] = self.super_tied + self.tied_fe
-        return complex
-    
+                self.regions_to_fit.extend(comps)
 
+        if (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD and not force_linear:
+            self.regions_to_fit.append(
+                SpectralLine(center=0.0, line_name='powerlaw', kind='continuum', component=0,
+                            profile='powerlaw',region='continuum')
+            )
 
+        # Build tied parameters
+        self.tied_params.extend(
+            fe_ties(self.regions_to_fit,by_region=by_region,tied_params=fe_tied_params)
+        )
+        
+        
+    #    local_region_list: List[SpectralLine],
+    # mainline_candidates: Union[str, List[str]],
+    # n_narrow: int,
+    # n_broad: int,
+    # tied_narrow_to: Union[str, Dict[int, Dict[str, Any]]] = None,
+    # tied_broad_to: Union[str, Dict[int, Dict[str, Any]]] = None,
+    # known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = None,
+        
+        self.tied_params.extend(
+            region_ties(self.regions_to_fit,self.mainline_candidates,n_narrow,n_broad,
+                        tied_narrow_to=tied_narrow_to,
+                        tied_broad_to=tied_broad_to,
+                        known_tied_relations=self.known_tied_relations))
+        #tied_narrow_to add exeption that if narrow to is not in the region so it explode
+        self.xmin, self.xmax = xmin, xmax
+        self.n_narrow, self.n_broad = n_narrow, n_broad
+        self.number_lines,self.number_tied = len(self.regions_to_fit),len(self.tied_params)
+        self.template_mode_fe = template_mode_fe
+        self.tied_narrow_to = tied_narrow_to
+        self.tied_broad_to = tied_broad_to
+    def _handle_main_line(
+        self,
+        entry: SpectralLine,
+        n_narrow: int,
+        n_broad: int
+    ) -> List[SpectralLine]:
+        comps: List[SpectralLine] = []
+        total = n_narrow + n_broad
+        for idx in range(total):
+            kind = 'narrow' if idx < n_narrow else 'broad'
+            comp_num = idx + 1 if kind == 'narrow' else idx - n_narrow + 1
+            amp = SpectralLine.amplitude if kind == 'narrow' or comp_num == 1 else 0.5
+            new = SpectralLine(
+                center=entry.center,
+                line_name=entry.line_name,
+                kind=kind,
+                component=comp_num,
+                amplitude=amp,
+                profile=entry.profile,
+                how=entry.how,
+                region = entry.region
+            )
+            comps.append(new)
+        return comps
 
-# def build_a_region(xmin,xmax,n_narrow=1,n_broad=1,tied_to={},add=["hydrogen",'helium']):
-    
-#     """build our own region to be fited after 
-#     #TODO clean, add constrain in kind of lines this means look for all the narrow and contraint the witdh 
-#     Args:
-#         xlim (_type_): _description_
-#         xmax (_type_): _description_
-#     """
-#     #Fe_regions = {}
-#     n_ = n_narrow + n_broad
-#     regions_as_fantasy = {}
-#     tied_list = []
-#     tie_pairs = [
-#     (["OIIIb","OIIIc"],["amplitude_OIIIb_narrow", "amplitude_OIIIc_narrow", "*0.3"]),
-#     (["NIIb","NIIa"],["amplitude_NIIb_narrow", "amplitude_NIIa_narrow", "*0.3"])
-# ]
-#     for path in regions_as_fantasy_path:
-#         with open(path, 'r') as file:
-#             key = path.split("/")[-1].replace(".yaml", '')
-#             region = yaml.safe_load(file)
-#             list_ = []
-#             for local in region["region"]:
-#                 if xmin <= local["center"] <= xmax:
-#                     # Handle the 'hydrogen' and 'helium' keys differently
-#                     if key in ['hydrogen', "helium"]:
-#                         for n in range(n_):
-#                             # Make a copy of local to avoid mutating the same dictionary
-#                             local_copy = local.copy()
-#                             if n < n_narrow:
-#                                 kind = "narrow"
-#                             else:
-#                                 kind = "broad"
-#                             local_copy.update({"kind": kind})
-#                             list_.append(local_copy)
-                            
-#                             # # Example of populating tied_list (adjust as needed):
-#                             # line_name = local_copy.get("line_name")
-#                             # if line_name is not None:
-#                             #     tied_list.append([
-#                             #         f"center_{line_name}_{kind}",
-#                             #         f"center_{line_name}_{kind}"
-#                             #     ])
-#                     elif "Fe" in key:
-#                         local_copy = local.copy()
-#                         local_copy.update({"kind": "Fe"})
-#                         list_.append(local_copy)
-#                     elif key == "narrow_basic":
-#                         local_copy = local.copy()
-#                         local_copy.update({"kind": "narrow"})
-#                         list_.append(local_copy)
-#                     else:
-#                         list_.append(local)
-#             # Update the dictionary once after processing all items in the file
-#             if list_:
-#                 regions_as_fantasy[key] = list_
-#             #print(list_)
-#             available_lines = np.array([line.get("line_name") for line in list_ if "line_name" in line]).ravel()
-#             for pair,factor in tie_pairs:
-#                 if sum(line in pair for line in available_lines)==2:
-#                     tied_list.append(factor)
-    
-#     if len(tied_to)>0:
-#         for t in tied_to:
-#             region,params,line_kind = t
-#             if isinstance(region,str):
-#                 region = [region]
-#             if isinstance(params,str):
-#                 params = [params]
-#             for r in region:
-#                 for ii in regions_as_fantasy[r]:
-#                     #print(ii )
-#                     local_ = f'{ii["line_name"]}_{ii["kind"]}'
-#                     if line_kind==local_:
-#                         continue
-#                     for p in params:
-#                         tied_list.append([f"{p}_{local_}",f"{p}_{line_kind}"])
-    
-    
-#     regions_to_sheap = [item for sublist in regions_as_fantasy.values() for item in sublist]
-#     return regions_to_sheap,regions_as_fantasy,tied_list
+    def _handle_narrow_line(
+        self,
+        entry: SpectralLine,
+        n_narrow: int,
+        add_outflow: bool
+    ) -> List[SpectralLine]:
+        comps: List[SpectralLine] = []
+        for idx in range(n_narrow):
+            amp = SpectralLine.amplitude if idx == 0 else 0.5
+            new = SpectralLine(
+                center=entry.center,
+                line_name=entry.line_name,
+                kind='narrow',
+                component=idx + 1,
+                amplitude=amp,
+                profile=entry.profile,
+                region = entry.region
+            )
+            comps.append(new)
+            if add_outflow and idx == 0 and 'OIII' in entry.line_name:
+                out = SpectralLine(
+                    center=entry.center,
+                    line_name=entry.line_name,
+                    kind='outflow',
+                    component=OUTFLOW_COMPONENT,
+                    amplitude= 0.5,
+                    profile=entry.profile,
+                    region = entry.region
+                )
+                comps.append(out)
+        return comps
+
+    def _handle_broad_line(
+        self,
+        entry: SpectralLine,
+        n_broad: int
+    ) -> List[SpectralLine]:
+        comps: List[SpectralLine] = []
+        for idx in range(n_broad):
+            amp = SpectralLine.amplitude if idx == 0 else 0.5
+            new = SpectralLine(
+                center=entry.center,
+                line_name=entry.line_name,
+                kind='broad',
+                component=idx + 1,
+                amplitude=amp,
+                profile=entry.profile,
+                region = entry.region
+            )
+            comps.append(new)
+        return comps
+
+    def _handle_fe_line(self, entry: SpectralLine) -> SpectralLine:
+        return SpectralLine(
+            center=entry.center,
+            line_name=entry.line_name,
+            kind='fe',
+            component=FE_COMPONENT,
+            amplitude=0.1,
+            how='sum',
+            region = entry.region
+        )
+    def _fitting_rutine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
+        "build a simple rutine to be fitted"
+        _rutine_dict = {"complex_region":self.regions_to_fit,"fitting_rutine":
+            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},"outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50]}
+        if add_step:
+            _tied_params = []
+            _tied_params.extend(
+            region_ties(self.regions_to_fit,self.mainline_candidates,self.n_narrow,self.n_broad,
+                        tied_narrow_to=self.tied_narrow_to,
+                        tied_broad_to=self.tied_broad_to,
+                        known_tied_relations=self.known_tied_relations,only_known=True))
+            if not self.template_mode_fe and tied_fe:
+                _tied_params.extend(fe_ties(self.regions_to_fit))
+            _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
+        return _rutine_dict

@@ -1,23 +1,32 @@
-from typing import Union
+import os
+from typing import Union, Optional
+
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.ticker import FixedLocator
+from sfdmap2 import sfdmap
+
+from sheap.tools.others import _deredshift
+
 #from .sfdmap import SFDMap_2
 from sheap.tools.unred import unred
-from sheap.tools.others import _deredshift
-from sheap.utils import prepare_uncertainties #?
-
-import os 
-from sfdmap2 import sfdmap
-import matplotlib.pyplot as plt
-from matplotlib.ticker import FixedLocator
+from sheap.utils import prepare_uncertainties  # ?
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
-
+#we have to save the nme of the object? that will be the strat after that we will 
 class Sheapectral:
     #the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A 
-    #TODO normalization ? a good option or not?
+    #TODO normalization ? a good option or not? #maybe we can move all the normalization to the pre fitting process? mmm we have to check that
     #TODO I have to take in consideration a think i never thing before the sdss spectras posses some 0 inside the errors the logic will be give to those a really big error in compensation
-    def __init__(self, spectra: Union[str, jnp.ndarray], z: jnp.ndarray = None, coords: jnp.ndarray = None ,names: list[str] = None,host_subtraction: bool = True,**kwargs):
+    def __init__(self,
+    spectra: Union[str, jnp.ndarray],
+    z: Optional[Union[float, jnp.ndarray]] = None,
+    coords: Optional[jnp.ndarray] = None,
+    names: Optional[list[str]] = None,
+    host_subtraction: bool = True,
+    **kwargs
+):
         self.spectra = self._load_spectra(spectra)
         if self.spectra.shape[1]==2:
             print("Warning SHEAP works with arrays (n,3,X); if your array is (n,2,X) it will add an array equal to 1% of signal")
@@ -33,16 +42,18 @@ class Sheapectral:
             self.spectra = self.spectra.at[:,1,:].set(spectra_unred)
         else:
             print("Warning no coords define the code will not correct for extinction")
-       
         self.sheap_set_up()
         self.host_subtraction = host_subtraction
+        self.z: Optional[jnp.ndarray] = None  # helps mypy know the type
+
         if z is not None:
             if isinstance(z, (int, float)):
-                print("Assuming same redsfhit for all the objects ")
-                self.z = jnp.repeat(z,self.spectra.shape[0])
-            else: 
+                print("Assuming same redshift for all the objects ")
+                self.z = jnp.repeat(z, self.spectra.shape[0])
+            else:
                 self.z = jnp.array(z)
-            self.spectra = _deredshift(self.spectra,self.z)
+
+            self.spectra = _deredshift(self.spectra, self.z)
             
         if names is None:
             self.names = np.arange(len(spectra)).astype(str)
@@ -62,10 +73,12 @@ class Sheapectral:
             self.spectra = self.spectra[jnp.newaxis,:]
         self.spectra_shape = self.spectra.shape#?
         self.spectra_nans = jnp.isnan(self.spectra)
-        self.spectra_exp = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
+        self.spectra_exp_ = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
         #maybe add a filter here to see whats going on? 
-        self.spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp[:,jnp.newaxis,jnp.newaxis]))
-        
+        self.spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp_[:,jnp.newaxis,jnp.newaxis]))
+    @property
+    def spectra_exp(self):
+        return -1 * self.spectra_exp_
     # def run_host_subtraction(self,method="star_method"):
     #     return self.spectra
     

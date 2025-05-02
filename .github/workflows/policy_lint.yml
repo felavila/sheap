@@ -43,7 +43,7 @@ on:
       python_version:
         required: false
         type: string
-        default: '3.10'
+        default: '3.12'
       ## Parametrizing Code Analysis Acceptance Criteria
       pylint_threshold:
         required: false

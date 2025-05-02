@@ -1,10 +1,11 @@
+from typing import Callable, Dict, List, Optional, Tuple
+
 import jax
 import jax.numpy as jnp
-from jax import jit,vmap
 import optax
-from typing import Callable, Dict, Tuple,List,Optional
-from .utils import project_params,parse_dependencies
+from jax import jit, vmap
 
+from .utils import parse_dependencies, project_params
 
 
 class MasterMinimizer:
@@ -28,17 +29,17 @@ class MasterMinimizer:
     """
     
     def __init__(self,func: Callable,non_optimize_in_axis: int = 3,constraints: Optional[Callable] = None,
-                num_steps: int = 1000,optimizer: optax.GradientTransformation = None,learning_rate=None,list_dependencies=[],**kwargs):
+                num_steps: int = 1000,optimizer: optax.GradientTransformation = None,learning_rate=None,list_dependencies=[],weighted=True,**kwargs):
         self.func = func #TODO desing the function class 
         self.non_optimize_in_axis = non_optimize_in_axis #axis in where is require enter data of same dimension
         self.num_steps = num_steps
-        self.learning_rate = learning_rate  or 1e-1
+        self.learning_rate = learning_rate  or 1e-3
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-        self.optimizer = kwargs.get("optimizer",optax.adabelief(self.learning_rate)) 
+        self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate)) 
         #print('optimizer:',self.optimizer)
         
-        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func)
+        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,weighted=weighted)
         
         self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0) #?
     def __call__(self,initial_params,y,x,yerror,constraints,learning_rate=None,num_steps=None,optimizer=None,non_optimize_in_axis=None,list_dependencies=None):
@@ -66,15 +67,23 @@ class MasterMinimizer:
         self.num_steps = num_steps or self.num_steps
         self.optimizer = optimizer or self.optimizer
         non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
+    #     schedule = optax.join_schedules(
+    # schedules=[
+    #     optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=500),
+    #     optax.exponential_decay(init_value=1e-3, transition_steps=1000, decay_rate=0.95)
+    # ],
+    # boundaries=[500]
+# )
+        #print("eje")
         self.default_args = (self.parsed_dependencies_tuple,
                         self.learning_rate,
                         self.num_steps,
                         self.optimizer,
                         False)
         
-        print('learning_rate:',self.learning_rate)
-        print('optimizer:',optax.adabelief.__name__)
-        print('num_steps:',self.num_steps)
+        #print('learning_rate:',self.learning_rate)
+        #print('optimizer:',optax.adabelief.__name__)
+        #print('num_steps:',self.num_steps)
         
         if non_optimize_in_axis==3:
             #print("vmap Optimize over y,x,yerror")
@@ -99,8 +108,13 @@ class MasterMinimizer:
         
     @staticmethod
     def minimization_function(
-    func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray]
-    ) -> Callable[..., jnp.ndarray]:
+    func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
+    weighted: bool = True
+) -> Tuple[
+    Callable[..., jnp.ndarray],  # loss_function
+    Callable[..., Tuple[jnp.ndarray, list]],  # optimize_model
+    Callable[..., jnp.ndarray]  # residuals
+]:
         """
         Factory function to create a JIT-compiled constrained loss function with multiple input variables.
 
@@ -118,31 +132,39 @@ class MasterMinimizer:
             
             return jnp.abs(y - predictions) / y_uncertainties
 
-        @jit
-        def loss_function(
-            params: jnp.ndarray,
-            xs: List[jnp.ndarray],
-            y: jnp.ndarray,
-            y_uncertainties: jnp.ndarray
-            ) -> jnp.ndarray:
-            
-            y_pred = func(xs, params)
-            weights = 1.0 / y_uncertainties**2
-            #wmse = jnp.nansum(weights * (y - y_pred)**2) / jnp.nansum(weights)
-            # #wmse = jnp.nanmean(((y - y_pred)/y_uncertainties) ** 2)
-            # #wmse = jnp.nanmean((y - y_pred))**2
-            # #wmse =optax.losses.cosine_distance(y_pred,y)
-            loss = jnp.log(jnp.cosh(y_pred - y))
-            wmse = jnp.nansum(weights * loss) / jnp.nansum(weights) #jnp.nansum(loss)#
-            #wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
-            return wmse 
+        if weighted:
+            @jit
+            def loss_function(
+                params: jnp.ndarray,
+                xs: List[jnp.ndarray],
+                y: jnp.ndarray,
+                y_uncertainties: jnp.ndarray
+                ) -> jnp.ndarray:
+                
+                y_pred = func(xs, params)
+                weights = 1.0 / y_uncertainties**2
+                loss = jnp.log(jnp.cosh(y_pred - y))
+                wmse = jnp.nansum(weights * loss) / jnp.nansum(weights)
+                return wmse
+        else:
+            @jit
+            def loss_function(
+                params: jnp.ndarray,
+                xs: List[jnp.ndarray],
+                y: jnp.ndarray,
+                y_uncertainties: jnp.ndarray
+                ) -> jnp.ndarray:
+                y_pred = func(xs, params)
+                loss = jnp.log(jnp.cosh(y_pred - y))
+                wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
+                return wmse
         
         def optimize_model(
             initial_params: jnp.ndarray,
             xs: List[jnp.ndarray],
             y: jnp.ndarray,
             y_uncertainties: jnp.ndarray,
-            constraints: jnp.ndarray= None,
+            constraints: Optional[jnp.ndarray] = None,
             parsed_dependencies = None,
             learning_rate: float = 1e-2,
             num_steps: int = 1000,
