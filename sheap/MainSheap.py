@@ -1,146 +1,272 @@
+from __future__ import annotations
+
+import logging
 import os
-from typing import Union, Optional
+from typing import List, Union, Optional, Dict
+from pathlib import Path
+import warnings
+import pickle
+import sys 
 
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import FixedLocator
-from sfdmap2 import sfdmap
-
-from sheap.tools.others import _deredshift
-
-#from .sfdmap import SFDMap_2
-from sheap.tools.unred import unred
+#from sfdmap2 import sfdmap
+from sheap.RegionHandler.RegionBuilder import RegionBuilder
+from sheap.RegionFitting.RegionFitting import RegionFitting 
+from sheap.SuportFunctions.functions import mapping_params
+from sheap.DataClass.DataClass import SpectralLine
 from sheap.utils import prepare_uncertainties  # ?
 
+from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV
+logger = logging.getLogger(__name__)
 module_dir = os.path.dirname(os.path.abspath(__file__))
-#we have to save the nme of the object? that will be the strat after that we will 
+ArrayLike = Union[np.ndarray, jnp.ndarray]
+
+
+PROFILE_FUNC_MAP: Dict[str, Any] = {
+    'gaussian': gaussian_func,
+    'lorentzian': lorentzian_func,
+    'powerlaw': powerlaw,
+    'fitFeOP': fitFeOP,
+    'fitFeUV': fitFeUV,
+    'linear': linear,
+    "balmerconti":balmerconti
+}
+
+#TODO Add multiple models to the reading.
+def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
+    """Ensure *spectra* has a third channel (error) by padding with *frac* × signal."""
+    if spectra.shape[1] != 2:
+        return spectra  # already 3‑channel
+    signal = spectra[:, 1, :]
+    error = jnp.expand_dims(signal * frac, axis=1)
+    return jnp.concatenate((spectra, error), axis=1)
+
+
 class Sheapectral:
     #the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A 
-    #TODO normalization ? a good option or not? #maybe we can move all the normalization to the pre fitting process? mmm we have to check that
-    #TODO I have to take in consideration a think i never thing before the sdss spectras posses some 0 inside the errors the logic will be give to those a really big error in compensation
     def __init__(self,
     spectra: Union[str, jnp.ndarray],
     z: Optional[Union[float, jnp.ndarray]] = None,
     coords: Optional[jnp.ndarray] = None,
     names: Optional[list[str]] = None,
-    host_subtraction: bool = True,
+    extinction_correction:str = "pending", #this only can be pending or done
+    redshift_correction:str = "pending", #this only can be pending or done 
     **kwargs
 ):
-        self.spectra = self._load_spectra(spectra)
-        if self.spectra.shape[1]==2:
-            print("Warning SHEAP works with arrays (n,3,X); if your array is (n,2,X) it will add an array equal to 1% of signal")
-            extra_slice = jnp.expand_dims(self.spectra[:, 1, :] / 100, axis=1)
-            self.spectra = jnp.concatenate((self.spectra, extra_slice), axis=1)
-        #self.input_spectra = jnp.copy(self.spectra)
-        if coords is not None:
-            self.coords = coords
-            self.f_ebv = sfdmap.SFDMap(os.path.join(module_dir,"suport_data","sfddata/")).ebv
-            self.ebv = self.f_ebv(*self.coords.T)
-            spectra_unred = unred(*np.swapaxes(self.spectra[:,[0,1],:],0,1),self.ebv)
-            self.spectra = self.spectra.at[:,2,:].multiply(spectra_unred/self.spectra[:,1,:]) #error that uses pyqso
-            self.spectra = self.spectra.at[:,1,:].set(spectra_unred)
-        else:
-            print("Warning no coords define the code will not correct for extinction")
+        self.log = logging.getLogger(self.__class__.__name__)
+        #self.cfg = config or SheapConfig()
+        self.extinction_correction = extinction_correction
+        self.redshift_correction = redshift_correction
+        spec_arr = self._load_spectra(spectra)
+        spec_arr = pad_error_channel(spec_arr)
+        self.spectra = spec_arr.astype(jnp.float64)
+        #self.in_spectra = spec_arr
+        self.coords = coords  # may be None – handle carefully downstream
+        self.z = self._prepare_z(z, self.spectra.shape[0])
+        
+        self.names = names if names is not None else np.arange(self.spectra.shape[0]).astype(str)
+        
+        if self.extinction_correction == "pending" and self.coords is not None:
+            print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
+            self._apply_extinction()
+            self.extinction_correction = "done"
+
+        if self.redshift_correction == "pending" and self.z is not None:
+            print("redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step")
+            self._apply_redshift()
+            self.redshift_correction = "done"
+
+        # Stage bookkeeping
         self.sheap_set_up()
-        self.host_subtraction = host_subtraction
-        self.z: Optional[jnp.ndarray] = None  # helps mypy know the type
-
-        if z is not None:
-            if isinstance(z, (int, float)):
-                print("Assuming same redshift for all the objects ")
-                self.z = jnp.repeat(z, self.spectra.shape[0])
-            else:
-                self.z = jnp.array(z)
-
-            self.spectra = _deredshift(self.spectra, self.z)
-            
-        if names is None:
-            self.names = np.arange(len(spectra)).astype(str)
-            
-    def _load_spectra(self, spectra: Union[str, jnp.ndarray]) -> jnp.ndarray:
-        if isinstance(spectra, str):
-            return jnp.array(np.loadtxt(spectra), dtype='float').transpose()  # this will be removed in future iterations
-        elif isinstance(spectra, jnp.ndarray):
-            return spectra
+        #self.host_subtraction = host_subtraction
+    def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
+        if isinstance(spectra, (str, Path)):
+            arr = np.loadtxt(spectra)
+            return jnp.array(arr).T  # ensure (c, λ) then transpose later
         elif isinstance(spectra, np.ndarray):
             return jnp.array(spectra)
-        else:
-            raise ValueError("Invalid spectra type")
+        elif isinstance(spectra, jnp.ndarray):
+            return spectra
+        raise TypeError("spectra must be a path or ndarray")
+
+    def _prepare_z(self, z: Optional[Union[float, ArrayLike]], nobj: int) -> Optional[jnp.ndarray]:
+        if z is None:
+            return None
+        if isinstance(z, (int, float)):
+            return jnp.repeat(z, nobj)
+        return jnp.array(z)
+    
+    def _apply_extinction(self) -> None:
+        """Cardelli 1989 – uses *sfdmap* if coords are available."""
+        from sfdmap2 import sfdmap  # lazy import to avoid heavy deps if unused
+        from sheap.tools.unred import unred
+        self.coords = jnp.array(self.coords)
+        l, b = self.coords.T  # type: ignore[union-attr]
+        ebv_func = sfdmap.SFDMap(os.path.join(module_dir,"suport_data","sfddata/")).ebv
+        ebv = ebv_func(l, b)
+        corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
+        # propagate to error channel proportionally as pyqso
+        ratio = corrected / self.spectra[:, 1, :]
+        self.spectra = self.spectra.at[:, 1, :].set(corrected)
+        self.spectra = self.spectra.at[:, 2, :].multiply(ratio)
+    def _apply_redshift(self) -> None:
+        from sheap.tools.others import _deredshift
+        self.spectra = _deredshift(self.spectra, self.z)
     
     def sheap_set_up(self):
         if len(self.spectra.shape)<=2:
             self.spectra = self.spectra[jnp.newaxis,:]
         self.spectra_shape = self.spectra.shape#?
         self.spectra_nans = jnp.isnan(self.spectra)
-        self.spectra_exp_ = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
+        self.spectra_exp = jnp.round(jnp.log10(jnp.nanmedian(self.spectra[:,1, :],axis=1))) #* 0
         #maybe add a filter here to see whats going on? 
-        self.spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp_[:,jnp.newaxis,jnp.newaxis]))
-    @property
-    def spectra_exp(self):
-        return -1 * self.spectra_exp_
-    # def run_host_subtraction(self,method="star_method"):
-    #     return self.spectra
+        
     
-    # def mask_not_fitted_region(self,min_r,max_r,fill=jnp.nan):
-    #     #this function should be use in order to remove the external parts of the spectra 
-    #     #I mean the parts that will not be use in the fit
-    #     mask = (self.spectra[:,0, :] >= min_r) & (self.spectra[:,0, :] <= max_r)
-    #     expanded_mask = mask[:, jnp.newaxis, :]  # Shape: (19, 1, 4595)
-    #     masked_spectra = jnp.where(expanded_mask, self.spectra, fill)
-    #     central_wl = jnp.nanmedian(masked_spectra[:,0, :],axis=1)
-    #     return masked_spectra,central_wl
-    
-    # def fit_region(self,region):
-    #     # region have to be a kind of dictionary or think like that and then we build a function to make it an array in the way that sheap can read it 
-    #     min_r,max_r = 4400.11083984,5448.33105469
-    #     min_e,max_e = 4750,5040
-    #     masked_spectra,central_wl = self.mask_not_fitted_region(min_r,max_r,fill=jnp.nan)
-    #     mask_emission = (self.spectra[:,0,:] >= min_e) & (self.spectra[:,0 ,:]  <= max_e)
-    #     #mask_emission = mask_emission #[:, jnp.newaxis, :]  # Shape: (19, 1, 4595)
-    #     masked_emission_spectra = masked_spectra.at[:,2,:].set(jnp.where(masked_spectra[:,2,:],jnp.nan,mask_emission))
-    #     y_uncertainties = prepare_uncertainties(masked_emission_spectra[:,2,:],masked_emission_spectra[:,2,:])
-    #     X = [masked_emission_spectra]
-    #     fe_template_op_norm = jnp.zeros_like(mask_emission)
-    #     if region in ["Hbeta"]:
-    #         X.append(self.fe_template_op_norm)
-    #     ##mag_corrected_agn_to_mini = mag_corrected_agn.copy()
-    #     ##mag_corrected_agn_to_mini = jnp.array(mag_corrected_agn_to_mini).at[2,:].set(jnp.where(mask_emission_region,jnp.nan,mag_corrected_agn_to_mini[2,:]))
-    #     #y_uncertainties = prepare_uncertainties(None,mag_corrected_agn_to_mini[2,:])
-    #     #X = [mag_corrected_agn_to_mini,fe_template_norm,mag_corrected_agn_to_mini[0,:]]
-    #     return masked_emission_spectra,mask_emission,y_uncertainties
+    def build_region(
+        self,
+        xmin: float,
+        xmax: float,
+        n_narrow: int = 1,
+        n_broad: int = 1,
+        tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        fe_regions: List[str] = ['fe_uv', "feII_IZw1", "feII_forbidden", "feII_coronal"],
+        template_mode_fe: bool = False,
+        add_outflow: bool = False,
+        add_narrowplus: bool = False,
+        by_region: bool = False,
+        force_linear: bool = False,
+        add_balmercontiniumm: bool = False,
+        fe_tied_params: Union[tuple, list] = ('center', 'width')
+    ):
+        self.builded_region = RegionBuilder(
+            xmin=xmin,
+            xmax=xmax,
+            n_narrow=n_narrow,
+            n_broad=n_broad,
+            tied_narrow_to=tied_narrow_to,
+            tied_broad_to=tied_broad_to,
+            fe_regions=fe_regions,
+            template_mode_fe=template_mode_fe,
+            add_outflow=add_outflow,
+            add_narrowplus=add_narrowplus,
+            by_region=by_region,
+            force_linear=force_linear,
+            add_balmercontiniumm=add_balmercontiniumm,
+            fe_tied_params=fe_tied_params
+        )
+    def fit_region(self,add_step=True,tied_fe=False,num_steps_list=[3000,3000]):
 
-    # def regions(self):
-    #     return 
+        spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp[:,jnp.newaxis,jnp.newaxis])) #apply escale to 0-20 max 
+        if not hasattr(self, "builded_region"):
+             raise RuntimeError("build_region() must be called before fit()")
+        self.fitting_rutine = self.builded_region(add_step = add_step,tied_fe = tied_fe,num_steps_list = num_steps_list)
+        fittingclass= RegionFitting(self.fitting_rutine)
+        params,outer_limits,inner_limits,loss,mask,step,params_dict,initial_params,profile_params_index_list,profile_functions,max_flux,profile_names,region_defs \
+            = fittingclass(spectra, do_return = True) #runmodel()?
+        self.outer_limits  = outer_limits
+        self.inner_limits = inner_limits
+        self.loss = loss
+        self.mask = mask # True means dont use it 
+        self.step = step
+        self.params_dict = params_dict
+        self.profile_functions = profile_functions
+        self.initial_params = initial_params
+        self.profile_params_index_list = profile_params_index_list
+        self.max_flux = max_flux
+        self.profile_names = profile_names
+        self.region_defs = region_defs
+        scaled = (10**self.spectra_exp)
+        idxs = mapping_params(self.params_dict,[["amplitude"],["scale"]]) #
+        self.max_flux = self.max_flux*scaled #just for the plot 
+        self.params = params.at[:,idxs].multiply(scaled[:,None])
     
-    def plot_(self,n=0,region=None):
-        # This have to be more complex than this 
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(35, 15), sharex=True, gridspec_kw={'height_ratios': [3, 1], 'hspace': 0.05})
-        ax1.plot(*self.spectra[n,[0,1],:])
-        # ax1.plot(mag_corrected_agn[0,:],fit_continium(X,params))
-        # ax2.plot(mag_corrected_agn[0,:],mag_corrected_agn[1,:]-fit_continium(X,params))
-        ax2.axhline(0, ls='--', c='k')
+    @classmethod
+    def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
+        filepath = Path(filepath)
+        with open(filepath, "rb") as f:
+            data = pickle.load(f)
+
+        obj = cls(
+            spectra=data["spectra"],
+            z=data["z"],
+            names=data["names"],
+            coords=data["coords"],
+            extinction_correction = data["extinction_correction"],
+            redshift_correction = data["redshift_correction"]
+        )
+
+        obj.params =  jnp.array(data.get("params"))
+        obj.params_dict = data.get("params_dict")
+        obj.mask = jnp.array(data.get("mask"))
+        obj.profile_params_index_list = data.get("profile_params_index_list")
+        obj.profile_names = data.get("profile_names")
+        obj.fitting_rutine = {"fitting_rutine": data.get("fitting_rutine")}
+        region_defs = data.get("region_defs")
+        obj.outer_limits = data.get("outer_limits")
+        if region_defs is not None:
+            obj.region_defs = [SpectralLine(**d) for d in region_defs]
+        if obj.profile_names is not None:
+            obj.profile_functions = [PROFILE_FUNC_MAP.get(i) for i in obj.profile_names]
+        return obj
+    
+    def _save(self):
+        _region_defs = [i.to_dict() for i in self.region_defs]  # to dict so it can be read anyway
+        dic_ = {
+            "names": self.names,
+            "spectra":  np.array(self.spectra),
+            "coords": np.array(self.coords),
+            "z": np.array(self.z),#array
+            "extinction_correction": self.extinction_correction,
+            "redshift_correction":self.redshift_correction,
+            #this should be a dataclass
+            "params": np.array(self.params),# array 
+            "params_dict": self.params_dict, #array 
+            "mask": np.array(self.mask), #array 
+            "region_defs": _region_defs, #dic
+            "profile_params_index_list": self.profile_params_index_list, #array 
+            "profile_names": self.profile_names, #list str
+            "fitting_rutine": self.fitting_rutine["fitting_rutine"], #dict list
+            "outer_limits":self.outer_limits
+
+        }
+        estimated_size = sys.getsizeof(pickle.dumps(dic_))
+        print(f"Estimated pickle size: {estimated_size / 1024:.2f} KB")
+        return dic_
         
-        if isinstance(region,list):
-            plt.xlim(region[0], region[1])
-        elif region:
-            print(ax1.get_ylim(), self.spectra[n,0,:].shape, self.mask_emission[0].shape)
-            y1, y2 = ax1.get_ylim()    # Get the y-limits for the fill
-            ax1.fill_between(self.spectra[n, 0, :], y1, y2, where=self.mask_emission[n], color="grey", alpha=0.1, label="mask", zorder=10)
-        else:
-            plt.xlim(jnp.nanmin(self.spectra[n,0,:]), jnp.nanmax(self.spectra[n,0,:]))
-        # ax.set_xlabel(r"$R_S$ (lt-day)", fontsize=20)
-        # ax.set_ylabel('Number of lenses', fontsize=20)
-        # Remove corner y-axis tick values
-        y_ticks = ax1.get_yticks()
-        ax1.yaxis.set_major_locator(FixedLocator(y_ticks))
-        y_tick_labels = ["" if i == 0 or i == len(y_ticks) - 1 else label.get_text() for i, label in enumerate(ax1.get_yticklabels())]
-        ax1.set_yticklabels(y_tick_labels)
-        
-        y_ticks = ax2.get_yticks()
-        ax2.yaxis.set_major_locator(FixedLocator(y_ticks))
-        y_tick_labels = ["" if i == 0 or i == len(y_ticks) - 1 else label.get_text() for i, label in enumerate(ax2.get_yticklabels())]
-        ax2.set_yticklabels(y_tick_labels)
-        ax1.tick_params(axis='both', which='major', labelsize=20)
-        ax2.tick_params(axis='both', which='major', labelsize=20)
-        plt.show()
+    def save_to_pickle(self, filepath: Union[str, Path]):
+        filepath = Path(filepath)
+        with open(filepath, "wb") as f:
+            pickle.dump(self._save(), f) 
+    
+    def quicklook(self, idx: int , ax=None, xlim=None, ylim=None):
+        import matplotlib.pyplot as plt
+        from matplotlib.ticker import FixedLocator
+        lam, flux, err = self.spectra[idx]
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(15, 5))
+
+        ax.errorbar(lam, flux, yerr=err, ecolor='dimgray', color="black", zorder=1)
+
+        # Default xlim and ylim if not provided
+        if xlim is None:
+            xlim = (jnp.nanmin(lam), jnp.nanmax(lam))
+        if ylim is None:
+            ylim = (0, jnp.nanmax(flux)*1.02)
+
+        ax.set_xlim(*xlim)
+        ax.set_ylim(*ylim)
+
+        ax.set_xlabel("Wavelength [Å]")
+        ax.set_ylabel("Flux [arb]")
+
+        # Plot ID label outside main plot area, above-left
+        ax.text(0.0, 1.05, f"ID {self.names[idx]} ({idx})", fontsize=10, transform=ax.transAxes,
+                ha='left', va='bottom')
+
+        ax.yaxis.set_major_locator(FixedLocator(ax.get_yticks()))
+
+        return ax
+    

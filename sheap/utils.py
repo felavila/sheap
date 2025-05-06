@@ -50,7 +50,7 @@ def mask_builder(sheap_array, inner_limits=[0,0], outer_limits=None,instrumental
     copy_array = copy_array.at[:,2,:].set(jnp.where(mask,jnp.nan,copy_array[:,2,:])) 
     masked_uncertainties = prepare_uncertainties(copy_array[:,2,:],copy_array[:,1,:])
     copy_array = copy_array.at[:,2,:].set(masked_uncertainties)
- 
+    #masked_uncertainties = masked_uncertainties == 1.e+31
     return copy_array,masked_uncertainties,sheap_array,mask
 
 

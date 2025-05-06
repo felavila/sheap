@@ -1,0 +1,96 @@
+# From here https://github.com/yukawa1/fantasy/blob/main/fantasy_agn/input/narrow_plus.csv
+region:
+  - center: 3726.032
+    line_name: OIIa
+  - center: 3728.815
+    line_name: OIIb
+  - center: 3868.760
+    line_name: NeIIIa
+  - center: 4003.328107
+    line_name: CrII194a
+  - center: 4015.504925
+    line_name: NiII12a
+  - center: 4053.814908
+    line_name: TiII87a
+  - center: 4063.942258
+    line_name: CrII19a
+  - center: 4068.621034
+    line_name: SII1Fa
+  - center: 4076.219045
+    line_name: SII1Fb
+  - center: 4097.33
+    line_name: NIIIa
+  - center: 4103.43
+    line_name: NIIIb
+  - center: 4163.63614
+    line_name: TiII105a
+  - center: 4395.025307
+    line_name: TiII19a
+  - center: 4414.899
+    line_name: OIIc
+  - center: 4421.948211
+    line_name: TiII93a
+  - center: 4443.802449
+    line_name: TiII19b
+  - center: 4450.490685
+    line_name: TiII19c
+  - center: 4510.91
+    line_name: NIII1a
+  - center: 4616.636803
+    line_name: CrII44a
+  - center: 4640.64
+    line_name: NIIIc
+  - center: 4643.09
+    line_name: NII5a
+  - center: 4647.42
+    line_name: CIIIa
+  - center: 4650.25
+    line_name: CIIIb
+  - center: 4651.47
+    line_name: CIIIc
+  - center: 4697.595379
+    line_name: CrIIa
+  - center: 4824.131846
+    line_name: CrII30a
+  - center: 4876.477958
+    line_name: CrII30b
+  - center: 4911.19874
+    line_name: TiII114a
+  - center: 5072.275931
+    line_name: TiII113a
+  - center: 5200.261862
+    line_name: NIa
+  - center: 5754.590
+    line_name: NIIpa
+  - center: 5666.64
+    line_name: NIIpb
+  - center: 5676.02
+    line_name: NIIpc
+  - center: 5679.56
+    line_name: NIIpd
+  - center: 5686.21
+    line_name: NIIpe
+  - center: 5695.920
+    line_name: CIIId
+  - center: 5957.56
+    line_name: SiIIa
+  - center: 6046.440
+    line_name: OIba
+  - center: 6288.0859
+    line_name: SIIa
+  - center: 6312.06
+    line_name: SIIIa
+  - center: 6347.10
+    line_name: SiIIb
+  - center: 6371.36
+    line_name: SiIIc
+  - center: 7377.83
+    line_name: NiIIa
+  - center: 7411.16
+    line_name: NiIIb
+  - center: 7889.9
+    line_name: NiIIIa
+  - center: 9068.6
+    line_name: SIIIb
+  - center: 9531.00
+    line_name: SIIIc

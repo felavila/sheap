@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sheap.Fitting.functions import linear_combination
+from sheap.FunctionsMinimize.functions import linear_combination
 
 
 class Sheap_pca_ploting:
