@@ -25,10 +25,10 @@ region:
     line_name: OIIIc
     kind: narrow 
   - center: 6583.46
-    line_name: NIIc
+    line_name: NIIb
     kind: narrow 
   - center: 6548.05
-    line_name: NIIb
+    line_name: NIIa
     kind: narrow 
   - center: 1908.734
     line_name: CIII]
