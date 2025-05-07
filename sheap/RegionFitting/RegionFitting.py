@@ -11,7 +11,7 @@ import pandas as pd
 import yaml
 from jax import jit
 
-from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV
+from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV,Gsum_model
 from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
 #from sheap.Fitting.template_fe_func import 
 from sheap.FunctionsMinimize.utils import combine_auto
@@ -356,11 +356,16 @@ class RegionFitting:
         #self.profile_params_index.clear()
         self.profile_params_index_list.clear()
         add_linear = True
-        
+        self.list = []
         # Loop over each line configuration
         idx = 0 #parameter_position
+        region_defs = []
         for cfg in self.region_defs:
             constraints = make_constraints(cfg, self.limits_map.get(cfg.kind),profile=profile)
+            if cfg.how=="combine":
+                self.list.append(cfg)
+                continue
+            region_defs.append(cfg)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
@@ -375,8 +380,23 @@ class RegionFitting:
             #self.profile_params_index.append([idx,idx + len(constraints.param_names)])
             self.profile_params_index_list.append(np.arange(idx,idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
-            
+        
+        if len(self.list)>0:
+            amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in self.list]).T
+            ngaussian = Gsum_model(centers,amplitudes)
+            self.profile_names.append("combinedG")
+            self.profile_functions.append(ngaussian)
+            init_list.extend([0.1,0,10])
+            high_list.extend([10.,+30.,100.])
+            low_list.extend([0.0,-30.,0.01])
+            for i, name in enumerate(["amplitude","shift","width"]):
+                key = f"{name}_{'fe'}_{20}_{'combinedG'}"
+                self.params_dict[key] = idx + i
+            #self.profile_params_index.append([idx,idx+2])
+            self.profile_params_index_list.append(np.arange(idx,idx+3))
+            region_defs.append(self.list)
         if add_linear:
+            print("adding linear")
             #maybe a class method?
             self.profile_names.append("linear")
             self.profile_functions.append(linear)
@@ -388,12 +408,14 @@ class RegionFitting:
                 self.params_dict[key] = idx + i
             #self.profile_params_index.append([idx,idx+2])
             self.profile_params_index_list.append(np.arange(idx,idx+2))
+            region_defs.append(SpectralLine(center=0.0, line_name='linear', kind='continuum', component=0,
+                            profile='linear',region='continuum'))
         # Always add a linear continuum fallback
         
         self.initial_params = jnp.array(init_list)
         self.constraints = self._stack_constraints(low_list, high_list) #constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params) #important
-
+        self.region_defs = region_defs
     def _build_tied(self,tied_params):
         list_tied_params = []
         if len(tied_params)>0:

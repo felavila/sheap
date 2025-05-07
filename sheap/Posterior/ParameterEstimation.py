@@ -7,9 +7,10 @@ import pandas as pd
 import yaml
 from astropy.cosmology import FlatLambdaCDM
 from jax import vmap
-
+from sheap.Posterior.utils import combine
 from sheap.tools.others import vmap_get_EQW_mask
-
+from sheap.SuportFunctions.functions import LineMapper,mapping_params
+from sheap.FunctionsMinimize.utils import combine_auto
 #from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
 #from SHEAP.numpy.monte_carlo import monte_carlo
 # this file’s directory: mypackage/submodule
@@ -31,7 +32,8 @@ cm_per_mpc = 3.08568e+24
 
 class ParameterEstimation:
     #TODO big how to combine distributions 
-    def __init__(self,RegionClass,fluxnorm=None,z=None,d=None,cosmo=None,multi_comp=None,c = 299792.458):
+    def __init__(self,RegionClass,fluxnorm=None,z=None,d=None,cosmo=None,multi_comp=None,c = 299792.458,
+                 try_to_combine_broad=True):
         """_summary_
         i think the best is if you are calling this you already have your flux in flux units "classical"
         Dimensional reduction in this step could be 2hard maybe we can move the combination for later steps
@@ -50,30 +52,57 @@ class ParameterEstimation:
         ####
         self.c = c
         self.RegionClass = RegionClass
-        self.params_cont = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["cont"]])]].ravel()
-        self.params_fe = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["fe"]])]].ravel()
-        self.sigma = self.RegionClass.params.at[:,RegionClass.mapping_params(["width"])].get()
-        self.norm_amplitude = self.RegionClass.params.at[:,RegionClass.mapping_params(["amplitude"])].get()
-        self.center = self.RegionClass.params.at[:,RegionClass.mapping_params(["center"])].get()
-        ####
-        self.d = None
-        if d is not None:
-            self.d = d
-        if z is not None:
-            if cosmo is None:
-                self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
-            self.d = self.cosmo.luminosity_distance(z) * cm_per_mpc
-        if fluxnorm is None:
-            self.fluxnorm = jnp.ones_like(self.d)
-        else:
-            self.fluxnorm = fluxnorm
-        #calculate baseline?  
-        profile_index_list = self.RegionClass.profile_index_list
-        min_,max_ = profile_index_list[-1]
-        self.values = self.RegionClass.params[:,min_:max_]
-        self.profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(0, 0))
-        self.baselines = self.profile_func(self.RegionClass.region_to_fit[:,0,:],self.values)
+        self.mask = self.RegionClass.mask
+        self.spectra = self.RegionClass.spectra
+        self.z = self.RegionClass.z
+        self.complex_region = RegionClass.complex_region
+        self.linelist = list(set(i.line_name for i in self.complex_region))
+        self.profile_functions=RegionClass.profile_functions
+        self.params = RegionClass.params
+        self.profile_params_index_list = RegionClass.profile_params_index_list
+        self.params_dict = RegionClass.params_dict
+        self.profile_names = RegionClass.profile_names
+        if cosmo is None:
+            self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+        self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
+        self.fluxnorm = jnp.ones_like(self.d)
+        self.linemap = LineMapper(self.complex_region,self.profile_functions,self.params,
+                                  self.profile_params_index_list,self.params_dict,self.profile_names)
         
+        #maybe here a clear to remove teh original class? 
+        self.continuum_params_map = self.linemap._get("kind","continuum")
+        self.profile_func = combine_auto(self.continuum_params_map["profile_functions"])
+        self.fe_params_map = self.linemap._get("kind","fe")
+        self.model_keywords = RegionClass.model_keywords
+        self.n_narrow = self.model_keywords.get("n_narrow")
+        self.n_broad = self.model_keywords.get("n_broad")
+        self.add_outflow = self.model_keywords.get("add_outflow")
+        self.narrow_params = self.linemap._get("kind","narrow")
+        self.broad_params = self.linemap._get("kind","broad")
+        if self.add_outflow:
+            self.outflow_params = self.linemap._get("kind","outflow")
+        if self.n_broad>1 and try_to_combine_broad:
+            #what = self.broad_params.get("line_name")
+            #where =  ["line_name"] * len(self.broad_params.get("line_name"))
+            #super_param = {"where":"kind","what":"narrow"}
+            #self._narrow_params = self.linemap._get(where,what,super_param=super_param,logic="or")
+            print("here will came the combination")
+            
+        #self.params_cont = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["cont"]])]].ravel()
+        #self.params_fe = np.array(list(self.RegionClass.params_dict.keys()))[[self.RegionClass.mapping_params([["fe"]])]].ravel()
+        self.sigma = self.params.at[:,mapping_params(self.params_dict,["width"])].get()
+        self.norm_amplitude = self.params.at[:,mapping_params(self.params_dict,["amplitude"])].get()
+        self.center = self.params.at[:,mapping_params(self.params_dict,["center"])].get()
+        
+        self.fluxnorm = fluxnorm
+        if cosmo is None:
+          self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
+        if d is None:
+            d = jnp.ones(self.sigma.shape[0])
+        if z is not None:
+            self.d = self.cosmo.luminosity_distance(z) * cm_per_mpc
+        if self.fluxnorm is None:
+            self.fluxnorm = jnp.ones_like(self.d)
     def __call__(self):
         """
         Calculate luminosity and FWHM for all spectral lines.
@@ -138,66 +167,122 @@ class ParameterEstimation:
         EW = jnp.stack(EW, axis=1)
         return EW
     
-    def L5100(self):
-        #in 5100 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 5100.0, atol=1)
-        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
-        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
-        flux = jnp.where(valid,profile_func(jnp.array([5100.0]),self.values),0)
-        return (5100.0 * 4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
+    def compute_Luminosity_w(self,wavelenghts=[1350.,1450.,3000.,5100.,6200.]):
+        profile_func = vmap(self.profile_func,in_axes=(None, 0))
+        params_continuum = self.continuum_params_map.get("params") 
+        L_w = {}
+        for w in wavelenghts:
+            hits = jnp.isclose(self.spectra[:,0,:], w, atol=1)
+            valid = (hits & (~self.mask)).any(axis=1, keepdims=True)       # only the un-masked 5100’ 
+            flux = jnp.where(valid,profile_func(jnp.array([w]),params_continuum),0)
+            L_w[str(w)] = (w * 4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
+        return L_w
     
-    def L3000(self):
-        #in 3000 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 3000, atol=1)
-        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
-        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
-        flux = jnp.where(valid,profile_func(jnp.array([3000]),self.values),0)
-        return (3000.0 *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
-    
-    def L1350(self):
-        #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1350.0, atol=1)
-        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
-        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
-        flux = jnp.where(valid,profile_func(jnp.array([1350.0]),self.values),0)
-        return (1350. *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
-    def L6200(self):
-        #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 6200.0, atol=1)
-        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
-        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
-        flux = jnp.where(valid,profile_func(jnp.array([6200.0]),self.values),0)
-        return (6200. *4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
-    
-    def L1450(self):
-        #in 1350 this should be 0 ? because we are working with Halpha?
-        hits = jnp.isclose(self.RegionClass.region_to_fit[:,0,:], 1450.0, atol=1)
-        valid = (hits & (~self.RegionClass.mask_region)).any(axis=1, keepdims=True)       # only the un-masked 5100’
-        profile_func = vmap(self.RegionClass.profile_function_list[-1],in_axes=(None, 0))
-        flux = jnp.where(valid,profile_func(jnp.array([1450.0]),self.values),0)
-        return (1450*4. * jnp.pi * self.d[:,None]**2 * flux).ravel()
-    # def Lbool(self):
-    #     from jax.scipy.integrate import trapezoid
-    #     baselines_s = jnp.where(self.RegionClass.mask_region,0,self.baselines)
-    #     x = jnp.where(self.RegionClass.mask_region,0,self.RegionClass.region_to_fit[:,0,:])
-    #     flux = trapezoid(baselines_s, x=x, axis=1)
-    #     #flux = jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1)
-    #     return 4. * jnp.pi * self.d**2 * flux 
-        #jnp.where(jnp.isnan(line_center),0,-1.0*jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1))
+    def compute_bolometric_luminosity(self, monochromatic_lums=None, method="default"):
+        """
+        Estimate bolometric luminosity using bolometric correction factors.
+
+        Args:
+            monochromatic_lums: Dict of monochromatic luminosities [erg/s].
+            method: Which correction to apply (default: empirical).
+        Returns:
+            Dict with bolometric luminosities for each wavelength.
+        """
+        if monochromatic_lums is None:
+            monochromatic_lums = self.compute_Luminosity_w()
+
+        # Common correction factors (e.g., Richards et al. 2006 or Netzer 2019)
+        bolometric_corrections = {
+            "1350.0": 3.81,
+            "1450.0": 3.81,
+            "3000.0": 5.15,
+            "5100.0": 9.26,
+            "6200.0": 9.26
+        }
+        L_bol = {}
+        for wave, L in monochromatic_lums.items():
+            corr = bolometric_corrections.get(wave, 0.0)  # fallback if not listed
+            L_bol[wave] = L * corr
+        return L_bol
+    #jnp.where(jnp.isnan(line_center),0,-1.0*jsp.integrate.trapezoid(jnp.where(mask_fit_g,0,1-(full_model)/Baselines),x=jnp.where(mask_fit_g,0,Spectra[:,0,:]),axis=1))
     #def _calculate_Fe_flux(self, measure_range, pp):(https://github.com/legolason/PyQSOFit/blob/master/src/pyqsofit/PyQSOFit.py)
     #important to know we have to separate lines from continums from Fe
+    def compute_black_hole_mass(self,f=1.0,non_combine=False):
+        """
+        Compute black hole mass estimates using various broad emission lines with standard virial estimators.
+
+        Returns:
+            Dictionary of black hole mass estimates [Msun] per line.
+        """
+        # Virial estimator parameters: log(M_BH/Msun) = a + b*log10(L/10^44 erg/s) + 2*log10(FWHM/1000 km/s)
+        estimators = {
+            "Hbeta":     {"wavelength": "5100.0", "a": 6.91, "b": 0.5, "f": f},  # Vestergaard & Peterson 2006
+            "MgII":   {"wavelength": "3000.0", "a": 6.86, "b": 0.5, "f": f},  # Shen et al. 2011
+            "CIV":    {"wavelength": "1350.0", "a": 6.66, "b": 0.53, "f": f}, # Vestergaard & Peterson 2006
+            "Halpha":     {"wavelength": "6200.0", "a": 6.98, "b": 0.5, "f": f},  # Greene & Ho 2005
+        }
+
+        # Compute continuum luminosities and FWHMs
+        L_w = self.compute_Luminosity_w()
+        #fwhm_kms = self.FWHMkm_s()
+        masses = {}
+
+        for line_name, params in estimators.items():
+            if line_name not in self.linelist:
+                continue  # skip if line not fitted
+            wave = params["wavelength"]
+            if wave not in L_w:
+                continue  # skip if continuum not available
+            mapline_broad = self.linemap._get(["line_name","kind"],[line_name,"broad"])
+            if self.n_broad>1 and not non_combine:
+                print("combine")
+                mapline_narrow = self.linemap._get(["line_name","kind"],[line_name,"narrow"])
+                params_broad = mapline_broad["params"]
+                params_narrow = mapline_narrow["params"]
+                fwhm_kms,amplitude_final,center_final,sigma_final = combine(params_broad,params_narrow,limit_velocity=150.0,c=self.c)
+            #lambda0 = mapline["center"]
+            else:
+                params_line = mapline_broad["params"]
+                idx_widhts = [idx for idx,_  in enumerate(mapline_broad.get("params_names")) if "width" in _]
+                idx_center = [idx for idx,_  in enumerate(mapline_broad.get("params_names")) if "center" in _]
+                fwhm = 2. * jnp.sqrt(2. * jnp.log(2.)) * params_line[:,idx_widhts]
+                fwhm_kms = jnp.nanmax((fwhm/jnp.array(params_line[:,idx_center]))*self.c,axis=1) #in km/s
+            a, b, f = params["a"], params["b"], params["f"]
+            log_L = jnp.log10(L_w[wave])  # continuum luminosity in erg/s
+            log_FWHM = jnp.log10(fwhm_kms) - 3  # convert FWHM to 10^3 km/s
+            log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
+            masses[line_name] = (10 ** log_M_BH) / f  # in Msun
+            masses[line_name] = log_M_BH
+        return masses
     
-    def FWHMkm_s(self):
-        if not hasattr(self, 'fwhm'):
-            self.fwhm = self.compute_fwhm()
-        lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
-        fwhmkms =  (self.fwhm*self.c)/lambda0
-        return fwhmkms
+        #     wave = params["wavelength"]
+        #     if wave not in L_w:
+        #         continue  # skip if continuum not available
+
+        #     a, b, f = params["a"], params["b"], params["f"]
+        #     idx = self.RegionClass.lines_list.index(line_name)
+        #     log_L = jnp.log10(L_w[wave])  # continuum luminosity in erg/s
+        #     log_FWHM = jnp.log10(fwhm_kms[:, idx]) - 3  # convert FWHM to 10^3 km/s
+
+        #     log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
+        #     masses[line_name] = (10 ** log_M_BH) / f  # in Msun
+
+        # return masses
+
     
-    def velocityshift(self):
-        lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
-        velocityshift_ = ((self.center-lambda0)/lambda0)*self.c
-        return velocityshift_
+    
+    # def FWHMkm_s(self):
+    #     if not hasattr(self, 'fwhm'):
+    #         self.fwhm = self.compute_fwhm()
+    #     lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
+    #     fwhmkms =  (self.fwhm*self.c)/lambda0
+    #     return fwhmkms
+    
+    # def velocityshift(self):
+    #     #mmm
+    #     lambda0 = self.RegionClass.initial_params.at[self.RegionClass.mapping_params(["center"])].get()
+    #     velocityshift_ = ((self.center-lambda0)/lambda0)*self.c
+    #     return velocityshift_
     
     @property
     def panda_fwhm(self):
@@ -228,15 +313,15 @@ class ParameterEstimation:
         fwhmkms = self.FWHMkm_s()
         return pd.DataFrame(fwhmkms,columns=self.RegionClass.lines_list)
     
-    @property
-    def panda_velocityshift(self):
-        return pd.DataFrame(self.velocityshift(),columns=self.RegionClass.lines_list) 
+    # @property
+    # def panda_velocityshift(self):
+    #     return pd.DataFrame(self.velocityshift(),columns=self.RegionClass.lines_list) 
     
     
     
     
     
-    
+
     
     
     

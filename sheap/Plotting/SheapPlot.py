@@ -22,11 +22,12 @@ class SheapPlot:
         self.profile_params_index_list = ComplexRegion.profile_params_index_list
         self.profile_functions = ComplexRegion.profile_functions
         self.profile_names = ComplexRegion.profile_names
-        self.region_defs = ComplexRegion.region_defs
+        self.complex_region = ComplexRegion.complex_region
         self.xlim = ComplexRegion.outer_limits
         self.mask = ComplexRegion.mask
         self.names = ComplexRegion.names
-
+        self.model_keywords = ComplexRegion.model_keywords
+        self.fe_mode = self.model_keywords.get("fe_mode")
         try:
             self.model = ComplexRegion.model
         except AttributeError:
@@ -55,23 +56,28 @@ class SheapPlot:
 
         # Plot model components
         for i, (profile_name, profile_func, region, idxs) in enumerate(zip(
-            self.profile_names, self.profile_functions, self.region_defs, self.profile_params_index_list)):
+            self.profile_names, self.profile_functions, self.complex_region, self.profile_params_index_list)):
 
+            #if self.fe_mode=="model" and isinstance(region,list):
+             #   continue
+           
             values = params[idxs]
             component_y = profile_func(x_axis, values)
-
-            if region.region == "continuum":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
-            elif "Fe" in profile_name or "fe" in region.region.lower():
+            if isinstance(region,list):
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
             else:
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
-                ax1.axvline(values[1], ls="--", linewidth=1, color="k")
+                if region.region == "continuum" :
+                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+                elif "Fe" in profile_name or "fe" in region.region.lower():
+                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
+                else:
+                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+                    ax1.axvline(values[1], ls="--", linewidth=1, color="k")
 
-                if add_name and min(xlim) < values[1] < max(xlim):
-                    label = f"{region.line_name}_{region.kind}_{region.component}".replace("_", " ")
-                    ypos = 0.25 if "broad" in label else 0.75
-                    ax1.text(values[1], ypos, label, transform=trans, rotation=90, fontsize=20, zorder=10)
+                    if add_name and min(xlim) < values[1] < max(xlim):
+                        label = f"{region.line_name}_{region.kind}_{region.component}".replace("_", " ")
+                        ypos = 0.25 if "broad" in label else 0.75
+                        ax1.text(values[1], ypos, label, transform=trans, rotation=90, fontsize=20, zorder=10)
 
         # Plot main model and data
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, ls="--", color="red")

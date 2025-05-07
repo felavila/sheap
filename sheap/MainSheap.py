@@ -17,11 +17,14 @@ from sheap.SuportFunctions.functions import mapping_params
 from sheap.DataClass.DataClass import SpectralLine
 from sheap.utils import prepare_uncertainties  # ?
 
-from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV
+from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV,Gsum_model
 logger = logging.getLogger(__name__)
 module_dir = os.path.dirname(os.path.abspath(__file__))
 ArrayLike = Union[np.ndarray, jnp.ndarray]
-
+#list of SpectralLine 
+def make_g(list):
+    amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in list]).T
+    return Gsum_model(centers,amplitudes)
 
 PROFILE_FUNC_MAP: Dict[str, Any] = {
     'gaussian': gaussian_func,
@@ -132,13 +135,13 @@ class Sheapectral:
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         fe_regions: List[str] = ['fe_uv', "feII_IZw1", "feII_forbidden", "feII_coronal"],
-        template_mode_fe: bool = False,
+        fe_mode:str = "template",
         add_outflow: bool = False,
         add_narrowplus: bool = False,
         by_region: bool = False,
         force_linear: bool = False,
         add_balmercontiniumm: bool = False,
-        fe_tied_params: Union[tuple, list] = ('center', 'width')
+        fe_tied_params: Union[tuple, list] = ('center', 'width'),
     ):
         self.builded_region = RegionBuilder(
             xmin=xmin,
@@ -148,13 +151,15 @@ class Sheapectral:
             tied_narrow_to=tied_narrow_to,
             tied_broad_to=tied_broad_to,
             fe_regions=fe_regions,
-            template_mode_fe=template_mode_fe,
+            fe_mode =fe_mode,
+            #template_mode_fe=template_mode_fe,
             add_outflow=add_outflow,
             add_narrowplus=add_narrowplus,
             by_region=by_region,
             force_linear=force_linear,
             add_balmercontiniumm=add_balmercontiniumm,
-            fe_tied_params=fe_tied_params
+            fe_tied_params=fe_tied_params,
+            #model_fii = model_fii
         )
     def fit_region(self,add_step=True,tied_fe=False,num_steps_list=[3000,3000]):
 
@@ -163,7 +168,7 @@ class Sheapectral:
              raise RuntimeError("build_region() must be called before fit()")
         self.fitting_rutine = self.builded_region(add_step = add_step,tied_fe = tied_fe,num_steps_list = num_steps_list)
         fittingclass= RegionFitting(self.fitting_rutine)
-        params,outer_limits,inner_limits,loss,mask,step,params_dict,initial_params,profile_params_index_list,profile_functions,max_flux,profile_names,region_defs \
+        params,outer_limits,inner_limits,loss,mask,step,params_dict,initial_params,profile_params_index_list,profile_functions,max_flux,profile_names,complex_region \
             = fittingclass(spectra, do_return = True) #runmodel()?
         self.outer_limits  = outer_limits
         self.inner_limits = inner_limits
@@ -176,7 +181,8 @@ class Sheapectral:
         self.profile_params_index_list = profile_params_index_list
         self.max_flux = max_flux
         self.profile_names = profile_names
-        self.region_defs = region_defs
+        self.complex_region = complex_region
+        self.model_keywords = self.fitting_rutine.get("model_keywords")
         scaled = (10**self.spectra_exp)
         idxs = mapping_params(self.params_dict,[["amplitude"],["scale"]]) #
         self.max_flux = self.max_flux*scaled #just for the plot 
@@ -203,16 +209,18 @@ class Sheapectral:
         obj.profile_params_index_list = data.get("profile_params_index_list")
         obj.profile_names = data.get("profile_names")
         obj.fitting_rutine = {"fitting_rutine": data.get("fitting_rutine")}
-        region_defs = data.get("region_defs")
-        obj.outer_limits = data.get("outer_limits")
-        if region_defs is not None:
-            obj.region_defs = [SpectralLine(**d) for d in region_defs]
+        obj.model_keywords = data.get("model_keywords")
+        region_defs = data.get("complex_region")
+        obj.outer_limits = data.get("outer_limits") #region extension comming as a more proper name 
+        if isinstance(region_defs,list):
+            obj.complex_region = [[SpectralLine(**ii) for ii in i ] if isinstance(i,list) else SpectralLine(**i) for i in region_defs]
+            #[SpectralLine(**d) for d in region_defs]
         if obj.profile_names is not None:
-            obj.profile_functions = [PROFILE_FUNC_MAP.get(i) for i in obj.profile_names]
+            obj.profile_functions = [PROFILE_FUNC_MAP.get(i) if i!="combinedG" else make_g(obj.complex_region[idx]) for idx,i in enumerate(obj.profile_names)]
         return obj
     
     def _save(self):
-        _region_defs = [i.to_dict() for i in self.region_defs]  # to dict so it can be read anyway
+        _region_defs = [[ii.to_dict() for ii in i ] if isinstance(i,list) else i.to_dict() for i in self.complex_region]  # to dict so it can be read anyway
         dic_ = {
             "names": self.names,
             "spectra":  np.array(self.spectra),
@@ -224,11 +232,12 @@ class Sheapectral:
             "params": np.array(self.params),# array 
             "params_dict": self.params_dict, #array 
             "mask": np.array(self.mask), #array 
-            "region_defs": _region_defs, #dic
+            "complex_region": _region_defs, #dic
             "profile_params_index_list": self.profile_params_index_list, #array 
             "profile_names": self.profile_names, #list str
             "fitting_rutine": self.fitting_rutine["fitting_rutine"], #dict list
-            "outer_limits":self.outer_limits
+            "outer_limits":self.outer_limits,
+            "model_keywords": self.model_keywords
 
         }
         estimated_size = sys.getsizeof(pickle.dumps(dic_))

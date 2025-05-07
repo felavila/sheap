@@ -50,7 +50,7 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
 
 def region_ties(
     local_region_list: List[SpectralLine],
-    mainline_candidates: Union[str, List[str]],
+    mainline_candidates: Union[str, List[str]], #this should be remove 
     n_narrow: int,
     n_broad: int,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,

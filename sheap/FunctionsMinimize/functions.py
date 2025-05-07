@@ -230,6 +230,43 @@ def fitFeUV(x,params):
 
 
 
+def Gsum_model(centers, amplitudes):
+    """
+    Returns a Gaussian sum model function with shared sigma and shift.
+
+    Args:
+        centers (array): Array of Gaussian centers.
+        amplitudes (array): Array of Gaussian amplitudes (same shape as centers).
+
+    Returns:
+        callable: Function G(x, sigma, delta) that evaluates the sum of Gaussians.
+    """
+    centers = jnp.array(centers)
+    amplitudes = jnp.array(amplitudes)
+    @jit
+    @param_count(3)
+    def G(x,params):
+        """
+        Evaluate the sum of Gaussians at x with shared sigma and shift.
+
+        Args:
+            x: Array of evaluation points.
+            sigma: Shared standard deviation.
+            delta: Shared shift applied to all centers.
+
+        Returns:
+            Sum of Gaussians evaluated at x.
+        """
+        amplitude,delta,width = params
+        shifted_centers = centers + delta
+        gaussians = amplitude*(amplitudes[:, None] * jnp.exp(-0.5 * ((x - shifted_centers[:, None]) / width) ** 2))
+        return gaussians.sum(axis=0)
+
+    return G
+    
+
+
+
 class GaussianSum:
     def __init__(self, n, constraints=None, inequalities=None):
         """

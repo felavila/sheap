@@ -42,15 +42,20 @@ class RegionBuilder:
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,        
         fe_regions = ['fe_uv',"feII_IZw1","feII_forbidden","feII_coronal"],
-        template_mode_fe:bool = False,
+        fe_mode = "template", #"sum,combined,template"
+        #template_mode_fe:bool = False,
         add_outflow:bool = False,
         add_narrowplus:bool = False,
         by_region:bool = False,
         force_linear:bool = False,
         add_balmercontiniumm: bool = False,
-        fe_tied_params = ('center', 'width')
+        fe_tied_params = ('center', 'width'),
+        #model_fii = False
         
     ) -> None:
+        if fe_mode not in ["sum","model","template"]:
+            print(f"fe_mode:{fe_mode} not recognized moving to template")
+            fe_mode = "template"
         self.xmin: float = xmin
         self.xmax: float = xmax
         self.tied_narrow_to = tied_narrow_to
@@ -62,7 +67,8 @@ class RegionBuilder:
         self.regions_to_fit: List[SpectralLine] = []
         self._load_region_templates(yaml_paths)
         self.tied_params: List[List[str]] = []
-        self.template_mode_fe = template_mode_fe
+        self.fe_mode = fe_mode
+        #self.template_mode_fe = template_mode_fe
         #self.mainline_candidates = mainline_candidates
         self.add_outflow = add_outflow
         self.add_narrowplus = add_narrowplus
@@ -71,8 +77,9 @@ class RegionBuilder:
         self.fe_tied_params = fe_tied_params
         self.force_linear = force_linear
         self.add_balmercontiniumm = add_balmercontiniumm
+        #self.model_fii = model_fii
         self.make_region()
-
+        
     def _load_region_templates(self, paths: Optional[List[Union[str, Path]]]) -> None:
         """
         Load YAML files defining spectral regions.
@@ -94,7 +101,8 @@ class RegionBuilder:
     def __call__(self,add_step=True,tied_fe=False,num_steps_list=[3000,3000]):
         "build a simple rutine to be fitted"
         _rutine_dict = {"complex_region":self.regions_to_fit,"fitting_rutine":
-            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},"outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50]}
+            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},
+            "outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50],"model_keywords":self.model_keywords}
         if add_step:
             _tied_params = []
             _tied_params.extend(
@@ -102,7 +110,7 @@ class RegionBuilder:
                         tied_narrow_to=self.tied_narrow_to,
                         tied_broad_to=self.tied_broad_to,
                         known_tied_relations=self.known_tied_relations,only_known=True))
-            if not self.template_mode_fe and tied_fe:
+            if self.fe_mode=="sum" and tied_fe:
                 _tied_params.extend(fe_ties(self.regions_to_fit))
             _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
         return _rutine_dict
@@ -117,14 +125,16 @@ class RegionBuilder:
         fe_regions: Optional[List[str]] = None,
         add_outflow: Optional[bool] = None,
         add_narrowplus: Optional[bool] = None,
-        template_mode_fe: Optional[bool] = None,
+        #template_mode_fe: Optional[bool] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         force_linear: Optional[bool] = None,
-        mainline_candidates = None,
+        #mainline_candidates = None,
         by_region: Optional[bool] = None,
         fe_tied_params: Optional[Tuple] = None,
-        add_balmercontiniumm: Optional[Tuple] = None 
+        add_balmercontiniumm: Optional[Tuple] = None,
+        #model_fii: Optional[Tuple] = None,
+        fe_mode = None
     ) -> None:
         # Override defaults
         xmin = xmin if xmin is not None else self.xmin
@@ -133,21 +143,24 @@ class RegionBuilder:
         n_narrow = n_narrow if n_narrow is not None else self.n_narrow
         tied_narrow_to = tied_narrow_to if tied_narrow_to is not None else self.tied_narrow_to
         tied_broad_to =  tied_broad_to if tied_broad_to is not None else self.tied_broad_to
-        mainline_candidates =  mainline_candidates #if mainline_candidates is not None else self.mainline_candidates
-        template_mode_fe =  template_mode_fe if template_mode_fe is not None else self.template_mode_fe
+        #mainline_candidates =  mainline_candidates #if mainline_candidates is not None else self.mainline_candidates
+        #template_mode_fe =  template_mode_fe if template_mode_fe is not None else self.template_mode_fe
         add_outflow = add_outflow if add_outflow is not None else self.add_outflow
         add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
         fe_regions = fe_regions if fe_regions is not None else self.fe_regions
         force_linear = force_linear if force_linear is not None else self.force_linear
+        
+        add_balmercontiniumm = add_balmercontiniumm if add_balmercontiniumm is not None else self.add_balmercontiniumm
+        #model_fii = model_fii if model_fii is not None else self.model_fii
+        fe_mode = fe_mode if fe_mode is not None else self.fe_mode
         by_region = by_region if by_region is not None else self.by_region
         fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
-        add_balmercontiniumm = add_balmercontiniumm if add_balmercontiniumm is not None else self.add_balmercontiniumm
             #template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
         
         self.regions_to_fit.clear()
         self.tied_params.clear()
         narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
-        if template_mode_fe: #and (xmax - xmin) > 1000:
+        if fe_mode.lower() == "template": #and (xmax - xmin) > 1000:
             #the cuantity of pixels should be related to the the region in where the spectra have to be 
             #if xmin>=3000 and xmax<=6000:
             #tested formes of 
@@ -182,15 +195,19 @@ class RegionBuilder:
                 t_c += 1
             if t_c == 0:
                 print("the covered range is not accepted to use template moving to sum of lines mode n/ work in progress")
+                
                 #template_mode_Fe = False
         if self.xmin > 3640. and add_balmercontiniumm:
             print("Warning: Balmer continiuum dosent have effect under 3640 A add_balmercontiniumm change to False")
             add_balmercontiniumm = False
         is_tied_broad = False if tied_broad_to is not None else True 
         is_tied_narrow = False if tied_narrow_to is not None else True 
-        
+        tie_fe = False 
+        #print(model_fii)
         for name, region in self.lines_regions_available.items():
+            #print(name)
             for entry in region['region']:
+                
                 center = float(entry.get('center', -np.inf))
                 if not (xmin <= center <= xmax):
                     continue
@@ -224,12 +241,16 @@ class RegionBuilder:
                     comps = self._handle_narrow_line(base, n_narrow, add_outflow)
                 elif name == 'broad':
                     comps = self._handle_broad_line(base, n_broad)
-                elif name in fe_regions and not template_mode_fe:
+                elif name in fe_regions and fe_mode=="sum":
                     comps = [self._handle_fe_line(base)]
+                    tie_fe = True 
+                elif name == "feII_model" and fe_mode=="model":
+                    comps = [self._handle_fe_line(base,how="combine")]
                 else:
                     continue
                 self.regions_to_fit.extend(comps)
-                
+        
+         
         assert is_tied_broad, f"'tied_broad_to': {tied_broad_to} not in the region"
         assert is_tied_narrow, f"'tied_narrow_to': {tied_narrow_to} not in the region"
 
@@ -247,9 +268,10 @@ class RegionBuilder:
             )
 
         # Build tied parameters
-        self.tied_params.extend(
-            fe_ties(self.regions_to_fit,by_region=by_region,tied_params=fe_tied_params)
-        )
+        if tie_fe:
+            self.tied_params.extend(
+                fe_ties(self.regions_to_fit,by_region=by_region,tied_params=fe_tied_params)
+            )
         
         
     #    local_region_list: List[SpectralLine],
@@ -269,9 +291,10 @@ class RegionBuilder:
         self.xmin, self.xmax = xmin, xmax
         self.n_narrow, self.n_broad = n_narrow, n_broad
         self.number_lines,self.number_tied = len(self.regions_to_fit),len(self.tied_params)
-        self.template_mode_fe = template_mode_fe
+        #self.template_mode_fe = template_mode_fe
         self.tied_narrow_to = tied_narrow_to
         self.tied_broad_to = tied_broad_to
+        self.model_keywords = {"n_broad":n_broad,"n_narrow":n_narrow,"add_outflow":add_outflow,"fe_mode":fe_mode}
     
     def _handle_main_line(
         self,
@@ -350,29 +373,31 @@ class RegionBuilder:
             comps.append(new)
         return comps
 
-    def _handle_fe_line(self, entry: SpectralLine) -> SpectralLine:
+    def _handle_fe_line(self, entry: SpectralLine,how='sum') -> SpectralLine:
         return SpectralLine(
             center=entry.center,
             line_name=entry.line_name,
             kind='fe',
             component=FE_COMPONENT,
             amplitude= 0.1 if entry.amplitude==1.0 else entry.amplitude,
-            how='sum',
+            how=how,
             region = entry.region
         )
     
-    def _fitting_rutine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
-        "build a simple rutine to be fitted"
-        _rutine_dict = {"complex_region":self.regions_to_fit,"fitting_rutine":
-            {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},"outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50]}
-        if add_step:
-            _tied_params = []
-            _tied_params.extend(
-            region_ties(self.regions_to_fit,None,self.n_narrow,self.n_broad,
-                        tied_narrow_to=self.tied_narrow_to,
-                        tied_broad_to=self.tied_broad_to,
-                        known_tied_relations=self.known_tied_relations,only_known=True))
-            if not self.template_mode_fe and tied_fe:
-                _tied_params.extend(fe_ties(self.regions_to_fit))
-            _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
-        return _rutine_dict
+    # def _fitting_rutine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
+    #     "build a simple rutine to be fitted"
+    #     print("xd")
+    #     _rutine_dict = {"complex_region":self.regions_to_fit,"fitting_rutine":
+    #         {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},
+    #         "outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50],"model_keywords":self.model_keywords}
+    #     if add_step:
+    #         _tied_params = []
+    #         _tied_params.extend(
+    #         region_ties(self.regions_to_fit,None,self.n_narrow,self.n_broad,
+    #                     tied_narrow_to=self.tied_narrow_to,
+    #                     tied_broad_to=self.tied_broad_to,
+    #                     known_tied_relations=self.known_tied_relations,only_known=True))
+    #         if not self.template_mode_fe and tied_fe:
+    #             _tied_params.extend(fe_ties(self.regions_to_fit))
+    #         _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
+    #     return _rutine_dict

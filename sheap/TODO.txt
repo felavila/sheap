@@ -7,7 +7,7 @@
 # TODO: Save used template to file, replace template input
 # TODO: Observed frame input with redshift
 # TODO: Units interpreting and handling
-# TODO: Tie line complexes together
+# TODO: Tie line complexes together solve
 # TODO: Different line models: PL, Gauss Hermite, Lorentzian
 # TODO: Write tests
 #

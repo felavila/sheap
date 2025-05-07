@@ -34,7 +34,7 @@ def make_constraints(
             upper=[3.5, 100., 100.],
             lower=[2.7, -100., 0.0],
             profile='fitFe' + cfg.which,
-            param_names=['log_FWHM', 'shift', 'scale']
+            param_names=['logFWHM', 'shift', 'scale']
         )
 
     elif cfg.profile == 'powerlaw':
