@@ -23,7 +23,7 @@ module_dir = os.path.dirname(os.path.abspath(__file__))
 ArrayLike = Union[np.ndarray, jnp.ndarray]
 #list of SpectralLine 
 def make_g(list):
-    amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in list]).T
+    amplitudes,centers = list.amplitude,list.center
     return Gsum_model(centers,amplitudes)
 
 PROFILE_FUNC_MAP: Dict[str, Any] = {
@@ -213,14 +213,16 @@ class Sheapectral:
         region_defs = data.get("complex_region")
         obj.outer_limits = data.get("outer_limits") #region extension comming as a more proper name 
         if isinstance(region_defs,list):
-            obj.complex_region = [[SpectralLine(**ii) for ii in i ] if isinstance(i,list) else SpectralLine(**i) for i in region_defs]
-            #[SpectralLine(**d) for d in region_defs]
+            obj.complex_region = [SpectralLine(**i) for i in region_defs]
+            #obj.complex_region = [SpectralLine(**d) for d in region_defs]
+            #
         if obj.profile_names is not None:
-            obj.profile_functions = [PROFILE_FUNC_MAP.get(i) if i!="combinedG" else make_g(obj.complex_region[idx]) for idx,i in enumerate(obj.profile_names)]
+            
+            obj.profile_functions = [PROFILE_FUNC_MAP.get(i) if i!="combine_gaussian" else make_g(obj.complex_region[idx]) for idx,i in enumerate(obj.profile_names)]
         return obj
     
     def _save(self):
-        _region_defs = [[ii.to_dict() for ii in i ] if isinstance(i,list) else i.to_dict() for i in self.complex_region]  # to dict so it can be read anyway
+        _region_defs = [i.to_dict() for i in self.complex_region]  # to dict so it can be read anyway
         dic_ = {
             "names": self.names,
             "spectra":  np.array(self.spectra),

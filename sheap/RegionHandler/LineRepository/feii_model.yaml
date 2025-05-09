@@ -3,1131 +3,1414 @@ region:
   line_name: a2D2
   amplitude: 0.0102651351174556
   region: a2D2
+  kind: fe
 - center: 3779.576
   line_name: a2D2a
   amplitude: 0.03786676640454151
   region: a2D2
+  kind: fe
 - center: 3798.597
   line_name: a2D2b
   amplitude: 0.0191184311036592
   region: a2D2
+  kind: fe
 - center: 3833.013
   line_name: a2D2c
   amplitude: 0.009024815003560881
   region: a2D2
+  kind: fe
 - center: 3896.103
   line_name: a2D2d
   amplitude: 0.0191237331784476
   region: a2D2
+  kind: fe
 - center: 4075.954
   line_name: a2D2e
   amplitude: 0.1
   region: a2D2
+  kind: fe
 - center: 4119.524
   line_name: a2D2f
   amplitude: 0.0029326303585623203
   region: a2D2
+  kind: fe
 - center: 4124.787
   line_name: a2D2g
   amplitude: 0.015227352898307001
   region: a2D2
+  kind: fe
 - center: 4177.692
   line_name: a2D2h
   amplitude: 0.042870589148218605
   region: a2D2
+  kind: fe
 - center: 4183.2
   line_name: a2D2i
   amplitude: 0.0029046566564105403
   region: a2D2
+  kind: fe
 - center: 4258.34
   line_name: a2D2j
   amplitude: 0.016148818882285903
   region: a2D2
+  kind: fe
 - center: 5197.577
   line_name: a4G
   amplitude: 0.06222676356948001
   region: a4G
+  kind: fe
 - center: 5234.625
   line_name: a4Ga
   amplitude: 0.0697586082230657
   region: a4G
+  kind: fe
 - center: 5254.929
   line_name: a4Gb
   amplitude: 0.00464571702094092
   region: a4G
+  kind: fe
 - center: 5264.812
   line_name: a4Gc
   amplitude: 0.00845821317329253
   region: a4G
+  kind: fe
 - center: 5276.002
   line_name: a4Gd
   amplitude: 0.09314814592401251
   region: a4G
+  kind: fe
 - center: 5316.615
   line_name: a4Ge
   amplitude: 0.1
   region: a4G
+  kind: fe
 - center: 5316.784
   line_name: a4Gf
   amplitude: 0.009708909898377222
   region: a4G
+  kind: fe
 - center: 5325.553
   line_name: a4Gg
   amplitude: 0.007534534389549471
   region: a4G
+  kind: fe
 - center: 5337.732
   line_name: a4Gh
   amplitude: 0.0038208579940757605
   region: a4G
+  kind: fe
 - center: 5362.869
   line_name: a4Gi
   amplitude: 0.0377660322441093
   region: a4G
+  kind: fe
 - center: 5414.073
   line_name: a4Gj
   amplitude: 0.00411857576664193
   region: a4G
+  kind: fe
 - center: 5425.257
   line_name: a4Gk
   amplitude: 0.00768178589774514
   region: a4G
+  kind: fe
 - center: 5932.055
   line_name: a4Gl
   amplitude: 0.00011923470457889001
   region: a4G
+  kind: fe
 - center: 5991.376
   line_name: a4Gm
   amplitude: 0.00224602637350248
   region: a4G
+  kind: fe
 - center: 6084.111
   line_name: a4Gn
   amplitude: 0.00118256804034723
   region: a4G
+  kind: fe
 - center: 6113.322
   line_name: a4Go
   amplitude: 0.0005133938879507701
   region: a4G
+  kind: fe
 - center: 6116.057
   line_name: a4Gp
   amplitude: 0.00014884024440448002
   region: a4G
+  kind: fe
 - center: 6129.703
   line_name: a4Gq
   amplitude: 0.00016738164246278
   region: a4G
+  kind: fe
 - center: 6150.098
   line_name: a4Gr
   amplitude: 0.00012964856884857
   region: a4G
+  kind: fe
 - center: 4278.159
   line_name: a4H
   amplitude: 0.0448482722151923
   region: a4H
+  kind: fe
 - center: 4314.31
   line_name: a4Ha
   amplitude: 0.1
   region: a4H
+  kind: fe
 - center: 4332.881
   line_name: a4Hb
   amplitude: 0.00548887155976696
   region: a4H
+  kind: fe
 - center: 4338.703
   line_name: a4Hc
   amplitude: 0.023318489776952802
   region: a4H
+  kind: fe
 - center: 4372.222
   line_name: a4Hd
   amplitude: 0.0125264822132246
   region: a4H
+  kind: fe
 - center: 4384.319
   line_name: a4He
   amplitude: 0.09740841347619321
   region: a4H
+  kind: fe
 - center: 4413.601
   line_name: a4Hf
   amplitude: 0.0407355685993273
   region: a4H
+  kind: fe
 - center: 4825.736
   line_name: a4Hg
   amplitude: 0.00474555851034839
   region: a4H
+  kind: fe
 - center: 4833.197
   line_name: a4Hh
   amplitude: 0.00517690947254964
   region: a4H
+  kind: fe
 - center: 4839.998
   line_name: a4Hi
   amplitude: 0.0038416640296872503
   region: a4H
+  kind: fe
 - center: 4593.827
   line_name: a6S
   amplitude: 3.510462870702e-05
   region: a6S
+  kind: fe
 - center: 4601.378
   line_name: a6Sa
   amplitude: 0.00010977661470329
   region: a6S
+  kind: fe
 - center: 4656.981
   line_name: a6Sb
   amplitude: 0.0006901900983204701
   region: a6S
+  kind: fe
 - center: 4663.708
   line_name: a6Sc
   amplitude: 0.00044585239993465007
   region: a6S
+  kind: fe
 - center: 4731.453
   line_name: a6Sd
   amplitude: 0.00353700207911316
   region: a6S
+  kind: fe
 - center: 4923.927
   line_name: a6Se
   amplitude: 0.08099223336558961
   region: a6S
+  kind: fe
 - center: 5018.44
   line_name: a6Sf
   amplitude: 0.11698089625845501
   region: a6S
+  kind: fe
 - center: 5169.033
   line_name: a6Sg
   amplitude: 0.1
   region: a6S
+  kind: fe
 - center: 5256.938
   line_name: a6Sh
   amplitude: 0.00016374925297253
   region: a6S
+  kind: fe
 - center: 5284.109
   line_name: a6Si
   amplitude: 0.00219850030024332
   region: a6S
+  kind: fe
 - center: 6369.462
   line_name: a6Sj
   amplitude: 0.00014746091733911003
   region: a6S
+  kind: fe
 - center: 6432.68
   line_name: a6Sk
   amplitude: 0.00051340332014925
   region: a6S
+  kind: fe
 - center: 6516.08
   line_name: a6Sl
   amplitude: 0.0009205641838762
   region: a6S
+  kind: fe
 - center: 5432.967
   line_name: b2H
   amplitude: 0.016704052309259903
   region: b2H
+  kind: fe
 - center: 5525.125
   line_name: b2Ha
   amplitude: 0.00810884723292422
   region: b2H
+  kind: fe
 - center: 5534.847
   line_name: b2Hb
   amplitude: 0.1
   region: b2H
+  kind: fe
 - center: 5591.368
   line_name: b2Hc
   amplitude: 0.0014514550817463802
   region: b2H
+  kind: fe
 - center: 6269.967
   line_name: b2Hd
   amplitude: 0.0016028707218343399
   region: b2H
+  kind: fe
 - center: 6147.741
   line_name: b4D
   amplitude: 0.0238037809061446
   region: b4D
+  kind: fe
 - center: 6149.258
   line_name: b4Da
   amplitude: 0.0236235064724525
   region: b4D
+  kind: fe
 - center: 6238.392
   line_name: b4Db
   amplitude: 0.029061309504460398
   region: b4D
+  kind: fe
 - center: 6239.953
   line_name: b4Dc
   amplitude: 0.00450830879349907
   region: b4D
+  kind: fe
 - center: 6247.557
   line_name: b4Dd
   amplitude: 0.0578672010570595
   region: b4D
+  kind: fe
 - center: 6407.251
   line_name: b4De
   amplitude: 0.00243209274003447
   region: b4D
+  kind: fe
 - center: 6416.919
   line_name: b4Df
   amplitude: 0.022032159371702203
   region: b4D
+  kind: fe
 - center: 6456.383
   line_name: b4Dg
   amplitude: 0.1
   region: b4D
+  kind: fe
 - center: 7181.232
   line_name: b4Dh
   amplitude: 0.0011434830092897001
   region: b4D
+  kind: fe
 - center: 7222.394
   line_name: b4Di
   amplitude: 0.00554582664234037
   region: b4D
+  kind: fe
 - center: 7224.487
   line_name: b4Dj
   amplitude: 0.0062459291455823004
   region: b4D
+  kind: fe
 - center: 7289.045
   line_name: b4Dk
   amplitude: 0.0021922711544362402
   region: b4D
+  kind: fe
 - center: 7301.56
   line_name: b4Dl
   amplitude: 0.00032709874845263
   region: b4D
+  kind: fe
 - center: 7308.073
   line_name: b4Dm
   amplitude: 0.010392683923134
   region: b4D
+  kind: fe
 - center: 7310.216
   line_name: b4Dn
   amplitude: 0.004724211404862941
   region: b4D
+  kind: fe
 - center: 7320.654
   line_name: b4Do
   amplitude: 0.0065232834033974495
   region: b4D
+  kind: fe
 - center: 7352.699
   line_name: b4Dp
   amplitude: 0.00012722046115581
   region: b4D
+  kind: fe
 - center: 7449.335
   line_name: b4Dq
   amplitude: 0.00521150811779208
   region: b4D
+  kind: fe
 - center: 7462.407
   line_name: b4Dr
   amplitude: 0.0194406332063736
   region: b4D
+  kind: fe
 - center: 7479.693
   line_name: b4Ds
   amplitude: 0.00271387925742952
   region: b4D
+  kind: fe
 - center: 7515.831
   line_name: b4Dt
   amplitude: 0.0038140529666567803
   region: b4D
+  kind: fe
 - center: 7533.367
   line_name: b4Du
   amplitude: 0.00104831647330938
   region: b4D
+  kind: fe
 - center: 7655.488
   line_name: b4Dv
   amplitude: 0.00288111538935894
   region: b4D
+  kind: fe
 - center: 7711.723
   line_name: b4Dw
   amplitude: 0.028706663922389505
   region: b4D
+  kind: fe
 - center: 7841.388
   line_name: b4Dx
   amplitude: 0.0018692245726864998
   region: b4D
+  kind: fe
 - center: 8436.046
   line_name: b4Dy
   amplitude: 0.00011233385311389001
   region: b4D
+  kind: fe
 - center: 8946.051
   line_name: b4Dz
   amplitude: 0.0005745324630463
   region: b4D
+  kind: fe
 - center: 9214.838
   line_name: b4Daa
   amplitude: 8.243449483121001e-05
   region: b4D
+  kind: fe
 - center: 4088.755
   line_name: b4F
   amplitude: 0.00013300587361097
   region: b4F
+  kind: fe
 - center: 4138.405
   line_name: b4Fa
   amplitude: 0.0002996222805867
   region: b4F
+  kind: fe
 - center: 4472.929
   line_name: b4Fb
   amplitude: 0.00357588327715555
   region: b4F
+  kind: fe
 - center: 4489.183
   line_name: b4Fc
   amplitude: 0.0108825242601506
   region: b4F
+  kind: fe
 - center: 4491.405
   line_name: b4Fd
   amplitude: 0.0242491054727117
   region: b4F
+  kind: fe
 - center: 4508.288
   line_name: b4Fe
   amplitude: 0.0365763429421355
   region: b4F
+  kind: fe
 - center: 4515.339
   line_name: b4Ff
   amplitude: 0.0346680044314808
   region: b4F
+  kind: fe
 - center: 4520.224
   line_name: b4Fg
   amplitude: 0.023274790807381
   region: b4F
+  kind: fe
 - center: 4522.634
   line_name: b4Fh
   amplitude: 0.08558129303610161
   region: b4F
+  kind: fe
 - center: 4534.168
   line_name: b4Fi
   amplitude: 0.0029221034554582303
   region: b4F
+  kind: fe
 - center: 4541.524
   line_name: b4Fj
   amplitude: 0.0077474676628226605
   region: b4F
+  kind: fe
 - center: 4549.474
   line_name: b4Fk
   amplitude: 0.1
   region: b4F
+  kind: fe
 - center: 4555.893
   line_name: b4Fl
   amplitude: 0.0472833724560507
   region: b4F
+  kind: fe
 - center: 4576.34
   line_name: b4Fm
   amplitude: 0.013486926025162
   region: b4F
+  kind: fe
 - center: 4582.835
   line_name: b4Fn
   amplitude: 0.0069681515428667105
   region: b4F
+  kind: fe
 - center: 4583.837
   line_name: b4Fo
   amplitude: 0.134362791003769
   region: b4F
+  kind: fe
 - center: 4595.682
   line_name: b4Fp
   amplitude: 0.00049027262151761
   region: b4F
+  kind: fe
 - center: 4620.521
   line_name: b4Fq
   amplitude: 0.00075797433892325
   region: b4F
+  kind: fe
 - center: 4629.339
   line_name: b4Fr
   amplitude: 0.0457759501590011
   region: b4F
+  kind: fe
 - center: 4648.235
   line_name: b4Fs
   amplitude: 0.00012554443411884003
   region: b4F
+  kind: fe
 - center: 4666.758
   line_name: b4Ft
   amplitude: 0.00548970352946927
   region: b4F
+  kind: fe
 - center: 4833.865
   line_name: b4Fu
   amplitude: 9.731014800126e-05
   region: b4F
+  kind: fe
 - center: 4893.82
   line_name: b4Fv
   amplitude: 0.00032370102841647
   region: b4F
+  kind: fe
 - center: 4924.921
   line_name: b4Fw
   amplitude: 0.00015951970465923
   region: b4F
+  kind: fe
 - center: 4993.358
   line_name: b4Fx
   amplitude: 0.00304374074531359
   region: b4F
+  kind: fe
 - center: 5036.92
   line_name: b4Fy
   amplitude: 0.00027471346932943
   region: b4F
+  kind: fe
 - center: 5100.664
   line_name: b4Fz
   amplitude: 0.00039703345397572
   region: b4F
+  kind: fe
 - center: 5120.352
   line_name: b4Faa
   amplitude: 0.00055417488867338
   region: b4F
+  kind: fe
 - center: 5132.669
   line_name: b4Fbb
   amplitude: 0.00061418288172566
   region: b4F
+  kind: fe
 - center: 5136.802
   line_name: b4Fcc
   amplitude: 0.00028797343051419
   region: b4F
+  kind: fe
 - center: 5146.127
   line_name: b4Fdd
   amplitude: 0.00110561705512142
   region: b4F
+  kind: fe
 - center: 5150.941
   line_name: b4Fee
   amplitude: 0.00031001046565869004
   region: b4F
+  kind: fe
 - center: 5154.409
   line_name: b4Fff
   amplitude: 0.00065015412840142
   region: b4F
+  kind: fe
 - center: 5161.184
   line_name: b4Fgg
   amplitude: 0.0002885613969403
   region: b4F
+  kind: fe
 - center: 5171.64
   line_name: b4Fhh
   amplitude: 0.0003940843538164801
   region: b4F
+  kind: fe
 - center: 6229.349
   line_name: b4Fii
   amplitude: 0.00012460334793745002
   region: b4F
+  kind: fe
 - center: 6239.366
   line_name: b4Fjj
   amplitude: 0.00024644678478862004
   region: b4F
+  kind: fe
 - center: 3764.105
   line_name: b4P
   amplitude: 0.00520297231900193
   region: b4P
+  kind: fe
 - center: 3824.929
   line_name: b4Pa
   amplitude: 0.0023642144487151704
   region: b4P
+  kind: fe
 - center: 3872.766
   line_name: b4Pb
   amplitude: 0.0025729173404101502
   region: b4P
+  kind: fe
 - center: 3908.545
   line_name: b4Pc
   amplitude: 8.436785067931001e-05
   region: b4P
+  kind: fe
 - center: 3964.579
   line_name: b4Pd
   amplitude: 0.0005887704805005601
   region: b4P
+  kind: fe
 - center: 3974.167
   line_name: b4Pe
   amplitude: 0.0016742778850334502
   region: b4P
+  kind: fe
 - center: 4002.083
   line_name: b4Pf
   amplitude: 0.00168413023953368
   region: b4P
+  kind: fe
 - center: 4087.284
   line_name: b4Pg
   amplitude: 0.00020283602688536
   region: b4P
+  kind: fe
 - center: 4122.668
   line_name: b4Ph
   amplitude: 0.00319174589092672
   region: b4P
+  kind: fe
 - center: 4128.748
   line_name: b4Pi
   amplitude: 0.0016760407212273903
   region: b4P
+  kind: fe
 - center: 4173.461
   line_name: b4Pj
   amplitude: 0.00044513178745424003
   region: b4P
+  kind: fe
 - center: 4178.862
   line_name: b4Pk
   amplitude: 0.023108900765548904
   region: b4P
+  kind: fe
 - center: 4233.172
   line_name: b4Pl
   amplitude: 0.1
   region: b4P
+  kind: fe
 - center: 4258.154
   line_name: b4Pm
   amplitude: 0.00185665148461173
   region: b4P
+  kind: fe
 - center: 4273.326
   line_name: b4Pn
   amplitude: 0.00281421257048653
   region: b4P
+  kind: fe
 - center: 4296.572
   line_name: b4Po
   amplitude: 0.006610341821269031
   region: b4P
+  kind: fe
 - center: 4303.176
   line_name: b4Pp
   amplitude: 0.013818729502130101
   region: b4P
+  kind: fe
 - center: 4351.769
   line_name: b4Pq
   amplitude: 0.0046770634636778404
   region: b4P
+  kind: fe
 - center: 4369.411
   line_name: b4Pr
   amplitude: 0.0013649676417308001
   region: b4P
+  kind: fe
 - center: 4385.387
   line_name: b4Ps
   amplitude: 0.013663938095345
   region: b4P
+  kind: fe
 - center: 4386.585
   line_name: b4Pt
   amplitude: 7.401676151126e-05
   region: b4P
+  kind: fe
 - center: 4416.83
   line_name: b4Pu
   amplitude: 0.013075898168363402
   region: b4P
+  kind: fe
 - center: 4461.439
   line_name: b4Pv
   amplitude: 0.00050369122097517
   region: b4P
+  kind: fe
 - center: 4580.063
   line_name: b4Pw
   amplitude: 0.00123975742668973
   region: b4P
+  kind: fe
 - center: 4583.999
   line_name: b4Px
   amplitude: 0.00034750041386597
   region: b4P
+  kind: fe
 - center: 4648.944
   line_name: b4Py
   amplitude: 0.00026915014112626005
   region: b4P
+  kind: fe
 - center: 4665.805
   line_name: b4Pz
   amplitude: 6.916615442264001e-05
   region: b4P
+  kind: fe
 - center: 4670.182
   line_name: b4Paa
   amplitude: 0.00056126450483951
   region: b4P
+  kind: fe
 - center: 4713.193
   line_name: b4Pbb
   amplitude: 6.145860588333e-05
   region: b4P
+  kind: fe
 - center: 4855.548
   line_name: b4Pcc
   amplitude: 0.0003077399800316
   region: b4P
+  kind: fe
 - center: 4871.277
   line_name: b4Pdd
   amplitude: 0.00050136931606996
   region: b4P
+  kind: fe
 - center: 4991.126
   line_name: b4Pee
   amplitude: 0.00022641364243428
   region: b4P
+  kind: fe
 - center: 5000.743
   line_name: b4Pff
   amplitude: 9.547555061697e-05
   region: b4P
+  kind: fe
 - center: 7427.522
   line_name: e4D
   amplitude: 0.00216550065884321
   region: e4D
+  kind: fe
 - center: 7789.263
   line_name: e4Da
   amplitude: 0.0052304645000322
   region: e4D
+  kind: fe
 - center: 8017.34
   line_name: e4Db
   amplitude: 0.0013827372192724801
   region: e4D
+  kind: fe
 - center: 8101.47
   line_name: e4Dc
   amplitude: 0.00836449951373551
   region: e4D
+  kind: fe
 - center: 8237.151
   line_name: e4Dd
   amplitude: 0.0056012315956559
   region: e4D
+  kind: fe
 - center: 8264.825
   line_name: e4De
   amplitude: 0.00171967928121704
   region: e4D
+  kind: fe
 - center: 8298.153
   line_name: e4Df
   amplitude: 0.00607154342334882
   region: e4D
+  kind: fe
 - center: 8352.801
   line_name: e4Dg
   amplitude: 0.006488451839455111
   region: e4D
+  kind: fe
 - center: 8595.293
   line_name: e4Dh
   amplitude: 0.0011105497540606199
   region: e4D
+  kind: fe
 - center: 8722.346
   line_name: e4Di
   amplitude: 0.0130939302684223
   region: e4D
+  kind: fe
 - center: 8926.635
   line_name: e4Dj
   amplitude: 0.0597490160111212
   region: e4D
+  kind: fe
 - center: 8938.048
   line_name: e4Dk
   amplitude: 0.001036676264151
   region: e4D
+  kind: fe
 - center: 8955.897
   line_name: e4Dl
   amplitude: 0.0018942528759189102
   region: e4D
+  kind: fe
 - center: 9070.462
   line_name: e4Dm
   amplitude: 0.00377989541395462
   region: e4D
+  kind: fe
 - center: 9075.518
   line_name: e4Dn
   amplitude: 0.05348725698568571
   region: e4D
+  kind: fe
 - center: 9077.373
   line_name: e4Do
   amplitude: 0.0367425526926083
   region: e4D
+  kind: fe
 - center: 9122.915
   line_name: e4Dp
   amplitude: 0.1
   region: e4D
+  kind: fe
 - center: 9132.365
   line_name: e4Dq
   amplitude: 0.09646984848893642
   region: e4D
+  kind: fe
 - center: 9175.896
   line_name: e4Dr
   amplitude: 0.08682045063206631
   region: e4D
+  kind: fe
 - center: 9178.049
   line_name: e4Ds
   amplitude: 0.06310644212885601
   region: e4D
+  kind: fe
 - center: 9196.87
   line_name: e4Dt
   amplitude: 0.0318304628194416
   region: e4D
+  kind: fe
 - center: 9203.144
   line_name: e4Du
   amplitude: 0.0394371356891774
   region: e4D
+  kind: fe
 - center: 9210.895
   line_name: e4Dv
   amplitude: 0.0162703428182438
   region: e4D
+  kind: fe
 - center: 9296.895
   line_name: e4Dw
   amplitude: 0.0173509017534461
   region: e4D
+  kind: fe
 - center: 9323.061
   line_name: e4Dx
   amplitude: 0.00146980561540576
   region: e4D
+  kind: fe
 - center: 9325.018
   line_name: e4Dy
   amplitude: 0.007314415706662871
   region: e4D
+  kind: fe
 - center: 9341.275
   line_name: e4Dz
   amplitude: 0.00180951018021047
   region: e4D
+  kind: fe
 - center: 9376.961
   line_name: e4Daa
   amplitude: 0.013791419511028899
   region: e4D
+  kind: fe
 - center: 9509.989
   line_name: e4Dbb
   amplitude: 0.0014888180963467301
   region: e4D
+  kind: fe
 - center: 7894.577
   line_name: e6D
   amplitude: 0.0027093540404341102
   region: e6D
+  kind: fe
 - center: 7969.022
   line_name: e6Da
   amplitude: 0.004944018688936721
   region: e6D
+  kind: fe
 - center: 7970.423
   line_name: e6Db
   amplitude: 0.011271598640401502
   region: e6D
+  kind: fe
 - center: 7974.678
   line_name: e6Dc
   amplitude: 0.0013188490554737601
   region: e6D
+  kind: fe
 - center: 7981.898
   line_name: e6Dd
   amplitude: 0.020928753520595002
   region: e6D
+  kind: fe
 - center: 8008.63
   line_name: e6De
   amplitude: 0.0018407788333245302
   region: e6D
+  kind: fe
 - center: 8098.378
   line_name: e6Df
   amplitude: 0.0034290236001758402
   region: e6D
+  kind: fe
 - center: 8157.549
   line_name: e6Dg
   amplitude: 0.018783914692213702
   region: e6D
+  kind: fe
 - center: 8211.07
   line_name: e6Dh
   amplitude: 0.0009676159946852701
   region: e6D
+  kind: fe
 - center: 8221.3
   line_name: e6Di
   amplitude: 0.005052612536617221
   region: e6D
+  kind: fe
 - center: 8228.974
   line_name: e6Dj
   amplitude: 0.1
   region: e6D
+  kind: fe
 - center: 8420.54
   line_name: e6Dk
   amplitude: 0.0169936908908678
   region: e6D
+  kind: fe
 - center: 6248.898
   line_name: z4D
   amplitude: 0.019841664783532303
   region: z4D
+  kind: fe
 - center: 6317.983
   line_name: z4Da
   amplitude: 0.1
   region: z4D
+  kind: fe
 - center: 6383.722
   line_name: z4Db
   amplitude: 0.0495119191614172
   region: z4D
+  kind: fe
 - center: 6385.451
   line_name: z4Dc
   amplitude: 0.0222657000600639
   region: z4D
+  kind: fe
 - center: 6455.837
   line_name: z4Dd
   amplitude: 0.010307529299974
   region: z4D
+  kind: fe
 - center: 6491.246
   line_name: z4De
   amplitude: 0.014220774918423601
   region: z4D
+  kind: fe
 - center: 6493.035
   line_name: z4Df
   amplitude: 0.023382755284353
   region: z4D
+  kind: fe
 - center: 6517.018
   line_name: z4Dg
   amplitude: 0.015403045395436701
   region: z4D
+  kind: fe
 - center: 6562.2
   line_name: z4Dh
   amplitude: 0.0117214029053423
   region: z4D
+  kind: fe
 - center: 6586.699
   line_name: z4Di
   amplitude: 0.0145119958077655
   region: z4D
+  kind: fe
 - center: 7711.435
   line_name: z4Dj
   amplitude: 0.005024443812969351
   region: z4D
+  kind: fe
 - center: 7866.548
   line_name: z4Dk
   amplitude: 0.0036058164725634003
   region: z4D
+  kind: fe
 - center: 7917.796
   line_name: z4Dl
   amplitude: 0.00101992350528938
   region: z4D
+  kind: fe
 - center: 7975.904
   line_name: z4Dm
   amplitude: 0.00113936963318168
   region: z4D
+  kind: fe
 - center: 8083.88
   line_name: z4Dn
   amplitude: 0.00041178468411223
   region: z4D
+  kind: fe
 - center: 8136.531
   line_name: z4Do
   amplitude: 0.00016672028733139
   region: z4D
+  kind: fe
 - center: 10163.595
   line_name: z4Dp
   amplitude: 0.0007340204218067901
   region: z4D
+  kind: fe
 - center: 10173.502
   line_name: z4Dq
   amplitude: 0.00518965028104742
   region: z4D
+  kind: fe
 - center: 10525.14
   line_name: z4Dr
   amplitude: 0.0027558632646115504
   region: z4D
+  kind: fe
 - center: 10533.549
   line_name: z4Ds
   amplitude: 0.00038348553868272
   region: z4D
+  kind: fe
 - center: 10829.546
   line_name: z4Dt
   amplitude: 0.00096753423368046
   region: z4D
+  kind: fe
 - center: 6233.534
   line_name: z4F
   amplitude: 0.0133413933510255
   region: z4F
+  kind: fe
 - center: 6371.125
   line_name: z4Fa
   amplitude: 0.0029155040246519
   region: z4F
+  kind: fe
 - center: 6442.955
   line_name: z4Fb
   amplitude: 0.0136778546583612
   region: z4F
+  kind: fe
 - center: 6506.333
   line_name: z4Fc
   amplitude: 0.007698580368763131
   region: z4F
+  kind: fe
 - center: 6508.129
   line_name: z4Fd
   amplitude: 0.001297890036313
   region: z4F
+  kind: fe
 - center: 6581.261
   line_name: z4Fe
   amplitude: 0.00069722577258416
   region: z4F
+  kind: fe
 - center: 6596.454
   line_name: z4Ff
   amplitude: 0.00064039481838367
   region: z4F
+  kind: fe
 - center: 6598.301
   line_name: z4Fg
   amplitude: 0.0031793065538438105
   region: z4F
+  kind: fe
 - center: 6623.07
   line_name: z4Fh
   amplitude: 0.00108375331722329
   region: z4F
+  kind: fe
 - center: 9946.821
   line_name: z4Fi
   amplitude: 0.00024513736426514
   region: z4F
+  kind: fe
 - center: 9956.31
   line_name: z4Fj
   amplitude: 0.00756366035409501
   region: z4F
+  kind: fe
 - center: 9997.576
   line_name: z4Fk
   amplitude: 0.1
   region: z4F
+  kind: fe
 - center: 10490.942
   line_name: z4Fl
   amplitude: 0.007278863638172011
   region: z4F
+  kind: fe
 - center: 10499.297
   line_name: z4Fm
   amplitude: 0.00022258060965439001
   region: z4F
+  kind: fe
 - center: 10501.498
   line_name: z4Fn
   amplitude: 0.057849152109577
   region: z4F
+  kind: fe
 - center: 10862.644
   line_name: z4Fo
   amplitude: 0.039227533252462005
   region: z4F
+  kind: fe
 - center: 10871.601
   line_name: z4Fp
   amplitude: 0.004932211909123841
   region: z4F
+  kind: fe
 - center: 7417.548
   line_name: z4P
   amplitude: 0.00762284798099948
   region: z4P
+  kind: fe
 - center: 7515.091
   line_name: z4Pa
   amplitude: 0.1
   region: z4P
+  kind: fe
 - center: 7657.502
   line_name: z4Pb
   amplitude: 0.05761699228334341
   region: z4P
+  kind: fe
 - center: 7659.991
   line_name: z4Pc
   amplitude: 0.016460238640550302
   region: z4P
+  kind: fe
 - center: 7693.392
   line_name: z4Pd
   amplitude: 0.00173905789799922
   region: z4P
+  kind: fe
 - center: 7801.235
   line_name: z4Pe
   amplitude: 0.0232670124031584
   region: z4P
+  kind: fe
 - center: 7835.883
   line_name: z4Pf
   amplitude: 0.017435649373933902
   region: z4P
+  kind: fe
 - center: 9497.791
   line_name: z4Pg
   amplitude: 0.0065537914161127205
   region: z4P
+  kind: fe
 - center: 9572.597
   line_name: z4Ph
   amplitude: 0.0225664014781203
   region: z4P
+  kind: fe
 - center: 9812.099
   line_name: z4Pi
   amplitude: 0.006694030266467441
   region: z4P
+  kind: fe
 - center: 9894.806
   line_name: z4Pj
   amplitude: 0.00528643715820923
   region: z4P
+  kind: fe
 - center: 9976.024
   line_name: z4Pk
   amplitude: 0.00130494450908951
   region: z4P
+  kind: fe
 - center: 10045.066
   line_name: z4Pl
   amplitude: 0.00041793146173118
   region: z4P
+  kind: fe
 - center: 10131.764
   line_name: z4Pm
   amplitude: 0.00288629161595603
   region: z4P
+  kind: fe
 - center: 4418.957
   line_name: y4G
   amplitude: 0.037431197267287906
   region: y4G
+  kind: fe
 - center: 4431.605
   line_name: y4Ga
   amplitude: 0.0445020414826515
   region: y4G
+  kind: fe
 - center: 4440.766
   line_name: y4Gb
   amplitude: 0.00884543902895803
   region: y4G
+  kind: fe
 - center: 4449.616
   line_name: y4Gc
   amplitude: 0.0679994134954603
   region: y4G
+  kind: fe
 - center: 4467.931
   line_name: y4Gd
   amplitude: 0.012280850435360301
   region: y4G
+  kind: fe
 - center: 4477.242
   line_name: y4Ge
   amplitude: 0.00014305826295535
   region: y4G
+  kind: fe
 - center: 4493.529
   line_name: y4Gf
   amplitude: 0.1
   region: y4G
+  kind: fe
 - center: 4508.214
   line_name: y4Gg
   amplitude: 0.012467583210426202
   region: y4G
+  kind: fe
 - center: 4527.016
   line_name: y4Gh
   amplitude: 0.00027187682486413
   region: y4G
+  kind: fe
 - center: 5427.826
   line_name: b4G
   amplitude: 0.1
   region: b4G
+  kind: fe
 - center: 5440.068
   line_name: b4Ga
   amplitude: 0.00698217058622299
   region: b4G
+  kind: fe
 - center: 5442.905
   line_name: b4Gb
   amplitude: 0.00014633238484192002
   region: b4G
+  kind: fe
 - center: 5529.932
   line_name: b4Gc
   amplitude: 0.06074005971094481
   region: b4G
+  kind: fe
 - center: 5530.543
   line_name: b4Gd
   amplitude: 0.00018976116280879
   region: b4G
+  kind: fe
 - center: 5532.864
   line_name: b4Ge
   amplitude: 0.00754634854449002
   region: b4G
+  kind: fe
 - center: 5565.492
   line_name: b4Gf
   amplitude: 0.0069689834578628195
   region: b4G
+  kind: fe
 - center: 5587.114
   line_name: b4Gg
   amplitude: 0.0296027878513293
   region: b4G
+  kind: fe
 - center: 4559.554
   line_name: x4D
   amplitude: 0.015265383074112703
   region: x4D
+  kind: fe
 - center: 4591.004
   line_name: x4Da
   amplitude: 0.0308047891080121
   region: x4D
+  kind: fe
 - center: 4605.37
   line_name: x4Db
   amplitude: 0.0316803281782939
   region: x4D
+  kind: fe
 - center: 4625.481
   line_name: x4Dc
   amplitude: 0.044577818321659
   region: x4D
+  kind: fe
 - center: 4628.786
   line_name: x4Dd
   amplitude: 0.1
   region: x4D
+  kind: fe
 - center: 4631.873
   line_name: x4De
   amplitude: 0.0711548566015749
   region: x4D
+  kind: fe
 - center: 4652.216
   line_name: x4Df
   amplitude: 0.0351075113285649
   region: x4D
+  kind: fe
 - center: 4668.923
   line_name: x4Dg
   amplitude: 0.017115424284429703
   region: x4D
+  kind: fe
 - center: 4670.334
   line_name: x4Dh
   amplitude: 0.030019509554103204
   region: x4D
+  kind: fe
 - center: 5055.319
   line_name: y4P
   amplitude: 0.0405655959844457
   region: y4P
+  kind: fe
 - center: 5131.21
   line_name: y4Pa
   amplitude: 0.1
   region: y4P
+  kind: fe
 - center: 5177.027
   line_name: y4Pb
   amplitude: 0.00291492220376496
   region: y4P
+  kind: fe
 - center: 5222.473
   line_name: y4Pc
   amplitude: 0.00226859729960918
   region: y4P
+  kind: fe
 - center: 5251.432
   line_name: y4Pd
   amplitude: 0.00362814675768805
   region: y4P
+  kind: fe
 - center: 5258.026
   line_name: y4Pe
   amplitude: 0.020817110409793903
   region: y4P
+  kind: fe
 - center: 5304.912
   line_name: y4Pf
   amplitude: 0.0311429776873016
   region: y4P
+  kind: fe
 - center: 5388.544
   line_name: y4Pg
   amplitude: 0.00828246940959621
   region: y4P
+  kind: fe

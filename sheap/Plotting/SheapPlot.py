@@ -63,21 +63,21 @@ class SheapPlot:
            
             values = params[idxs]
             component_y = profile_func(x_axis, values)
-            if isinstance(region,list):
+            #if isinstance(region,list):
+             #   ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
+            #else:
+            if region.region == "continuum" :
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+            elif "Fe" in profile_name or "fe" in region.region.lower() or region.kind=="fe":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
             else:
-                if region.region == "continuum" :
-                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
-                elif "Fe" in profile_name or "fe" in region.region.lower():
-                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
-                else:
-                    ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
-                    ax1.axvline(values[1], ls="--", linewidth=1, color="k")
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+                ax1.axvline(values[1], ls="--", linewidth=1, color="k")
 
-                    if add_name and min(xlim) < values[1] < max(xlim):
-                        label = f"{region.line_name}_{region.kind}_{region.component}".replace("_", " ")
-                        ypos = 0.25 if "broad" in label else 0.75
-                        ax1.text(values[1], ypos, label, transform=trans, rotation=90, fontsize=20, zorder=10)
+                if add_name and min(xlim) < values[1] < max(xlim):
+                    label = f"{region.line_name}_{region.kind}_{region.component}".replace("_", " ")
+                    ypos = 0.25 if "broad" in label else 0.75
+                    ax1.text(values[1], ypos, label, transform=trans, rotation=90, fontsize=20, zorder=10)
 
         # Plot main model and data
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, ls="--", color="red")

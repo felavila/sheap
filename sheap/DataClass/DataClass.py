@@ -14,17 +14,17 @@ class ConstraintSet:
 
 @dataclass
 class SpectralLine:
-    center: float
-    line_name: str
+    center: Union[float, List[float]]
+    line_name: Union[str, List[str]]
     kind: str
     component: int
-    amplitude: float = 1.0            # default amplitude
-    how: Optional[str] = None         # None if missing
-    region: Optional[str] = None      # None if missing
-    profile: Optional[str] = None     # None if missing
-    which : Optional[str] = None 
+    amplitude: Union[float, List[float]] = 1.0
+    how: Optional[str] = None
+    region: Optional[str] = None
+    profile: Optional[str] = None
+    which: Optional[str] = None
+
     def to_dict(self) -> dict:
-        """Convert the SpectralLine instance to a dictionary."""
         return asdict(self)
     
 @dataclass

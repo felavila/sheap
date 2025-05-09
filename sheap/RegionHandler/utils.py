@@ -1,10 +1,50 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
+from collections import defaultdict
 
 import numpy as np
 
 from sheap.DataClass.DataClass import SpectralLine
 
+
+def group_lines_by_region(
+    lines: List[SpectralLine],
+    kind: str = "fe",
+    component: int = 20,
+    profile = "gaussian",
+) -> List[SpectralLine]:
+    grouped = defaultdict(list)
+
+    # Step 1: Filter and group by kind and region
+    for line in lines:
+        if line.kind == kind and line.region is not None:
+            grouped[line.region].append(line)
+
+    # Step 2: Collapse groups into single SpectralLine instances
+    collapsed_lines = []
+    for region, group in grouped.items():
+        centers = [line.center for line in group]
+        line_names = [line.line_name for line in group]
+        amplitudes = [line.amplitude for line in group]
+        
+        base_line = group[0]
+        collapsed_lines.append(SpectralLine(
+            center=centers,  # type: ignore
+            line_name=line_names,  # type: ignore
+            kind=kind,
+            component=component,
+            amplitude=amplitudes,  # type: ignore
+            how=base_line.how,
+            region=region,
+            profile=profile,
+            which=base_line.which
+        ))
+
+    # Step 3: Keep all lines not of the selected kind + collapsed ones
+    new_lines = [line for line in lines if line.kind != kind]
+    new_lines.extend(collapsed_lines)
+
+    return new_lines
 
 
 def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', 'width')) -> List[List[str]]:
@@ -50,7 +90,6 @@ def fe_ties(entries: List[SpectralLine], by_region=True,tied_params=('center', '
 
 def region_ties(
     local_region_list: List[SpectralLine],
-    mainline_candidates: Union[str, List[str]], #this should be remove 
     n_narrow: int,
     n_broad: int,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
@@ -76,11 +115,11 @@ def region_ties(
     mainline_candidates_narrow = ["OIIIc","NIIb","MgII","CIII]","SIIb"] #this can be disscuss in the future
     
     if isinstance(mainline_candidates_broad, (list, tuple)):
-        available = {e.line_name for e in local_region_list}
+        available = {e.line_name for e in local_region_list if isinstance(e.line_name,str)}
         mainline_broad = next((name for name in mainline_candidates_broad if name in available),
                         mainline_candidates_broad[0] if mainline_candidates_broad else '')
     if isinstance(mainline_candidates_narrow, (list, tuple)):
-        available = {e.line_name for e in local_region_list}
+        available = {e.line_name for e in local_region_list if isinstance(e.line_name,str)}
         mainline_narrow = next((name for name in mainline_candidates_narrow if name in available),
                         mainline_candidates_narrow[0] if mainline_candidates_narrow else '')
   
@@ -131,7 +170,7 @@ def region_ties(
     
     if known_tied_relations:
         local_ties=[]
-        present = {e.line_name for e in local_region_list}
+        present = {e.line_name for e in local_region_list if isinstance(e.line_name,str)}
         for pair, factor in known_tied_relations:
             if all(name in present for name in pair):
                 for k in range(1, n_narrow + 1):

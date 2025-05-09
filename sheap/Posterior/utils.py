@@ -18,6 +18,11 @@ def effective_fwhm(params1, params2):
     fwhm = 2.35482 * sigma_eff
     return total_amp, mu_eff, sigma_eff, fwhm / mu_eff  # dimensionless
 
+
+
+
+
+
 batched_fwhm = vmap(
     vmap(effective_fwhm, in_axes=(0, 0)),  # over regions
     in_axes=(0, 0)  # over samples

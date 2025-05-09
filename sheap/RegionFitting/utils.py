@@ -25,17 +25,34 @@ def make_constraints(
     """
     
 
-    if cfg.kind.lower() == 'fe' and cfg.how == 'template':
-        if not cfg.which:
-            raise ValueError("Fe template must define 'which' (e.g., 'OP', 'UV')")
+    if cfg.kind.lower() == 'fe':
+        if cfg.how == 'template':
+            if not cfg.which:
+                raise ValueError("Fe template must define 'which' (e.g., 'OP', 'UV')")
 
-        return ConstraintSet(
-            init=[3.045, 0.0, 1.0],
-            upper=[3.5, 100., 100.],
-            lower=[2.7, -100., 0.0],
-            profile='fitFe' + cfg.which,
-            param_names=['logFWHM', 'shift', 'scale']
-        )
+            return ConstraintSet(
+                init=[3.045, 0.0, 1.0],
+                upper=[3.5, 100., 100.],
+                lower=[2.7, -100., 0.0],
+                profile='fitFe' + cfg.which,
+                param_names=['logFWHM', 'shift', 'scale']
+            )
+        if cfg.how =="combine":
+            center = cfg.center
+            shift = -5 if cfg.kind == "outflow" else 0
+
+            shift_upper = 10.0
+            shift_lower = -10.0
+            width_upper = 85
+            width_lower = 8.5        
+            
+            return ConstraintSet(
+                init = [1.0, 0, float(width_lower)],
+                upper=[5., shift_upper, width_upper],
+                lower=[0.0, shift_lower, width_lower],
+                profile = cfg.profile or profile,
+                param_names=['amplitude', 'shift', 'width'] #this could be scale
+            )
 
     elif cfg.profile == 'powerlaw':
         return ConstraintSet(

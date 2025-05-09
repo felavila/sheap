@@ -361,19 +361,22 @@ class RegionFitting:
         idx = 0 #parameter_position
         region_defs = []
         for cfg in self.region_defs:
+            
             constraints = make_constraints(cfg, self.limits_map.get(cfg.kind),profile=profile)
-            if cfg.how=="combine":
-                self.list.append(cfg)
-                continue
+            cfg.profile = constraints.profile
             region_defs.append(cfg)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
-            self.profile_functions.append(PROFILE_FUNC_MAP.get(constraints.profile, gaussian_func))
+            if cfg.how=="combine":
+                ngaussian = Gsum_model(cfg.center,cfg.amplitude)
+                self.profile_names.append(f"combine_{cfg.profile}")
+                self.profile_functions.append(ngaussian)
+            else:
+                self.profile_functions.append(PROFILE_FUNC_MAP.get(constraints.profile, gaussian_func))
+                self.profile_names.append(constraints.profile)
             if cfg.profile=="powerlaw":
                 add_linear = False
-            cfg.profile = constraints.profile
-            self.profile_names.append(constraints.profile)
             for i, name in enumerate(constraints.param_names):
                 key = f"{name}_{cfg.line_name}_{cfg.component}_{cfg.kind}"
                 self.params_dict[key] = idx + i
@@ -381,20 +384,20 @@ class RegionFitting:
             self.profile_params_index_list.append(np.arange(idx,idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
         
-        if len(self.list)>0:
-            amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in self.list]).T
-            ngaussian = Gsum_model(centers,amplitudes)
-            self.profile_names.append("combinedG")
-            self.profile_functions.append(ngaussian)
-            init_list.extend([0.1,0,10])
-            high_list.extend([10.,+30.,100.])
-            low_list.extend([0.0,-30.,0.01])
-            for i, name in enumerate(["amplitude","shift","width"]):
-                key = f"{name}_{'fe'}_{20}_{'combinedG'}"
-                self.params_dict[key] = idx + i
+        #if len(self.list)>0:
+         #   amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in self.list]).T
+          #  ngaussian = Gsum_model(centers,amplitudes)
+           # self.profile_names.append("combinedG")
+            #self.profile_functions.append(ngaussian)
+            #init_list.extend([0.1,0,10])
+            #high_list.extend([10.,+30.,100.])
+            #low_list.extend([0.0,-30.,0.01])
+            #for i, name in enumerate(["amplitude","shift","width"]):
+             #   key = f"{name}_{'fe'}_{20}_{'combinedG'}"
+              #  self.params_dict[key] = idx + i
             #self.profile_params_index.append([idx,idx+2])
-            self.profile_params_index_list.append(np.arange(idx,idx+3))
-            region_defs.append(self.list)
+            #self.profile_params_index_list.append(np.arange(idx,idx+3))
+            #region_defs.append(self.list)
         if add_linear:
             print("adding linear")
             #maybe a class method?
