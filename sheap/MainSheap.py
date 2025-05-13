@@ -52,6 +52,7 @@ class Sheapectral:
     spectra: Union[str, jnp.ndarray],
     z: Optional[Union[float, jnp.ndarray]] = None,
     coords: Optional[jnp.ndarray] = None,
+    ebv: Optional[jnp.ndarray] = None,
     names: Optional[list[str]] = None,
     extinction_correction:str = "pending", #this only can be pending or done
     redshift_correction:str = "pending", #this only can be pending or done 
@@ -66,11 +67,12 @@ class Sheapectral:
         self.spectra = spec_arr.astype(jnp.float64)
         #self.in_spectra = spec_arr
         self.coords = coords  # may be None – handle carefully downstream
+        self.ebv = ebv
         self.z = self._prepare_z(z, self.spectra.shape[0])
         
         self.names = names if names is not None else np.arange(self.spectra.shape[0]).astype(str)
         
-        if self.extinction_correction == "pending" and self.coords is not None:
+        if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
             print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
             self._apply_extinction()
             self.extinction_correction = "done"
@@ -104,10 +106,12 @@ class Sheapectral:
         """Cardelli 1989 – uses *sfdmap* if coords are available."""
         from sfdmap2 import sfdmap  # lazy import to avoid heavy deps if unused
         from sheap.tools.unred import unred
-        self.coords = jnp.array(self.coords)
-        l, b = self.coords.T  # type: ignore[union-attr]
-        ebv_func = sfdmap.SFDMap(os.path.join(module_dir,"suport_data","sfddata/")).ebv
-        ebv = ebv_func(l, b)
+        ebv = self.ebv 
+        if self.coords is not None:
+            self.coords = jnp.array(self.coords)
+            l, b = self.coords.T  # type: ignore[union-attr]
+            ebv_func = sfdmap.SFDMap(os.path.join(module_dir,"suport_data","sfddata/")).ebv
+            ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
         # propagate to error channel proportionally as pyqso
         ratio = corrected / self.spectra[:, 1, :]
