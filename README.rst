@@ -1,10 +1,18 @@
 .. raw:: html
 
-    <div style="display: flex; align-items: center;">
-        <img src="docs/images/sheap_white_logo.png" alt="SHEAP Logo" width="100" style="margin-right: 20px;">
-        <h2 style="margin: 0;">SHEAP: Spectral Handling and Estimation of AGN Parameters</h2>
-    </div>
+    <table style="border: none;">
+        <tr>
+            <td style="vertical-align: middle; padding-right: 20px;">
+                <img src="docs/images/sheap_white_logo.png" alt="SHEAP Logo" width="100">
+            </td>
+            <td style="vertical-align: middle;">
+                <h1>SHEAP: Spectral Handling and Estimation of AGN Parameters</h1>
+            </td>
+        </tr>
+    </table>
 
+
+**SHEAP** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
 
 Features
