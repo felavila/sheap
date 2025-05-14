@@ -1,9 +1,9 @@
-.. image:: docs/images/sheap_white_logo.png
+.. image:: docs/images/sheap_withname.png
    :alt: SHEAP Logo
    :align: left
    :width: 120
 
-\n  <-- this is a blank line (must be real, not commented)
+
 
 SHEAP: Spectral Handling and Estimation of AGN Parameters
 =========================================================
