@@ -1,7 +1,7 @@
 .. image:: docs/images/sheap_withname.png
    :alt: SHEAP Logo
    :align: left
-   :width: 500
+   :width: 700
 
 
 
