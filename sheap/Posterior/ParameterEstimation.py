@@ -15,7 +15,7 @@ from sheap.FunctionsMinimize.utils import combine_auto
 #from SHEAP.numpy.monte_carlo import monte_carlo
 # this file’s directory: mypackage/submodule
 here = Path(__file__).resolve().parent
-data_file = here.parent / "suport_data" / "tabuled_values"/ "dictionary_values.yaml"
+data_file = here.parent / "SuportData" / "tabuled_values"/ "dictionary_values.yaml"
 
 with open(data_file, 'r') as file:
     #this should be done more eficiently in some way

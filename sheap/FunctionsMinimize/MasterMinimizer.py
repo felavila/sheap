@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import optax
 from jax import jit, vmap
 
-from .utils import parse_dependencies, project_params
+from .utils import parse_dependencies, project_params,build_loss_function
 
 
 class MasterMinimizer:
@@ -39,7 +39,12 @@ class MasterMinimizer:
         self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate)) 
         #print('optimizer:',self.optimizer)
         
-        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,weighted=weighted)
+        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,
+                                                                                                        weighted=weighted,
+                                                                                                        penalty_function=kwargs.get("penalty_function"),
+                                                                                                        penalty_weight=kwargs.get("penalty_weight", 0.01)
+                                                                                                        )
+                                                                                                        
         
         self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0) #?
     def __call__(self,initial_params,y,x,yerror,constraints,learning_rate=None,num_steps=None,optimizer=None,non_optimize_in_axis=None,list_dependencies=None):
@@ -109,6 +114,8 @@ class MasterMinimizer:
     @staticmethod
     def minimization_function(
     func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
+    penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+    penalty_weight: float = 0.01,
     weighted: bool = True
 ) -> Tuple[
     Callable[..., jnp.ndarray],  # loss_function
@@ -132,32 +139,11 @@ class MasterMinimizer:
             
             return jnp.abs(y - predictions) / y_uncertainties
 
-        if weighted:
-            @jit
-            def loss_function(
-                params: jnp.ndarray,
-                xs: List[jnp.ndarray],
-                y: jnp.ndarray,
-                y_uncertainties: jnp.ndarray
-                ) -> jnp.ndarray:
-                
-                y_pred = func(xs, params)
-                weights = 1.0 / y_uncertainties**2
-                loss = jnp.log(jnp.cosh(y_pred - y))
-                wmse = jnp.nansum(weights * loss) / jnp.nansum(weights)
-                return wmse
-        else:
-            @jit
-            def loss_function(
-                params: jnp.ndarray,
-                xs: List[jnp.ndarray],
-                y: jnp.ndarray,
-                y_uncertainties: jnp.ndarray
-                ) -> jnp.ndarray:
-                y_pred = func(xs, params)
-                loss = jnp.log(jnp.cosh(y_pred - y))
-                wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
-                return wmse
+        
+        
+        
+        
+        loss_function = build_loss_function(func,weighted,penalty_function,penalty_weight)
         
         def optimize_model(
             initial_params: jnp.ndarray,

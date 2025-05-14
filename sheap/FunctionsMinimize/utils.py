@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Optional, List, Tuple
+from typing import Callable,Optional, List, Tuple
 
 import jax.numpy as jnp
 from jax import jit
@@ -217,3 +217,69 @@ def project_params(
                 raise ValueError(f"Unknown dependency type: {dep_type}")
                 
     return params
+
+
+
+def build_loss_function(
+            func: Callable,
+            weighted: bool = True,
+            penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+            penalty_weight: float = 0.01
+        ) -> Callable:
+            """
+            Build a JIT-compiled loss function depending on weight and penalty usage.
+            
+            Args:
+                func: The model function, called as func(xs, params)
+                weighted: Whether to use inverse variance weighting.
+                penalty_function: Optional penalty function (e.g., for constraints).
+                penalty_weight: Scalar multiplier for penalty term.
+            
+            Returns:
+                A loss function with signature (params, xs, y, y_uncertainties) -> scalar loss
+            """
+            #So penalty functions have to be funtions that take to params x and y but can only use x or params 
+            #penalty_function = penalty_function(func)
+            def log_cosh(x):
+                """Numerically stable log(cosh(x))."""
+                return jnp.logaddexp(x, -x) - jnp.log(2.0)
+    
+            if weighted and penalty_function:
+                @jit
+                def weighted_with_penalty(params, xs, y, yerr):
+                    y_pred = func(xs, params)
+                    r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+                    loss = log_cosh(r)
+                    #weights = 1.0 / jnp.clip(yerr, 1e-8)**2
+                    data_term = jnp.nanmean(loss)
+                    reg_term = penalty_weight * penalty_function(xs,params)*1e3
+                    #wmse = jnp.nansum(weights * loss) / jnp.nansum(weights)
+                    return  data_term + reg_term
+                #wmse + penalty_weight * penalty_function(xs,params)
+                return weighted_with_penalty
+
+            elif weighted:
+                @jit
+                def weighted_loss(params, xs, y, yerr):
+                    y_pred = func(xs, params)
+                    weights = 1.0 / jnp.clip(yerr, 1e-8)**2
+                    loss = jnp.log(jnp.cosh(y_pred - y))
+                    return jnp.nansum(weights * loss) / jnp.nansum(weights)
+                return weighted_loss
+
+            elif penalty_function:
+                @jit
+                def unweighted_with_penalty(params, xs, y, yerr):
+                    y_pred = func(xs, params)
+                    loss = jnp.log(jnp.cosh(y_pred - y))
+                    wmse = jnp.nansum(loss)
+                    return wmse + penalty_weight * penalty_function(xs,params)
+                return unweighted_with_penalty
+
+            else:
+                @jit
+                def unweighted_loss(params, xs, y, yerr):
+                    y_pred = func(xs, params)
+                    loss = jnp.log(jnp.cosh(y_pred - y))
+                    return jnp.nansum(loss)
+                return unweighted_loss

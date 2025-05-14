@@ -11,7 +11,7 @@ from sheap.FunctionsMinimize.utils import param_count
 from sheap.tools.others import kms_to_wl
 
 
-templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"suport_data","templates")
+templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"SuportData","templates")
 
 fe_template_OP_file = os.path.join(templates_path,'fe2_Op.dat')
 fe_template_OP = jnp.array(np.loadtxt(fe_template_OP_file,comments='#').transpose()) # y units?

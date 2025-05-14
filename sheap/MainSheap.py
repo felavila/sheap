@@ -20,6 +20,10 @@ from sheap.utils import prepare_uncertainties  # ?
 from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV,Gsum_model
 logger = logging.getLogger(__name__)
 module_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+
+
 ArrayLike = Union[np.ndarray, jnp.ndarray]
 #list of SpectralLine 
 def make_g(list):
@@ -110,7 +114,7 @@ class Sheapectral:
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
             l, b = self.coords.T  # type: ignore[union-attr]
-            ebv_func = sfdmap.SFDMap(os.path.join(module_dir,"suport_data","sfddata/")).ebv
+            ebv_func = sfdmap.SFDMap(os.path.join(module_dir,"SuportData","sfddata/")).ebv
             ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
         # propagate to error channel proportionally as pyqso
