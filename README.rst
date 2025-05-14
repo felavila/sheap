@@ -2,7 +2,7 @@
 
     <table style="border: none; border-collapse: collapse;">
         <tr>
-            <td style="vertical-align: middle; padding-right: 50px;">
+            <td style="vertical-align: middle; padding-right: 100px;">
                 <img src="docs/images/sheap_white_logo.png" alt="SHEAP Logo" width="250">
             </td>
             <td style="vertical-align: middle;">
