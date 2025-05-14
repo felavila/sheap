@@ -1,16 +1,11 @@
-.. image:: docs/images/sheap_white_logo.png
-   :alt: SHEAP Logo
-   :width: 100
-   :align: left
-
-SHEAP: Spectral Handling and Estimation of AGN Parameters
-==========================================================
-
 .. raw:: html
 
-    <br><br>
+    <div style="display: flex; align-items: center;">
+        <img src="docs/images/sheap_white_logo.png" alt="SHEAP Logo" width="100" style="margin-right: 20px;">
+        <h2 style="margin: 0;">SHEAP: Spectral Handling and Estimation of AGN Parameters</h2>
+    </div>
 
-**SHEAP** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
+
 
 Features
 ========
@@ -31,7 +26,7 @@ You can install SHEAP locally using the following command:
 Prerequisites
 =============
 
-You need to have Python (>=3.8) and the required dependencies installed. Dependencies are managed using Poetry or can be installed manually via `requirements.txt`.
+You need to have Python (>=3.12) and the required dependencies installed. Dependencies are managed using Poetry or can be installed manually via `requirements.txt`.
 
 References
 ==========
