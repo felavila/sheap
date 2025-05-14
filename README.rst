@@ -6,7 +6,7 @@
                 <img src="docs/images/sheap_white_logo.png" alt="SHEAP Logo" width="250">
             </td>
             <td style="vertical-align: middle;">
-                <p style="margin: 0; font-size: 60px; font-weight: bold;">
+                <p style="margin: 0; font-size: 100px; font-weight: bold;">
                     SHEAP: <br>
                     Spectral Handling<br>
                     and Estimation of AGN Parameters
