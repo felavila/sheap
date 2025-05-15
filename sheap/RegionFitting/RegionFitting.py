@@ -19,7 +19,7 @@ from sheap.DataClass.DataClass import SpectralLine,FittingLimits
 from sheap.RegionFitting.utils import make_constraints,make_get_param_coord_value
 from sheap.SuportFunctions.functions import mapping_params
 from sheap.utils import mask_builder, prepare_spectra
-from .uncertainty_functions import batch_error_covariance_in_chunks
+from .uncertainty_functions import batch_error_covariance_in_chunks,error_for_loop
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
@@ -166,7 +166,10 @@ class RegionFitting:
             params, loss = self._fit(norm_spec,self.model,params,**step)
             uncertainty_params = jnp.zeros_like(params)
         if sigma_params:
-            uncertainty_params = batch_error_covariance_in_chunks(self.model,params,norm_spec,batch_size=5)
+            print("running uncertainty")
+            #error_for_loop(model,params,spectra,free_params=0)
+            uncertainty_params = error_for_loop(self.model,params,norm_spec,free_params= params.shape[1] - len(step.get("tied",[])))
+        
         self._postprocess(norm_spec,params,uncertainty_params,max_flux)    
         if do_return:
             return self.params,self.uncertainty_params,outer_limits,inner_limits,loss,mask,step,self.params_dict,self.initial_params,self.profile_params_index_list,self.profile_functions,max_flux,self.profile_names,self.region_defs
