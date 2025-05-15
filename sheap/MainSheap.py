@@ -142,7 +142,7 @@ class Sheapectral:
         n_broad: int = 1,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        fe_regions: List[str] = ['fe_uv', "feII_IZw1", "feII_forbidden", "feII_coronal"],
+        fe_regions: List[str] = ['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
         fe_mode:str = "template",
         add_outflow: bool = False,
         add_narrowplus: bool = False,
@@ -176,7 +176,7 @@ class Sheapectral:
              raise RuntimeError("build_region() must be called before fit()")
         self.fitting_rutine = self.builded_region(add_step = add_step,tied_fe = tied_fe,num_steps_list = num_steps_list)
         fittingclass= RegionFitting(self.fitting_rutine)
-        params,outer_limits,inner_limits,loss,mask,step,params_dict,initial_params,profile_params_index_list,profile_functions,max_flux,profile_names,complex_region \
+        params,uncertainty_params,outer_limits,inner_limits,loss,mask,step,params_dict,initial_params,profile_params_index_list,profile_functions,max_flux,profile_names,complex_region \
             = fittingclass(spectra, do_return = True) #runmodel()?
         self.outer_limits  = outer_limits
         self.inner_limits = inner_limits
@@ -195,6 +195,7 @@ class Sheapectral:
         idxs = mapping_params(self.params_dict,[["amplitude"],["scale"]]) #
         self.max_flux = self.max_flux*scaled #just for the plot 
         self.params = params.at[:,idxs].multiply(scaled[:,None])
+        self.uncertainty_params = uncertainty_params.at[:,idxs].multiply(scaled[:,None])
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:

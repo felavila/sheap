@@ -139,15 +139,13 @@ class MasterMinimizer:
             
             return jnp.abs(y - predictions) / y_uncertainties
 
-        
-        
-        
-        
         loss_function = build_loss_function(func,weighted,penalty_function,penalty_weight)
+        loss_function = jit(loss_function)
+        
         
         def optimize_model(
             initial_params: jnp.ndarray,
-            xs: List[jnp.ndarray],
+            xs: List[jnp.ndarray], #
             y: jnp.ndarray,
             y_uncertainties: jnp.ndarray,
             constraints: Optional[jnp.ndarray] = None,
@@ -171,20 +169,12 @@ class MasterMinimizer:
                 loss, grads = jax.value_and_grad(loss_function)(
                     params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties)
 
-                # Compute parameter updates
                 updates, opt_state = optimizer.update(grads, opt_state, params)
                 params = optax.apply_updates(params, updates)
-                # Project parameters to enforce constraints
-                #combination = xs.T*100*params
-                #negatives_per_column = jnp.nansum(combination < 0, axis=0)
-                #params = jnp.where(negatives_per_column>1000,1e-3,params)
                 
                 params = project_params(
                     params,
-                    constraints,parsed_dependencies)
-                #extra projection
-                
-                    
+                    constraints,parsed_dependencies)                    
                 return params, opt_state, loss
 
             # Optimization loop

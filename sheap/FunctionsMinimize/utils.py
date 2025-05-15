@@ -245,7 +245,6 @@ def build_loss_function(
                 return jnp.logaddexp(x, -x) - jnp.log(2.0)
     
             if weighted and penalty_function:
-                @jit
                 def weighted_with_penalty(params, xs, y, yerr):
                     y_pred = func(xs, params)
                     r = (y_pred - y) / jnp.clip(yerr, 1e-8)
@@ -259,27 +258,30 @@ def build_loss_function(
                 return weighted_with_penalty
 
             elif weighted:
-                @jit
                 def weighted_loss(params, xs, y, yerr):
                     y_pred = func(xs, params)
-                    weights = 1.0 / jnp.clip(yerr, 1e-8)**2
-                    loss = jnp.log(jnp.cosh(y_pred - y))
-                    return jnp.nansum(weights * loss) / jnp.nansum(weights)
+                    r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+                    loss = log_cosh(r)
+                    data_term = jnp.nanmean(loss)
+                    #weights = 1.0 / jnp.clip(yerr, 1e-8)**2
+                    #loss = jnp.log(jnp.cosh(y_pred - y))
+                    return data_term #jnp.nansum(weights * loss) / jnp.nansum(weights)
                 return weighted_loss
 
             elif penalty_function:
-                @jit
                 def unweighted_with_penalty(params, xs, y, yerr):
                     y_pred = func(xs, params)
-                    loss = jnp.log(jnp.cosh(y_pred - y))
-                    wmse = jnp.nansum(loss)
-                    return wmse + penalty_weight * penalty_function(xs,params)
+                    r = (y_pred - y) 
+                    loss = log_cosh(r)
+                    data_term = jnp.nanmean(loss)
+                    reg_term = penalty_weight * penalty_function(xs,params)*1e3 #this value should be remove in comming iterations 
+                    return data_term +reg_term
                 return unweighted_with_penalty
 
             else:
-                @jit
                 def unweighted_loss(params, xs, y, yerr):
                     y_pred = func(xs, params)
-                    loss = jnp.log(jnp.cosh(y_pred - y))
-                    return jnp.nansum(loss)
+                    r = (y_pred - y) 
+                    loss = log_cosh(r)
+                    return jnp.nanmean(loss)
                 return unweighted_loss

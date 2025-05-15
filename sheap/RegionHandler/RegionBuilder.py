@@ -41,7 +41,7 @@ class RegionBuilder:
         yaml_paths: Optional[List[Union[str, Path]]] = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml")),
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,        
-        fe_regions = ['fe_uv',"feII_IZw1","feII_forbidden","feII_coronal"],
+        fe_regions = ['fe_uv',"feii_IZw1","feii_forbidden","feii_coronal"],
         fe_mode = "template", #"sum,combined,template"
         add_outflow:bool = False,
         add_narrowplus:bool = False,
@@ -96,7 +96,7 @@ class RegionBuilder:
                 raise KeyError(f"Missing 'region' list in YAML: {path}")
             self.lines_regions_available[key] = data
         self.regions_available = list(self.lines_regions_available.keys())
-
+    
     def __call__(self,add_step=True,tied_fe=False,num_steps_list=[3000,3000]):
         "build a simple rutine to be fitted"
         _rutine_dict = {"complex_region":self.complex_region,"fitting_rutine":
@@ -204,9 +204,7 @@ class RegionBuilder:
         tie_fe = False 
         #print(model_fii)
         for name, region in self.lines_regions_available.items():
-            #print(name)
             for entry in region['region']:
-                
                 center = float(entry.get('center', -np.inf))
                 if not (xmin <= center <= xmax):
                     continue
@@ -240,12 +238,11 @@ class RegionBuilder:
                     comps = self._handle_narrow_line(base, n_narrow, add_outflow)
                 elif name == 'broad':
                     comps = self._handle_broad_line(base, n_broad)
-                elif name in fe_regions and fe_mode=="sum":
+                elif fe_mode=="sum" and name in fe_regions:
                     comps = [self._handle_fe_line(base)]
                     tie_fe = True 
-                elif fe_mode=="model":
-                    if name in ["feII_model","fe_uv"]:
-                        comps = [self._handle_fe_line(base,how="combine")]
+                elif fe_mode=="model" and name in ["feii_model","fe_uv"]:
+                    comps = [self._handle_fe_line(base,how="combine")]
                 else:
                     continue
                 self.complex_region.extend(comps)
@@ -280,17 +277,7 @@ class RegionBuilder:
                         known_tied_relations=self.known_tied_relations))
         if fe_mode == "model":
             self.complex_region = group_lines_by_region(self.complex_region)
-        
-    #    local_region_list: List[SpectralLine],
-    # mainline_candidates: Union[str, List[str]],
-    # n_narrow: int,
-    # n_broad: int,
-    # tied_narrow_to: Union[str, Dict[int, Dict[str, Any]]] = None,
-    # tied_broad_to: Union[str, Dict[int, Dict[str, Any]]] = None,
-    # known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = None,
-        
-        
-        #tied_narrow_to add exeption that if narrow to is not in the region so it explode
+            
         self.xmin, self.xmax = xmin, xmax
         self.n_narrow, self.n_broad = n_narrow, n_broad
         self.number_lines,self.number_tied = len(self.complex_region),len(self.tied_params)

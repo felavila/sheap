@@ -19,7 +19,7 @@ from sheap.DataClass.DataClass import SpectralLine,FittingLimits
 from sheap.RegionFitting.utils import make_constraints,make_get_param_coord_value
 from sheap.SuportFunctions.functions import mapping_params
 from sheap.utils import mask_builder, prepare_spectra
-
+from .uncertainty_functions import batch_error_covariance_in_chunks
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,8 @@ class RegionFitting:
                 force_cut: bool = False,
                 exp_factor: jnp.ndarray = jnp.array([0.0]), # this is part of the posterior that cames from the class Mainsheap
                 #renormalize: bool = True, #This should be allways trues
-                do_return=False #meanwhile variable
+                do_return=False, #meanwhile variable
+                sigma_params = True 
             ) -> None:
         #the idea is that is exp_factor dosent have the same shape of max_flux could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra")
@@ -163,9 +164,12 @@ class RegionFitting:
             print(key.upper())
             #step #step is a dictionary so it can take all the parameters directly to fit      
             params, loss = self._fit(norm_spec,self.model,params,**step)
-        self._postprocess(norm_spec,params,max_flux)    
+            uncertainty_params = jnp.zeros_like(params)
+        if sigma_params:
+            uncertainty_params = batch_error_covariance_in_chunks(self.model,params,norm_spec,batch_size=5)
+        self._postprocess(norm_spec,params,uncertainty_params,max_flux)    
         if do_return:
-            return self.params,outer_limits,inner_limits,loss,mask,step,self.params_dict,self.initial_params,self.profile_params_index_list,self.profile_functions,max_flux,self.profile_names,self.region_defs
+            return self.params,self.uncertainty_params,outer_limits,inner_limits,loss,mask,step,self.params_dict,self.initial_params,self.profile_params_index_list,self.profile_functions,max_flux,self.profile_names,self.region_defs
         else:
             self.mask = mask
             self.loss = loss
@@ -264,6 +268,7 @@ class RegionFitting:
         self,
         norm_spec:jnp.ndarray,
         params: jnp.ndarray,
+        uncertainty_params: jnp.ndarray,
         max_flux: jnp.ndarray,
         #exp_factor: Union[float, jnp.ndarray],
         #srenormalize: bool
@@ -278,6 +283,7 @@ class RegionFitting:
             scaled = max_flux #/ (10**exp_factor)
             idxs = mapping_params(self.params_dict,[["amplitude"],["scale"]]) #check later on cont how it works
             self.params = params.at[:,idxs].multiply(scaled[:,None])
+            self.uncertainty_params = uncertainty_params.at[:,idxs].multiply(scaled[:,None])
             self.spec =  norm_spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(scaled,(2,1)),0,1)[:,:,None])
         except Exception as e:
             logger.exception("Renormalization failed")
