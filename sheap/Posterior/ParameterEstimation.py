@@ -138,7 +138,7 @@ class ParameterEstimation:
          Returns:
              Dict with bolometric luminosities for each wavelength.
          """
-        if monochromatic_lums is None #and hasattr(self, 'compute_Luminosity_w'):
+        if monochromatic_lums is None: #and hasattr(self, 'compute_Luminosity_w'):
             monochromatic_lums = self.compute_Luminosity_w()
 
         bolometric_corrections = {
