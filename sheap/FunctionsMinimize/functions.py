@@ -21,28 +21,28 @@ fe_template_UV = jnp.array(np.loadtxt(fe_template_UV_file,comments='#').transpos
 
 #maybe move to linear without this parameter? in the end will be require add 1e-3
 #what is the best option ?
-@jit
+#@jit
 @param_count(2)
 def linear(x,params):
     return params[0] * (x/1000.0) + params[1]
 
-@jit
+#@jit
 @param_count(2)
 def powerlaw(x,params):
     x = jnp.nan_to_num(x)
     return  params[1] * jax.lax.pow(x / 1000.,params[0]) #+ params[1]
 
-@jit
+#@jit
 @param_count(2)
 def loglinear(x,params):
     return params[0] * x + params[1]
 
 
-@jit
+#@jit
 def linear_combination(eieigenvectors,params):
     return jnp.nansum(eieigenvectors.T*100*params,axis=1)
 
-@jit
+#@jit
 @param_count(3)
 def balmerconti(x,pars):
     """
@@ -93,12 +93,12 @@ def balmerconti(x,pars):
 
     return result
 
-@jit
+#@jit
 @param_count(3)
 def gaussian_func(x,params):
     amplitude,center,width = params
     return  amplitude * jnp.exp(-0.5 * ((x - center) / width) ** 2)
-@jit
+#@jit
 @param_count(3)
 def lorentzian_func(x,params):
     amplitude,center,gamma = params
@@ -245,7 +245,7 @@ def Gsum_model(centers, amplitudes):
     centers = jnp.array(centers)
     amplitudes = jnp.array(amplitudes)
 
-    @jit
+    #@jit
     @param_count(3)
     def G(x, params):
         amplitude = params[0]
@@ -258,7 +258,30 @@ def Gsum_model(centers, amplitudes):
 
     return G
     
+def G_centred(centers):
+    """
+    Returns a Gaussian sum model function with shared sigma and shift.
 
+    Args:
+        centers (array): Array of Gaussian centers.
+        amplitudes (array): Array of Gaussian amplitudes (same shape as centers).
+
+    Returns:
+        callable: Function G(x, params) with params = [amplitude, delta, width].
+    """
+    centers = jnp.array(centers)
+    #@jit
+    @param_count(3)
+    def G(x, params):
+        amplitude = params[0]
+        delta = params[1]
+        width = params[2]
+        shifted_centers = centers + delta
+        dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
+        gaussians = amplitude * jnp.exp(-0.5 * (dx / width) ** 2)
+        return jnp.sum(gaussians, axis=0)
+
+    return G
 
 
 class GaussianSum:

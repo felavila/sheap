@@ -1,16 +1,7 @@
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass, asdict, field
+from typing import Any, Dict, List, Optional, Tuple, Union,Callable
+import numpy as np 
 
-
-
-@dataclass
-class ConstraintSet:
-    init: List[float]
-    upper: List[float]
-    lower: List[float]
-    profile: str
-    param_names: List[str]
-    
 
 @dataclass
 class SpectralLine:
@@ -26,6 +17,35 @@ class SpectralLine:
 
     def to_dict(self) -> dict:
         return asdict(self)
+    
+@dataclass
+class ComplexRegion:
+    complex_region: List[SpectralLine]
+    profile_functions: List[Callable]
+    params:np.ndarray
+    uncertainty_params:np.ndarray
+    profile_params_index_list: np.ndarray
+    params_dict: Dict
+    profile_names: List[str]
+    
+    kind_list: List[str] = field(init=False)  # will be computed post-init
+
+    def __post_init__(self):
+        self.kind_list = list({line.kind for line in self.complex_region})
+    
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+@dataclass
+class ConstraintSet:
+    init: List[float]
+    upper: List[float]
+    lower: List[float]
+    profile: str
+    param_names: List[str]
+    
+
+
     
 @dataclass
 class FittingLimits:

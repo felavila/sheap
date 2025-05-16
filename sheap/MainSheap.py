@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Optional, Dict,Callable
 from pathlib import Path
 import warnings
 import pickle
 import sys 
+from dataclasses import dataclass
 
 import jax.numpy as jnp
 import numpy as np
@@ -14,11 +15,13 @@ import numpy as np
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.RegionFitting.RegionFitting import RegionFitting 
 from sheap.SuportFunctions.functions import mapping_params
-from sheap.DataClass.DataClass import SpectralLine
+from sheap.DataClass.DataClass import SpectralLine,ComplexRegion
 from sheap.utils import prepare_uncertainties  # ?
 
 from sheap.FunctionsMinimize.functions import gaussian_func, linear, lorentzian_func, powerlaw,balmerconti,fitFeOP, fitFeUV,Gsum_model
+
 logger = logging.getLogger(__name__)
+
 module_dir = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -48,7 +51,6 @@ def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
     signal = spectra[:, 1, :]
     error = jnp.expand_dims(signal * frac, axis=1)
     return jnp.concatenate((spectra, error), axis=1)
-
 
 class Sheapectral:
     #the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A 
@@ -169,7 +171,7 @@ class Sheapectral:
             fe_tied_params=fe_tied_params,
             #model_fii = model_fii
         )
-    def fit_region(self,add_step=True,tied_fe=False,num_steps_list=[3000,3000]):
+    def fit_region(self,num_steps_list=[3000,3000],add_step=True,tied_fe=False):
 
         spectra = self.spectra.at[:,[1,2],:].multiply(10 ** (-1 * self.spectra_exp[:,jnp.newaxis,jnp.newaxis])) #apply escale to 0-20 max 
         if not hasattr(self, "builded_region"):
@@ -196,6 +198,7 @@ class Sheapectral:
         self.max_flux = self.max_flux*scaled #just for the plot 
         self.params = params.at[:,idxs].multiply(scaled[:,None])
         self.uncertainty_params = uncertainty_params.at[:,idxs].multiply(scaled[:,None])
+        self._complex_region()
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
@@ -213,6 +216,7 @@ class Sheapectral:
         )
 
         obj.params =  jnp.array(data.get("params"))
+        obj.uncertainty_params = jnp.array(data.get("uncertainty_params",jnp.zeros_like(obj.params)))
         obj.params_dict = data.get("params_dict")
         obj.mask = jnp.array(data.get("mask"))
         obj.profile_params_index_list = data.get("profile_params_index_list")
@@ -226,8 +230,8 @@ class Sheapectral:
             #obj.complex_region = [SpectralLine(**d) for d in region_defs]
             #
         if obj.profile_names is not None:
-            
             obj.profile_functions = [PROFILE_FUNC_MAP.get(i) if i!="combine_gaussian" else make_g(obj.complex_region[idx]) for idx,i in enumerate(obj.profile_names)]
+        obj._complex_region()
         return obj
     
     def _save(self):
@@ -239,8 +243,10 @@ class Sheapectral:
             "z": np.array(self.z),#array
             "extinction_correction": self.extinction_correction,
             "redshift_correction":self.redshift_correction,
+            
             #this should be a dataclass
-            "params": np.array(self.params),# array 
+            "params": np.array(self.params),# array
+            "uncertainty_params": np.array(self.uncertainty_params),# array 
             "params_dict": self.params_dict, #array 
             "mask": np.array(self.mask), #array 
             "complex_region": _region_defs, #dic
@@ -290,3 +296,26 @@ class Sheapectral:
 
         return ax
     
+    
+    def _complex_region(self):
+        self.complex_region_class = ComplexRegion(complex_region=self.complex_region,
+                                params=self.params,
+                                uncertainty_params=self.uncertainty_params,
+                                profile_functions=self.profile_functions,
+                                params_dict=self.params_dict,
+                                profile_names=self.profile_names,
+                                profile_params_index_list=self.profile_params_index_list)
+        
+    
+        # complex_region: List[SpectralLine]
+        # profile_functions: List[Callable]
+        # params:np.ndarray
+        # uncertainty_params:np.ndarray
+        # profile_params_index_list: np.ndarray
+        # params_dict: Dict
+        # profile_names: List[str]
+    
+    
+    def _modelplot(self):
+        
+        print("work in progress")
