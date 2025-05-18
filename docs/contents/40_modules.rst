@@ -2,6 +2,13 @@ sheap
 ===================================================
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
+   :caption: API Reference
 
-   sheap
+   sheap.region_builder
+   sheap.region_fitting
+   sheap.suportclass
+   sheap.functions_minimize
+   sheap.posterior
+   sheap.tools
+   sheap.visualization

@@ -47,13 +47,9 @@ License
 
 |gh-lic|
 
-* `GNU Affero General Public License v3.0`_
+* `GNU Affero General Public License v3.0 <https://www.gnu.org/licenses/agpl-3.0.html>`_
 
 
-License
-=======
-
-* Free software: GNU Affero General Public License v3.0
 
 
 .. BADGE ALIASES

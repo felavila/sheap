@@ -1,4 +1,4 @@
-# import numpy as np 
+# import numpy as np
 # __all__ = ['line_parameters','line_decomposition_measurements']
 
 # def line_decomposition_measurements(model_lines,line_dictionary,line_name ="Hbeta",c=2.99792458e5):
@@ -36,10 +36,10 @@
 
 # #fwhm, luminosity,EW,dlambda,std,dmax,dl50,dl90,dl95,dlt
 # def line_parameters(results,model_lines,line_dictionary,line_name="Hbeta",c=2.99792458e5,line_measurements=False):
-#     """" results is a dictionary with all the results from the fit 
-#         model_lines: is a class that came from constrains should be update to something more easy to handle 
-#         or just add to results and in there it solve what to do 
-#         line_dictionary it contain the result for the different lines 
+#     """" results is a dictionary with all the results from the fit
+#         model_lines: is a class that came from constrains should be update to something more easy to handle
+#         or just add to results and in there it solve what to do
+#         line_dictionary it contain the result for the different lines
 #     """
 #     spxarr = results['wavelenght']
 #     components=model_lines.global_dict[f"{line_name}_complex"]['lines'][line_name]['components']
@@ -80,7 +80,7 @@
 #     s_e = np.array([value['modelerrs'] for key,value in line_dictionary.items() if key in components])
 #     sflux = np.array([value['flux'] for key,value in line_dictionary.items() if key in components])
 #     luminosity = sflux.sum() + luminosity
-#     #total=np.sum(gaussian_vector(xarr,*s_0.T),axis=0)# looks like i have to sum all of them 
+#     #total=np.sum(gaussian_vector(xarr,*s_0.T),axis=0)# looks like i have to sum all of them
 #     #totalb=np.sum(gaussian_vector(xarrb,*s_0.T),axis=0)
 #     ###########################################
 #     argmaxi=arglocalmax(totalb)
@@ -123,7 +123,7 @@
 #             fwhm=width_obs
 #     fwhm=fwhm*c/lambda0
 #     ####################################################
-#     EW=simpson(totalb/continuousb,x=xarrb) #totalb?? maybe it should be in mag 
+#     EW=simpson(totalb/continuousb,x=xarrb) #totalb?? maybe it should be in mag
 #     if np.isnan(EW):
 #         EW=np.sum(totalb*(xarrb[1]-xarrb[0])/continuousb)
 #     if np.max(total)<=0 :
@@ -159,20 +159,20 @@
 #                 f_obs_func = interp1d(xarrb, totalb-totalb[amax]/10.0, kind='linear')
 #                 spline_obs = interpolation(xarrb, f_obs_func(xarrb))
 #                 roots_obs=spline_obs.roots()
-                
+
 #                 arghm1=np.argmin(np.abs(xarrb-roots_obs[0]))
 #                 arghm2=np.argmin(np.abs(xarrb-roots_obs[-1]))
-                
+
 #                 dl90=(np.sum((totalb*xarrb)[arghm1:arghm2+1])/np.sum(totalb[arghm1:arghm2+1]) - lambda0)*c/lambda0
 #                 dl90=dl90-dmax
-                
+
 #                 f_obs_func = interp1d(xarrb, totalb-totalb[amax]/20.0, kind='linear')
 #                 spline_obs = interpolation(xarrb, f_obs_func(xarrb))
 #                 roots_obs=spline_obs.roots()
-                
+
 #                 arghm1=np.argmin(np.abs(xarrb-roots_obs[0]))
 #                 arghm2=np.argmin(np.abs(xarrb-roots_obs[-1]))
-                
+
 #                 dl95=(np.sum((totalb*xarrb)[arghm1:arghm2+1])/np.sum(totalb[arghm1:arghm2+1]) - lambda0)*c/lambda0
 #                 dl95=dl95-dmax
 #                 dlt=dlambda-dmax
@@ -320,7 +320,6 @@
 #             #dlt=dlambda-dmax
 
 
-
 #     if np.max(total_up)<=0 or np.sum(total_up)==0 :
 #         dlambda_up=0
 #     else:
@@ -330,7 +329,6 @@
 #         dlambda_low=0
 #     else:
 #         dlambda_low=(np.sum(total_low*xarr)/np.sum(total_low) - lambda0)*c/lambda0
-
 
 
 #     if (dlambda!=0 and dlambda_low==0):

@@ -1,14 +1,12 @@
 import jax.numpy as jnp
-from jax import vmap,jit
-
-
+from jax import jit, vmap
 
 
 def interpolate_flux_array(
-    x_interp: jnp.ndarray,        # shape (N, M)
-    template_wave: jnp.ndarray,         # shape (L,)
-    template_flux: jnp.ndarray,         # shape (K, L)
-    reshape_output: bool = True
+    x_interp: jnp.ndarray,  # shape (N, M)
+    template_wave: jnp.ndarray,  # shape (L,)
+    template_flux: jnp.ndarray,  # shape (K, L)
+    reshape_output: bool = True,
 ) -> jnp.ndarray:
     """
     Interpolates multiple flux arrays over a given grid of wavelengths.
@@ -36,32 +34,35 @@ def interpolate_flux_array(
 
     return interp_vals
 
+
 def normalize(vecs):
     norm = jnp.sqrt(jnp.sum(vecs**2, axis=-1, keepdims=True))
     return vecs / jnp.where(norm == 0, 1, norm)
 
+
 @jit
-def linear_combination(eieigenvectors,params):
-    return jnp.nansum(eieigenvectors.T*params,axis=1)
+def linear_combination(eieigenvectors, params):
+    return jnp.nansum(eieigenvectors.T * params, axis=1)
 
 
 def make_penalty_func(func, n_galaxies):
     """
     Returns a penalty function that penalizes negative flux in the model
     reconstructed from the first `n_galaxies` components.
-    
+
     Args:
         func: Function taking (eigenvectors, params) → model
         n_galaxies: Number of galaxy components in params
-    
+
     Returns:
         A function (eigenvectors, params) → penalty value
     """
+
     @jit
     def penalty_func(eigenvectors, params):
         qso_model = func(eigenvectors[n_galaxies:], params[n_galaxies:])
         galaxy_model = func(eigenvectors[:n_galaxies], params[:n_galaxies])
-        penalty =  jnp.sum(galaxy_model < 0)
+        penalty = jnp.sum(galaxy_model < 0)
         penalty += jnp.sum(qso_model < 0)
         return penalty
 

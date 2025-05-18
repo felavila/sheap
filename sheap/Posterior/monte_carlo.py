@@ -1,11 +1,11 @@
-# import os 
-# import numpy as np 
+# import os
+# import numpy as np
 # import yaml
-# import pandas as pd 
-# import copy 
+# import pandas as pd
+# import copy
 # from sheap.Posterior
 # __all__ = ['results_after_montecarlo','monte_carlo']
-# #i have to solve this 
+# #i have to solve this
 # module_dir = os.path.dirname(os.path.abspath(__file__))
 # with open(os.path.join(module_dir,"tabuled_values/dictionary_values.yaml"), 'r') as file:
 #     #this should be done more eficiently in some way
@@ -53,7 +53,7 @@
 #     cont1450=conti[arg1450]*10**(mag_order)*wavelength_cont*1.0
 #     lcont=cont1450
 #     npix=20
-#     #This should be somethink like just took this values outside the array range 
+#     #This should be somethink like just took this values outside the array range
 #     # Cropping logic based on arg14501 value
 #     if arg14501 >= npix:
 #         # Crop the array by removing the specified range
@@ -63,7 +63,7 @@
 #         cropped_array = np.delete(spdata, np.arange(0, 2 * npix))
 #     # Calculate lconte and signal-to-noise ratio (sn)
 #     lconte = np.std(cropped_array) * wavelength_cont
-#     sn = lcont / lconte       
+#     sn = lcont / lconte
 #     lcont_array=normal_array(lcont,lconte,iterations_per_object)
 #     lmax_array=normal_array(lmax,lconte/(1.0*wavelength_cont),int(wavelength_cont))#np.random.normal(lmax,lconte,iterations_per_object)
 #     if line_name=='CIV' or line_name=='MgII':
@@ -100,7 +100,7 @@
 #                 try:
 #                     amplitude=np.random.normal(line_dictionary[component]['modelpars'][0],line_dictionary[component]['modelerrs'][0])
 #                 except:
-#                     amplitude=line_dictionary[component]['modelpars'][0]    
+#                     amplitude=line_dictionary[component]['modelpars'][0]
 #                 try:
 #                     lambda_center=np.random.normal(line_dictionary[component]['modelpars'][1],line_dictionary[component]['modelerrs'][1])
 #                 except:
@@ -131,7 +131,7 @@
 #         bv=2.0
 #         fth1=f0*0.86*(1+bv*0.86)/(1+bv) #assuming an inclination of 30*
 #         Mdot_array[itera]=(Lv5100pred/(fth1))**1.5/10**(Mass_array[itera]-8)
-#     #import matplotlib.pyplot as plt 
+#     #import matplotlib.pyplot as plt
 #     #plt.plot(fwhm_array)
 #     bestfit_measurements=np.array([fwhm,fwmin,fwmax,std,EW,dlambda,dv1,dv2,dlmax,dl50,dl90,dl95,dlt,lcont,lmax,luminosity,l1,l2,ske,kurto,Mass,Mdot])#,'Mass','Mdot','LLedd'])
 
@@ -142,10 +142,10 @@
 #     errorlow_measurements=np.array([np.percentile(fwhm_array,16),fwmin-fwhmine,fwmax-fwhmaxe,np.percentile(std_array,16),np.percentile(EW_array,16),np.percentile(dlambda_array,16),dv1-dv1e,dv2-dv2e,np.percentile(dlmax_array,16),np.percentile(dl50_array,16),np.percentile(dl90_array,16),np.percentile(dl95_array,16),np.percentile(dlt_array,16),lcont-lconte,np.percentile(lmax_array,16),np.percentile(luminosity_array,16),l1-l1e,l2-l2e,np.percentile(ske_array,16),np.percentile(kurto_array,16),np.percentile(Mass_array,16),np.percentile(Mdot_array,16)])#,'Mass','Mdot','LLedd'])
 
 #     median_measurements=np.array([np.percentile(fwhm_array,50),fwmin,fwmax,np.percentile(std_array,50),np.percentile(EW_array,50),np.percentile(dlambda_array,50),dv1,dv2,np.percentile(dlmax_array,50),np.percentile(dl50_array,50),np.percentile(dl90_array,50),np.percentile(dl95_array,50),np.percentile(dlt_array,50),lcont,np.percentile(lmax_array,50),np.percentile(luminosity_array,50),l1,l2,np.percentile(ske_array,50),np.percentile(kurto_array,50),np.percentile(Mass_array,50),np.percentile(Mdot_array,50)])#,'Mass','Mdot','LLedd'])#,'Mass','Mdot','LLedd'])
-    
+
 #     ####################################################################
 #     errorup_measurements=errorup_measurements-median_measurements
-    
+
 #     errorlow_measurements=median_measurements-errorlow_measurements
-    
+
 #     return bestfit_measurements,mean_measurements,errorup_measurements,errorlow_measurements,median_measurements

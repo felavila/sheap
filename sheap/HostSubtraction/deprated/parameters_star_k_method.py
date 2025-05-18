@@ -12,7 +12,7 @@
 # from SHEAP.utils import mask_builder
 
 # module_dir = Path(__file__).resolve().parent.parent
-# #Small code that can use to check how we got the values in the star method 
+# #Small code that can use to check how we got the values in the star method
 
 # wave_kstar,flux_kstar,err_kstar =jnp.array(np.loadtxt(os.path.join(module_dir,'suport_data/templates/Kstar.txt'),dtype='float').transpose())
 # spectra_exp = jnp.round(jnp.log10(jnp.mean(flux_kstar)))
@@ -30,12 +30,12 @@
 # median_region = jnp.nanmedian(jnp.where(mask_fit,jnp.nan,spectra[:,1,:]),axis=1)
 # constraints=jnp.array([[-1e41,0.0],[3908,3960],[0,1e41],[-1e41,-3],[-1e41,1e41]])
 # initial_params_g = jnp.array([(min_value-median_region)*1.2,jnp.ones(min_value.shape)*c_ca,jnp.ones(min_value.shape)*4,-10.*jnp.ones(spectra.shape[0]),median_region]).T
-# num_steps = 1000 
+# num_steps = 1000
 # Master_Gaussian = MasterMinimizer(g_c, non_optimize_in_axis=4,num_steps=num_steps)
-# params_g,_ = Master_Gaussian.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :],masked_uncertainties_g,constraints,*Master_Gaussian.default_args) 
+# params_g,_ = Master_Gaussian.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :],masked_uncertainties_g,constraints,*Master_Gaussian.default_args)
 # line_center,sigma_jax = params_g[:,[1,2]].T
 # params_linear = params_g[:,-2:]
-# vmap_linear = vmap(linear2, in_axes=(0, 0), out_axes=0) 
+# vmap_linear = vmap(linear2, in_axes=(0, 0), out_axes=0)
 # Baselines = vmap_linear(fit_region_g[:, 0, :],params_linear)
 # flux_ew = vmap_linear(line_center,params_linear)
 # amplitude_star_jax = params_g[:,0] + flux_ew #params_g is negative

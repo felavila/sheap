@@ -6,21 +6,27 @@ import numpy as np
 from jax import jit
 
 from sheap.FunctionsMinimize.utils import param_count
-#from sheap.tools.interp_tools import _interp_jax
+
+# from sheap.tools.interp_tools import _interp_jax
 from sheap.Tools.others import kms_to_wl
 
-#import partial
-#from util
+# import partial
+# from util
 
 
+templates_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "suport_data", "templates"
+)
 
-templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"suport_data","templates")
+fe_template_OP_file = os.path.join(templates_path, 'fe2_Op.dat')
+fe_template_OP = jnp.array(
+    np.loadtxt(fe_template_OP_file, comments='#').transpose()
+)  # y units?
 
-fe_template_OP_file = os.path.join(templates_path,'fe2_Op.dat')
-fe_template_OP = jnp.array(np.loadtxt(fe_template_OP_file,comments='#').transpose()) # y units?
-
-fe_template_UV_file = os.path.join(templates_path,'fe2_UV02.dat')
-fe_template_UV = jnp.array(np.loadtxt(fe_template_UV_file,comments='#').transpose()) # y units?
+fe_template_UV_file = os.path.join(templates_path, 'fe2_UV02.dat')
+fe_template_UV = jnp.array(
+    np.loadtxt(fe_template_UV_file, comments='#').transpose()
+)  # y units?
 
 
 @param_count(3)
@@ -47,7 +53,7 @@ def fitFeOP(x, params):
 
     # Ensure the model sigma is not smaller than the template sigma to avoid sqrt of negative.
     safe_sigma_model = jnp.maximum(sigma_model, sigmatemplate + 1e-6)
-    delta_sigma = jnp.sqrt(safe_sigma_model ** 2 - sigmatemplate ** 2)
+    delta_sigma = jnp.sqrt(safe_sigma_model**2 - sigmatemplate**2)
 
     # Instead of a complex index, assume uniform wavelength array.
     # Use the first two elements to compute the step size.
@@ -84,10 +90,12 @@ def fitFeOP(x, params):
     )
 
     return interpolated_broad_scaled_template
-# 2795 
+
+
+# 2795
 @param_count(3)
-#2795
-def fitFeUV(x,params):
+# 2795
+def fitFeUV(x, params):
     "Fit the UV FeII component on the continuum from 1200 to 3500 A based on Boroson & Green 1992."
     log_FWHM_broad, shift_, scale = params
     central_wl = 2795  # Reference wavelength
@@ -110,7 +118,7 @@ def fitFeUV(x,params):
 
     # Ensure the model sigma is not smaller than the template sigma to avoid sqrt of negative.
     safe_sigma_model = jnp.maximum(sigma_model, sigmatemplate + 1e-6)
-    delta_sigma = jnp.sqrt(safe_sigma_model ** 2 - sigmatemplate ** 2)
+    delta_sigma = jnp.sqrt(safe_sigma_model**2 - sigmatemplate**2)
 
     # Instead of a complex index, assume uniform wavelength array.
     # Use the first two elements to compute the step size.
@@ -127,7 +135,7 @@ def fitFeUV(x,params):
     # Create a local grid for the convolution kernel.
     max_radius = 1000  # Over-dimension the grid for JIT compilation compatibility.
     x_local = jnp.arange(-max_radius, max_radius + 1)
-    
+
     # Create a mask with a robust approach: only values within [-radius, radius] are nonzero.
     mask = jnp.where(jnp.abs(x_local) <= radius, 1.0, 0.0)
     # Compute the Gaussian kernel on the entire grid.

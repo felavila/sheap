@@ -1,6 +1,7 @@
 import jax.numpy as jnp
 from jax import vmap
 
+
 def effective_fwhm(params1, params2):
     """
     Estimate the FWHM of a combined two-Gaussian profile using moment analysis.
@@ -11,27 +12,24 @@ def effective_fwhm(params1, params2):
 
     total_amp = amp1 + amp2
     mu_eff = (amp1 * mu1 + amp2 * mu2) / total_amp
-    var_eff = (amp1 * (sigma1**2 + (mu1 - mu_eff)**2) +
-               amp2 * (sigma2**2 + (mu2 - mu_eff)**2)) / total_amp
+    var_eff = (
+        amp1 * (sigma1**2 + (mu1 - mu_eff) ** 2) + amp2 * (sigma2**2 + (mu2 - mu_eff) ** 2)
+    ) / total_amp
 
     sigma_eff = jnp.sqrt(var_eff)
     fwhm = 2.35482 * sigma_eff
     return total_amp, mu_eff, sigma_eff, fwhm / mu_eff  # dimensionless
 
 
-
-
-
-
 batched_fwhm = vmap(
-    vmap(effective_fwhm, in_axes=(0, 0)),  # over regions
-    in_axes=(0, 0)  # over samples
+    vmap(effective_fwhm, in_axes=(0, 0)), in_axes=(0, 0)  # over regions  # over samples
 )
+
 
 def combine(params_broad, params_narrow, limit_velocity=150.0, c=299792.0):
     """
     Combines multiple broad Gaussians with a single narrow Gaussian per object.
-    
+
     params_broad: (N, 3 * n_broad) -> multiple Gaussians: amp1, mu1, sigma1, ...
     params_narrow: (N, 3) -> single narrow Gaussian: amp, mu, sigma
     """

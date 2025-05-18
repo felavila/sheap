@@ -1,12 +1,13 @@
 import pytest
 
-#a
+
+# a
 @pytest.fixture
 def get_main_arguments():
     return type('A', (), {'command_line_script_args': None, 'main_function_kwargs': {}})
 
 
-@pytest.mark.runner_setup(mix_stderr=False)
+@pytest.mark.runner_setup()
 def test_cli(
     get_main_arguments,
     isolated_cli_runner,

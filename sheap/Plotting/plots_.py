@@ -1,9 +1,9 @@
-#TODO plots without a place to stay at the moment 
+# TODO plots without a place to stay at the moment
 
 # import seaborn as sns
 
 # def corner_plot_sns(pandas,columns,hue,save="",**kwargs):
-    
+
 #     g = sns.pairplot(
 #     pandas[columns],
 #     hue = hue,

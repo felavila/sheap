@@ -13,11 +13,11 @@
 
 # """code to substarct the galactic component of an AGN, asuming that a template of a K-giant star is sufficient.
 # Following the method explained in Greene & Ho 2005b and Kim & Ho 2006 (https://ui.adsabs.harvard.edu/abs/2006ApJ...642..702K/abstract).
-# translation from Paula Sanchez's code . 
+# translation from Paula Sanchez's code .
 # """
 
 # module_dir = Path(__file__).resolve().parent.parent
-# #TODO steal appears systems that contain negative values in the host substation are like 5 in the santiago sample looking for solutions or assume the limit in the method maybe 
+# #TODO steal appears systems that contain negative values in the host substation are like 5 in the santiago sample looking for solutions or assume the limit in the method maybe
 
 # def host_flux(flux_ew,EWfin,waveq):
 #     """
@@ -35,7 +35,6 @@
 #     return h
 
 # vmap_host_flux = vmap(host_flux,in_axes=(0,0,0),out_axes=0)
-
 
 
 # def Extract_host_star(Spectra: jnp.array,c=2.99792458e5,outer_limits=[3908,3960],inner_limits=[3915,3950],vel_resolution= 69., vel_limit = 1000.,signal_noise_region_limit = 3,AN_limit = 3, EWfin_limit = 0,
@@ -62,11 +61,11 @@
 #     initial_params_g = jnp.array([(min_value-median_region)*1.2,jnp.ones(min_value.shape)*c_ca,jnp.ones(min_value.shape)*4,0.*jnp.ones(Spectra.shape[0]),median_region]).T
 #     #
 #     MasterFit = MasterMinimizer(g_c, non_optimize_in_axis=4,num_steps=num_steps)
-#     params_g,_ = MasterFit.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :],masked_uncertainties_g,constraints,*MasterFit.default_args) 
+#     params_g,_ = MasterFit.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :],masked_uncertainties_g,constraints,*MasterFit.default_args)
 #     line_center,sigma_jax = params_g[:,[1,2]].T
 #     params_linear = params_g[:,-2:]
 #     #
-#     vmap_linear = vmap(linear, in_axes=(0, 0), out_axes=0) 
+#     vmap_linear = vmap(linear, in_axes=(0, 0), out_axes=0)
 #     Baselines = vmap_linear(fit_region_g[:, 0, :],params_linear)
 #     #
 #     flux_ew = vmap_linear(line_center,params_linear)
@@ -84,8 +83,6 @@
 #         return host_detected,fit_region_g,mask_fit,masked_uncertainties_g,outer_limits,MasterFit,params_g,mask_fit_g,Baselines,AN,EWfin,vel,signal_noise_region,params_linear,initial_params_g,host_flux
 #     return host_flux
 
-    
-    
 
 # # def Extract_host_star_old(Spectra: jnp.array,c=2.99792458e5,outer_limits=[3908,3960],inner_limits=[3915,3950]):
 # #     """
@@ -116,7 +113,7 @@
 # #     initial_params_g = jnp.array([(min_value-median_region)*jnp.sqrt(2*jnp.pi),jnp.ones(min_value.shape)*sum(outer_limits)/2,jnp.ones(min_value.shape)* 20]).T
 # #     constraints=jnp.array([[-1e41,0.0],outer_limits,[0,1e41]])
 # #     Master_Gaussian = MasterMinimizer(GaussianSum(n=1, constraints={}), non_optimize_in_axis=4)
-# #     params_g,_ = Master_Gaussian.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :] - Baselines,masked_uncertainties_g,constraints,*Master_Gaussian.default_args) 
+# #     params_g,_ = Master_Gaussian.vmap_optimize_model(initial_params_g,fit_region_g[:, 0, :],fit_region_g[:, 1, :] - Baselines,masked_uncertainties_g,constraints,*Master_Gaussian.default_args)
 # #     ###
 # #     line_center,sigma_jax = params_g[:,[1,2]].T
 # #     flux_ew = Master_Linear.vmap_func(line_center,params_linear)
@@ -141,8 +138,8 @@
 # #     index = jnp.where(((EQW_jax_c<=EWfin_limit) & (vel>=vel_resolution) & (vel<=vel_limit)) == True)[0]
 # #     return index,fit_region_g,mask_fit,masked_uncertainties_g,outer_limits,Master_Gaussian,params_g,mask_fit_g,Baselines,AN,EQW_jax_c,vel,signal_noise_region,params_linear,_
 # #     #return index
-    
-# #     #return 
+
+# #     #return
 # #     host_flux = jnp.zeros_like(Spectra[:,0,:]) # make a host flux array of shape equal to the flux array
 # #     host_flux = host_flux.at[index].set(vmap_host_flux(flux_ew[index],EWfin[index],Spectra[index,0,:]))
 # #     #spectras  = test_clase.spectra.at[:,1,:].subtract(host_flux)

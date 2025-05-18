@@ -18,5 +18,6 @@ def main():
     # Output the corrected arguments
     print(" ".join(new_args))
 
+
 if __name__ == "__main__":
     main()

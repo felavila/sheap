@@ -13,8 +13,8 @@ class MasterMinimizer:
     MasterMinimizer handles constrained optimization for a given function using JAX and Optax.
     Attributes:
         func (Callable): The model function to optimize.
-        optimize_in_axis (int) : 
-            -3  will be optimize assuming the same initial values for all and constraints 
+        optimize_in_axis (int) :
+            -3  will be optimize assuming the same initial values for all and constraints
             -4  will be optimize assuming the same constraints values for all the function
             -5  will be optimize asuming different values of init and constraints
         penalty_weight (float): The weight for constraint penalties in the loss function.
@@ -27,27 +27,54 @@ class MasterMinimizer:
         vmap_func (Callable): Vectorized version of the model function.
         vmap_optimize_model (Callable): Vectorized optimization model.
     """
-    
-    def __init__(self,func: Callable,non_optimize_in_axis: int = 3,constraints: Optional[Callable] = None,
-                num_steps: int = 1000,optimizer: optax.GradientTransformation = None,learning_rate=None,list_dependencies=[],weighted=True,**kwargs):
-        self.func = func #TODO desing the function class 
-        self.non_optimize_in_axis = non_optimize_in_axis #axis in where is require enter data of same dimension
+
+    def __init__(
+        self,
+        func: Callable,
+        non_optimize_in_axis: int = 3,
+        constraints: Optional[Callable] = None,
+        num_steps: int = 1000,
+        optimizer: optax.GradientTransformation = None,
+        learning_rate=None,
+        list_dependencies=[],
+        weighted=True,
+        **kwargs,
+    ):
+        self.func = func  # TODO desing the function class
+        self.non_optimize_in_axis = (
+            non_optimize_in_axis  # axis in where is require enter data of same dimension
+        )
         self.num_steps = num_steps
-        self.learning_rate = learning_rate  or 1e-3
+        self.learning_rate = learning_rate or 1e-3
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-        self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate)) 
-        #print('optimizer:',self.optimizer)
-        
-        self.loss_function, self.optimize_model, self.residuals = MasterMinimizer.minimization_function(self.func,
-                                                                                                        weighted=weighted,
-                                                                                                        penalty_function=kwargs.get("penalty_function"),
-                                                                                                        penalty_weight=kwargs.get("penalty_weight", 0.01)
-                                                                                                        )
-                                                                                                        
-        
-        self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0) #?
-    def __call__(self,initial_params,y,x,yerror,constraints,learning_rate=None,num_steps=None,optimizer=None,non_optimize_in_axis=None,list_dependencies=None):
+        self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate))
+        # print('optimizer:',self.optimizer)
+
+        self.loss_function, self.optimize_model, self.residuals = (
+            MasterMinimizer.minimization_function(
+                self.func,
+                weighted=weighted,
+                penalty_function=kwargs.get("penalty_function"),
+                penalty_weight=kwargs.get("penalty_weight", 0.01),
+            )
+        )
+
+        self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0)  # ?
+
+    def __call__(
+        self,
+        initial_params,
+        y,
+        x,
+        yerror,
+        constraints,
+        learning_rate=None,
+        num_steps=None,
+        optimizer=None,
+        non_optimize_in_axis=None,
+        list_dependencies=None,
+    ):
         """_summary_
         shapes initial_params (35,) y (413, 4633) x (413, 4633) yerror (413, 4633) constraints (35, 2)
         Args:
@@ -72,56 +99,58 @@ class MasterMinimizer:
         self.num_steps = num_steps or self.num_steps
         self.optimizer = optimizer or self.optimizer
         non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
-    #     schedule = optax.join_schedules(
-    # schedules=[
-    #     optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=500),
-    #     optax.exponential_decay(init_value=1e-3, transition_steps=1000, decay_rate=0.95)
-    # ],
-    # boundaries=[500]
-# )
-        #print("eje")
-        self.default_args = (self.parsed_dependencies_tuple,
-                        self.learning_rate,
-                        self.num_steps,
-                        self.optimizer,
-                        False)
-        
-        #print('learning_rate:',self.learning_rate)
-        #print('optimizer:',optax.adabelief.__name__)
-        #print('num_steps:',self.num_steps)
-        
-        if non_optimize_in_axis==3:
-            #print("vmap Optimize over y,x,yerror")
+        #     schedule = optax.join_schedules(
+        # schedules=[
+        #     optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=500),
+        #     optax.exponential_decay(init_value=1e-3, transition_steps=1000, decay_rate=0.95)
+        # ],
+        # boundaries=[500]
+        # )
+        # print("eje")
+        self.default_args = (
+            self.parsed_dependencies_tuple,
+            self.learning_rate,
+            self.num_steps,
+            self.optimizer,
+            False,
+        )
+
+        # print('learning_rate:',self.learning_rate)
+        # print('optimizer:',optax.adabelief.__name__)
+        # print('num_steps:',self.num_steps)
+
+        if non_optimize_in_axis == 3:
+            # print("vmap Optimize over y,x,yerror")
             optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
-        elif non_optimize_in_axis==4:
-            #print("vmap Optimize over init_val,y,x,yerror")
+        elif non_optimize_in_axis == 4:
+            # print("vmap Optimize over init_val,y,x,yerror")
             optimize_in_axis = (0, 0, 0, 0, None, None, None, None, None, None)
         # elif non_optimize_in_axis==5:
         #     #means the first values will be arrays
         #     optimize_in_axis = (0, 0, 0, 0, None, None, None, None, None, None)
         else:
             print("This value of non_optimize_in_axis not cover it will replace for 3")
-            #print("vmap Optimize over y,x,yerror")
+            # print("vmap Optimize over y,x,yerror")
             non_optimize_in_axis = 3
             optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
         self.optimize_in_axis = optimize_in_axis
-        vmap_optimize_model = vmap(self.optimize_model,in_axes=optimize_in_axis, out_axes=0)
-        
-        return vmap_optimize_model(initial_params,y,x,yerror,constraints,*self.default_args)
-        
-        
-        
+        vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
+
+        return vmap_optimize_model(
+            initial_params, y, x, yerror, constraints, *self.default_args
+        )
+
     @staticmethod
     def minimization_function(
-    func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
-    penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
-    penalty_weight: float = 0.01,
-    weighted: bool = True
-) -> Tuple[
-    Callable[..., jnp.ndarray],  # loss_function
-    Callable[..., Tuple[jnp.ndarray, list]],  # optimize_model
-    Callable[..., jnp.ndarray]  # residuals
-]:
+        func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
+        penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+        penalty_weight: float = 0.01,
+        weighted: bool = True,
+    ) -> Tuple[
+        Callable[..., jnp.ndarray],  # loss_function
+        Callable[..., Tuple[jnp.ndarray, list]],  # optimize_model
+        Callable[..., jnp.ndarray],  # residuals
+    ]:
         """
         Factory function to create a JIT-compiled constrained loss function with multiple input variables.
 
@@ -131,23 +160,30 @@ class MasterMinimizer:
         Returns:
         - A JIT-compiled loss function.
         TODO:
-        - be carefull with uncertainty and weight 
+        - be carefull with uncertainty and weight
         """
+
         @jit
-        def residuals(params: jnp.ndarray, xs: List[jnp.ndarray], y: jnp.ndarray, y_uncertainties: jnp.ndarray):
+        def residuals(
+            params: jnp.ndarray,
+            xs: List[jnp.ndarray],
+            y: jnp.ndarray,
+            y_uncertainties: jnp.ndarray,
+        ):
             predictions = func(xs, params)
-            
+
             return jnp.abs(y - predictions) / y_uncertainties
 
         if weighted:
+
             @jit
             def loss_function(
                 params: jnp.ndarray,
                 xs: List[jnp.ndarray],
                 y: jnp.ndarray,
-                y_uncertainties: jnp.ndarray
-                ) -> jnp.ndarray:
-                
+                y_uncertainties: jnp.ndarray,
+            ) -> jnp.ndarray:
+
                 y_pred = func(xs, params)
                 weights = 1.0 / y_uncertainties**2
                 loss = jnp.log(jnp.cosh(y_pred - y))
@@ -156,59 +192,61 @@ class MasterMinimizer:
                 if penalty_function is not None:
                     penalty = penalty_function(params) * penalty_weight
                 return wmse + penalty
+
         else:
+
             @jit
             def loss_function(
                 params: jnp.ndarray,
                 xs: List[jnp.ndarray],
                 y: jnp.ndarray,
-                y_uncertainties: jnp.ndarray
-                ) -> jnp.ndarray:
+                y_uncertainties: jnp.ndarray,
+            ) -> jnp.ndarray:
                 y_pred = func(xs, params)
                 loss = jnp.log(jnp.cosh(y_pred - y))
-                wmse = jnp.nansum(loss) # For xshooter this looks like the only good option 
+                wmse = jnp.nansum(loss)  # For xshooter this looks like the only good option
                 return wmse
-        
+
         def optimize_model(
             initial_params: jnp.ndarray,
             xs: List[jnp.ndarray],
             y: jnp.ndarray,
             y_uncertainties: jnp.ndarray,
             constraints: Optional[jnp.ndarray] = None,
-            parsed_dependencies = None,
+            parsed_dependencies=None,
             learning_rate: float = 1e-2,
             num_steps: int = 1000,
-            optimizer = None,
-            verbose: bool = False) -> Tuple[jnp.ndarray, list]:
+            optimizer=None,
+            verbose: bool = False,
+        ) -> Tuple[jnp.ndarray, list]:
             # Initialize parameters and optimizer state
             params = initial_params
             optimizer = optimizer or optax.adabelief(learning_rate)
             opt_state = optimizer.init(params)
             loss_history = []
-            
+
             if constraints is None:
-                constraints = jnp.array([[-1e41,1e41]] * params.shape[0])
+                constraints = jnp.array([[-1e41, 1e41]] * params.shape[0])
+
             # Define the step function with constraints captured via closure
             @jit
             def step(params, opt_state, xs, y):
                 # Compute loss and gradients
                 loss, grads = jax.value_and_grad(loss_function)(
-                    params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties)
+                    params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties
+                )
 
                 # Compute parameter updates
                 updates, opt_state = optimizer.update(grads, opt_state, params)
                 params = optax.apply_updates(params, updates)
                 # Project parameters to enforce constraints
-                #combination = xs.T*100*params
-                #negatives_per_column = jnp.nansum(combination < 0, axis=0)
-                #params = jnp.where(negatives_per_column>1000,1e-3,params)
-                
-                params = project_params(
-                    params,
-                    constraints,parsed_dependencies)
-                #extra projection
-                
-                    
+                # combination = xs.T*100*params
+                # negatives_per_column = jnp.nansum(combination < 0, axis=0)
+                # params = jnp.where(negatives_per_column>1000,1e-3,params)
+
+                params = project_params(params, constraints, parsed_dependencies)
+                # extra projection
+
                 return params, opt_state, loss
 
             # Optimization loop
@@ -221,4 +259,3 @@ class MasterMinimizer:
             return params, loss_history
 
         return loss_function, optimize_model, residuals
-

@@ -1,50 +1,59 @@
-from typing import Any, Dict, List, Optional, Tuple, Union,Callable
 import os
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
-from jax import jit, vmap
-import numpy as np 
 import jax.scipy as jsp
+import numpy as np
+from jax import jit, vmap
 
 from sheap.FunctionsMinimize.utils import param_count
 from sheap.Tools.others import kms_to_wl
 
+templates_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "SuportData", "templates"
+)
 
-templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"SuportData","templates")
+fe_template_OP_file = os.path.join(templates_path, 'fe2_Op.dat')
+fe_template_OP = jnp.array(
+    np.loadtxt(fe_template_OP_file, comments='#').transpose()
+)  # y units?
 
-fe_template_OP_file = os.path.join(templates_path,'fe2_Op.dat')
-fe_template_OP = jnp.array(np.loadtxt(fe_template_OP_file,comments='#').transpose()) # y units?
+fe_template_UV_file = os.path.join(templates_path, 'fe2_UV02.dat')
+fe_template_UV = jnp.array(
+    np.loadtxt(fe_template_UV_file, comments='#').transpose()
+)  # y units?
 
-fe_template_UV_file = os.path.join(templates_path,'fe2_UV02.dat')
-fe_template_UV = jnp.array(np.loadtxt(fe_template_UV_file,comments='#').transpose()) # y units?
 
-#maybe move to linear without this parameter? in the end will be require add 1e-3
-#what is the best option ?
-#@jit
+# maybe move to linear without this parameter? in the end will be require add 1e-3
+# what is the best option ?
+# @jit
 @param_count(2)
-def linear(x,params):
-    return params[0] * (x/1000.0) + params[1]
+def linear(x, params):
+    return params[0] * (x / 1000.0) + params[1]
 
-#@jit
+
+# @jit
 @param_count(2)
-def powerlaw(x,params):
+def powerlaw(x, params):
     x = jnp.nan_to_num(x)
-    return  params[1] * jax.lax.pow(x / 1000.,params[0]) #+ params[1]
+    return params[1] * jax.lax.pow(x / 1000.0, params[0])  # + params[1]
 
-#@jit
+
+# @jit
 @param_count(2)
-def loglinear(x,params):
+def loglinear(x, params):
     return params[0] * x + params[1]
 
 
-#@jit
-def linear_combination(eieigenvectors,params):
-    return jnp.nansum(eieigenvectors.T*100*params,axis=1)
+# @jit
+def linear_combination(eieigenvectors, params):
+    return jnp.nansum(eieigenvectors.T * 100 * params, axis=1)
 
-#@jit
+
+# @jit
 @param_count(3)
-def balmerconti(x,pars):
+def balmerconti(x, pars):
     """
     Compute the Balmer continuum (Dietrich+02) in pure JAX.
 
@@ -56,7 +65,7 @@ def balmerconti(x,pars):
         pars[0] = A (amplitude)
         pars[1] = T (temperature in K)
         pars[2] = τ0 (optical‐depth scale)
-   
+
 
     Returns
     -------
@@ -64,9 +73,9 @@ def balmerconti(x,pars):
         Balmer continuum flux in the same shape as x.
     """
     # Constants
-    h   = 6.62607015e-34   # Planck’s constant, J·s
-    c   = 2.99792458e8     # Speed of light, m/s
-    k_B = 1.380649e-23     # Boltzmann constant, J/K
+    h = 6.62607015e-34  # Planck’s constant, J·s
+    c = 2.99792458e8  # Speed of light, m/s
+    k_B = 1.380649e-23  # Boltzmann constant, J/K
 
     # Edge
     lambda_BE = 3646.0  # Å
@@ -83,26 +92,30 @@ def balmerconti(x,pars):
     B_lambda *= 1e4
 
     # Optical depth τ(λ)
-    tau = pars[2] * (x / lambda_BE)**3
+    tau = pars[2] * (x / lambda_BE) ** 3
 
     # Balmer-continuum formula
     result = pars[0] * B_lambda * (1.0 - jnp.exp(-tau))
 
     # Zero above the Balmer edge
-    result = jnp.where(x > lambda_BE, 0.0, result)/1e18 #factor the normalisacion
+    result = jnp.where(x > lambda_BE, 0.0, result) / 1e18  # factor the normalisacion
 
     return result
 
-#@jit
+
+# @jit
 @param_count(3)
-def gaussian_func(x,params):
-    amplitude,center,width = params
-    return  amplitude * jnp.exp(-0.5 * ((x - center) / width) ** 2)
-#@jit
+def gaussian_func(x, params):
+    amplitude, center, width = params
+    return amplitude * jnp.exp(-0.5 * ((x - center) / width) ** 2)
+
+
+# @jit
 @param_count(3)
-def lorentzian_func(x,params):
-    amplitude,center,gamma = params
-    return amplitude/(1+((x-center)/gamma)**2) 
+def lorentzian_func(x, params):
+    amplitude, center, gamma = params
+    return amplitude / (1 + ((x - center) / gamma) ** 2)
+
 
 @param_count(3)
 def fitFeOP(x, params):
@@ -128,7 +141,7 @@ def fitFeOP(x, params):
 
     # Ensure the model sigma is not smaller than the template sigma to avoid sqrt of negative.
     safe_sigma_model = jnp.maximum(sigma_model, sigmatemplate + 1e-6)
-    delta_sigma = jnp.sqrt(safe_sigma_model ** 2 - sigmatemplate ** 2)
+    delta_sigma = jnp.sqrt(safe_sigma_model**2 - sigmatemplate**2)
 
     # Instead of a complex index, assume uniform wavelength array.
     # Use the first two elements to compute the step size.
@@ -166,9 +179,10 @@ def fitFeOP(x, params):
 
     return interpolated_broad_scaled_template
 
+
 @param_count(3)
-#2795
-def fitFeUV(x,params):
+# 2795
+def fitFeUV(x, params):
     "Fit the UV FeII component on the continuum from 1200 to 3500 A based on Boroson & Green 1992."
     log_FWHM_broad, shift_, scale = params
     central_wl = 2795  # Reference wavelength
@@ -191,7 +205,7 @@ def fitFeUV(x,params):
 
     # Ensure the model sigma is not smaller than the template sigma to avoid sqrt of negative.
     safe_sigma_model = jnp.maximum(sigma_model, sigmatemplate + 1e-6)
-    delta_sigma = jnp.sqrt(safe_sigma_model ** 2 - sigmatemplate ** 2)
+    delta_sigma = jnp.sqrt(safe_sigma_model**2 - sigmatemplate**2)
 
     # Instead of a complex index, assume uniform wavelength array.
     # Use the first two elements to compute the step size.
@@ -208,7 +222,7 @@ def fitFeUV(x,params):
     # Create a local grid for the convolution kernel.
     max_radius = 1000  # Over-dimension the grid for JIT compilation compatibility.
     x_local = jnp.arange(-max_radius, max_radius + 1)
-    
+
     # Create a mask with a robust approach: only values within [-radius, radius] are nonzero.
     mask = jnp.where(jnp.abs(x_local) <= radius, 1.0, 0.0)
     # Compute the Gaussian kernel on the entire grid.
@@ -229,8 +243,6 @@ def fitFeUV(x,params):
     return interpolated_broad_scaled_template
 
 
-
-
 def Gsum_model(centers, amplitudes):
     """
     Returns a Gaussian sum model function with shared sigma and shift.
@@ -245,7 +257,7 @@ def Gsum_model(centers, amplitudes):
     centers = jnp.array(centers)
     amplitudes = jnp.array(amplitudes)
 
-    #@jit
+    # @jit
     @param_count(3)
     def G(x, params):
         amplitude = params[0]
@@ -257,7 +269,8 @@ def Gsum_model(centers, amplitudes):
         return jnp.sum(gaussians, axis=0)
 
     return G
-    
+
+
 def G_centred(centers):
     """
     Returns a Gaussian sum model function with shared sigma and shift.
@@ -270,7 +283,8 @@ def G_centred(centers):
         callable: Function G(x, params) with params = [amplitude, delta, width].
     """
     centers = jnp.array(centers)
-    #@jit
+
+    # @jit
     @param_count(3)
     def G(x, params):
         amplitude = params[0]
@@ -323,12 +337,12 @@ class GaussianSum:
         mapping = {
             'amp': list(range(self.n)),
             'mu': list(range(self.n)),
-            'sigma': list(range(self.n))
+            'sigma': list(range(self.n)),
         }
 
         # Apply equality constraints
         for param_type, pairs in self.constraints.items():
-            for (p1, p2) in pairs:
+            for p1, p2 in pairs:
                 idx1 = int(p1.replace(param_type, ''))
                 idx2 = int(p2.replace(param_type, ''))
                 mapping[param_type][idx2] = mapping[param_type][idx1]
@@ -374,11 +388,11 @@ class GaussianSum:
 
         # Extract free parameters
         idx = 0
-        amps_free = params[idx:idx + num_free_amp]
+        amps_free = params[idx : idx + num_free_amp]
         idx += num_free_amp
-        mus_free = params[idx:idx + num_free_mu]
+        mus_free = params[idx : idx + num_free_mu]
         idx += num_free_mu
-        sigmas_free = params[idx:idx + num_free_sigma]
+        sigmas_free = params[idx : idx + num_free_sigma]
         idx += num_free_sigma
 
         # Map free parameters to all parameters using the mapping
@@ -405,7 +419,7 @@ class GaussianSum:
             return sigmas
 
         # Assuming all inequality constraints are on 'sigma'
-        for (s1, s2) in self.inequalities.get('sigma', []):
+        for s1, s2 in self.inequalities.get('sigma', []):
             idx1 = int(s1.replace('sigma', ''))
             idx2 = int(s2.replace('sigma', ''))
             delta = params[0]
@@ -421,28 +435,33 @@ class GaussianSum:
         Returns:
         - sum_gaussians_jit (function): JIT-compiled function.
         """
+
         def gaussian(x, amp, mu, sigma):
             return amp * jnp.exp(-0.5 * ((x - mu) / sigma) ** 2)
-
 
         def sum_gaussians(x, params):
             # Validate parameter length
             if params.shape[0] != self.num_free_params:
-                raise ValueError(f"Expected {self.num_free_params} parameters, got {params.shape[0]}.")
+                raise ValueError(
+                    f"Expected {self.num_free_params} parameters, got {params.shape[0]}."
+                )
 
             # Apply equality constraints
             amps, mus, sigmas = self._apply_constraints(params)
-            
+
             # Apply inequality constraints if any
             if self.inequalities:
                 # Extract deltas for inequalities
-                delta_params = params[-len(self.inequalities.get('sigma', [])):]
+                delta_params = params[-len(self.inequalities.get('sigma', [])) :]
                 sigmas = self._apply_inequality_constraints(sigmas, delta_params)
 
             # Use a lambda to fix 'x' while vectorizing over amp, mu, sigma
-            gaussians = vmap(lambda amp, mu, sigma: gaussian(x, amp, mu, sigma))(amps, mus, sigmas)
-            
+            gaussians = vmap(lambda amp, mu, sigma: gaussian(x, amp, mu, sigma))(
+                amps, mus, sigmas
+            )
+
             return jnp.sum(gaussians, axis=0)
+
         self.n_params = self.num_free_params
         return jit(sum_gaussians)
 
@@ -457,7 +476,7 @@ class GaussianSum:
         Returns:
         - jnp.ndarray: Sum of Gaussians evaluated at x.
         """
-        
+
         return self.sum_gaussians_jit(x, params)
 
 
@@ -474,7 +493,7 @@ class GaussianSum:
 #     col_mask = negatives_per_column > 100
 #     combination_zeroed_cols = jnp.where(col_mask[None, :], jnp.nan, combination)
 #     return jnp.nansum(combination_zeroed_cols, axis=1)
-#jnp.nansum(jnp.where(combination<0,0.0,combination),axis=1)
-#polyfit_vmap = vmap(jnp.polyfit,in_axes=(0,0,None,None,None,0),out_axes=0)
+# jnp.nansum(jnp.where(combination<0,0.0,combination),axis=1)
+# polyfit_vmap = vmap(jnp.polyfit,in_axes=(0,0,None,None,None,0),out_axes=0)
 
-#polyval_vmap = vmap(jnp.polyval,in_axes=(0,None),out_axes=0)
+# polyval_vmap = vmap(jnp.polyval,in_axes=(0,None),out_axes=0)

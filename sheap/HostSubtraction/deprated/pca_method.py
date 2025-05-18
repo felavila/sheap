@@ -1,6 +1,5 @@
-
 # def Extract_host_pca(Spectra: jnp.array,c=2.99792458e5,num_steps=1000,learning_rate=1e-1):
-    
+
 #     # limits fantasy xmin=4050, xmax=7300
 #     glx = fits.open(f"{module_dir}/gal_eigenspec_Yip2004.fits")
 #     glx = glx[1].data
@@ -15,13 +14,13 @@
 #     qso_wave = qso["wave"].flatten()
 #     qso_wave= jnp.array(vac_to_air(qso_wave))
 #     qso_flux = jnp.array(qso["pca"].reshape(qso["pca"].shape[1], qso["pca"].shape[2]))
-   
+
 #     # Define coverage masks for observed wavelengths within PCA wavelength ranges
 #     array,masked_uncertainties,_,_ = mask_builder(Spectra,outer_limits=[xmin,xmax])
 #     mask_qso = (array[:, 0, :] >=xmin) & (array[:, 0, :] <= xmax)
 #     mask_glx = (array[:, 0, :] >= xmin) & (array[:, 0, :] <= xmax)
-    
-    
+
+
 #     # Interpolate and move axis
 #     qso_interp = interpolate_flux_array(array[:, 0, :], qso_wave, qso_flux)
 #     glx_interp = interpolate_flux_array(array[:, 0, :], gl_wave, gl_flux)
@@ -35,10 +34,10 @@
 #     qso_ = normalize(qso_)
 #     #gal_=jnp.moveaxis(vmap_interp(fit_array[:,0],gl_wave,gl_flux),0,1)#
 #     eigenvectors = jnp.hstack((gl_,qso_)) #why it takes so long ? xd from 0 to 10 gal rest galaxy
-    
+
 #     initial_params = jnp.array([1.0]*10 + [1.0]*50)
 #     constraints = jnp.array([[-1.e3, +1.e3]]*10 + [[-1e3, +1e3]]*50)
-    
+
 #     start = time.perf_counter()
 #     minimizer = MasterMinimizer(linear_combination, optimize_in_axis=3,
 #                                 num_steps=num_steps,learning_rate=learning_rate,
