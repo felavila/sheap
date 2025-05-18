@@ -2,135 +2,225 @@ region:
 - center: 2907.853
   line_name: uvfe60
   amplitude: 0.0009
+  region: uvfe60
+  kind: fe
 - center: 2916.148
   line_name: uvfe60a
   amplitude: 0.0006000000000000001
+  region: uvfe60
+  kind: fe
 - center: 2926.585
   line_name: uvfe60b
   amplitude: 0.1
+  region: uvfe60
+  kind: fe
 - center: 2939.507
   line_name: uvfe60c
   amplitude: 0.0016
+  region: uvfe60
+  kind: fe
 - center: 2945.264
   line_name: uvfe60d
   amplitude: 0.0005
+  region: uvfe60
+  kind: fe
 - center: 2953.774
   line_name: uvfe60e
   amplitude: 0.0849
+  region: uvfe60
+  kind: fe
 - center: 2961.273
   line_name: uvfe60f
   amplitude: 0.0014000000000000002
+  region: uve6
+  kind: fe
 - center: 2964.659
   line_name: uvfe60g
   amplitude: 0.0013
+  region: uvfe60
+  kind: fe
 - center: 2970.514
   line_name: uvfe60h
   amplitude: 0.0366
+  region: uvfe60
+  kind: fe
 - center: 2975.933
   line_name: uvfe60i
   amplitude: 0.0027
+  region: uvfe60
+  kind: fe
 - center: 2979.353
   line_name: uvfe60j
   amplitude: 0.019100000000000002
+  region: uvfe60
+  kind: fe
 - center: 2833.369
   line_name: uvfe61
   amplitude: 0.001
+  region: uvfe61
+  kind: fe
 - center: 2837.737
   line_name: uvfe61a
   amplitude: 0.0001
+  region: uve6
+  kind: fe
 - center: 2861.168
   line_name: uvfe61b
   amplitude: 0.0032
+  region: uvfe61
+  kind: fe
 - center: 2868.875
   line_name: uvfe61c
   amplitude: 0.022500000000000003
+  region: uvfe61
+  kind: fe
 - center: 2874.854
   line_name: uvfe61d
   amplitude: 0.0032
+  region: uvfe61
+  kind: fe
 - center: 2880.7563
   line_name: uvfe61e
   amplitude: 0.1
+  region: uvfe61
+  kind: fe
 - center: 2892.832
   line_name: uvfe61f
   amplitude: 0.0083
+  region: uvfe61
+  kind: fe
 - center: 2917.462
   line_name: uvfe61g
   amplitude: 0.0079
+  region: uvfe61
+  kind: fe
 - center: 2944.395
   line_name: uvfe78
   amplitude: 0.0128
+  region: uvfe78
+  kind: fe
 - center: 2947.655
   line_name: uvfe78a
   amplitude: 0.020000000000000004
+  region: uvfe78
+  kind: fe
 - center: 2964.624
   line_name: uvfe78b
   amplitude: 0.004900000000000001
+  region: uvfe78
+  kind: fe
 - center: 2965.032
   line_name: uvfe78c
   amplitude: 0.014000000000000002
+  region: uvfe78
+  kind: fe
 - center: 2984.825
   line_name: uvfe78d
   amplitude: 0.1
+  region: uvfe78
+  kind: fe
 - center: 2985.545
   line_name: uvfe78e
   amplitude: 0.0705
+  region: uvfe78
+  kind: fe
 - center: 3002.644
   line_name: uvfe78f
   amplitude: 0.062
+  region: uvfe78
+  kind: fe
 - center: 2715.0
   line_name: uvfezw
   amplitude: 0.0357
+  region: uvfezw
+  kind: fe
 - center: 2840.0
   line_name: uvfezwa
   amplitude: 0.1
+  region: uvfezw
+  kind: fe
 - center: 2692.834
   line_name: uvfe62
   amplitude: 0.00030000000000000003
+  region: uvfe62
+  kind: fe
 - center: 2724.884
   line_name: uvfe62a
   amplitude: 0.0019
+  region: uvfe62
+  kind: fe
 - center: 2730.734
   line_name: uvfe62b
   amplitude: 0.0036
+  region: uvfe62
+  kind: fe
 - center: 2743.197
   line_name: uvfe62c
   amplitude: 0.051500000000000004
+  region: uvfe62
+  kind: fe
 - center: 2746.483
   line_name: uvfe62d
   amplitude: 0.0613
+  region: uvfe62
+  kind: fe
 - center: 2749.321
   line_name: uvfe62e
   amplitude: 0.0801
+  region: uvfe62
+  kind: fe
 - center: 2755.736
   line_name: uvfe62f
   amplitude: 0.1
+  region: uvfe62
+  kind: fe
 - center: 2714.413
   line_name: uvfe63
   amplitude: 0.013900000000000003
+  region: uvfe63
+  kind: fe
 - center: 2727.539
   line_name: uvfe63a
   amplitude: 0.0131
+  region: uvfe63
+  kind: fe
 - center: 2736.966
   line_name: uvfe63b
   amplitude: 0.0063
+  region: uvfe63
+  kind: fe
 - center: 2739.547
   line_name: uvfe63c
   amplitude: 0.1
+  region: uvfe63
+  kind: fe
 - center: 2746.982
   line_name: uvfe63d
   amplitude: 0.054400000000000004
+  region: uvfe63
+  kind: fe
 - center: 2749.181
   line_name: uvfe63e
   amplitude: 0.0251
+  region: uvfe63
+  kind: fe
 - center: 2749.486
   line_name: uvfe63f
   amplitude: 0.0118
+  region: uvfe63
+  kind: fe
 - center: 2761.813
   line_name: uvfe63g
   amplitude: 0.0058000000000000005
+  region: uvfe63
+  kind: fe
 - center: 2768.934
   line_name: uvfe63h
   amplitude: 0.0023
+  region: uvfe63
+  kind: fe
 - center: 2772.723
   line_name: uvfe63i
   amplitude: 0.0001
+  region: uvfe63
+  kind: fe

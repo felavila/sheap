@@ -1,13 +1,13 @@
 #########
-# To Do # (PYQSO)
+# To Do # (SHEAP)
 #########
 # TODO: Cleanup
 # TODO: Choice of using skewed Gaussians
-# TODO: Custom cosmology
-# TODO: Save used template to file, replace template input
 # TODO: Observed frame input with redshift
-# TODO: Units interpreting and handling
-# TODO: Tie line complexes together
-# TODO: Different line models: PL, Gauss Hermite, Lorentzian
-# TODO: Write tests
-#
+# TODO: Units interpreting and handling 
+# TODO: Different line models: PL, Gauss Hermite, Lorentzian 
+# TODO: The MS is customarily represented by a trend in the
+	plane’s FWHM of the high-ionized Balmer line Hβ versus
+	parameter RFe II, defined by the ratio between the integrated
+	Fe II over the range 4434–4684 Å and the Hβ intensity. In
+	addition to RFe II and FWHM(Hβ)

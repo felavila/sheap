@@ -30,7 +30,7 @@ def get_templated_vars():
             package_name='sheap',
             author_name='Felipe Avila-Vera',
             year='2025',
-            version='0.0.1',
+            version='0.1.0',
             github_username='favila',
             repo_name='sheap',
         ),
@@ -40,7 +40,7 @@ def get_templated_vars():
 variables = get_templated_vars()
 
 # Add package to PYTHONPATH
-sys.path.insert(0, os.path.abspath(os.path.join('..', 'src', variables.package_name)))
+sys.path.insert(0, os.path.abspath('..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -73,6 +73,13 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinxcontrib.spelling',
 ]
+autosummary_generate = True  # Automatically generate .rst files for autosummary
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'show-inheritance': True,
+    'inherited-members': False,
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

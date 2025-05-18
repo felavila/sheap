@@ -1,50 +1,45 @@
-=======
+.. image:: docs/images/sheap_withname.png
+   :alt: SHEAP Logo
+   :align: left
+   :width: 700
+
+
+
 SHEAP: Spectral Handling and Estimation of AGN Parameters
-=======
+=========================================================
+**SHEAP** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
-.. image:: docs/images/sheap_white_logo.png
-   :alt: SHEAP Screenshot
-   :width: 200
-
-.. .https://python-package-generator.readthedocs.io/en/master/
-.. .| |build| |coverage| |docs| |maintainability| |codacy| |tech-debt|
-.. .| |release_version| |wheel| |supported_versions| |commits_since_specific_tag_on_master| |commits_since_latest_github_release|
-.. .| |pypi_stats| |ossf| |ruff| |black| |gh-lic||
-
-SHEAP (Spectral Handling and Estimation of AGN Parameters) is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
 Features
-=======
+========
 
 - **Spectral Fitting**: Automatically fits AGN spectra to estimate key physical parameters.
-
 - **Model Customization**: Allows flexible models for AGN spectra to suit a variety of use cases.
-
 - **AGN Parameter Estimation**: Extract black hole mass from observed spectra.
 
 Installation
-=======
+============
 
-You can locally install SHEAP locally using the following command:
+You can install SHEAP locally using the following command:
 
 .. code-block:: shell
-    
+
     pip install -e .
 
 Prerequisites
 =============
 
-You need to have `Python` installed.
+You need to have Python (>=3.12) and the required dependencies installed. Dependencies are managed using Poetry or can be installed manually via `requirements.txt`.
 
 References
-=======
+==========
 
-SHEAP is based on methodologies and models outlined in the following paper(s):
+SHEAP is based on methodologies and models outlined in the following paper:
 
-**Mejía-Restrepo, J. E., et al. (2016). 
-Active galactic nuclei at z ∼ 1.5 - II. Black hole mass estimation by means of broad emission lines.
-2016MNRAS.460..187M **  
-Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_  
+- **Mejía-Restrepo, J. E., et al. (2016)**.  
+  *Active galactic nuclei at z ∼ 1.5 – II. Black hole mass estimation by means of broad emission lines.*  
+  Monthly Notices of the Royal Astronomical Society, **460**, 187.  
+  Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_
 
 
 License
@@ -52,13 +47,9 @@ License
 
 |gh-lic|
 
-* `GNU Affero General Public License v3.0`_
+* `GNU Affero General Public License v3.0 <https://www.gnu.org/licenses/agpl-3.0.html>`_
 
 
-License
-=======
-
-* Free software: GNU Affero General Public License v3.0
 
 
 .. BADGE ALIASES

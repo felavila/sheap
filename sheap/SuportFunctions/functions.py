@@ -1,5 +1,5 @@
-
-from typing import List, Union, Dict, Any
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import jax.numpy as jnp
 import numpy as np
@@ -7,40 +7,64 @@ import pandas as pd
 import yaml
 from jax import jit, vmap
 
+from sheap.DataClass.DataClass import FittingLimits, SpectralLine
+from sheap.DataClass.utils import is_list_of
 from sheap.FunctionsMinimize.utils import combine_auto
-from sheap.DataClass.DataClass import SpectralLine,FittingLimits
 
 
-def mapping_params(params_dict,params,verbose=False):
-        """
-        params is a str or list
-        [["width","broad"],"cont"]
-        if verbose you can check if the mapping of parameters was correctly done
-        """
-        if isinstance(params,str):
-            params = [params]
-        match_list = []
-        for param in params:
-            if isinstance(param,str):
-                param = [param]
-            #print(self.params_dict.keys())
-            #print([[self.params_dict[key],key] for key in self.params_dict.keys() if all([p in key for p in param])])
-            
-            match_list += ([params_dict[key] for key in params_dict.keys() if all([p in key for p in param])])
-        
-        match_list = jnp.array(match_list)
-        unique_arr = jnp.unique(match_list)
-        if verbose:
-            print(np.array(list(params_dict.keys()))[unique_arr])#[])
-        return unique_arr
+def mapping_params(params_dict, params, verbose=False):
+    """
+    params is a str or list
+    [["width","broad"],"cont"]
+    if verbose you can check if the mapping of parameters was correctly done
+    """
+    if isinstance(params_dict, np.ndarray):
+        params_dict = {str(key): n for n, key in enumerate(params_dict)}
+    if isinstance(params, str):
+        params = [params]
+    match_list = []
+    for param in params:
+        if isinstance(param, str):
+            param = [param]
+        # print(self.params_dict.keys())
+        # print([[self.params_dict[key],key] for key in self.params_dict.keys() if all([p in key for p in param])])
 
+        match_list += [
+            params_dict[key] for key in params_dict.keys() if all([p in key for p in param])
+        ]
+
+    match_list = jnp.array(match_list)
+    unique_arr = jnp.unique(match_list)
+    if verbose:
+        print(np.array(list(params_dict.keys()))[unique_arr])  # [])
+    return unique_arr
+
+
+@dataclass
+class LineSelectionResult:
+    idx: List[int]
+    line_name: np.ndarray
+    region: List[str]
+    center: List[float]
+    kind: List[str]
+    original_centers: np.ndarray
+    component: List[Union[int, str]]
+    lines: List[Any]
+    profile_functions: np.ndarray
+    profile_names: np.ndarray
+    profile_params_index_flat: np.ndarray
+    profile_params_index_list: np.ndarray
+    params_names: np.ndarray
+    params: np.ndarray
+    uncertainty_params: np.ndarray
+    profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
 
 
 class LineMapper:
     """
     Filters and maps spectral line entries based on attribute conditions.
     Also supports combining selected profile functions using JAX for efficient evaluation.
-    
+
     Attributes:
         region_defs: List of Line or SpectralLine entries.
         profile_functions: List of associated profile functions.
@@ -50,74 +74,230 @@ class LineMapper:
 
     def __init__(
         self,
-        region_defs: List[SpectralLine],
+        complex_region: List[SpectralLine],
         profile_functions: List[Any],
-        initial_params: List[Any],
-        profile_params_index_list: List[List[int]]
+        params: List[Any],
+        uncertainty_params: List[Any],
+        profile_params_index_list: List[List[int]],
+        params_dict,
+        profile_names,
+        kind_list=None,
     ):
-        self.region_defs = region_defs
+
+        if is_list_of(complex_region, SpectralLine):
+            self.complex_region = complex_region
+        elif is_list_of(complex_region, dict):
+            self.complex_region = [SpectralLine(**i) for i in complex_region]
+        else:
+            raise TypeError(
+                "complex_region must be a list of SpectralLine instances or a list of dicts that can be unpacked into SpectralLine."
+            )
+
+        # self.complex_region = complex_region
         self.profile_functions = profile_functions
-        self.initial_params = initial_params
+        self.params = params
         self.profile_params_index_list = profile_params_index_list
+        self.params_dict = params_dict
+        self.profile_names = profile_names
+        self.uncertainty_params = uncertainty_params
         self._last_filtered = {}  # cache for later use in combine_profiles()
 
-    def __call__(self, where: Union[str, List[str]], what: Union[str, List[str]]) -> Dict[str, Any]:
-        """
-        Filters lines where specified attributes contain given substrings.
+    def _get(
+        self,
+        where: Union[str, List[str]],
+        what: Union[str, List[str]],
+        logic: str = "and",
+        super_param: Optional[Dict[str, str]] = None,
+    ) -> LineSelectionResult:
 
-        Args:
-            where: Attribute name(s) to filter on (e.g., 'region', 'kind').
-            what: Substring(s) to match against each attribute.
+        entries = self.complex_region
+        n_entries = len(entries)
+        # Extract attributes into arrays
+        attributes_dict = {
+            key: np.array([getattr(e, key) for e in entries])
+            for key in ["region", "center", "kind", "component", "line_name"]
+        }
 
-        Returns:
-            Dictionary of filtered line data, stored internally for reuse.
-        """
-        entries = self.region_defs
-        idx, regions, centers, kinds, components, line_names = np.array([
-            [i, e.region, e.center, e.kind, e.component, e.line_name] for i, e in enumerate(entries)
-        ]).T
+        # Build logic mask
+        def make_mask(key: str, value: str):
+            return np.char.find(attributes_dict[key].astype(str), value) >= 0
+
+        if isinstance(where, str):
+            where = [where]
+        if isinstance(what, str):
+            what = [what]
+        assert len(where) == len(what), "`where` and `what` must have same length."
+
+        mask = (
+            np.ones(n_entries, dtype=bool)
+            if logic == "and"
+            else np.zeros(n_entries, dtype=bool)
+        )
+        for w, v in zip(where, what):
+            current_mask = make_mask(w, v)
+            mask = mask & current_mask if logic == "and" else mask | current_mask
+
+        if isinstance(super_param, dict):
+            mask &= make_mask(super_param["where"], super_param["what"])
+
+        mask_idx = np.where(mask)[0]
+
+        # Filter and flatten indices
+        idx = mask_idx.tolist()
+        filtered_profile_functions = np.array(self.profile_functions)[mask_idx]
+        filtered_profile_names = np.array(self.profile_names)[mask_idx]
+        filtered_profile_params_index_list = np.array(
+            self.profile_params_index_list, dtype=object
+        )[mask_idx]
+        profile_params_index_flat = np.concatenate(filtered_profile_params_index_list)
+
+        # Convert parameter arrays once
+        params_arr = np.asarray(self.params)
+        filtered_params = params_arr[:, profile_params_index_flat]
+        filtered_u_params = np.asarray(self.uncertainty_params)[:, profile_params_index_flat]
+
+        # if hasattr(self, "uncertainty_params"):
+        #
+        # else:
+        #     filtered_u_params = None
+
+        combined_profile_func = combine_auto(filtered_profile_functions)
+
+        result = LineSelectionResult(
+            idx=idx,
+            line_name=attributes_dict["line_name"][mask_idx],
+            region=attributes_dict["region"][mask_idx].tolist(),
+            center=attributes_dict["center"][mask_idx].astype(float).tolist(),
+            kind=attributes_dict["kind"][mask_idx].tolist(),
+            original_centers=np.array([e.center for e in entries])[mask_idx],
+            component=attributes_dict["component"][mask_idx].tolist(),
+            lines=np.array(entries)[mask_idx].tolist(),
+            profile_functions=filtered_profile_functions,
+            profile_names=filtered_profile_names,
+            profile_params_index_flat=profile_params_index_flat,
+            profile_params_index_list=filtered_profile_params_index_list,
+            params_names=np.array(list(self.params_dict.keys()))[
+                profile_params_index_flat.astype(int)
+            ],
+            params=filtered_params,
+            uncertainty_params=filtered_u_params,
+            profile_functions_combine=combined_profile_func,
+        )
+
+        self._last_filtered = result
+        return result
+
+
+class LineMapper_:
+    """
+    Filters and maps spectral line entries based on attribute conditions.
+    Also supports combining selected profile functions using JAX for efficient evaluation.
+
+    Attributes:
+        region_defs: List of Line or SpectralLine entries.
+        profile_functions: List of associated profile functions.
+        initial_params: Initial parameters for each line.
+        profile_params_index_list: Index mapping for profile parameters.
+    """
+
+    def __init__(
+        self,
+        complex_region: List[SpectralLine],
+        profile_functions: List[Any],
+        params: List[Any],  # array
+        profile_params_index_list: List[List[int]],
+        params_dict,
+        profile_names,
+    ):
+        self.complex_region = complex_region
+        self.profile_functions = profile_functions
+        self.params = params
+        self.profile_params_index_list = profile_params_index_list
+        self.params_dict = params_dict
+        self.profile_names = profile_names
+        self._last_filtered = {}  # cache for later use in combine_profiles()
+
+    def _get(
+        self,
+        where: Union[str, List[str]],
+        what: Union[str, List[str]],
+        logic: str = "and",  # Can be "or" or "and"
+        super_param=None,
+    ) -> Dict[str, Any]:
+        entries = self.complex_region
+        idx, regions, centers, kinds, components, line_names = zip(
+            *[
+                (i, e.region, e.center, e.kind, e.component, e.line_name)
+                for i, e in enumerate(entries)
+            ]
+        )
 
         dic_ = {
-            "region": regions,
-            "center": centers,
-            "kind": kinds,
-            "component": components,
-            "line_names": line_names
+            "region": np.array(regions),
+            "center": np.array(centers),
+            "kind": np.array(kinds),
+            "component": np.array(components),
+            "line_name": np.array(line_names),
         }
 
         if isinstance(where, str):
             where = [where]
         if isinstance(what, str):
             what = [what]
-        assert len(where) == len(what), "where and what must have the same length."
-
-        mask = np.ones(len(entries), dtype=bool)
+        assert len(what) == len(where), "where and what have to have the same lenght"
+        mask = (
+            np.ones(len(entries), dtype=bool)
+            if logic == "and"
+            else np.zeros(len(entries), dtype=bool)
+        )
+        # m = []
         for w, v in zip(where, what):
-            mask &= np.char.find(dic_[w], v) >= 0
+            current_mask = np.char.find(dic_[w].astype(str), v) >= 0
+            if logic == "or":
+                mask |= current_mask
+            elif logic == "and":
+                mask &= current_mask
+            else:
+                raise ValueError(f"Invalid logic '{logic}'. Choose 'or' or 'and'.")
+            if isinstance(super_param, dict):
+                mask &= (
+                    np.char.find(
+                        dic_[super_param.get("where")].astype(str), super_param.get("what")
+                    )
+                    >= 0
+                )
 
+        # self.m = m
         mask_idx = np.where(mask)[0]
+        idx = np.array(idx)[mask_idx].astype(int)
 
-        # Apply filtered indices
-        idx = idx[mask_idx].astype(int)
         filtered_profile_functions = np.array(self.profile_functions)[mask_idx]
-        filtered_initial_params = np.array(self.initial_params)[mask_idx]
-        filtered_profile_params_index = np.array(self.profile_params_index_list)[mask_idx].astype(int)
-        profile_params_index_flat = [
-            item for id_ in idx for item in self.profile_params_index_list[id_]
-        ]
+        filtered_profile_names = np.array(self.profile_names)[mask_idx]
+        filtered_profile_params_index_list = np.array(
+            self.profile_params_index_list, dtype=object
+        )[mask_idx]
+        profile_params_index_flat = np.concatenate(filtered_profile_params_index_list)
+        filtered_params = np.array(self.params)[:, profile_params_index_flat]
+        filtered_u_params = np.array(self.uncertainty_params)[:, profile_params_index_flat]
 
         result = {
-            "idx": idx,
-            "region": regions[mask_idx],
-            "center": centers[mask_idx].astype(float),
-            "kind": kinds[mask_idx],
-            "component": components[mask_idx],
-            "entries": np.array(entries)[mask_idx],
+            "idx": idx.tolist(),
+            "line_name": dic_["line_name"][mask_idx],
+            "region": dic_["region"][mask_idx].tolist(),
+            "center": dic_["center"][mask_idx].astype(float).tolist(),
+            "kind": dic_["kind"][mask_idx].tolist(),
+            "original_centers": np.array(centers)[mask_idx],
+            "component": dic_["component"][mask_idx].tolist(),
+            "entries": np.array(entries)[mask_idx].tolist(),
             "profile_functions": filtered_profile_functions,
-            "initial_params": filtered_initial_params,
-            "profile_params_index": filtered_profile_params_index,
-            "line_name": line_names[mask_idx],
-            "profile_params_index_list": profile_params_index_flat
+            "profile_names": filtered_profile_names,
+            "profile_params_index_flat": profile_params_index_flat,
+            "profile_params_index_list": filtered_profile_params_index_list,
+            "params_names": np.array(list(self.params_dict.keys()))[
+                profile_params_index_flat.astype(int)
+            ],
+            "params": filtered_params,
+            "uncertainty_params": filtered_u_params,
         }
 
         self._last_filtered = result
@@ -135,7 +315,9 @@ class LineMapper:
             Array of combined profiles per sample.
         """
         if not self._last_filtered:
-            raise RuntimeError("No filtered result found. Call the instance with `where` and `what` first.")
+            raise RuntimeError(
+                "No filtered result found. Call the instance with `where` and `what` first."
+            )
 
         profile_funcs = self._last_filtered["profile_functions"]
         param_ids = self._last_filtered["profile_params_index_list"]
@@ -201,10 +383,8 @@ class LineMapper:
 #         }
 
 #         return result
-    
-    
-    
-    
+
+
 #     from jax import jit,vmap
 # from sheap.Fitting.utils import combine_auto
 # ff = aja.mapping_lines("region","continuum")
