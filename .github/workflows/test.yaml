@@ -350,7 +350,7 @@ jobs:
   docs:
     name: Build Documentation
     needs: set_github_outputs
-    uses: boromir674/automated-workflows/.github/workflows/policy_docs.yml@v1.3.0
+    uses: boromir674/automated-workflows/.github/workflows/policy_docs.yml@main
     with:
       run_policy: '${{ needs.set_github_outputs.outputs.PIPE_DOCS_POLICY }}'
       python_version: ${{ needs.set_github_outputs.outputs.PIPE_DOCS_PY }}
@@ -360,7 +360,7 @@ jobs:
   code_visualization:
     needs: set_github_outputs
     name: Code Visualization of Python Imports as Graphs, in .svg
-    uses: boromir674/automated-workflows/.github/workflows/python_imports.yml@v1.3.0
+    uses: boromir674/automated-workflows/.github/workflows/python_imports.yml@main
     with:
       run_policy: '${{ needs.set_github_outputs.outputs.PIPE_CODE_VIZ_POLICY }}'
       branches: 'main, master, dev'
@@ -372,7 +372,7 @@ jobs:
   gh_release:
     needs: [test_suite, check_which_git_branch_we_are_on]
     if: ${{ needs.check_which_git_branch_we_are_on.outputs.AUTOMATED_DEPLOY == 'true' }}
-    uses: boromir674/automated-workflows/.github/workflows/gh-release.yml@test
+    uses: boromir674/automated-workflows/.github/workflows/gh-release.yml@main
     name: 'GH Release'
     with:
       tag: ${{ github.ref_name }}
