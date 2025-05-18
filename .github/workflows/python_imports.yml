@@ -105,8 +105,8 @@ jobs:
       run: |
         sudo apt-get update -y --allow-releaseinfo-change
         sudo apt-get install -y graphviz
-    - name: Draw Dependency Graphs as .svg files
-      run: tox -e pydeps -vv -s false
+    #- name: Draw Dependency Graphs as .svg files
+    #  run: tox -e pydeps -vv -s false
     - name: Draw UML Class Diagrams with Pyreverse
       run: tox -e pyreverse -vv -s false
     - name: Upload Dependency Graphs as artifacts
