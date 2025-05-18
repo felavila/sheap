@@ -3,26 +3,43 @@ Changelog
 =========
 
 0.0.1 (2025-04-04)
-=======================================
+==================
 
-| This is the first ever release of the **sheap** Python Package.
-| The package is open source and is part of the **SHEAP** Project.
-| The project is hosted in a public repository on github at https://github.com/favila/sheap
-| The project was scaffolded using the `Cookiecutter Python Package`_ (cookiecutter) Template at https://github.com/boromir674/cookiecutter-python-package/tree/master/src/cookiecutter_python
-| I should think about the next steps 
-| Scaffolding included:
+| This is the first public release of the **sheap** Python package, developed as part of the **SHEAP** Project.
+| The package is open-source and available at: https://github.com/favila/sheap
+| It was scaffolded using the `Cookiecutter Python Package <https://github.com/boromir674/cookiecutter-python-package/tree/master/src/cookiecutter_python>`_ template.
 
-- **CI Pipeline** running on Github Actions at https://github.com/favila/sheap/actions
-  - `Test Workflow` running a multi-factor **Build Matrix** spanning different `platform`'s and `python version`'s
-    1. Platforms: `ubuntu-latest`, `macos-latest`
-    2. Python Interpreters: `3.6`, `3.7`, `3.8`, `3.9`, `3.10`
+Initial Features
+----------------
 
-- Automated **Test Suite** with parallel Test execution across multiple cpus.
-  - Code Coverage
-- **Automation** in a 'make' like fashion, using **tox**
-  - Seamless `Lint`, `Type Check`, `Build` and `Deploy` *operations*
+- Modular codebase designed for the spectral analysis of AGN, with a focus on emission line decomposition and parameter estimation.
+- Core components include:
+  - `RegionBuilder`: constructs spectral fitting regions from YAML templates, including support for narrow, broad, outflow, and Fe II components.
+  - `RegionFitting`: performs constrained optimization using JAX and Optax, with support for multi-step fitting routines and parameter tying.
 
+CI/CD & Automation
+------------------
 
-.. LINKS
+- Continuous Integration pipeline using **GitHub Actions**: https://github.com/favila/sheap/actions
+  - Test matrix covering:
+    - Platforms: `ubuntu-latest`, `macos-latest`
+    - Python versions: `3.12`, `3.13`
+  - Automated unit testing with parallel execution across multiple CPUs
+  - Code coverage tracking
 
-.. _Cookiecutter Python Package: https://python-package-generator.readthedocs.io/en/master/
+- Development automation using `tox`:
+  - Linting, type-checking, building, and publishing handled via a unified CLI interface
+
+Miscellaneous
+-------------
+
+- Includes custom line typing logic, dynamic region templates, and advanced parameter constraints (e.g., tied parameters and template-based FeII fitting).
+- Internal utilities for uncertainty propagation, parameter mapping, and multi-model composition (e.g., Gaussian, Lorentzian, power-law, and FeII templates).
+
+Next Steps
+----------
+
+- Expand documentation and tutorials
+- Improve test coverage and benchmark fitting performance
+- Integrate additional physical models and observational constraints
+

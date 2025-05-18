@@ -1,4 +1,4 @@
-# output-format: json ok
+# output-format: json
 
 strictness: high
 test-warnings: true
