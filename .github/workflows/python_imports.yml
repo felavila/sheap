@@ -1,20 +1,11 @@
 ##########################
-##        Pydeps        ##
-##   Reusable Workflow  ##
+##  Pyreverse UML Graphs
+##  Reusable Workflow
 ##########################
-
-#  0. Never run
-#  1. Always run
-#  2. Draw Imports on conditions
-#     - Triggered on a Long-living branch (ie main)
-#     - Triggered on a v* tag (ie v1.0.0)
-#     - Source (business logic) Code (no tests) changed
-#  3. Draw if Source (business logic) Code (no tests) changed
 
 on:
   workflow_call:
     inputs:
-      # Defaults to Always Run
       run_policy:
         required: false
         type: string
@@ -22,96 +13,89 @@ on:
       branches:
         required: false
         type: string
-        default: 'master, main, dev'
+        default: 'main, master, dev'
       source_code_targets:
         required: false
         type: string
-        default: 'src'
+        default: 'sheap'
       python_version:
         required: false
         type: string
-        default: '3.10'
+        default: '3.12'
       artifacts_dir:
         required: false
         type: string
         default: 'dependency-graphs'
 
 jobs:
-  check_trigger_draw_dependency_graphs:
-    name: Run Draw Job ?
+  check_trigger_pyreverse:
+    name: Should Draw UML Graphs?
     runs-on: ubuntu-latest
-    if: always() && inputs.run_policy != 0
+    if: always() && inputs.run_policy != '0'
+    outputs:
+      should_draw: ${{ steps.set_flag.outputs.should_draw }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - if: ${{ !contains('1, 2, 3', inputs.run_policy) }}
-        run: 'echo "Invalid run_policy: ${{ inputs.run_policy }}. Must be >0 and <4" && exit 1'
 
-      - if: inputs.run_policy == 1
-        name: 'POLICY: 1 -> Trigger'
-        run: echo "SHOULD_DRAW_GRAPHS=true" >> $GITHUB_ENV
-
-      - if: inputs.run_policy == 2 && contains(inputs.branches, github.ref_name)
-        name: 'POLICY: 2 & Branch: ${{ github.ref_name }} -> Trigger'
-        run: echo "SHOULD_DRAW_GRAPHS=true" >> $GITHUB_ENV
-
-      - if: inputs.run_policy == 2 && startsWith(github.ref, format('refs/tags/{0}', inputs.tags))
-        name: 'POLICY: 2 & Tag: ${{ github.ref_name }} -> Trigger'
-        run: echo "SHOULD_DRAW_GRAPHS=true" >> $GITHUB_ENV
-
-      - if: ${{ !env.SHOULD_DRAW_GRAPHS && contains('2, 3', inputs.run_policy) }}
-        name: 'POLICY: 2, 3 -> Check if Source Code Changed'
+      - id: set_flag
         run: |
-          echo "=============== list modified files ==============="
-          git diff --name-only HEAD^ HEAD
-          echo "========== check paths of modified files =========="
-          git diff --name-only HEAD^ HEAD > files.txt
-          # if the diff contains any of the source code targets, then should draw graphs
-          IFS=',' read -ra TARGETS <<< "${{ inputs.source_code_targets }}"
-          while read file; do
-            for target in "${TARGETS[@]}"; do
-              if [[ "${file}" == *"${target}"* ]]; then
-                echo "SHOULD_DRAW_GRAPHS=true" >> $GITHUB_ENV
-                break
-              fi
-            done
-          done < files.txt
+          SHOULD_DRAW=false
+          BRANCH="${GITHUB_REF_NAME}"
 
-      ### OUTPUT of STEP ###
-      - name: "Set 'Draw Graphs' to ${{ env.SHOULD_DRAW_GRAPHS }}"
-        id: set_draw_signal
-        run: |
-          echo "DRAW_GRAPHS=${{ env.SHOULD_DRAW_GRAPHS }}" >> $GITHUB_OUTPUT
-    outputs:
-      DRAW_GRAPHS: ${{ steps.set_draw_signal.outputs.DRAW_GRAPHS }}
+          # Always run
+          if [[ "${{ inputs.run_policy }}" == "1" ]]; then
+            SHOULD_DRAW=true
 
-  draw-dependencies:
+          # Policy 2: long-living branch or tag
+          elif [[ "${{ inputs.run_policy }}" == "2" ]]; then
+            if [[ "${{ inputs.branches }}" == *"$BRANCH"* || "${GITHUB_REF}" == refs/tags/v* ]]; then
+              SHOULD_DRAW=true
+            fi
+
+          # Policy 2 or 3: if source code changed
+          elif [[ "${{ inputs.run_policy }}" == "2" || "${{ inputs.run_policy }}" == "3" ]]; then
+            git diff --name-only HEAD^ HEAD > files.txt
+            IFS=',' read -ra TARGETS <<< "${{ inputs.source_code_targets }}"
+            while read file; do
+              for target in "${TARGETS[@]}"; do
+                if [[ "$file" == *"$target"* ]]; then
+                  SHOULD_DRAW=true
+                  break 2
+                fi
+              done
+            done < files.txt
+          fi
+
+          echo "should_draw=$SHOULD_DRAW" >> "$GITHUB_OUTPUT"
+
+  draw-uml-graphs:
+    name: Draw UML Diagrams with Pyreverse
+    needs: check_trigger_pyreverse
+    if: needs.check_trigger_pyreverse.outputs.should_draw == 'true'
     runs-on: ubuntu-latest
-    needs: check_trigger_draw_dependency_graphs
-    if: needs.check_trigger_draw_dependency_graphs.outputs.DRAW_GRAPHS == 'true'
-    name: Draw Python Dependencies as Graphs, in .svg
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python ${{ inputs.python_version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: '${{ inputs.python_version }}'
-    - name: Install tox
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install tox==3.28
-    - name: Install dependencies (ie dot binary of graphviz)
-      run: |
-        sudo apt-get update -y --allow-releaseinfo-change
-        sudo apt-get install -y graphviz
-    #- name: Draw Dependency Graphs as .svg files
-    #  run: tox -e pydeps -vv -s false
-    - name: Draw UML Class Diagrams with Pyreverse
-      run: tox -e pyreverse -vv -s false
-    - name: Upload Dependency Graphs as artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ inputs.artifacts_dir }}
-        path: pydeps/
-        if-no-files-found: warn  # 'error' or 'ignore' are also available, defaults to `warn`
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install tox and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      - name: Run pyreverse
+        run: tox -e pyreverse -vv -s false
+
+      - name: Upload Pyreverse Diagrams
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifacts_dir }}
+          path: pydeps/
+          if-no-files-found: warn
