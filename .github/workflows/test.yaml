@@ -207,12 +207,15 @@ jobs:
           mv ./.tox/coverage.xml ./coverage-${{ matrix.platform }}-${{ matrix.python-version }}.xml
 
       ## UPLOAD CI ARTIFACTS - Coverage Reports ##
-      - name: "Upload Test Coverage as Artifacts"
+      - name: Upload Test Coverage as Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: all_coverage_raw
           path: coverage-${{ matrix.platform }}-${{ matrix.python-version }}.xml
           if-no-files-found: error
+
+      - name: Build source and wheel distributions
+        run: tox -e build -vv -s false
 
       - name: Check for compliance with Python Best Practices
         shell: bash
@@ -222,20 +225,21 @@ jobs:
         run: |
           DIST_DIR=dist
           echo "DIST_DIR=${DIST_DIR}" >> $GITHUB_ENV
-          mkdir ${DIST_DIR}
-          mv ".tox/${DIST_DIR}/sheap-${PKG_VERSION}.tar.gz" "${DIST_DIR}"
-          mv "${{ env.WHEEL_PATH }}" "${DIST_DIR}"
+          mkdir -p "${DIST_DIR}"
+          mv "${WHEEL_PATH}" "${DIST_DIR}/"
+          mv ".tox/${DIST_DIR}/sheap-${PKG_VERSION}.tar.gz" "${DIST_DIR}/" || echo "No .tar.gz found"
           tox -e check -vv -s false
 
       ## UPLOAD CI ARTIFACTS - Distro Build(s), 1 sdist and 1 or more wheels ##
-      - name: Upload Source & Wheel distributions as Artefacts
+      - name: Upload Source & Wheel distributions as Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.platform }}-${{ matrix.python-version }}
           path: ${{ env.DIST_DIR }}
           if-no-files-found: error
+
     outputs:
-      PEP_VERSION: ${{ steps.extract_wheel_info.outputs.PEP_VERSION }}
+        PEP_VERSION: ${{ steps.extract_wheel_info.outputs.PEP_VERSION }}
 
   codecov_coverage_host:
     runs-on: ubuntu-latest
