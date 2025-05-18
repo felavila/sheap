@@ -10,7 +10,7 @@ build-backend = "poetry.core.masonry.api"
 ## Also renders on pypi as 'subtitle'
 [tool.poetry]
 name = "sheap"
-version = "0.0.1"
+version = "0.1.0"
 description = "SHEAP: Spectral Handling and Estimation of AGN Parameters"
 authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
@@ -138,7 +138,7 @@ sphinxcontrib-mermaid = { version = "^0.9.2", optional = true, python = ">=3.12,
 
 
 ### EXTRAS ###
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 pytest-cov = "^4.0"
 pytest-xdist = "^3.0"
