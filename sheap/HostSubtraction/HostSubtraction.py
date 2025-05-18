@@ -8,9 +8,9 @@ from jax import vmap,jit
 import matplotlib.pyplot as plt 
 
 from sheap.utils import mask_builder, prepare_spectra
-from sheap.tools.others import vac_to_air
+from sheap.Tools.others import vac_to_air
 from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
-from .utils import make_penalty_func,linear_combination
+from .utils import make_penalty_func,linear_combination,interpolate_flux_array,normalize
 
 module_dir = Path(__file__).resolve().parent.parent / "SuportData"/ "eigen" 
 #print(module_dir)

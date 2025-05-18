@@ -111,7 +111,7 @@ class Sheapectral:
     def _apply_extinction(self) -> None:
         """Cardelli 1989 – uses *sfdmap* if coords are available."""
         from sfdmap2 import sfdmap  # lazy import to avoid heavy deps if unused
-        from sheap.tools.unred import unred
+        from sheap.Tools.unred import unred
         ebv = self.ebv 
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
@@ -124,7 +124,7 @@ class Sheapectral:
         self.spectra = self.spectra.at[:, 1, :].set(corrected)
         self.spectra = self.spectra.at[:, 2, :].multiply(ratio)
     def _apply_redshift(self) -> None:
-        from sheap.tools.others import _deredshift
+        from sheap.Tools.others import _deredshift
         self.spectra = _deredshift(self.spectra, self.z)
     
     def sheap_set_up(self):

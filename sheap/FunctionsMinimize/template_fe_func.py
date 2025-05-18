@@ -7,7 +7,7 @@ from jax import jit
 
 from sheap.FunctionsMinimize.utils import param_count
 #from sheap.tools.interp_tools import _interp_jax
-from sheap.tools.others import kms_to_wl
+from sheap.Tools.others import kms_to_wl
 
 #import partial
 #from util

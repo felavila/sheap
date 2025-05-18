@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.tools.interp_tools import cubic_spline_coefficients, spline_eval
+from sheap.Tools.interp_tools import cubic_spline_coefficients, spline_eval
 
 
 @jit

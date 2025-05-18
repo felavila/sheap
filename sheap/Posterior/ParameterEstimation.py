@@ -15,7 +15,7 @@ import yaml
 
 
 from sheap.Posterior.utils import combine
-from sheap.tools.others import vmap_get_EQW_mask
+from sheap.Tools.others import vmap_get_EQW_mask
 from sheap.SuportFunctions.functions import LineMapper,mapping_params
 from sheap.FunctionsMinimize.utils import combine_auto
 #from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
@@ -79,12 +79,15 @@ class ParameterEstimation:
             self.kinds_map[k] = self.RegionMap._get("kind",k)
     #
     def compute_params_wu(self):
-        "ok. TODO: FWHMkm_s ADD THE fwhm in km/s"
+        "ok."
         dict_ = {}
         for k,k_map in self.kinds_map.items():
+            
             idx_amplitude = mapping_params(k_map.params_names,"amplitude")
             idx_width = mapping_params(k_map.params_names,"width")
             idx_center = mapping_params(k_map.params_names,"center")
+            
+            print(k_map.component)
             
             params = k_map.params
             uncertainty_params = k_map.uncertainty_params
@@ -98,20 +101,23 @@ class ParameterEstimation:
             center = params[:,idx_center]
             center_u = uncertainty_params[:,idx_center]
             
-            norm_amplitude = Uncertainty(norm_amplitude, norm_amplitude_u)
+            norm_amplitude = Uncertainty(norm_amplitude, norm_amplitude_u) * self.fluxnorm[:,None]
             width = Uncertainty(width, width_u)
             center = Uncertainty(center, center_u)
             
             fwhm = 2. * np.sqrt(2. * np.log(2.)) * width
-            flux =   np.sqrt(2. * np.pi) *norm_amplitude * width * self.fluxnorm[:,None]
+            flux =   np.sqrt(2. * np.pi) *norm_amplitude * width 
             L =  4. *np.pi* np.array(self.d[:,None]**2 )*flux*center
+            fwhm_kms = (fwhm*self.c)/center
             
-            dict_[k] = {'L':{'value':L.value, 'error':L.error}
+            dict_[k] = {'lines':k_map.line_name,
+                        'L':{'value':L.value, 'error':L.error}
                         ,'flux':{'value':flux.value, 'error':flux.error},
-                        'fwhm':{'value':fwhm.value, 'error':fwhm.error}
-                        ,'lines':k_map.line_name}
-        self.dict_basic_params = dict_
-        
+                        'fwhm':{'value':fwhm.value, 'error':fwhm.error},
+                        'fwhm_kms':{'value':fwhm_kms.value, 'error':fwhm_kms.error}
+                        }
+        self.dict_params = dict_
+    
     def compute_Luminosity_w(self,wavelenghts=[1350.,1450.,3000.,5100.,6200.]):
         map_cont = self.kinds_map['continuum']
         profile_func = map_cont.profile_functions_combine
@@ -128,6 +134,8 @@ class ParameterEstimation:
             l = (w * 4. * np.pi * np.array(self.d**2) * flux).ravel()
             L_w[str(w)] = {'value':l.value,"error":l.error}
         return L_w
+    
+    
     def compute_bolometric_luminosity(self, monochromatic_lums=None, method="default"):
         """
          Estimate bolometric luminosity using bolometric correction factors.
@@ -172,9 +180,10 @@ class ParameterEstimation:
         }
 
         # Compute continuum luminosities and FWHMs
-        dict_broad = self.compute_params_wu()['broad']
+        dict_broad = self.compute_params_wu()['broad'] #the truth is this should be done with more components and the combination should be done in the "dict_part"
         L_w = dict_broad['L']
-        fwhm = dict_broad['fwhm'] #in A
+        fwhm = dict_broad['fwhm_kms'] #in A
+        line_name = dict_broad["lines"]
         #fwhm_kms = self.FWHMkm_s()
         masses = {}
         return 

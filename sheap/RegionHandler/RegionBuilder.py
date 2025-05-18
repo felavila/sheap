@@ -1,5 +1,6 @@
 # Balmer continuum, Balmer High order emission lines
 #3646.0 limit for balmer continuum after this we can move to another stuff 
+#ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
 from __future__ import annotations
 
 #from dataclasses import dataclass

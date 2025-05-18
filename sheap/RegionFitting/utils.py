@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union,Callable
 import jax.numpy as jnp
 
 from sheap.DataClass.DataClass import SpectralLine,ConstraintSet,FittingLimits
-from sheap.tools.others import kms_to_wl
+from sheap.Tools.others import kms_to_wl
 
 
 

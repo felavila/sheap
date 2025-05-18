@@ -8,7 +8,7 @@ import numpy as np
 import jax.scipy as jsp
 
 from sheap.FunctionsMinimize.utils import param_count
-from sheap.tools.others import kms_to_wl
+from sheap.Tools.others import kms_to_wl
 
 
 templates_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"SuportData","templates")
