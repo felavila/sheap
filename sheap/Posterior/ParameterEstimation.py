@@ -1,4 +1,5 @@
 import os
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
 import jax.numpy as jnp
@@ -7,11 +8,11 @@ import pandas as pd
 import yaml
 from astropy.cosmology import FlatLambdaCDM
 from auto_uncertainties import Uncertainty
-from jax import grad, vmap
+from jax import grad, vmap,jit
 
 from sheap.FunctionsMinimize.utils import combine_auto
 from sheap.Posterior.utils import combine
-from sheap.sheap.LineMapper.LineMapper import LineMapper, mapping_params
+from sheap.LineMapper.LineMapper import LineMapper, mapping_params
 from sheap.Tools.others import vmap_get_EQW_mask
 
 # from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
@@ -38,13 +39,16 @@ class ParameterEstimation:
     # TODO big how to combine distributions
     def __init__(
         self,
-        RegionClass, #sheapclass
+        sheap: Optional["Sheapectral"] = None,
+        fit_result: Optional["FitResult"] = None,
+        spectra: Optional[jnp.ndarray] = None,
+        z: Optional[jnp.ndarray] = None,
         fluxnorm=None,
-        z=None,
+        
         d=None,
         cosmo=None,
         c=299792.458,
-    ):
+    ): 
         """_summary_
         i think the best is if you are calling this you already have your flux in flux units "classical"
         Dimensional reduction in this step could be 2hard maybe we can move the combination for later steps
@@ -56,34 +60,38 @@ class ParameterEstimation:
             cosmo (_type_, optional): _description_. Defaults to None.
             c speed of light in km/s
         """
+        if sheap is not None:
+            self._from_sheap(sheap)
+        elif fit_result is not None and spectra is not None:
+            self._from_fit_result(fit_result, spectra,z)
+        else:
+            raise ValueError("Provide either `sheap` or (`fit_result` + `spectra`).")
+
         self.c = c
-        ####
-        self.mask = RegionClass.mask  # mmm
-        self.spectra = RegionClass.spectra  # mmm
-        self.z = RegionClass.z
-        ###
-        complex_region_class = RegionClass.complex_region_class
-        self.RegionMap = LineMapper(**complex_region_class.to_dict())
-        for key, value in vars(complex_region_class).items():
-            setattr(self, key, value)
+        self.RegionMap = LineMapper(complex_region=self.complex_region,profile_functions=self.profile_functions,params=self.params,
+                                    uncertainty_params=self.uncertainty_params,profile_params_index_list=self.profile_params_index_list,
+                                    params_dict=self.params_dict,profile_names=self.profile_names)
+        
+        if self.z is None:
+            print("None informed redshift we assume the redsfhit are zero?")
+            self.z = np.zeros_like(self.spec.shape[0])
         if cosmo is None:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         if fluxnorm is None:
-            self.fluxnorm = np.ones(self.spectra.shape[0])
+            self.fluxnorm = np.ones(self.spec.shape[0])
         # #warning is self.z non?
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
-        # #aja e.e
+
         self.kinds_map = {}
         for k in self.kind_list:
-            self.kinds_map[k] = self.RegionMap._get("kind", k)
-
+            self.kinds_map[k] = self.RegionMap._get(where="kind", what=k)
     
     def compute_params_wu(self):
         "ok. here will go the combination TODO:  we have to move to calculate the fluxes using compute_integrated_profiles more flexible aprouch"
         dict_ = {}
         for k, k_map in self.kinds_map.items():
-            
-            
+            if k=='fe' or k=='continuum':
+                continue
             idx_amplitude = mapping_params(k_map.params_names, "amplitude")
             idx_width = mapping_params(k_map.params_names, "width")
             idx_center = mapping_params(k_map.params_names, "center")
@@ -132,7 +140,7 @@ class ParameterEstimation:
         uncertainty_params = map_cont.uncertainty_params.T
         L_w = {}
         for w in wavelenghts:
-            hits = jnp.isclose(self.spectra[:, 0, :], w, atol=1)
+            hits = jnp.isclose(self.spec[:, 0, :], w, atol=1)
             valid = (hits & (~self.mask)).any(
                 axis=1, keepdims=True
             ) 
@@ -210,11 +218,11 @@ class ParameterEstimation:
                         }
         # Virial estimator parameters: log(M_BH/Msun) = a + b*log10(L/10^44 erg/s) + 2*log10(FWHM/1000 km/s)
         #here should go a run it if it is not self
+        #this is to fragile to the change of the difinition of line_name 
         dict_broad = self.compute_params_wu().get("broad")#in reallity is the only one that is important 
         L_w = self.compute_Luminosity_w()
-        #L_w = dict_broad['L'].values
         fwhm_kms = dict_broad.get('fwhm_kms')  # in kms reference center of fit 
-        line_name_list = dict_broad["lines"]
+        line_name_list = np.array(dict_broad["lines"])
         masses = {}
         
         for line_name, params in estimators.items():
@@ -223,6 +231,7 @@ class ParameterEstimation:
                 continue
             else:
                 idx = np.where(line_name==line_name_list)[0]
+            print(wave)
             a, b, f = params["a"], params["b"], params["f"]
             l_ = Uncertainty(L_w[wave].get("value"),L_w[wave].get("error"))
             log_L = np.log10(l_).reshape(-1,1)  # continuum luminosity in erg/s
@@ -262,10 +271,49 @@ class ParameterEstimation:
         #     masses[line_name] = log_M_BH
         # return masses
 
-    
-    
-    
-    
+
+    def _from_sheap(self, sheap):
+        self.spec = sheap.spectra
+        self.z = sheap.z
+        #self.max_flux = sheap.max_flux
+        self.result = sheap.result  # keep reference if needed
+
+        result = sheap.result  # for convenience
+
+        self.params = result.params
+        self.max_flux = result.max_flux
+        self.uncertainty_params = result.uncertainty_params
+        self.profile_params_index_list = result.profile_params_index_list
+        self.profile_functions = result.profile_functions
+        self.profile_names = result.profile_names
+        self.complex_region = result.complex_region
+        self.xlim = result.outer_limits
+        self.mask = result.mask
+        self.names = sheap.names
+        self.model_keywords = result.model_keywords or {}
+        self.fe_mode = self.model_keywords.get("fe_mode")
+        self.model = jit(combine_auto(self.profile_functions))
+        self.kind_list = result.kind_list
+        self.params_dict = result.params_dict
+         
+    def _from_fit_result(self, result, spectra,z):
+        self.spec = spectra
+        self.z =z
+        #self.max_flux = jnp.nanmax(spectra[:, 1, :], axis=1)
+        self.params = result.params
+        self.uncertainty_params = result.uncertainty_params
+        self.profile_params_index_list = result.profile_params_index_list
+        self.profile_functions = result.profile_functions
+        self.profile_names = result.profile_names
+        self.complex_region = result.complex_region
+        self.xlim = result.outer_limits
+        self.mask = result.mask
+        self.names = [str(i) for i in range(self.params.shape[0])]
+        self.model_keywords = result.model_keywords or {}
+        self.fe_mode = self.model_keywords.get("fe_mode")
+        self.model = jit(combine_auto(self.profile_functions))
+        self.kind_list = result.kind_list
+        self.params_dict = result.params_dict
     
     
     

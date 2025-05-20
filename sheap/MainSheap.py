@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.DataClass.DataClass import ComplexRegion, SpectralLine,FitResult
+from sheap.DataClass.DataClass import SpectralLine,FitResult
 from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
 
 from sheap.RegionFitting.RegionFitting import RegionFitting
@@ -189,22 +189,49 @@ class Sheapectral:
         self.complex_region = self.builded_region.complex_region
     
     def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
-        spectra = self.spectra.at[:, [1, 2], :].multiply(
-            10 ** (-1 * self.spectra_exp[:, jnp.newaxis, jnp.newaxis])
-        )  # apply escale to 0-20 max
+        spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(
+            10 ** (-1 * self.spectra_exp[:, None, None])
+        )
+
         if not hasattr(self, "builded_region"):
-            raise RuntimeError("build_region() must be called before fit()")
-        self.fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
-        fittingclass = RegionFitting(self.fitting_rutine)
-        self.result = fittingclass(spectra, do_return=True)
+            raise RuntimeError("build_region() must be called before fit_region()")
+
+        fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
+        fitting_class = RegionFitting(fitting_rutine)
+        
+        fit_output = fitting_class(spectra_scaled, do_return=True)
+
         # Rescale amplitudes
-        scaled = 10**self.spectra_exp
-        idxs = mapping_params(self.result.params_dict, [["amplitude"], ["scale"]])
-        self.result.max_flux = self.result.max_flux * scaled
-        self.result.params = self.result.params.at[:, idxs].multiply(scaled[:, None])
-        self.result.uncertainty_params = self.result.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        self.model_keywords = self.fitting_rutine.get("model_keywords")
+        scaled = 10 ** self.spectra_exp
+        idxs = mapping_params(fit_output.params_dict, [["amplitude"], ["scale"]])
+
+        fit_output.max_flux = fit_output.max_flux * scaled
+        fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
+        fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
+        fit_output.initial_params = fitting_class.initial_params
+        fit_output.source = "computed"
+        
+        # Store result using FitResult directly
+        self.result = FitResult(
+            params=fit_output.params,
+            uncertainty_params=fit_output.uncertainty_params,
+            mask=fit_output.mask,
+            profile_functions=fit_output.profile_functions,
+            profile_names=fit_output.profile_names,
+            #loss=fit_output.loss,
+            profile_params_index_list=fit_output.profile_params_index_list,
+            initial_params=fit_output.initial_params,
+            max_flux=fit_output.max_flux,
+            params_dict=fit_output.params_dict,
+            complex_region=fit_output.complex_region,
+            outer_limits=fit_output.outer_limits,
+            inner_limits=fit_output.inner_limits,
+            model_keywords=fitting_rutine.get("model_keywords"),
+            source=fit_output.source
+        )
+
         self._plotter = SheapPlot(sheap=self)
+
         
     @property
     def modelplot(self):
@@ -214,47 +241,6 @@ class Sheapectral:
             else:
                 raise RuntimeError("No fit result found. Run `fit_region()` first.")
         return self._plotter
-
-    
-    # def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
-
-    #     spectra = self.spectra.at[:, [1, 2], :].multiply(
-    #         10 ** (-1 * self.spectra_exp[:, jnp.newaxis, jnp.newaxis])
-    #     )  # apply escale to 0-20 max
-    #     if not hasattr(self, "builded_region"):
-    #         raise RuntimeError("build_region() must be called before fit()")
-        
-    #     self.fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
-        
-        
-    #     fittingclass = RegionFitting(self.fitting_rutine)
-    #     result = fittingclass(spectra, do_return=True)
-       
-    #     # Unpack result to self
-    #     self.params = result.params
-    #     self.uncertainty_params = result.uncertainty_params
-    #     self.outer_limits = result.outer_limits
-    #     self.inner_limits = result.inner_limits
-    #     self.loss = result.loss
-    #     self.mask = result.mask
-    #     self.step = result.step
-    #     self.params_dict = result.params_dict
-    #     self.initial_params = result.initial_params
-    #     self.profile_params_index_list = result.profile_params_index_list
-    #     self.profile_functions = result.profile_functions
-    #     self.profile_names = result.profile_names
-    #     self.complex_region = result.complex_region
-    #     self.model_keywords = self.fitting_rutine.get("model_keywords")
-
-    #     # Rescale amplitudes
-    #     scaled = 10**self.spectra_exp
-    #     idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-    #     self.max_flux = result.max_flux * scaled
-    #     self.params = self.params.at[:, idxs].multiply(scaled[:, None])
-    #     self.uncertainty_params = self.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        
-    #     self._complex_region()
-
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
         filepath = Path(filepath)
@@ -270,64 +256,88 @@ class Sheapectral:
             redshift_correction=data["redshift_correction"],
         )
 
-        obj.params = jnp.array(data.get("params"))
-        obj.uncertainty_params = jnp.array(
-            data.get("uncertainty_params", jnp.zeros_like(obj.params))
+        complex_region = data.get("complex_region", [])
+        obj.complex_region = [SpectralLine(**i) for i in complex_region]
+
+        profile_names = data.get("profile_names", [])
+        obj.profile_functions = [
+            PROFILE_FUNC_MAP.get(name, make_g(obj.complex_region[idx]) if name == "combine_gaussian" else None)
+            for idx, name in enumerate(profile_names)
+        ]
+
+        obj.result = FitResult(
+            params=jnp.array(data.get("params")),
+            uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))),
+            initial_params=jnp.array(data.get("initial_params")),
+            mask=jnp.array(data.get("mask")),
+            profile_functions=obj.profile_functions,
+            profile_names=profile_names,
+            loss=None,  # Not saved currently, could be added if needed
+            profile_params_index_list=data.get("profile_params_index_list"),
+            max_flux=data.get("max_flux"),  # Not saved currently, could be added if needed
+            params_dict=data.get("params_dict"),
+            complex_region=obj.complex_region,
+            outer_limits=data.get("outer_limits"),
+            inner_limits=data.get("inner_limits"),
+            model_keywords=data.get("model_keywords"),
+            source=data.get("source", "pickle"),
         )
-        obj.params_dict = data.get("params_dict")
-        obj.mask = jnp.array(data.get("mask"))
-        obj.profile_params_index_list = data.get("profile_params_index_list")
-        obj.profile_names = data.get("profile_names")
-        obj.fitting_rutine = {"fitting_rutine": data.get("fitting_rutine")}
-        obj.model_keywords = data.get("model_keywords")
-        region_defs = data.get("complex_region")
-        obj.outer_limits = data.get(
-            "outer_limits"
-        )  # region extension comming as a more proper name
-        if isinstance(region_defs, list):
-            obj.complex_region = [SpectralLine(**i) for i in region_defs]
-            # obj.complex_region = [SpectralLine(**d) for d in region_defs]
-            #
-        if obj.profile_names is not None:
-            obj.profile_functions = [
-                (
-                    PROFILE_FUNC_MAP.get(i)
-                    if i != "combine_gaussian"
-                    else make_g(obj.complex_region[idx])
-                )
-                for idx, i in enumerate(obj.profile_names)
-            ]
-        obj._complex_region()
+        obj._plotter = SheapPlot(sheap=obj)
         return obj
+    def to_result(self) -> FitResult:
+        self.result= FitResult(
+            #initial_params = self.initial_params,
+            params=self.params,
+            uncertainty_params=self.uncertainty_params,
+            mask=self.mask,
+            profile_functions=self.profile_functions,
+            profile_names=self.profile_names,
+            max_flux=self.max_flux,
+            params_dict=self.params_dict,
+            complex_region=self.complex_region,
+            #loss = self.loss,
+            profile_params_index_list = self.profile_params_index_list,
+            outer_limits = self.outer_limits,
+            #inner_limits = self.inner_limits,
+            model_keywords=self.model_keywords
+        )
+   
+
+    
 
     def _save(self):
-        _region_defs = [
-            i.to_dict() for i in self.complex_region
-        ]  # to dict so it can be read anyway
+        _complex_region = [i.to_dict() for i in self.complex_region]
+
         dic_ = {
             "names": self.names,
             "spectra": np.array(self.spectra),
             "coords": np.array(self.coords),
-            "z": np.array(self.z),  # array
+            "z": np.array(self.z),
             "extinction_correction": self.extinction_correction,
             "redshift_correction": self.redshift_correction,
-            # this should be a dataclass
-            "params": np.array(self.params),  # array
-            "uncertainty_params": np.array(self.uncertainty_params),  # array
-            "params_dict": self.params_dict,  # array
-            "mask": np.array(self.mask),  # array
-            "complex_region": _region_defs,  # dic
-            "profile_params_index_list": self.profile_params_index_list,  # array
-            "profile_names": self.profile_names,  # list str
-            "fitting_rutine": self.fitting_rutine["fitting_rutine"],  # dict list
-            "outer_limits": self.outer_limits,
-            "model_keywords": self.model_keywords,
+            "params": np.array(self.result.params),
+            "uncertainty_params": np.array(self.result.uncertainty_params),
+            "initial_params": np.array(self.result.initial_params),  # explicitly saved
+            "params_dict": self.result.params_dict,
+            "mask": np.array(self.result.mask),
+            "complex_region": _complex_region,
+            "profile_params_index_list": self.result.profile_params_index_list,
+            "profile_names": self.result.profile_names,
+            "fitting_rutine": self.fitting_rutine["fitting_rutine"],
+            "outer_limits": self.result.outer_limits,
+            "inner_limits": self.result.inner_limits,
+            "model_keywords": self.result.model_keywords,
+            "source": self.result.source,
+            "max_flux":np.array(self.result.max_flux)
         }
+
         estimated_size = sys.getsizeof(pickle.dumps(dic_))
         print(f"Estimated pickle size: {estimated_size / 1024:.2f} KB")
+
         return dic_
 
     def save_to_pickle(self, filepath: Union[str, Path]):
+        ".pkl"
         filepath = Path(filepath)
         with open(filepath, "wb") as f:
             pickle.dump(self._save(), f)
@@ -370,16 +380,7 @@ class Sheapectral:
 
         return ax
 
-    def _complex_region(self):
-        self.complex_region_class = ComplexRegion(
-            complex_region=self.complex_region,
-            params=self.params,
-            uncertainty_params=self.uncertainty_params,
-            profile_functions=self.profile_functions,
-            params_dict=self.params_dict,
-            profile_names=self.profile_names,
-            profile_params_index_list=self.profile_params_index_list,
-        )
+    
 
         # complex_region: List[SpectralLine]
         # profile_functions: List[Callable]

@@ -87,14 +87,14 @@ class RegionFitting:
             log_mode: If True, log additional debug info.
             limits_overrides: User-specified FittingLimits per kind.
         """
-        self.region_defs_ = self._load_region(region_template, yaml_dir)  # fitting rutine
-        self.region_defs = self.region_defs_.get("complex_region") or []
-        self.fitting_rutine = self.region_defs_.get("fitting_rutine") or {}
-        limits = self.region_defs_.get("inner_limits")
+        self.complex_region_ = self._load_region(region_template, yaml_dir)  # fitting rutine
+        self.complex_region = self.complex_region_.get("complex_region") or []
+        self.fitting_rutine = self.complex_region_.get("fitting_rutine") or {}
+        limits = self.complex_region_.get("inner_limits")
         self.inner_limits = (
             tuple(limits) if isinstance(limits, list) and len(limits) == 2 else None
         )
-        limits = self.region_defs_.get("outer_limits")
+        limits = self.complex_region_.get("outer_limits")
         self.outer_limits = (
             tuple(limits) if isinstance(limits, list) and len(limits) == 2 else None
         )
@@ -373,12 +373,12 @@ class RegionFitting:
         self.list = []
         # Loop over each line configuration
         idx = 0  # parameter_position
-        region_defs = []
-        for cfg in self.region_defs:
+        complex_region = []
+        for cfg in self.complex_region:
 
             constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=profile)
             cfg.profile = constraints.profile
-            region_defs.append(cfg)
+            complex_region.append(cfg)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
@@ -416,7 +416,7 @@ class RegionFitting:
                 self.params_dict[key] = idx + i
             # self.profile_params_index.append([idx,idx+2])
             self.profile_params_index_list.append(np.arange(idx, idx + 2))
-            region_defs.append(
+            complex_region.append(
                 SpectralLine(
                     center=0.0,
                     line_name='linear',
@@ -433,7 +433,7 @@ class RegionFitting:
         self.get_param_coord_value = make_get_param_coord_value(
             self.params_dict, self.initial_params
         )  # important
-        self.region_defs = region_defs
+        self.complex_region = complex_region
 
     def _build_tied(self, tied_params):
         list_tied_params = []
@@ -475,13 +475,13 @@ class RegionFitting:
             profile_names=self.profile_names,
             max_flux=self.max_flux,
             params_dict=self.params_dict,
-            complex_region=self.region_defs,
+            complex_region=self.complex_region,
             loss = self.loss,
             initial_params = self.initial_params,
             profile_params_index_list = self.profile_params_index_list,
             outer_limits = self.outer_limits,
             inner_limits = self.inner_limits,
-            model_keywords=self.fitting_rutine.get("model_keywords", {})
+            #model_keywords=self.fitting_rutine.get("model_keywords", {})
         )
     
     @property
@@ -492,7 +492,7 @@ class RegionFitting:
     @property
     def pandas_region(self) -> pd.DataFrame:
         """Return region definitions as a pandas DataFrame."""
-        return pd.DataFrame([vars(cfg) for cfg in self.region_defs])
+        return pd.DataFrame([vars(cfg) for cfg in self.complex_region])
 
     @staticmethod
     def _stack_constraints(low: List[float], high: List[float]) -> jnp.ndarray:

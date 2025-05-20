@@ -81,7 +81,7 @@ class LineMapper:
         profile_params_index_list: List[List[int]],
         params_dict,
         profile_names,
-        kind_list=None,
+
     ):
 
         if is_list_of(complex_region, SpectralLine):
@@ -112,15 +112,15 @@ class LineMapper:
 
         entries = self.complex_region
         n_entries = len(entries)
-        # Extract attributes into arrays
+
         attributes_dict = {
-            key: np.array([getattr(e, key) for e in entries])
+            key: [getattr(e, key) for e in entries]
             for key in ["region", "center", "kind", "component", "line_name"]
         }
 
-        # Build logic mask
+        # Build logic mask using lists
         def make_mask(key: str, value: str):
-            return np.char.find(attributes_dict[key].astype(str), value) >= 0
+            return np.array([value in str(item) for item in attributes_dict[key]])
 
         if isinstance(where, str):
             where = [where]
@@ -128,11 +128,7 @@ class LineMapper:
             what = [what]
         assert len(where) == len(what), "`where` and `what` must have same length."
 
-        mask = (
-            np.ones(n_entries, dtype=bool)
-            if logic == "and"
-            else np.zeros(n_entries, dtype=bool)
-        )
+        mask = np.ones(n_entries, dtype=bool) if logic == "and" else np.zeros(n_entries, dtype=bool)
         for w, v in zip(where, what):
             current_mask = make_mask(w, v)
             mask = mask & current_mask if logic == "and" else mask | current_mask
@@ -144,11 +140,11 @@ class LineMapper:
 
         # Filter and flatten indices
         idx = mask_idx.tolist()
-        filtered_profile_functions = np.array(self.profile_functions)[mask_idx]
-        filtered_profile_names = np.array(self.profile_names)[mask_idx]
-        filtered_profile_params_index_list = np.array(
-            self.profile_params_index_list, dtype=object
-        )[mask_idx]
+        filtered_profile_functions = [self.profile_functions[i] for i in mask_idx]
+        filtered_profile_names = [self.profile_names[i] for i in mask_idx]
+        filtered_profile_params_index_list = [self.profile_params_index_list[i] for i in mask_idx]
+
+        # Flatten params index safely
         profile_params_index_flat = np.concatenate(filtered_profile_params_index_list)
 
         # Convert parameter arrays once
@@ -156,22 +152,17 @@ class LineMapper:
         filtered_params = params_arr[:, profile_params_index_flat]
         filtered_u_params = np.asarray(self.uncertainty_params)[:, profile_params_index_flat]
 
-        # if hasattr(self, "uncertainty_params"):
-        #
-        # else:
-        #     filtered_u_params = None
-
         combined_profile_func = combine_auto(filtered_profile_functions)
 
         result = LineSelectionResult(
             idx=idx,
-            line_name=attributes_dict["line_name"][mask_idx],
-            region=attributes_dict["region"][mask_idx].tolist(),
-            center=attributes_dict["center"][mask_idx].astype(float).tolist(),
-            kind=attributes_dict["kind"][mask_idx].tolist(),
-            original_centers=np.array([e.center for e in entries])[mask_idx],
-            component=attributes_dict["component"][mask_idx].tolist(),
-            lines=np.array(entries)[mask_idx].tolist(),
+            line_name=[attributes_dict["line_name"][i] for i in mask_idx],
+            region=[attributes_dict["region"][i] for i in mask_idx],
+            center=[attributes_dict["center"][i] for i in mask_idx],
+            kind=[attributes_dict["kind"][i] for i in mask_idx],
+            original_centers=[entries[i].center for i in mask_idx],
+            component=[attributes_dict["component"][i] for i in mask_idx],
+            lines=[entries[i] for i in mask_idx],
             profile_functions=filtered_profile_functions,
             profile_names=filtered_profile_names,
             profile_params_index_flat=profile_params_index_flat,
@@ -186,4 +177,3 @@ class LineMapper:
 
         self._last_filtered = result
         return result
-

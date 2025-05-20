@@ -20,42 +20,103 @@ class SpectralLine:
     def to_dict(self) -> dict:
         return asdict(self)
 
+#     complex_region: List[SpectralLine]
+#     profile_functions: List[Callable]
+#     params: np.ndarray
+#     uncertainty_params: np.ndarray
+#     profile_params_index_list: np.ndarray
+#     params_dict: Dict
+#     profile_names: List[str]
+
 @dataclass
 class FitResult:
-    params: jnp.ndarray
-    uncertainty_params: jnp.ndarray
-    mask: jnp.ndarray
-    profile_functions: List[Callable]
-    profile_names: List[str]
-    loss: List 
-    profile_params_index_list: List
-    initial_params:jnp.ndarray
-    max_flux: jnp.ndarray
-    params_dict: Dict[str, int]
+    """
+    Data class to store results from spectral region fitting.
+
+    Attributes:
+        complex_region (List[SpectralLine]): List of spectral line configurations.
+        params (Optional[jnp.ndarray]): Optimized parameters from fitting.
+        uncertainty_params (Optional[jnp.ndarray]): Estimated uncertainties for each parameter.
+        mask (Optional[jnp.ndarray]): Mask used during the fitting process.
+        profile_functions (Optional[List[Callable]]): Functions describing each spectral profile.
+        profile_names (Optional[List[str]]): Names of spectral profiles used in fitting.
+        loss (Optional[List]): Values of the loss function during optimization.
+        profile_params_index_list (Optional[List]): Indices mapping profile parameters.
+        initial_params (Optional[jnp.ndarray]): Initial guess parameters before fitting.
+        max_flux (Optional[jnp.ndarray]): Maximum flux used for normalization.
+        params_dict (Optional[Dict[str, int]]): Mapping from parameter names to indices.
+        outer_limits (Optional[List]): Outer wavelength limits of the fitting region.
+        inner_limits (Optional[List]): Inner wavelength limits defining the region of interest.
+        model_keywords (Optional[dict]): Additional keywords for model configuration.
+        kind_list (List[str]): Unique types of spectral lines (computed post-init).
+    """
+
     complex_region: List[SpectralLine]
-    outer_limits: List
-    inner_limits: List
+    params: Optional[jnp.ndarray] = None
+    uncertainty_params: Optional[jnp.ndarray] = None
+    mask: Optional[jnp.ndarray] = None
+    profile_functions: Optional[List[Callable]] = None
+    profile_names: Optional[List[str]] = None
+    loss: Optional[List] = None
+    profile_params_index_list: Optional[List] = None
+    initial_params: Optional[jnp.ndarray] = None
+    max_flux: Optional[jnp.ndarray] = None
+    params_dict: Optional[Dict[str, int]] = None
+    outer_limits: Optional[List] = None
+    inner_limits: Optional[List] = None
     model_keywords: Optional[dict] = None
-    
-    
-
-@dataclass
-class ComplexRegion:
-    complex_region: List[SpectralLine]
-    profile_functions: List[Callable]
-    params: np.ndarray
-    uncertainty_params: np.ndarray
-    profile_params_index_list: np.ndarray
-    params_dict: Dict
-    profile_names: List[str]
-
-    kind_list: List[str] = field(init=False)  # will be computed post-init
+    source:Optional[dict] = None
+    kind_list: List[str] = field(init=False)
 
     def __post_init__(self):
         self.kind_list = list({line.kind for line in self.complex_region})
 
     def to_dict(self) -> dict:
         return asdict(self)
+    
+
+# @dataclass
+# class FitResult:
+#     params: jnp.ndarray
+#     uncertainty_params: jnp.ndarray
+#     mask: jnp.ndarray
+#     profile_functions: List[Callable]
+#     profile_names: List[str]
+#     loss: List 
+#     profile_params_index_list: List
+#     initial_params:jnp.ndarray
+#     max_flux: jnp.ndarray
+#     params_dict: Dict[str, int]
+#     complex_region: List[SpectralLine]
+#     outer_limits: List
+#     inner_limits: List
+#     model_keywords: Optional[dict] = None
+#     kind_list: List[str] = field(init=False)  # will be computed post-init
+
+#     def __post_init__(self):
+#         self.kind_list = list({line.kind for line in self.complex_region})
+
+#     def to_dict(self) -> dict:
+#         return asdict(self)
+    
+
+# @dataclass
+# class ComplexRegion:
+#     complex_region: List[SpectralLine]
+#     profile_functions: List[Callable]
+#     params: np.ndarray
+#     uncertainty_params: np.ndarray
+#     profile_params_index_list: np.ndarray
+#     params_dict: Dict
+#     profile_names: List[str]
+
+#     kind_list: List[str] = field(init=False)  # will be computed post-init
+
+#     def __post_init__(self):
+#         self.kind_list = list({line.kind for line in self.complex_region})
+
+#     def to_dict(self) -> dict:
+#         return asdict(self)
 
 
 @dataclass
