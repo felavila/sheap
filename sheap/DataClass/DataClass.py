@@ -1,6 +1,7 @@
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import jax.numpy as jnp
 import numpy as np
 
 
@@ -19,6 +20,24 @@ class SpectralLine:
     def to_dict(self) -> dict:
         return asdict(self)
 
+@dataclass
+class FitResult:
+    params: jnp.ndarray
+    uncertainty_params: jnp.ndarray
+    mask: jnp.ndarray
+    profile_functions: List[Callable]
+    profile_names: List[str]
+    loss: List 
+    profile_params_index_list: List
+    initial_params:jnp.ndarray
+    max_flux: jnp.ndarray
+    params_dict: Dict[str, int]
+    complex_region: List[SpectralLine]
+    outer_limits: List
+    inner_limits: List
+    model_keywords: Optional[dict] = None
+    
+    
 
 @dataclass
 class ComplexRegion:

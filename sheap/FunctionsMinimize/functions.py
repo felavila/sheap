@@ -33,7 +33,35 @@ def linear(x, params):
     return params[0] * (x / 1000.0) + params[1]
 
 
-# @jit
+@param_count(4)
+def brokenpowerlaw(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """
+    Broken power law function in JAX.
+
+    Parameters
+    ----------
+    x : jnp.ndarray
+        Input wavelengths (Angstroms).
+    params : jnp.ndarray
+        Parameters array: [index1, index2, amplitude, refer]
+        - index1: slope for x <= refer
+        - index2: additional slope for x > refer
+        - amplitude: normalization at x = refer
+        - refer: reference wavelength (Angstroms)
+
+    Returns
+    -------
+    jnp.ndarray
+        Evaluated broken power law.
+    """
+    index1, index2, amplitude, refer = params
+    x = jnp.nan_to_num(x)
+
+    ratio = x / refer
+    # Create mask: x > refer gets index1 + index2; else gets index1
+    exponent = jnp.where(ratio > 1.0, index1 + index2, index1)
+    return amplitude * jnp.power(ratio, exponent)
+
 @param_count(2)
 def powerlaw(x, params):
     x = jnp.nan_to_num(x)

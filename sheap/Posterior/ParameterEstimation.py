@@ -11,7 +11,7 @@ from jax import grad, vmap
 
 from sheap.FunctionsMinimize.utils import combine_auto
 from sheap.Posterior.utils import combine
-from sheap.SuportFunctions.functions import LineMapper, mapping_params
+from sheap.sheap.LineMapper.LineMapper import LineMapper, mapping_params
 from sheap.Tools.others import vmap_get_EQW_mask
 
 # from SHEAP.numpy.line_handling import line_decomposition_measurements,line_parameters
@@ -38,12 +38,11 @@ class ParameterEstimation:
     # TODO big how to combine distributions
     def __init__(
         self,
-        RegionClass,
+        RegionClass, #sheapclass
         fluxnorm=None,
         z=None,
         d=None,
         cosmo=None,
-        multi_comp=None,
         c=299792.458,
     ):
         """_summary_
@@ -57,14 +56,8 @@ class ParameterEstimation:
             cosmo (_type_, optional): _description_. Defaults to None.
             c speed of light in km/s
         """
-        ####
-        # self.lines = RegionClass.lines
-        # self.multi_comp = list(RegionClass.multi_comp)
-        # self.multi_comp_index = RegionClass.mapping_params(self.multi_comp)
-        ####
         self.c = c
         ####
-        # self.RegionClass =
         self.mask = RegionClass.mask  # mmm
         self.spectra = RegionClass.spectra  # mmm
         self.z = RegionClass.z
@@ -84,20 +77,21 @@ class ParameterEstimation:
         for k in self.kind_list:
             self.kinds_map[k] = self.RegionMap._get("kind", k)
 
-    #
+    
     def compute_params_wu(self):
-        "ok."
+        "ok. here will go the combination TODO:  we have to move to calculate the fluxes using compute_integrated_profiles more flexible aprouch"
         dict_ = {}
         for k, k_map in self.kinds_map.items():
-
+            
+            
             idx_amplitude = mapping_params(k_map.params_names, "amplitude")
             idx_width = mapping_params(k_map.params_names, "width")
             idx_center = mapping_params(k_map.params_names, "center")
 
-            print(k_map.component)
+            #print(k_map.component)
 
             params = k_map.params
-            uncertainty_params = k_map.uncertainty_params
+            uncertainty_params = np.array(k_map.uncertainty_params)
 
             norm_amplitude = params[:, idx_amplitude]
             norm_amplitude_u = uncertainty_params[:, idx_amplitude]
@@ -121,13 +115,16 @@ class ParameterEstimation:
 
             dict_[k] = {
                 'lines': k_map.line_name,
+                "component":np.array(k_map.component),
                 'L': {'value': L.value, 'error': L.error},
                 'flux': {'value': flux.value, 'error': flux.error},
                 'fwhm': {'value': fwhm.value, 'error': fwhm.error},
                 'fwhm_kms': {'value': fwhm_kms.value, 'error': fwhm_kms.error},
             }
         self.dict_params = dict_
-
+        return dict_
+    
+    
     def compute_Luminosity_w(self, wavelenghts=[1350.0, 1450.0, 3000.0, 5100.0, 6200.0]):
         map_cont = self.kinds_map['continuum']
         profile_func = map_cont.profile_functions_combine
@@ -138,7 +135,7 @@ class ParameterEstimation:
             hits = jnp.isclose(self.spectra[:, 0, :], w, atol=1)
             valid = (hits & (~self.mask)).any(
                 axis=1, keepdims=True
-            )  # only the un-masked 5100’
+            ) 
             grad_f = grad(lambda p: jnp.sum(profile_func(jnp.array([w]), p)))(params)
             flux = jnp.where(valid.squeeze(), profile_func(jnp.array([w]), params), 0)
             sigma_f = jnp.where(
@@ -149,12 +146,13 @@ class ParameterEstimation:
             flux = Uncertainty(np.array(flux), np.array(sigma_f))
             l = (w * 4.0 * np.pi * np.array(self.d**2) * flux).ravel()
             L_w[str(w)] = {'value': l.value, "error": l.error}
+        self.L_w = L_w
         return L_w
 
     def compute_bolometric_luminosity(self, monochromatic_lums=None, method="default"):
         """
         Estimate bolometric luminosity using bolometric correction factors.
-           Common correction factors (e.g., Richards et al. 2006 or Netzer 2019) look for this references
+           Common correction factors (e.g., Richards et al. 2006 or Netzer 2019) TODO:look for this references
         Args:
             monochromatic_lums: Dict of monochromatic luminosities [erg/s].
             method: Which correction to apply (default: empirical).
@@ -183,43 +181,59 @@ class ParameterEstimation:
     def compute_black_hole_mass(self, f=1.0, non_combine=False):
         """
         Compute black hole mass estimates using various broad emission lines with standard virial estimators.
-
+        TODO: move estimators.
         Returns:
             Dictionary of black hole mass estimates [Msun] per line.
-        """
-        # Virial estimator parameters: log(M_BH/Msun) = a + b*log10(L/10^44 erg/s) + 2*log10(FWHM/1000 km/s)
-        estimators = {
-            "Hbeta": {
-                "wavelength": "5100.0",
-                "a": 6.91,
-                "b": 0.5,
-                "f": f,
-            },  # Vestergaard & Peterson 2006
-            "MgII": {"wavelength": "3000.0", "a": 6.86, "b": 0.5, "f": f},  # Shen et al. 2011
-            "CIV": {
-                "wavelength": "1350.0",
-                "a": 6.66,
-                "b": 0.53,
-                "f": f,
-            },  # Vestergaard & Peterson 2006
-            "Halpha": {
-                "wavelength": "6200.0",
-                "a": 6.98,
-                "b": 0.5,
-                "f": f,
-            },  # Greene & Ho 2005
-        }
+       
 
-        # Compute continuum luminosities and FWHMs
-        dict_broad = self.compute_params_wu()[
-            'broad'
-        ]  # the truth is this should be done with more components and the combination should be done in the "dict_part"
-        L_w = dict_broad['L']
-        fwhm = dict_broad['fwhm_kms']  # in A
-        line_name = dict_broad["lines"]
-        # fwhm_kms = self.FWHMkm_s()
+        """
+        estimators = {
+                    "Hbeta": {
+                        "wavelength": "5100.0",
+                        "a": 6.91,
+                        "b": 0.5,
+                        "f": f,
+                    },  # Vestergaard & Peterson 2006
+                    "MgII": {"wavelength": "3000.0", "a": 6.86, "b": 0.5, "f": f},  # Shen et al. 2011
+                    "CIV": {
+                        "wavelength": "1350.0",
+                        "a": 6.66,
+                        "b": 0.53,
+                        "f": f,
+                    },  # Vestergaard & Peterson 2006
+                    "Halpha": {
+                        "wavelength": "6200.0",
+                        "a": 6.98,
+                        "b": 0.5,
+                        "f": f,
+                    },  # Greene & Ho 2005
+                        }
+        # Virial estimator parameters: log(M_BH/Msun) = a + b*log10(L/10^44 erg/s) + 2*log10(FWHM/1000 km/s)
+        #here should go a run it if it is not self
+        dict_broad = self.compute_params_wu().get("broad")#in reallity is the only one that is important 
+        L_w = self.compute_Luminosity_w()
+        #L_w = dict_broad['L'].values
+        fwhm_kms = dict_broad.get('fwhm_kms')  # in kms reference center of fit 
+        line_name_list = dict_broad["lines"]
         masses = {}
-        return
+        
+        for line_name, params in estimators.items():
+            wave = params["wavelength"]
+            if line_name not in line_name_list or wave not in self.L_w.keys():
+                continue
+            else:
+                idx = np.where(line_name==line_name_list)[0]
+            a, b, f = params["a"], params["b"], params["f"]
+            l_ = Uncertainty(L_w[wave].get("value"),L_w[wave].get("error"))
+            log_L = np.log10(l_).reshape(-1,1)  # continuum luminosity in erg/s
+            fwhm_kms_ = Uncertainty(fwhm_kms.get("value")[:,idx],fwhm_kms.get("error")[:,idx])
+            #print(log_L.shape,fwhm_kms_.shape)
+            log_FWHM = np.log10(fwhm_kms_) - 3  # convert FWHM to 10^3 km/s
+            log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
+            M_BH = (10 ** log_M_BH) / f  # in Msun
+            masses[line_name] = {"value":M_BH.value.squeeze(),"error":M_BH.error.squeeze(),"component":dict_broad.get("component")[idx]}
+        return masses
+    
         # for line_name, params in estimators.items():
         #     if line_name not in self.linelist:
         #         continue  # skip if line not fitted
@@ -248,6 +262,35 @@ class ParameterEstimation:
         #     masses[line_name] = log_M_BH
         # return masses
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # def compute_EW(self):
     #     profile_index_list = self.RegionClass.profile_index_list
     #     x_axis = self.RegionClass.region_to_fit[:,0,:]

@@ -4,10 +4,12 @@ import jax.numpy as jnp
 
 from sheap.DataClass.DataClass import ConstraintSet, FittingLimits, SpectralLine
 from sheap.Tools.others import kms_to_wl
+from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP 
+
 
 
 def make_constraints(
-    cfg: SpectralLine, limits: FittingLimits, profile="guassian"
+    cfg: SpectralLine, limits: FittingLimits, profile="gaussian"
 ) -> ConstraintSet:
     """
     Compute initial values and bounds for the profile parameters of a spectral line.
@@ -19,6 +21,13 @@ def make_constraints(
     Returns:
         A ConstraintSet containing init values, upper/lower bounds, profile type, and parameter names.
     """
+    selected_profile = cfg.profile or profile
+
+    if selected_profile not in PROFILE_FUNC_MAP:
+        raise ValueError(
+            f"Profile '{selected_profile}' is not defined in PROFILE_FUNC_MAP. "
+            f"Available profiles: {list(PROFILE_FUNC_MAP.keys())}"
+        )
 
     if cfg.kind.lower() == 'fe':
         if cfg.how == 'template':
@@ -32,7 +41,8 @@ def make_constraints(
                 profile='fitFe' + cfg.which,
                 param_names=['logFWHM', 'shift', 'scale'],
             )
-        if cfg.how == "combine":
+
+        elif cfg.how == "combine":
             center = cfg.center
             shift = -5 if cfg.kind == "outflow" else 0
 
@@ -45,11 +55,11 @@ def make_constraints(
                 init=[1.0, 0, float(width_lower)],
                 upper=[5.0, shift_upper, width_upper],
                 lower=[0.0, shift_lower, width_lower],
-                profile=cfg.profile or profile,
-                param_names=['amplitude', 'shift', 'width'],  # this could be scale
+                profile=selected_profile,
+                param_names=['amplitude', 'shift', 'width'],
             )
 
-    elif cfg.profile == 'powerlaw':
+    if selected_profile == 'powerlaw':
         return ConstraintSet(
             init=[-1.1, 0.0],
             upper=[-1.0, 10.0],
@@ -58,23 +68,28 @@ def make_constraints(
             param_names=['index', 'scale'],
         )
 
-    # pars[0] = A (amplitude)
-    #    pars[1] = T (temperature in K)
-    #    pars[2] = τ0 (optical‐depth scale)
-    elif cfg.profile == "balmerconti":
+    if selected_profile == "brokenpowerlaw":
+        return ConstraintSet(
+            init=[-1.7, 0.0, 0.1, 5500.0],
+            upper=[0.0, 1.0, 10.0, 7000.0],
+            lower=[-3.0, -1.0, 0.0, 4000],
+            profile='brokenpowerlaw',
+            param_names=['index1', 'index2', 'scale', 'refer'],
+        )
+
+    if selected_profile == "balmerconti":
         return ConstraintSet(
             init=[1.0, 10000.0, 1.0],
-            upper=[10.0, 50000, 2.0],  # mmm
+            upper=[10.0, 50000, 2.0],
             lower=[0.0, 5000.0, 0.01],
             profile='balmerconti',
             param_names=['scale', "T", 'τ0'],
         )
 
-    else:
+    if selected_profile == "gaussian":
         center = cfg.center
         shift = -5 if cfg.kind == "outflow" else 0
 
-        # Velocity to wavelength conversion
         center_upper = center + kms_to_wl(limits.center_shift, center)
         center_lower = center - kms_to_wl(limits.center_shift, center)
         width_upper = kms_to_wl(limits.upper_width, center)
@@ -84,9 +99,15 @@ def make_constraints(
             init=[float(cfg.amplitude), float(center + shift), float(width_lower)],
             upper=[limits.max_amplitude, center_upper, width_upper],
             lower=[0.0, center_lower, width_lower],
-            profile=cfg.profile or profile,
-            param_names=['amplitude', 'center', 'width'],  # this could be scale
+            profile='gaussian',
+            param_names=['amplitude', 'center', 'width'],
         )
+
+    raise NotImplementedError(
+        f"No constraints defined for profile '{selected_profile}'. "
+        f"Define its ConstraintSet explicitly in make_constraints."
+    )
+
 
 
 def make_get_param_coord_value(

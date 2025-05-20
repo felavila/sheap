@@ -11,13 +11,14 @@ def group_lines_by_region(
     lines: List[SpectralLine],
     kind: str = "fe",
     component: int = 20,
-    profile="gaussian",
+    profile: str = "gaussian",
+    exception: List[str] = []
 ) -> List[SpectralLine]:
     grouped = defaultdict(list)
 
-    # Step 1: Filter and group by kind and region
+    # Step 1: Filter and group by kind and region, skipping exceptions
     for line in lines:
-        if line.kind == kind and line.region is not None:
+        if line.kind == kind and line.region is not None and line.region not in exception:
             grouped[line.region].append(line)
 
     # Step 2: Collapse groups into single SpectralLine instances
@@ -42,18 +43,23 @@ def group_lines_by_region(
             )
         )
 
-    # Step 3: Keep all lines not of the selected kind + collapsed ones
-    new_lines = [line for line in lines if line.kind != kind]
+    # Step 3: Keep all lines not grouped or excluded by exception
+    new_lines = [
+        line for line in lines
+        if line.kind != kind or line.region in exception
+    ]
     new_lines.extend(collapsed_lines)
 
     return new_lines
 
 
+
 def fe_ties(
     entries: List[SpectralLine], by_region=True, tied_params=('center', 'width')
 ) -> List[List[str]]:
-    regions, centers, kinds = np.array([[e.region, e.center, e.kind] for e in entries]).T
-    mask_fe = np.char.find(kinds, "fe") >= 0
+    regions, centers, kinds,_ = np.array([[e.region, e.center, e.kind,e.how] for e in entries if e.how !="combine"]).T
+    
+    mask_fe = np.char.find(kinds.astype(str), "fe") >= 0
     regions, centers, kinds, entries = (
         regions[mask_fe],
         centers[mask_fe],
@@ -133,6 +139,7 @@ def region_ties(
         "MgII",
         "CIII]",
         "SIIb",
+        "OIIa",
     ]  # this can be disscuss in the future
 
     if isinstance(mainline_candidates_broad, (list, tuple)):

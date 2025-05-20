@@ -1,40 +1,69 @@
+from typing import Optional, List, Any
+from dataclasses import dataclass
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
 
 from sheap.FunctionsMinimize.utils import combine_auto
-
-# add constrains in the for example only plot broad,fe,thinks like that
+#from sheap.FunctionsMinimize.utils import mapping_params
 
 
 class SheapPlot:
-    def __init__(self, ComplexRegion):
-        """Initialize SheapPlot with a ComplexRegion object."""
+    def __init__(
+        self,
+        sheap: Optional["Sheapectral"] = None,
+        fit_result: Optional["FitResult"] = None,
+        spectra: Optional[jnp.ndarray] = None,
+    ):
+        """
+        Initialize SheapPlot using:
+          - a full Sheapectral object (preferred), or
+          - a FitResult + spectra.
+        """
+        if sheap is not None:
+            self._from_sheap(sheap)
+        elif fit_result is not None and spectra is not None:
+            self._from_fit_result(fit_result, spectra)
+        else:
+            raise ValueError("Provide either `sheap` or (`fit_result` + `spectra`).")
 
-        try:
-            self.spec = ComplexRegion.spec  # Newer version
-        except AttributeError:
-            self.spec = ComplexRegion.spectra
-        try:
-            self.max_flux = ComplexRegion.max_flux
-        except AttributeError:
-            self.max_flux = jnp.nanmax(self.spec[:, 1, :], axis=1)
+    def _from_sheap(self, sheap):
+        self.spec = sheap.spectra
+        #self.max_flux = sheap.max_flux
+        self.result = sheap.result  # keep reference if needed
 
-        self.params = ComplexRegion.params
-        self.profile_params_index_list = ComplexRegion.profile_params_index_list
-        self.profile_functions = ComplexRegion.profile_functions
-        self.profile_names = ComplexRegion.profile_names
-        self.complex_region = ComplexRegion.complex_region
-        self.xlim = ComplexRegion.outer_limits
-        self.mask = ComplexRegion.mask
-        self.names = ComplexRegion.names
-        self.model_keywords = ComplexRegion.model_keywords
+        result = sheap.result  # for convenience
+
+        self.params = result.params
+        self.max_flux = result.max_flux
+        self.uncertainty_params = result.uncertainty_params
+        self.profile_params_index_list = result.profile_params_index_list
+        self.profile_functions = result.profile_functions
+        self.profile_names = result.profile_names
+        self.complex_region = result.complex_region
+        self.xlim = result.outer_limits
+        self.mask = result.mask
+        self.names = sheap.names
+        self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
-        try:
-            self.model = ComplexRegion.model
-        except AttributeError:
-            self.model = jit(combine_auto(self.profile_functions))
+        self.model = jit(combine_auto(self.profile_functions))
+
+    def _from_fit_result(self, result, spectra):
+        self.spec = spectra
+        self.max_flux = jnp.nanmax(spectra[:, 1, :], axis=1)
+        self.params = result.params
+        self.uncertainty_params = result.uncertainty_params
+        self.profile_params_index_list = result.profile_params_index_list
+        self.profile_functions = result.profile_functions
+        self.profile_names = result.profile_names
+        self.complex_region = result.complex_region
+        self.xlim = result.outer_limits
+        self.mask = result.mask
+        self.names = [str(i) for i in range(self.params.shape[0])]
+        self.model_keywords = result.model_keywords or {}
+        self.fe_mode = self.model_keywords.get("fe_mode")
+        self.model = jit(combine_auto(self.profile_functions))
 
     def plot(self, n, save=None, add_name=False, residual=True, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
@@ -48,6 +77,7 @@ class SheapPlot:
         xlim = kwargs.get("xlim", self.xlim)
 
         x_axis, y_axis, yerr = self.spec[n, :]
+
         params = self.params[n]
         mask = self.mask[n]
         fit_y = self.model(x_axis, params)
@@ -65,7 +95,6 @@ class SheapPlot:
 
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
 
-        # Plot model components
         for i, (profile_name, profile_func, region, idxs) in enumerate(
             zip(
                 self.profile_names,
@@ -74,15 +103,9 @@ class SheapPlot:
                 self.profile_params_index_list,
             )
         ):
-
-            # if self.fe_mode=="model" and isinstance(region,list):
-            #   continue
-
             values = params[idxs]
             component_y = profile_func(x_axis, values)
-            # if isinstance(region,list):
-            #   ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
-            # else:
+
             if region.region == "continuum":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.kind == "fe":
@@ -106,7 +129,6 @@ class SheapPlot:
                         zorder=10,
                     )
 
-        # Plot main model and data
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, ls="--", color="red")
         ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1)
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
@@ -125,6 +147,7 @@ class SheapPlot:
         )
         ax1.tick_params(axis='both', labelsize=20)
         ax1.yaxis.offsetText.set_fontsize(20)
+
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
@@ -136,7 +159,6 @@ class SheapPlot:
         else:
             ax1.set_xlabel("Wavelength", fontsize=30)
 
-        # Save or display
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')
             plt.close()

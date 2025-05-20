@@ -17,6 +17,7 @@ from sheap.RegionHandler.utils import fe_ties, group_lines_by_region, region_tie
 # Named constants for special components
 OUTFLOW_COMPONENT = 10
 FE_COMPONENT = 20
+NLR_COMPONENT = 30
 # hipper parameters should be
 POWER_LAW_RANGE_THRESHOLD = 1000
 
@@ -62,6 +63,8 @@ class RegionBuilder:
         force_linear: bool = False,
         add_balmercontiniumm: bool = False,
         fe_tied_params=('center', 'width'),
+        add_NLR : bool = False,
+        powerlaw_profile: str = "powerlaw"
         # model_fii = False
     ) -> None:
         if fe_mode not in ["sum", "model", "template"]:
@@ -88,9 +91,14 @@ class RegionBuilder:
         self.fe_tied_params = fe_tied_params
         self.force_linear = force_linear
         self.add_balmercontiniumm = add_balmercontiniumm
+        self.add_NLR = add_NLR
+        self.powerlaw_profile = powerlaw_profile
         # self.model_fii = model_fii
         self.make_region()
+        
 
+
+        
     def _load_region_templates(self, paths: Optional[List[Union[str, Path]]]) -> None:
         """
         Load YAML files defining spectral regions.
@@ -158,18 +166,16 @@ class RegionBuilder:
         fe_regions: Optional[List[str]] = None,
         add_outflow: Optional[bool] = None,
         add_narrowplus: Optional[bool] = None,
-        # template_mode_fe: Optional[bool] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         force_linear: Optional[bool] = None,
-        # mainline_candidates = None,
         by_region: Optional[bool] = None,
         fe_tied_params: Optional[Tuple] = None,
         add_balmercontiniumm: Optional[Tuple] = None,
-        # model_fii: Optional[Tuple] = None,
         fe_mode=None,
+        add_NLR = None,
+        powerlaw_profile = None,
     ) -> None:
-        # Override defaults
         xmin = xmin if xmin is not None else self.xmin
         xmax = xmax if xmax is not None else self.xmax
         n_broad = n_broad if n_broad is not None else self.n_broad
@@ -182,7 +188,7 @@ class RegionBuilder:
         add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
         fe_regions = fe_regions if fe_regions is not None else self.fe_regions
         force_linear = force_linear if force_linear is not None else self.force_linear
-
+        add_NLR = add_NLR if add_NLR is not None else self.add_NLR
         add_balmercontiniumm = (
             add_balmercontiniumm
             if add_balmercontiniumm is not None
@@ -192,6 +198,8 @@ class RegionBuilder:
         fe_mode = fe_mode if fe_mode is not None else self.fe_mode
         by_region = by_region if by_region is not None else self.by_region
         fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
+        powerlaw_profile = powerlaw_profile if powerlaw_profile is not None else self.powerlaw_profile
+        
         # template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
 
         self.complex_region.clear()
@@ -283,7 +291,7 @@ class RegionBuilder:
                         print("work in progress")
 
                 if name in main_regions:
-                    comps = self._handle_main_line(base, n_narrow, n_broad)
+                    comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR)
                 elif name in narrow_keys:
                     comps = self._handle_narrow_line(base, n_narrow, add_outflow)
                 elif name == 'broad':
@@ -291,8 +299,15 @@ class RegionBuilder:
                 elif fe_mode == "sum" and name in fe_regions:
                     comps = [self._handle_fe_line(base)]
                     tie_fe = True
-                elif fe_mode == "model" and name in ["feii_model", "fe_uv"]:
-                    comps = [self._handle_fe_line(base, how="combine")]
+                #'fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"
+                elif fe_mode == "model":
+                    if  name in ["feii_model", "fe_uv"]:
+                        comps = [self._handle_fe_line(base, how="combine")]
+                    elif name in ["feii_coronal"]:
+                        comps = [self._handle_fe_line(base)]
+                    else:
+                        continue 
+                        
                 else:
                     continue
                 self.complex_region.extend(comps)
@@ -316,20 +331,23 @@ class RegionBuilder:
             self.complex_region.append(
                 SpectralLine(
                     center=0.0,
-                    line_name='powerlaw',
+                    line_name=powerlaw_profile,
                     kind='continuum',
                     component=0,
-                    profile='powerlaw',
+                    profile=powerlaw_profile,
                     region='continuum',
                 )
             )
 
-        # Build tied parameters
-        if tie_fe:
-            self.tied_params.extend(
-                fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params)
-            )
-
+       
+        
+        self.tied_params.extend(
+                fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
+        
+        if fe_mode == "model":
+            self.complex_region = group_lines_by_region(self.complex_region,kind = "fe", component  = 20, exception = ["feii_coronal"])
+        
+        
         self.tied_params.extend(
             region_ties(
                 self.complex_region,
@@ -340,8 +358,7 @@ class RegionBuilder:
                 known_tied_relations=self.known_tied_relations,
             )
         )
-        if fe_mode == "model":
-            self.complex_region = group_lines_by_region(self.complex_region)
+        
 
         self.xmin, self.xmax = xmin, xmax
         self.n_narrow, self.n_broad = n_narrow, n_broad
@@ -357,7 +374,7 @@ class RegionBuilder:
         }
 
     def _handle_main_line(
-        self, entry: SpectralLine, n_narrow: int, n_broad: int
+        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_NLR:bool 
     ) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
         total = n_narrow + n_broad
@@ -371,6 +388,18 @@ class RegionBuilder:
                 kind=kind,
                 component=comp_num,
                 amplitude=amp,
+                profile=entry.profile,
+                how=entry.how,
+                region=entry.region,
+            )
+            comps.append(new)
+        if add_NLR and entry.region == "hydrogen":
+            new = SpectralLine(
+                center=entry.center,
+                line_name=entry.line_name,
+                kind="nlr",
+                component=NLR_COMPONENT,
+                amplitude=amp*0.1,
                 profile=entry.profile,
                 how=entry.how,
                 region=entry.region,

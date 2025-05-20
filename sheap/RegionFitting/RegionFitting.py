@@ -11,23 +11,16 @@ import pandas as pd
 import yaml
 from jax import jit
 
-from sheap.DataClass.DataClass import FittingLimits, SpectralLine
-from sheap.FunctionsMinimize.functions import (
-    Gsum_model,
-    balmerconti,
-    fitFeOP,
-    fitFeUV,
-    gaussian_func,
-    linear,
-    lorentzian_func,
-    powerlaw,
-)
+from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
+from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
+
+
 from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
 
 # from sheap.Fitting.template_fe_func import
 from sheap.FunctionsMinimize.utils import combine_auto
 from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value
-from sheap.SuportFunctions.functions import mapping_params
+from sheap.LineMapper.LineMapper import mapping_params
 from sheap.utils import mask_builder, prepare_spectra
 
 from .uncertainty_functions import batch_error_covariance_in_chunks, error_for_loop
@@ -52,42 +45,13 @@ DEFAULT_LIMITS = {
         upper_width=5000.0, lower_width=425.0, center_shift=2500.0, max_amplitude=10.0
     ),
     'fe': dict(upper_width=3000.0, lower_width=210.0, center_shift=2500.0, max_amplitude=0.07),
+    'nlr': dict(
+    upper_width=1000.0,
+    lower_width=50.0,
+    center_shift=1500.0,
+    max_amplitude=10.0
+)
 }
-
-PROFILE_FUNC_MAP: Dict[str, Any] = {
-    'gaussian': gaussian_func,
-    'lorentzian': lorentzian_func,
-    'powerlaw': powerlaw,
-    'fitFeOP': fitFeOP,
-    'fitFeUV': fitFeUV,
-    'linear': linear,
-    "balmerconti": balmerconti,
-}
-
-# @dataclass
-# class FittingLimits:
-#     """
-#     Stores width and shift limits for a line component kind.
-#     Attributes:
-#         upper_width (float): Maximum velocity width (km/s).
-#         lower_width (float): Minimum velocity width (km/s).
-#         center_shift (float): Maximum center shift (km/s).
-#     """
-#     upper_width: float
-#     lower_width: float
-#     center_shift: float
-#     max_amplitude: float
-
-#     @classmethod
-#     def from_dict(cls, d: Dict[str, float]) -> FittingLimits:
-#         """Create FittingLimits from a dict with keys matching attributes."""
-#         return cls(
-#             upper_width=d['upper_width'],
-#             lower_width=d['lower_width'],
-#             center_shift=d['center_shift'],
-#             max_amplitude=d['max_amplitude']
-#         )
-
 
 def is_list_of_SpectralLine(data: object) -> bool:
     return isinstance(data, list) and all(isinstance(item, SpectralLine) for item in data)
@@ -205,29 +169,15 @@ class RegionFitting:
             )
 
         self._postprocess(norm_spec, params, uncertainty_params, max_flux)
+        self.mask = mask
+        self.loss = loss
+        self.max_flux = max_flux
+        self.outer_limits = outer_limits
+        self.inner_limits = inner_limits
         if do_return:
-            return (
-                self.params,
-                self.uncertainty_params,
-                outer_limits,
-                inner_limits,
-                loss,
-                mask,
-                step,
-                self.params_dict,
-                self.initial_params,
-                self.profile_params_index_list,
-                self.profile_functions,
-                max_flux,
-                self.profile_names,
-                self.region_defs,
-            )
-        else:
-            self.mask = mask
-            self.loss = loss
-            self.max_flux = max_flux
-            self.outer_limits = outer_limits
-            self.inner_limits = inner_limits
+            return self.to_result()
+        #else:
+           
         # spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_flux,(2,1)),0,1)[:,:,None]) #This could be forget after
 
     def _fit(
@@ -433,15 +383,15 @@ class RegionFitting:
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
             if cfg.how == "combine":
-                ngaussian = Gsum_model(cfg.center, cfg.amplitude)
+                ngaussian = PROFILE_FUNC_MAP["Gsum_model"](cfg.center, cfg.amplitude)
                 self.profile_names.append(f"combine_{cfg.profile}")
                 self.profile_functions.append(ngaussian)
             else:
                 self.profile_functions.append(
-                    PROFILE_FUNC_MAP.get(constraints.profile, gaussian_func)
+                    PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"])
                 )
                 self.profile_names.append(constraints.profile)
-            if cfg.profile == "powerlaw":
+            if cfg.profile == "powerlaw" or cfg.profile =="brokenpowerlaw":
                 add_linear = False
             for i, name in enumerate(constraints.param_names):
                 key = f"{name}_{cfg.line_name}_{cfg.component}_{cfg.kind}"
@@ -452,29 +402,16 @@ class RegionFitting:
             )
             idx += len(constraints.param_names)
 
-        # if len(self.list)>0:
-        #   amplitudes,centers = jnp.array([[i.amplitude,i.center] for i in self.list]).T
-        #  ngaussian = Gsum_model(centers,amplitudes)
-        # self.profile_names.append("combinedG")
-        # self.profile_functions.append(ngaussian)
-        # init_list.extend([0.1,0,10])
-        # high_list.extend([10.,+30.,100.])
-        # low_list.extend([0.0,-30.,0.01])
-        # for i, name in enumerate(["amplitude","shift","width"]):
-        #   key = f"{name}_{'fe'}_{20}_{'combinedG'}"
-        #  self.params_dict[key] = idx + i
-        # self.profile_params_index.append([idx,idx+2])
-        # self.profile_params_index_list.append(np.arange(idx,idx+3))
-        # region_defs.append(self.list)
+
         if add_linear:
             print("adding linear")
             # maybe a class method?
             self.profile_names.append("linear")
-            self.profile_functions.append(linear)
+            self.profile_functions.append(PROFILE_FUNC_MAP["linear"])
             init_list.extend([0.1e-4, 0.5])
             high_list.extend([10.0, 10.0])
             low_list.extend([-10.0, -10.0])
-            for i, name in enumerate(["m", "scale"]):
+            for i, name in enumerate(["scale_b", "scale_m"]):
                 key = f"{name}_{'continiumm'}_{0}_{'linear'}"
                 self.params_dict[key] = idx + i
             # self.profile_params_index.append([idx,idx+2])
@@ -527,85 +464,26 @@ class RegionFitting:
         else:
             list_tied_params = []
         return list_tied_params
-
-    # #This two will be move to other place soon.
-    # def mapping_params(self,params,verbose=False):
-    #     """
-    #     params is a str or list
-    #     [["width","broad"],"cont"]
-    #     if verbose you can check if the mapping of parameters was correctly done
-    #     """
-    #     if isinstance(params,str):
-    #         params = [params]
-    #     match_list = []
-    #     for param in params:
-    #         if isinstance(param,str):
-    #             param = [param]
-    #         #print(self.params_dict.keys())
-    #         #print([[self.params_dict[key],key] for key in self.params_dict.keys() if all([p in key for p in param])])
-
-    #         match_list += ([self.params_dict[key] for key in self.params_dict.keys() if all([p in key for p in param])])
-
-    #     match_list = jnp.array(match_list)
-    #     unique_arr = jnp.unique(match_list)
-    #     if verbose:
-    #         print(np.array(list(self.params_dict.keys()))[unique_arr])#[])
-    #     return unique_arr
-
-    # This two will be move to other place soon.
-    # def mapping_lines(self, where, what):
-    #     entries = self.region_defs  # list of Lines
-    #     idx, regions, centers, kinds, component, line_names = np.array([
-    #         [i, e.region, e.center, e.kind, e.component, e.line_name] for i, e in enumerate(entries)
-    #     ]).T
-
-    #     dic_ = {"region": regions, "center": centers, "kind": kinds, "component": component,"line_names":line_names}
-
-    #     # Normalize where and what to lists
-    #     if isinstance(where, str):
-    #         where = [where]
-    #     if isinstance(what, str):
-    #         what = [what]
-
-    #     assert len(where) == len(what), "where and what must have the same length."
-
-    #     # Build the mask
-    #     mask = np.ones(len(entries), dtype=bool)  # Start with everything True
-    #     for w, v in zip(where, what):
-    #         mask &= np.char.find(dic_[w], v) >= 0
-
-    #     # Apply mask
-    #     mask_idx = np.where(mask)[0]
-
-    #     idx = idx[mask_idx].astype(int)
-    #     regions = regions[mask_idx]
-    #     centers = centers[mask_idx].astype(float)
-    #     kinds = kinds[mask_idx]
-    #     components = component[mask_idx]
-    #     entries = np.array(entries)[mask_idx]
-    #     profile_functions = np.array(self.profile_functions)[mask_idx]
-    #     initial_params = np.array(self.initial_params)[mask_idx]
-    #     profile_params_index = np.array(self.profile_params_index)[mask_idx].astype(int)
-    #     profile_params_index_list = [item for id in idx for item in self.profile_params_index_list[id]]
-    #     line_names = line_names[mask_idx]
-
-    #     # Return as a dictionary
-    #     result = {
-    #         "idx": idx,
-    #         "region": regions,
-    #         "center": centers,
-    #         "kind": kinds,
-    #         "component": components,
-    #         "entries": entries,
-    #         "profile_functions": profile_functions,
-    #         "initial_params": initial_params,
-    #         "profile_params_index": profile_params_index,
-    #         "line_name": line_names,
-    #         "profile_params_index_list":profile_params_index_list
-    #     }
-
-    #     return result
-    ##This two will be move to other place soon.
+    
+    
+    def to_result(self) -> FitResult:
+        return FitResult(
+            params=self.params,
+            uncertainty_params=self.uncertainty_params,
+            mask=self.mask,
+            profile_functions=self.profile_functions,
+            profile_names=self.profile_names,
+            max_flux=self.max_flux,
+            params_dict=self.params_dict,
+            complex_region=self.region_defs,
+            loss = self.loss,
+            initial_params = self.initial_params,
+            profile_params_index_list = self.profile_params_index_list,
+            outer_limits = self.outer_limits,
+            inner_limits = self.inner_limits,
+            model_keywords=self.fitting_rutine.get("model_keywords", {})
+        )
+    
     @property
     def pandas_params(self) -> pd.DataFrame:
         """Return fit parameters as a pandas DataFrame."""

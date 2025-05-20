@@ -12,24 +12,16 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.DataClass.DataClass import ComplexRegion, SpectralLine
-from sheap.FunctionsMinimize.functions import (
-    Gsum_model,
-    balmerconti,
-    fitFeOP,
-    fitFeUV,
-    gaussian_func,
-    linear,
-    lorentzian_func,
-    powerlaw,
-)
+from sheap.DataClass.DataClass import ComplexRegion, SpectralLine,FitResult
+from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
+
 from sheap.RegionFitting.RegionFitting import RegionFitting
 
 # from sfdmap2 import sfdmap
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
-from sheap.SuportFunctions.functions import mapping_params
+from sheap.LineMapper.LineMapper import mapping_params
 from sheap.utils import prepare_uncertainties  # ?
-
+from sheap.Plotting.SheapPlot import SheapPlot
 logger = logging.getLogger(__name__)
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -41,18 +33,7 @@ ArrayLike = Union[np.ndarray, jnp.ndarray]
 # list of SpectralLine
 def make_g(list):
     amplitudes, centers = list.amplitude, list.center
-    return Gsum_model(centers, amplitudes)
-
-
-PROFILE_FUNC_MAP: Dict[str, Any] = {
-    'gaussian': gaussian_func,
-    'lorentzian': lorentzian_func,
-    'powerlaw': powerlaw,
-    'fitFeOP': fitFeOP,
-    'fitFeUV': fitFeUV,
-    'linear': linear,
-    "balmerconti": balmerconti,
-}
+    return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)
 
 
 # TODO Add multiple models to the reading.
@@ -182,6 +163,8 @@ class Sheapectral:
         force_linear: bool = False,
         add_balmercontiniumm: bool = False,
         fe_tied_params: Union[tuple, list] = ('center', 'width'),
+        add_NLR = False,
+        powerlaw_profile = "powerlaw"
     ):
         self.builded_region = RegionBuilder(
             xmin=xmin,
@@ -192,64 +175,85 @@ class Sheapectral:
             tied_broad_to=tied_broad_to,
             fe_regions=fe_regions,
             fe_mode=fe_mode,
-            # template_mode_fe=template_mode_fe,
             add_outflow=add_outflow,
             add_narrowplus=add_narrowplus,
             by_region=by_region,
             force_linear=force_linear,
             add_balmercontiniumm=add_balmercontiniumm,
             fe_tied_params=fe_tied_params,
-            # model_fii = model_fii
+            add_NLR = add_NLR,
+            powerlaw_profile = powerlaw_profile
         )
-
+        
+        self.fitting_rutine = self.builded_region()
+        self.complex_region = self.builded_region.complex_region
+    
     def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
-
         spectra = self.spectra.at[:, [1, 2], :].multiply(
             10 ** (-1 * self.spectra_exp[:, jnp.newaxis, jnp.newaxis])
         )  # apply escale to 0-20 max
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit()")
-        self.fitting_rutine = self.builded_region(
-            add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list
-        )
+        self.fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fittingclass = RegionFitting(self.fitting_rutine)
-        (
-            params,
-            uncertainty_params,
-            outer_limits,
-            inner_limits,
-            loss,
-            mask,
-            step,
-            params_dict,
-            initial_params,
-            profile_params_index_list,
-            profile_functions,
-            max_flux,
-            profile_names,
-            complex_region,
-        ) = fittingclass(
-            spectra, do_return=True
-        )  # runmodel()?
-        self.outer_limits = outer_limits
-        self.inner_limits = inner_limits
-        self.loss = loss
-        self.mask = mask  # True means dont use it
-        self.step = step
-        self.params_dict = params_dict
-        self.profile_functions = profile_functions
-        self.initial_params = initial_params
-        self.profile_params_index_list = profile_params_index_list
-        self.max_flux = max_flux
-        self.profile_names = profile_names
-        self.complex_region = complex_region
-        self.model_keywords = self.fitting_rutine.get("model_keywords")
+        self.result = fittingclass(spectra, do_return=True)
+        # Rescale amplitudes
         scaled = 10**self.spectra_exp
-        idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])  #
-        self.max_flux = self.max_flux * scaled  # just for the plot
-        self.params = params.at[:, idxs].multiply(scaled[:, None])
-        self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        self._complex_region()
+        idxs = mapping_params(self.result.params_dict, [["amplitude"], ["scale"]])
+        self.result.max_flux = self.result.max_flux * scaled
+        self.result.params = self.result.params.at[:, idxs].multiply(scaled[:, None])
+        self.result.uncertainty_params = self.result.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
+        self.model_keywords = self.fitting_rutine.get("model_keywords")
+        self._plotter = SheapPlot(sheap=self)
+        
+    @property
+    def modelplot(self):
+        if not hasattr(self, "_plotter"):
+            if hasattr(self, "result"):
+                self._plotter = SheapPlot(sheap=self)
+            else:
+                raise RuntimeError("No fit result found. Run `fit_region()` first.")
+        return self._plotter
+
+    
+    # def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
+
+    #     spectra = self.spectra.at[:, [1, 2], :].multiply(
+    #         10 ** (-1 * self.spectra_exp[:, jnp.newaxis, jnp.newaxis])
+    #     )  # apply escale to 0-20 max
+    #     if not hasattr(self, "builded_region"):
+    #         raise RuntimeError("build_region() must be called before fit()")
+        
+    #     self.fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
+        
+        
+    #     fittingclass = RegionFitting(self.fitting_rutine)
+    #     result = fittingclass(spectra, do_return=True)
+       
+    #     # Unpack result to self
+    #     self.params = result.params
+    #     self.uncertainty_params = result.uncertainty_params
+    #     self.outer_limits = result.outer_limits
+    #     self.inner_limits = result.inner_limits
+    #     self.loss = result.loss
+    #     self.mask = result.mask
+    #     self.step = result.step
+    #     self.params_dict = result.params_dict
+    #     self.initial_params = result.initial_params
+    #     self.profile_params_index_list = result.profile_params_index_list
+    #     self.profile_functions = result.profile_functions
+    #     self.profile_names = result.profile_names
+    #     self.complex_region = result.complex_region
+    #     self.model_keywords = self.fitting_rutine.get("model_keywords")
+
+    #     # Rescale amplitudes
+    #     scaled = 10**self.spectra_exp
+    #     idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
+    #     self.max_flux = result.max_flux * scaled
+    #     self.params = self.params.at[:, idxs].multiply(scaled[:, None])
+    #     self.uncertainty_params = self.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
+        
+    #     self._complex_region()
 
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
@@ -385,6 +389,3 @@ class Sheapectral:
         # params_dict: Dict
         # profile_names: List[str]
 
-    def _modelplot(self):
-
-        print("work in progress")

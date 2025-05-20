@@ -1,6 +1,7 @@
 #########
 # To Do # (SHEAP)
 #########
+# TODO: Move all the profile functions to use FWHM
 # TODO: Cleanup
 # TODO: Choice of using skewed Gaussians
 # TODO: Observed frame input with redshift
