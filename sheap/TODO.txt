@@ -12,3 +12,6 @@
 	parameter RFe II, defined by the ratio between the integrated
 	Fe II over the range 4434–4684 Å and the Hβ intensity. In
 	addition to RFe II and FWHM(Hβ)
+#TODO: in the Region handler part we should be able of 
+['b4D', 'b4Da', 'b4Db', 'b4Dc', 'b4Dd', 'b4De', 'b4Df', 'b4Dg', 'b4Dh', 'b4Di', 'b4Dj', 'b4Dk', 'b4Dl', 'b4Dm', 'b4Dn', 'b4Do', 'b4Dp', 'b4Dq', 'b4Dr', 'b4Ds']
+change this line_name to a more generic name like complex_b4D? maybe? if the line_name is a complex so we are talkind of an agrupation of lines?

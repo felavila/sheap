@@ -470,6 +470,7 @@ class RegionFitting:
         return FitResult(
             params=self.params,
             uncertainty_params=self.uncertainty_params,
+            constraints=self.constraints,
             mask=self.mask,
             profile_functions=self.profile_functions,
             profile_names=self.profile_names,
@@ -481,6 +482,7 @@ class RegionFitting:
             profile_params_index_list = self.profile_params_index_list,
             outer_limits = self.outer_limits,
             inner_limits = self.inner_limits,
+            
             #model_keywords=self.fitting_rutine.get("model_keywords", {})
         )
     

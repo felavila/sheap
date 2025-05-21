@@ -22,6 +22,7 @@ from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.LineMapper.LineMapper import mapping_params
 from sheap.utils import prepare_uncertainties  # ?
 from sheap.Plotting.SheapPlot import SheapPlot
+
 logger = logging.getLogger(__name__)
 
 module_dir = os.path.dirname(os.path.abspath(__file__))
@@ -198,7 +199,7 @@ class Sheapectral:
 
         fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_rutine)
-        
+        #print(fitting_rutine.keys())
         fit_output = fitting_class(spectra_scaled, do_return=True)
 
         # Rescale amplitudes
@@ -207,8 +208,9 @@ class Sheapectral:
 
         fit_output.max_flux = fit_output.max_flux * scaled
         fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
+        fit_output.constraints = fit_output.constraints.at[idxs,:].multiply(scaled)
         fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        fit_output.initial_params = fitting_class.initial_params
+        fit_output.initial_params = fitting_class.initial_params #mmm
         fit_output.source = "computed"
         
         # Store result using FitResult directly
@@ -226,7 +228,9 @@ class Sheapectral:
             complex_region=fit_output.complex_region,
             outer_limits=fit_output.outer_limits,
             inner_limits=fit_output.inner_limits,
-            model_keywords=fitting_rutine.get("model_keywords"),
+            model_keywords= fitting_rutine.get("model_keywords"),
+            fitting_rutine = fitting_rutine.get("fitting_rutine"),
+            constraints = fit_output.constraints,
             source=fit_output.source
         )
 
@@ -281,26 +285,30 @@ class Sheapectral:
             inner_limits=data.get("inner_limits"),
             model_keywords=data.get("model_keywords"),
             source=data.get("source", "pickle"),
+            constraints = data.get('constraints'),
+            fitting_rutine = data.get("fitting_rutine")
         )
         obj._plotter = SheapPlot(sheap=obj)
         return obj
-    def to_result(self) -> FitResult:
-        self.result= FitResult(
-            #initial_params = self.initial_params,
-            params=self.params,
-            uncertainty_params=self.uncertainty_params,
-            mask=self.mask,
-            profile_functions=self.profile_functions,
-            profile_names=self.profile_names,
-            max_flux=self.max_flux,
-            params_dict=self.params_dict,
-            complex_region=self.complex_region,
-            #loss = self.loss,
-            profile_params_index_list = self.profile_params_index_list,
-            outer_limits = self.outer_limits,
-            #inner_limits = self.inner_limits,
-            model_keywords=self.model_keywords
-        )
+    
+    # def to_result(self) -> FitResult:
+    #     self.result= FitResult(
+    #         #initial_params = self.initial_params,
+    #         params=self.params,
+    #         uncertainty_params=self.uncertainty_params,
+    #         mask=self.mask,
+    #         profile_functions=self.profile_functions,
+    #         profile_names=self.profile_names,
+    #         max_flux=self.max_flux,
+    #         params_dict=self.params_dict,
+    #         complex_region=self.complex_region,
+    #         #loss = self.loss,
+    #         profile_params_index_list = self.profile_params_index_list,
+    #         outer_limits = self.outer_limits,
+    #         #inner_limits = self.inner_limits,
+    #         model_keywords=self.model_keywords,
+    #         constraints = self.constraints
+    #     )
    
 
     
@@ -328,7 +336,8 @@ class Sheapectral:
             "inner_limits": self.result.inner_limits,
             "model_keywords": self.result.model_keywords,
             "source": self.result.source,
-            "max_flux":np.array(self.result.max_flux)
+            "max_flux":np.array(self.result.max_flux),
+            'constraints':np.array(self.result.constraints)
         }
 
         estimated_size = sys.getsizeof(pickle.dumps(dic_))

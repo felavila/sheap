@@ -65,7 +65,7 @@ class SheapPlot:
         self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
 
-    def plot(self, n, save=None, add_name=False, residual=True, **kwargs):
+    def plot(self, n, save=None, add_name=False, residual=True,params=None, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -78,7 +78,7 @@ class SheapPlot:
 
         x_axis, y_axis, yerr = self.spec[n, :]
 
-        params = self.params[n]
+        params = params if params is not None else self.params[n]
         mask = self.mask[n]
         fit_y = self.model(x_axis, params)
 

@@ -45,7 +45,7 @@ class ParameterEstimation:
         z: Optional[jnp.ndarray] = None,
         fluxnorm=None,
         
-        d=None,
+        #d=None,
         cosmo=None,
         c=299792.458,
     ): 

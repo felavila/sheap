@@ -49,12 +49,14 @@ class FitResult:
         inner_limits (Optional[List]): Inner wavelength limits defining the region of interest.
         model_keywords (Optional[dict]): Additional keywords for model configuration.
         kind_list (List[str]): Unique types of spectral lines (computed post-init).
+        constraints same as constrains from fit 
     """
-
     complex_region: List[SpectralLine]
+    fitting_rutine: Optional[dict] = None
     params: Optional[jnp.ndarray] = None
     uncertainty_params: Optional[jnp.ndarray] = None
     mask: Optional[jnp.ndarray] = None
+    constraints: Optional[jnp.ndarray] = None
     profile_functions: Optional[List[Callable]] = None
     profile_names: Optional[List[str]] = None
     loss: Optional[List] = None
@@ -67,7 +69,6 @@ class FitResult:
     model_keywords: Optional[dict] = None
     source:Optional[dict] = None
     kind_list: List[str] = field(init=False)
-
     def __post_init__(self):
         self.kind_list = list({line.kind for line in self.complex_region})
 
