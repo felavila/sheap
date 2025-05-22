@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Tuple, Union
 
 import jax
 import jax.numpy as jnp
@@ -97,3 +97,76 @@ def batch_error_covariance_in_chunks(
         results.append(batch_res)
 
     return jnp.concatenate(results, axis=0)
+
+
+
+
+def error_covariance_matrix_singlev2(
+    func: Callable,
+    params_i: jnp.ndarray,
+    xs_i: jnp.ndarray,
+    y_i: jnp.ndarray,
+    yerr_i: jnp.ndarray,
+    full_params: int,
+    return_full: bool = False,
+    regularization: float = 1e-6,
+    overboost_threshold: float = 1e10,
+) -> Union[jnp.ndarray, Tuple[jnp.ndarray, jnp.ndarray]]:
+    """
+    Estimate parameter uncertainties from the inverse of the Jacobian's Gram matrix.
+
+    If residuals contain NaN/Inf, or model is ill-conditioned, returns fallback values.
+
+    Args:
+        func: Model function.
+        params_i: Best-fit parameters.
+        xs_i, y_i, yerr_i: Data and uncertainties.
+        full_params: Total number of parameters (before constraint filtering).
+        return_full: Whether to return the full covariance matrix.
+        regularization: Small diagonal value added for stability.
+        overboost_threshold: Any yerr > this value is considered 'masking'.
+
+    Returns:
+        std_error: Parameter uncertainties.
+        cov_matrix (optional): Full covariance matrix.
+    """
+
+    # Mask out overboosted entries
+    mask = yerr_i < overboost_threshold
+    if mask.sum() == 0:
+        # All points masked ⇒ return fallback
+        fallback = jnp.abs(params_i) * 5.0 + 1.0
+        return (fallback, jnp.diag(fallback**2)) if return_full else fallback
+
+    xs_valid, y_valid, yerr_valid = xs_i[mask], y_i[mask], yerr_i[mask]
+
+    def residual_fn(p):
+        return residuals(func, p, xs_valid, y_valid, yerr_valid)
+
+    residual = residual_fn(params_i)
+
+    if jnp.any(jnp.isnan(residual)) or jnp.any(jnp.isinf(residual)):
+        fallback = jnp.abs(params_i) * 5.0 + 1.0
+        return (fallback, jnp.diag(fallback**2)) if return_full else fallback
+
+    # Build Jacobian
+    jacobian = jax.jacobian(residual_fn)(params_i)
+    JTJ = jacobian.T @ jacobian
+
+    # Infer number of free parameters from Jacobian rank
+    param_mask = jnp.linalg.norm(jacobian, axis=0) > 1e-8
+    free_params = int(param_mask.sum())
+
+    dof = max(residual.size - free_params, 1)
+    s_sq = jnp.sum(residual ** 2) / dof
+    reg = regularization * jnp.eye(JTJ.shape[0])
+
+    try:
+        cov = jnp.linalg.inv(JTJ + reg) * s_sq
+    except (jax.errors.ConcretizationTypeError, RuntimeError, ValueError):
+        cov = jnp.linalg.pinv(JTJ) * s_sq
+
+    diag_cov = jnp.clip(jnp.diag(cov), a_min=1e-20)
+    std_error = jnp.sqrt(diag_cov)
+
+    return (std_error, cov) if return_full else std_error
