@@ -58,6 +58,7 @@ class LineSelectionResult:
     params: np.ndarray
     uncertainty_params: np.ndarray
     profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
+    filtered_dict: Dict
 
 
 class LineMapper:
@@ -173,7 +174,8 @@ class LineMapper:
             params=filtered_params,
             uncertainty_params=filtered_u_params,
             profile_functions_combine=combined_profile_func,
-        )
+            filtered_dict = {keys:i for keys,i in zip(np.array(list(self.params_dict.keys()))[
+                profile_params_index_flat.astype(int)],profile_params_index_flat)})
 
         self._last_filtered = result
         return result

@@ -11,8 +11,13 @@ from sheap.FunctionsMinimize.utils import combine_auto
 from sheap.LineMapper.LineMapper import mapping_params
 from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value
 from sheap.FunctionsMinimize.utils import parse_dependency,parse_dependencies
-
+#Check again all the stuff abut this indexing 
+#the official structure throughout the code is tag,target_idx,src_idx, op, val = ties
+##_, target, source, op, operand = dep
+#tag,target_idx,src_idx, op, val = ties
 def apply_arithmetic_ties(params: Dict[str, float], ties: List[Tuple]) -> Dict[str, float]:
+    #_, target, source, op, operand = dep
+    #tag,target_idx,src_idx, op, val = ties
     for tag, src_idx, target_idx, op, val in ties:
         src = params[f"theta_{src_idx}"]
         if op == '+':
@@ -29,6 +34,8 @@ def apply_arithmetic_ties(params: Dict[str, float], ties: List[Tuple]) -> Dict[s
     return params
 
 def apply_arithmetic_ties_restore(samples, ties):
+    #_, target, source, op, operand = dep
+    #tag,target_idx,src_idx, op, val = ties
     tag, src_idx, target_idx, op, val = ties
     src = samples[f"theta_{src_idx}"]
     if op == '-':

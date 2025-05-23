@@ -4,27 +4,24 @@ import jax.numpy as jnp
 # Define the signature for profile functions: (x, params) -> output
 ProfileFunc = Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]
 
-# === Import your actual model functions here ===
-from .functions import (
-    gaussian_func,
-    lorentzian_func,
-    powerlaw,
-    fitFeOP,
-    fitFeUV,
-    linear,
-    balmerconti,
-    brokenpowerlaw,Gsum_model
-)
+from .functions.continiumm_profiles import (linear,balmerconti,powerlaw,brokenpowerlaw)
+from .functions.lines_profiles import (gaussian_fwhm,lorentzian_fwhm,Gsum_model)
+from .functions.template_func import (fitFeOP,fitFeUV)
 
-# === Dictionary mapping profile names to functions ===
+
 PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {
-    'gaussian': gaussian_func,
-    'lorentzian': lorentzian_func,
-    'powerlaw': powerlaw,
-    'fitFeOP': fitFeOP,
-    'fitFeUV': fitFeUV,
     'linear': linear,
+    'powerlaw': powerlaw,
     'balmerconti': balmerconti,
     'brokenpowerlaw': brokenpowerlaw,
-    "Gsum_model":Gsum_model
+    
+    'gaussian': gaussian_fwhm,
+    'lorentzian': lorentzian_fwhm,
+    "Gsum_model":Gsum_model,
+   
+    'fitFeOP': fitFeOP,
+    'fitFeUV': fitFeUV,
+    
+    
+    
 }

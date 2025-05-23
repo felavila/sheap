@@ -8,6 +8,46 @@ from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
 
 
 
+
+DEFAULT_LIMITS = {
+    'broad': dict(
+        upper_fwhm=11775.0,  # FWHM ~ 1000–10000 km/s for broad lines
+        lower_fwhm=1000.875,
+        center_shift=5000.0,
+        max_amplitude=10.0,
+        # Ref: Sulentic+2000, Shen+2011
+    ),
+    'narrow': dict(
+        upper_fwhm=471.0,   # FWHM ~ 200–1000 km/s typical for NLR
+        lower_fwhm=117.75,
+        center_shift=2500.0,
+        max_amplitude=10.0,
+        # Ref: Osterbrock & Ferland 2006, Véron-Cetty+2001
+    ),
+    'outflow': dict(
+        upper_fwhm=11775.0,   # FWHM for blueshifted or broad outflowing components
+        lower_fwhm=1000.875,
+        center_shift=2500.0,
+        max_amplitude=10.0,
+        # Ref: Bischetti+2017, Perrotta+2019
+    ),
+    'fe': dict(
+        upper_fwhm=7065.0,   # Typical Fe II FWHM from 800 to 2500 km/s
+        lower_fwhm=494.55,
+        center_shift=2500.0,
+        max_amplitude=0.07,
+        # Ref: Kovačević+2010, Ilic+2022
+    ),
+    'nlr': dict(
+        upper_fwhm=2355.0,   # NLR lines are narrow; similar to 'narrow' but possibly less broadened
+        lower_fwhm=117.75,
+        center_shift=1500.0,
+        max_amplitude=10.0,
+        # Ref: Bennert+2006, Hainline+2013
+    )
+}
+
+
 def make_constraints(
     cfg: SpectralLine, limits: FittingLimits, profile="gaussian"
 ) -> ConstraintSet:
@@ -16,7 +56,7 @@ def make_constraints(
 
     Args:
         cfg: SpectralLine configuration.
-        limits: Kinematic constraints (velocity width and center shift in km/s).
+        limits: Kinematic constraints (velocity fwhm and center shift in km/s).
 
     Returns:
         A ConstraintSet containing init values, upper/lower bounds, profile type, and parameter names.
@@ -48,15 +88,16 @@ def make_constraints(
 
             shift_upper = 10.0
             shift_lower = -10.0
-            width_upper = 85
-            width_lower = 8.5
+            #This steall require a phisical reason 
+            fwhm_upper = 85*2.355
+            fwhm_lower = 8.5*2.355
 
             return ConstraintSet(
-                init=[1.0, 0, float(width_lower)],
-                upper=[5.0, shift_upper, width_upper],
-                lower=[0.0, shift_lower, width_lower],
+                init=[1.0, 0, float(fwhm_lower)],
+                upper=[5.0, shift_upper, fwhm_upper],
+                lower=[0.0, shift_lower, fwhm_lower],
                 profile=selected_profile,
-                param_names=['amplitude', 'shift', 'width'],
+                param_names=['amplitude', 'shift', 'fwhm'],
             )
 
     if selected_profile == 'powerlaw':
@@ -92,21 +133,23 @@ def make_constraints(
 
         center_upper = center + kms_to_wl(limits.center_shift, center)
         center_lower = center - kms_to_wl(limits.center_shift, center)
-        width_upper = kms_to_wl(limits.upper_width, center)
-        width_lower = kms_to_wl(limits.lower_width, center)
+        fwhm_upper = kms_to_wl(limits.upper_fwhm, center)
+        fwhm_lower = kms_to_wl(limits.lower_fwhm, center)
 
         return ConstraintSet(
-            init=[float(cfg.amplitude), float(center + shift), float(width_lower)],
-            upper=[limits.max_amplitude, center_upper, width_upper],
-            lower=[0.0, center_lower, width_lower],
+            init=[float(cfg.amplitude), float(center + shift), float(fwhm_lower)],
+            upper=[limits.max_amplitude, center_upper, fwhm_upper],
+            lower=[0.0, center_lower, fwhm_lower],
             profile='gaussian',
-            param_names=['amplitude', 'center', 'width'],
+            param_names=['amplitude', 'center', 'fwhm'],
         )
 
     raise NotImplementedError(
         f"No constraints defined for profile '{selected_profile}'. "
         f"Define its ConstraintSet explicitly in make_constraints."
     )
+
+
 
 
 

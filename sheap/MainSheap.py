@@ -19,8 +19,8 @@ from sheap.RegionFitting.RegionFitting import RegionFitting
 
 # from sfdmap2 import sfdmap
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
-from sheap.LineMapper.LineMapper import mapping_params
-from sheap.utils import prepare_uncertainties  # ?
+#from sheap.LineMapper.LineMapper import mapping_params
+#from sheap.utils import prepare_uncertainties  # ?
 from sheap.Plotting.SheapPlot import SheapPlot
 
 logger = logging.getLogger(__name__)
@@ -163,9 +163,10 @@ class Sheapectral:
         by_region: bool = False,
         force_linear: bool = False,
         add_balmercontiniumm: bool = False,
-        fe_tied_params: Union[tuple, list] = ('center', 'width'),
+        fe_tied_params: Union[tuple, list] = ('center', 'fwhm'),
         add_NLR = False,
-        powerlaw_profile = "powerlaw"
+        powerlaw_profile = "powerlaw",
+        no_fe = False
     ):
         self.builded_region = RegionBuilder(
             xmin=xmin,
@@ -183,16 +184,19 @@ class Sheapectral:
             add_balmercontiniumm=add_balmercontiniumm,
             fe_tied_params=fe_tied_params,
             add_NLR = add_NLR,
-            powerlaw_profile = powerlaw_profile
+            powerlaw_profile = powerlaw_profile,
+            no_fe = no_fe
         )
         
         self.fitting_rutine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
-        spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(
-            10 ** (-1 * self.spectra_exp[:, None, None])
-        )
+    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,N=2_000):
+        #We have to remove all kind of normalization in this and all the result,constrains, uncertainty have to come back in the original scale of the 
+        #spectra so in this way we can have other problems with scales 
+        #spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(
+         #   10 ** (-1 * self.spectra_exp[:, None, None])
+        #)
 
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
@@ -200,17 +204,17 @@ class Sheapectral:
         fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_rutine)
         #print(fitting_rutine.keys())
-        fit_output = fitting_class(spectra_scaled, do_return=True)
+        fit_output = fitting_class(self.spectra, do_return=True,N=N)
 
         # Rescale amplitudes
-        scaled = 10 ** self.spectra_exp
-        idxs = mapping_params(fit_output.params_dict, [["amplitude"], ["scale"]])
+        #scaled = 10 ** self.spectra_exp
+        #idxs = mapping_params(fit_output.params_dict, [["amplitude"], ["scale"]])
 
-        fit_output.max_flux = fit_output.max_flux * scaled
-        fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
-        fit_output.constraints = fit_output.constraints.at[idxs,:].multiply(scaled)
-        fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        fit_output.initial_params = fitting_class.initial_params #mmm
+        #fit_output.max_flux = fit_output.max_flux * scaled
+        #fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
+        #fit_output.constraints = fit_output.constraints.at[idxs,:].multiply(scaled)
+        #fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
+        fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"
         
         # Store result using FitResult directly
@@ -231,20 +235,14 @@ class Sheapectral:
             model_keywords= fitting_rutine.get("model_keywords"),
             fitting_rutine = fitting_rutine.get("fitting_rutine"),
             constraints = fit_output.constraints,
-            source=fit_output.source
+            source=fit_output.source,
+            dependencies=fit_output.dependencies
         )
 
         self._plotter = SheapPlot(sheap=self)
 
         
-    @property
-    def modelplot(self):
-        if not hasattr(self, "_plotter"):
-            if hasattr(self, "result"):
-                self._plotter = SheapPlot(sheap=self)
-            else:
-                raise RuntimeError("No fit result found. Run `fit_region()` first.")
-        return self._plotter
+    
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
         filepath = Path(filepath)
@@ -351,6 +349,20 @@ class Sheapectral:
         with open(filepath, "wb") as f:
             pickle.dump(self._save(), f)
 
+    @property
+    def modelplot(self):
+        if not hasattr(self, "_plotter"):
+            if hasattr(self, "result"):
+                self._plotter = SheapPlot(sheap=self)
+            else:
+                raise RuntimeError("No fit result found. Run `fit_region()` first.")
+        return self._plotter
+    def result_dict(self, n: int) -> Dict[str, List[float]]:
+        return {
+            key: [self.result.params[n][i], self.result.uncertainty_params[n][i]]
+            for key, i in self.result.params_dict.items()
+    }
+    
     def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
         import matplotlib.pyplot as plt
         from matplotlib.ticker import FixedLocator

@@ -13,17 +13,17 @@ from jax import jit
 
 from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
 from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
-
+from sheap.FunctionsMinimize.utils import parse_dependencies
 
 from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
 
 # from sheap.Fitting.template_fe_func import
 from sheap.FunctionsMinimize.utils import combine_auto
-from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value
+from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
 from sheap.LineMapper.LineMapper import mapping_params
 from sheap.utils import mask_builder, prepare_spectra
 
-from .uncertainty_functions import batch_error_covariance_in_chunks, error_for_loop
+from .uncertainty_functions import error_for_loop
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -33,25 +33,7 @@ OUTFLOW_COMPONENT = 10  # ID used for outflow line components
 FE_COMPONENT = 20  # ID used for Fe emission components
 CONT_COMPONENT = 0  # ID used for continuum component
 
-# Default kinematic limits (in km/s) per component kind
-DEFAULT_LIMITS = {
-    'broad': dict(
-        upper_width=5000.0, lower_width=425.0, center_shift=5000.0, max_amplitude=10.0
-    ),
-    'narrow': dict(
-        upper_width=200.0, lower_width=50.0, center_shift=2500.0, max_amplitude=10.0
-    ),
-    'outflow': dict(
-        upper_width=5000.0, lower_width=425.0, center_shift=2500.0, max_amplitude=10.0
-    ),
-    'fe': dict(upper_width=3000.0, lower_width=210.0, center_shift=2500.0, max_amplitude=0.07),
-    'nlr': dict(
-    upper_width=1000.0,
-    lower_width=50.0,
-    center_shift=1500.0,
-    max_amplitude=10.0
-)
-}
+
 
 def is_list_of_SpectralLine(data: object) -> bool:
     return isinstance(data, list) and all(isinstance(item, SpectralLine) for item in data)
@@ -129,21 +111,16 @@ class RegionFitting:
         inner_limits: Optional[Tuple[float, float]] = None,
         outer_limits: Optional[Tuple[float, float]] = None,
         force_cut: bool = False,
-        exp_factor: jnp.ndarray = jnp.array(
-            [0.0]
-        ),  # this is part of the posterior that cames from the class Mainsheap
-        # renormalize: bool = True, #This should be allways trues
+        #exp_factor: jnp.ndarray = jnp.array([0.0]),# this is part of the posterior that cames from the class Mainsheap
+        N: int = 2_000,
         do_return=False,  # meanwhile variable
-        sigma_params=True,
-    ) -> None:
+        sigma_params=True,) -> None:
         # the idea is that is exp_factor dosent have the same shape of max_flux could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra")
         self.model = jit(
-            combine_auto(self.profile_functions)
-        )  # maybe this could be taked before
-        _, mask, max_flux, norm_spec, exp_factor = self._prep_data(
-            spectra, inner_limits, outer_limits, force_cut, exp_factor
-        )
+            combine_auto(self.profile_functions))  # maybe this could be taked before
+        _, mask, max_flux, norm_spec = self._prep_data(
+            spectra, inner_limits, outer_limits, force_cut)
 
         inner_limits = self.inner_limits or inner_limits
         outer_limits = self.outer_limits or outer_limits
@@ -161,13 +138,10 @@ class RegionFitting:
         if sigma_params:
             print("running uncertainty")
             # error_for_loop(model,params,spectra,free_params=0)
-            uncertainty_params = error_for_loop(
-                self.model,
-                params,
-                norm_spec,
-                free_params=params.shape[1] - len(step.get("tied", [])),
-            )
-
+            dependencies = parse_dependencies(self._build_tied(step["tied"]))
+            #print(dependencies)
+            uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies,N = N)
+        self.dependencies = dependencies
         self._postprocess(norm_spec, params, uncertainty_params, max_flux)
         self.mask = mask
         self.loss = loss
@@ -178,8 +152,8 @@ class RegionFitting:
             return self.to_result()
         #else:
            
-        # spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_flux,(2,1)),0,1)[:,:,None]) #This could be forget after
-
+        # spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_flux,(2,1)),0,1)[:,:,None]) #This could be forget after   
+    
     def _fit(
         self,
         norm_spec: jnp.ndarray,
@@ -229,7 +203,7 @@ class RegionFitting:
         inner_limits: Optional[Tuple[float, float]],
         outer_limits: Optional[Tuple[float, float]],
         force_cut: bool,
-        exp_factor,
+        #exp_factor,
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         """
         Preprocess spectra:
@@ -263,13 +237,11 @@ class RegionFitting:
             norm_spec = spec.at[:, [1, 2], :].divide(
                 jnp.moveaxis(jnp.tile(max_flux, (2, 1)), 0, 1)[:, :, None]
             )
-            if exp_factor.shape != max_flux.shape:
-                exp_factor = 0
         except Exception as e:
             logger.exception("Normalization error")
             raise ValueError(f"Normalization error: {e}")
 
-        return spec, mask, max_flux, norm_spec, exp_factor
+        return spec, mask, max_flux, norm_spec
 
     def _postprocess(
         self,
@@ -482,7 +454,8 @@ class RegionFitting:
             profile_params_index_list = self.profile_params_index_list,
             outer_limits = self.outer_limits,
             inner_limits = self.inner_limits,
-            
+            fitting_rutine = self.fitting_rutine,
+            dependencies = self.dependencies 
             #model_keywords=self.fitting_rutine.get("model_keywords", {})
         )
     

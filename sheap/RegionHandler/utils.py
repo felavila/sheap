@@ -55,7 +55,7 @@ def group_lines_by_region(
 
 
 def fe_ties(
-    entries: List[SpectralLine], by_region=True, tied_params=('center', 'width')
+    entries: List[SpectralLine], by_region=True, tied_params=('center', 'fwhm')
 ) -> List[List[str]]:
     regions, centers, kinds,_ = np.array([[e.region, e.center, e.kind,e.how] for e in entries if e.how !="combine"]).T
     
@@ -135,7 +135,8 @@ def region_ties(
     ]  # this can be disscuss in the future
     mainline_candidates_narrow = [
         "OIIIc",
-        "NIIb",
+        "Halpha",
+        "NIIb", #could mm
         "MgII",
         "CIII]",
         "SIIb",
@@ -199,7 +200,7 @@ def region_ties(
         else:
             continue  # unknown kind
 
-        for p in ("center", "width"):
+        for p in ("center", "fwhm"):
             source_name = f"{p}_{e.line_name}_{comp}_{suffix}"
             target_name = f"{p}_{target['line_name']}_{target['component']}_{suffix}"
             add_tie_if_different(source_name, target_name)

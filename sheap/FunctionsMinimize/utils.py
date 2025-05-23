@@ -37,6 +37,19 @@ def param_count(n):
 
     return decorator
 
+# def with_param_names(names):
+#     def decorator(func):
+#         func.param_names = names
+#         return func
+#     return decorator
+
+def with_param_names(param_names: list[str]):
+    def decorator(func):
+        func.param_names = param_names
+        func.n_params = len(param_names)
+        return func
+    return decorator
+
 
 @jit
 def project_params_clasic(

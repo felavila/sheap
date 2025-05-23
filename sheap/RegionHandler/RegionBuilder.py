@@ -27,7 +27,8 @@ class RegionBuilder:
     Builds spectral fitting regions from YAML templates, with narrow, broad,
     outflow, and FeII components, plus parameter tying.
     """
-
+    #- Arithmetic: "target source *2"  (target = source * 2)
+    ##_, target, source, op, operand = dep
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [
         (
             ('OIIIb', 'OIIIc'),
@@ -62,9 +63,10 @@ class RegionBuilder:
         by_region: bool = False,
         force_linear: bool = False,
         add_balmercontiniumm: bool = False,
-        fe_tied_params=('center', 'width'),
+        fe_tied_params=('center', 'fwhm'),
         add_NLR : bool = False,
-        powerlaw_profile: str = "powerlaw"
+        powerlaw_profile: str = "powerlaw",
+        no_fe = False
         # model_fii = False
     ) -> None:
         if fe_mode not in ["sum", "model", "template"]:
@@ -93,6 +95,7 @@ class RegionBuilder:
         self.add_balmercontiniumm = add_balmercontiniumm
         self.add_NLR = add_NLR
         self.powerlaw_profile = powerlaw_profile
+        self.no_fe = no_fe
         # self.model_fii = model_fii
         self.make_region()
         
@@ -175,6 +178,7 @@ class RegionBuilder:
         fe_mode=None,
         add_NLR = None,
         powerlaw_profile = None,
+        no_fe = None
     ) -> None:
         xmin = xmin if xmin is not None else self.xmin
         xmax = xmax if xmax is not None else self.xmax
@@ -199,13 +203,13 @@ class RegionBuilder:
         by_region = by_region if by_region is not None else self.by_region
         fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
         powerlaw_profile = powerlaw_profile if powerlaw_profile is not None else self.powerlaw_profile
-        
+        no_fe = no_fe if no_fe is not None else self.no_fe
         # template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
 
         self.complex_region.clear()
         self.tied_params.clear()
         narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
-        if fe_mode.lower() == "template":  # and (xmax - xmin) > 1000:
+        if fe_mode.lower() == "template" and not no_fe:  # and (xmax - xmin) > 1000:
             # the cuantity of pixels should be related to the the region in where the spectra have to be
             # if xmin>=3000 and xmax<=6000:
             # tested formes of
@@ -296,11 +300,11 @@ class RegionBuilder:
                     comps = self._handle_narrow_line(base, n_narrow, add_outflow)
                 elif name == 'broad':
                     comps = self._handle_broad_line(base, n_broad)
-                elif fe_mode == "sum" and name in fe_regions:
+                elif fe_mode == "sum" and name in fe_regions and not no_fe:
                     comps = [self._handle_fe_line(base)]
                     tie_fe = True
                 #'fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"
-                elif fe_mode == "model":
+                elif fe_mode == "model" and not no_fe :
                     if  name in ["feii_model", "fe_uv"]:
                         comps = [self._handle_fe_line(base, how="combine")]
                     elif name in ["feii_coronal"]:
@@ -340,11 +344,11 @@ class RegionBuilder:
             )
 
        
+        if not no_fe:
+            self.tied_params.extend(
+                    fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
         
-        self.tied_params.extend(
-                fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
-        
-        if fe_mode == "model":
+        if fe_mode == "model" and not no_fe:
             self.complex_region = group_lines_by_region(self.complex_region,kind = "fe", component  = 20, exception = ["feii_coronal"])
         
         

@@ -68,6 +68,7 @@ class FitResult:
     inner_limits: Optional[List] = None
     model_keywords: Optional[dict] = None
     source:Optional[dict] = None
+    dependencies:Optional[List] = None # list tuple in reality
     kind_list: List[str] = field(init=False)
     def __post_init__(self):
         self.kind_list = list({line.kind for line in self.complex_region})
@@ -129,20 +130,21 @@ class ConstraintSet:
     param_names: List[str]
 
 
+#This have to be a more flexible 
 @dataclass
 class FittingLimits:
     """
-    Stores width and shift limits for a line component kind.
+    Stores fwhm and shift limits for a line component kind.
 
     Attributes:
-        upper_width (float): Maximum velocity width (km/s).
-        lower_width (float): Minimum velocity width (km/s).
+        upper_fwhm (float): Maximum velocity fwhm (km/s).
+        lower_fwhm (float): Minimum velocity fwhm (km/s).
         center_shift (float): Maximum center shift (km/s).
         max_amplitude (float): Maximum allowed amplitude.
     """
 
-    upper_width: float
-    lower_width: float
+    upper_fwhm: float
+    lower_fwhm: float
     center_shift: float
     max_amplitude: float
 
@@ -153,7 +155,7 @@ class FittingLimits:
 
         Args:
             d (Dict[str, float]): Dictionary with keys:
-                'upper_width', 'lower_width', 'center_shift', 'max_amplitude'.
+                'upper_fwhm', 'lower_fwhm', 'center_shift', 'max_amplitude'.
 
         Returns:
             FittingLimits: Instance created from the dictionary.
@@ -161,14 +163,14 @@ class FittingLimits:
         Raises:
             ValueError: If any required key is missing from the dictionary.
         """
-        required_keys = {'upper_width', 'lower_width', 'center_shift', 'max_amplitude'}
+        required_keys = {'upper_fwhm', 'lower_fwhm', 'center_shift', 'max_amplitude'}
         missing = required_keys - d.keys()
         if missing:
             raise ValueError(f"Missing keys for FittingLimits: {missing}")
 
         return cls(
-            upper_width=d['upper_width'],
-            lower_width=d['lower_width'],
+            upper_fwhm=d['upper_fwhm'],
+            lower_fwhm=d['lower_fwhm'],
             center_shift=d['center_shift'],
             max_amplitude=d['max_amplitude'],
         )
