@@ -202,6 +202,11 @@ class ParameterEstimation:
         """
         sampler = ParameterSampler(self)
         return sampler.sample_params(N=N, key_seed=key_seed)
+    
+    
+    def sample_paramsmcmc(self):
+        print("place holder mcmc sampler")
+        return
 
     
     def _from_sheap(self, sheap):

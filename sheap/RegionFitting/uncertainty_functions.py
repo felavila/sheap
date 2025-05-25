@@ -42,7 +42,7 @@ def apply_arithmetic_ties(samples, ties):
 
 
 def apply_tied_and_fixed_params(free_params,template_params,dependencies):
-    
+    #this can be call just one time 
     idx_target = [i[1] for i in dependencies]
     #idx_source = [i[2] for i in dependencies]
     idx_free_params = list(set(range(len(template_params)))-set(idx_target))

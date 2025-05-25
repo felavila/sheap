@@ -111,7 +111,7 @@ class ParameterSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scaled[n])
 
-            # --- Collect line profile info ---
+            #this have to be a only one runite that can be share between the samplers.
             dict_ = {}
             for k, k_map in self.kinds_map.items():
                 if k not in ['fe', 'continuum']:
@@ -132,7 +132,6 @@ class ParameterSampler:
                         'center': center, 'amplitude': norm_amplitude
                     }
 
-            # --- Compute monochromatic and bolometric luminosities ---
             L_w, L_bol = {}, {}
             wavelenghts = [1350.0, 1450.0, 3000.0, 5100.0, 6200.0]
             # Assume 'continuum' is present
