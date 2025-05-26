@@ -8,7 +8,7 @@ from jax import random
 
 
 from .uncertainty_functions import make_residuals_free_fn,error_covariance_matrix,apply_tied_and_fixed_params
-from sheap.LineMapper.LineMapper import mapping_params
+from sheap.Mappers.LineMapper import mapping_params
 
 
 def AfterFit(model,spectra,max_flux,params,dependencies,params_dict,N = 2_000):

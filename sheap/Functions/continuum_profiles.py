@@ -7,7 +7,7 @@ import jax.numpy as jnp
 #import numpy as np
 from jax import jit, vmap
 
-from sheap.FunctionsMinimize.utils import param_count,with_param_names
+from sheap.Functions.utils import param_count,with_param_names
 
 
 

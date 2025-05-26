@@ -5,10 +5,7 @@ import jax.numpy as jnp
 from jax import vmap
 from jax import random
 
-# from jax import config
-# config.update("jax_platform_name", "cpu")
-
-#residual = residual_fn(params_i)
+#This requires major updates 
 
 def residuals(
     func: Callable,
@@ -45,7 +42,7 @@ def apply_tied_and_fixed_params(free_params,template_params,dependencies):
     #this can be call just one time 
     idx_target = [i[1] for i in dependencies]
     #idx_source = [i[2] for i in dependencies]
-    idx_free_params = list(set(range(len(template_params)))-set(idx_target))
+    idx_free_params = list(set(range(len(template_params))) - set(idx_target))
     #free_params = params[jnp.array(idx_free_params)]
     #params_ = jnp.zeros_like(template_params)
     template_params = template_params.at[jnp.array(idx_free_params)].set(free_params)

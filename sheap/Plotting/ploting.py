@@ -5,182 +5,182 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from sheap.FunctionsMinimize.functions import linear_combination
+#from sheap.Minimizer.functions import linear_combination
 
 
-class Sheap_pca_ploting:
-    import numpy as np
+# class Sheap_pca_ploting:
+#     import numpy as np
 
-    def __init__(
-        self, test_clase, masked_uncertainties, fit_array, eigenvectors, params_linear
-    ):
-        self.test_clase = test_clase
-        self.masked_uncertainties = masked_uncertainties
-        self.fit_array = fit_array
-        self.eigenvectors = eigenvectors
-        self.params_linear = params_linear
-        self.combination = self.eigenvectors.T * 100 * self.params_linear.T
-        self.negatives_per_column = jnp.nansum(self.combination < 0, axis=0).T
+#     def __init__(
+#         self, test_clase, masked_uncertainties, fit_array, eigenvectors, params_linear
+#     ):
+#         self.test_clase = test_clase
+#         self.masked_uncertainties = masked_uncertainties
+#         self.fit_array = fit_array
+#         self.eigenvectors = eigenvectors
+#         self.params_linear = params_linear
+#         self.combination = self.eigenvectors.T * 100 * self.params_linear.T
+#         self.negatives_per_column = jnp.nansum(self.combination < 0, axis=0).T
 
-    def plot(self, n, save="", **kwargs):
-        # save = False
-        # for n in range(len(dr_filtered)):
+#     def plot(self, n, save="", **kwargs):
+#         # save = False
+#         # for n in range(len(dr_filtered)):
 
-        # Create subplots with shared x-axis
-        # if save and os.path.isfile(f"images/images_pca/{n}.jpg"):
-        # continue
-        fig, (ax1, ax2) = plt.subplots(
-            2, 1, sharex=True, figsize=(35, 15), gridspec_kw={'height_ratios': [2, 1]}
-        )
+#         # Create subplots with shared x-axis
+#         # if save and os.path.isfile(f"images/images_pca/{n}.jpg"):
+#         # continue
+#         fig, (ax1, ax2) = plt.subplots(
+#             2, 1, sharex=True, figsize=(35, 15), gridspec_kw={'height_ratios': [2, 1]}
+#         )
 
-        # Set axis labels and their font sizes
-        ax1.set_ylabel("Flux", fontsize=20)
-        # ax1.set_xlabel("Wavelength", fontsize=40)  # Even though ax1 and ax2 share x-axis, you can label ax1
-        ax2.set_xlabel("wavelength A", fontsize=20)
-        ax2.set_ylabel("Normalized Residuals", fontsize=20)
+#         # Set axis labels and their font sizes
+#         ax1.set_ylabel("Flux", fontsize=20)
+#         # ax1.set_xlabel("Wavelength", fontsize=40)  # Even though ax1 and ax2 share x-axis, you can label ax1
+#         ax2.set_xlabel("wavelength A", fontsize=20)
+#         ax2.set_ylabel("Normalized Residuals", fontsize=20)
 
-        # Define the x-axis based on the length of the spectrum
-        x_axis_pix = np.arange(len(self.test_clase.spectra[n, 0, :]))
-        x_limit_pix = x_axis_pix[self.masked_uncertainties[n] != 1e11][[0, -1]]
-        n_pixels = x_axis_pix.shape[0]
-        # Create an array of pixel indices
-        indices = jnp.arange(n_pixels)
+#         # Define the x-axis based on the length of the spectrum
+#         x_axis_pix = np.arange(len(self.test_clase.spectra[n, 0, :]))
+#         x_limit_pix = x_axis_pix[self.masked_uncertainties[n] != 1e11][[0, -1]]
+#         n_pixels = x_axis_pix.shape[0]
+#         # Create an array of pixel indices
+#         indices = jnp.arange(n_pixels)
 
-        # Create a boolean mask for indices outside the desired range
-        mask = (indices < x_limit_pix[0]) | (indices > x_limit_pix[1])
-        x_axis = self.test_clase.spectra[n, 0, :]
-        x_limit = [np.nanmin(x_axis), np.nanmax(x_axis)]
-        x_limit = [x_axis[x_limit_pix[0]], x_axis[x_limit_pix[-1]]]
-        obj = self.fit_array[:, 1, :][n]
-        linear_model = linear_combination(self.eigenvectors[n], self.params_linear[n])
+#         # Create a boolean mask for indices outside the desired range
+#         mask = (indices < x_limit_pix[0]) | (indices > x_limit_pix[1])
+#         x_axis = self.test_clase.spectra[n, 0, :]
+#         x_limit = [np.nanmin(x_axis), np.nanmax(x_axis)]
+#         x_limit = [x_axis[x_limit_pix[0]], x_axis[x_limit_pix[-1]]]
+#         obj = self.fit_array[:, 1, :][n]
+#         linear_model = linear_combination(self.eigenvectors[n], self.params_linear[n])
 
-        residual = (self.fit_array[:, 1, :][n] - linear_model) / self.fit_array[:, 2, :][n]
-        model_qso = jnp.nansum(
-            self.eigenvectors[n][10:].T * 100 * self.params_linear[n][10:], axis=1
-        )
-        model_galaxy = jnp.nansum(
-            self.eigenvectors[n][:10].T * 100 * self.params_linear[n][:10], axis=1
-        )
-        linear_model = linear_model.at[mask].set(jnp.nan)
-        model_galaxy = model_galaxy.at[mask].set(jnp.nan)
-        model_qso = model_qso.at[mask].set(jnp.nan)
-        residual = residual.at[mask].set(jnp.nan)
-        maxs = [
-            np.nanmax(obj),
-            np.nanmax(linear_model),
-            np.nanmax(model_qso),
-            np.nanmax(model_galaxy),
-        ]
-        minx = [
-            np.nanmin(obj),
-            np.nanmin(linear_model),
-            np.nanmin(model_qso),
-            np.nanmin(model_galaxy),
-        ]
-        # Compute the model using your linear combination function
+#         residual = (self.fit_array[:, 1, :][n] - linear_model) / self.fit_array[:, 2, :][n]
+#         model_qso = jnp.nansum(
+#             self.eigenvectors[n][10:].T * 100 * self.params_linear[n][10:], axis=1
+#         )
+#         model_galaxy = jnp.nansum(
+#             self.eigenvectors[n][:10].T * 100 * self.params_linear[n][:10], axis=1
+#         )
+#         linear_model = linear_model.at[mask].set(jnp.nan)
+#         model_galaxy = model_galaxy.at[mask].set(jnp.nan)
+#         model_qso = model_qso.at[mask].set(jnp.nan)
+#         residual = residual.at[mask].set(jnp.nan)
+#         maxs = [
+#             np.nanmax(obj),
+#             np.nanmax(linear_model),
+#             np.nanmax(model_qso),
+#             np.nanmax(model_galaxy),
+#         ]
+#         minx = [
+#             np.nanmin(obj),
+#             np.nanmin(linear_model),
+#             np.nanmin(model_qso),
+#             np.nanmin(model_galaxy),
+#         ]
+#         # Compute the model using your linear combination function
 
-        # Plot the observed object spectrum
-        ax1.plot(x_axis, obj, alpha=1, label=f"object {n}", color='grey')
-        # Plot the model spectrum
-        ax1.plot(x_axis, linear_model, label="model", color='r')
-        # Plot the PCA components
-        ax1.plot(x_axis, model_qso, label="pca_qso")
-        ax1.plot(x_axis, model_galaxy, label="pca_galaxy", color="g")
+#         # Plot the observed object spectrum
+#         ax1.plot(x_axis, obj, alpha=1, label=f"object {n}", color='grey')
+#         # Plot the model spectrum
+#         ax1.plot(x_axis, linear_model, label="model", color='r')
+#         # Plot the PCA components
+#         ax1.plot(x_axis, model_qso, label="pca_qso")
+#         ax1.plot(x_axis, model_galaxy, label="pca_galaxy", color="g")
 
-        ax1.fill_between(
-            x_axis,
-            0,
-            max(maxs),
-            where=self.masked_uncertainties[n] != 1e11,
-            color="grey",
-            alpha=0.1,
-            zorder=10,
-            label="eigenvalues coverage",
-        )
-        # ax2.fill_between(x_axis, -0.5, 0.5,where=masked_uncertainties[n] != 1e11, color="grey", alpha=0.5,zorder=1, label="eigenvalues coverage")
-        ax1.axhline(0, ls="--", linewidth=5, c="k")
-        # Set the x-axis limits based on the non-masked region
-        ax1.set_xlim(x_limit)
-        ax2.set_xlim(x_limit)
-        ax1.set_ylim(min(minx), max(maxs))
-        # Place the legend for ax1 outside the plot area
-        ax1.legend(bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=30)
+#         ax1.fill_between(
+#             x_axis,
+#             0,
+#             max(maxs),
+#             where=self.masked_uncertainties[n] != 1e11,
+#             color="grey",
+#             alpha=0.1,
+#             zorder=10,
+#             label="eigenvalues coverage",
+#         )
+#         # ax2.fill_between(x_axis, -0.5, 0.5,where=masked_uncertainties[n] != 1e11, color="grey", alpha=0.5,zorder=1, label="eigenvalues coverage")
+#         ax1.axhline(0, ls="--", linewidth=5, c="k")
+#         # Set the x-axis limits based on the non-masked region
+#         ax1.set_xlim(x_limit)
+#         ax2.set_xlim(x_limit)
+#         ax1.set_ylim(min(minx), max(maxs))
+#         # Place the legend for ax1 outside the plot area
+#         ax1.legend(bbox_to_anchor=(1.01, 1), loc='upper left', fontsize=30)
 
-        # For ax2, plot the normalized residuals (observed - model)/error
-        ax2.scatter(x_axis, residual, alpha=0.5, zorder=10)
-        ax2.axhline(0, ls="--", linewidth=5, c="k")
+#         # For ax2, plot the normalized residuals (observed - model)/error
+#         ax2.scatter(x_axis, residual, alpha=0.5, zorder=10)
+#         ax2.axhline(0, ls="--", linewidth=5, c="k")
 
-        ax2.text(
-            0.05,
-            0.95,
-            rf'{(sum(jnp.where(abs(residual)<=0.4,True,False))/sum(~jnp.isnan(residual)))*100:.3f} % between abs(0.4)',
-            transform=ax2.transAxes,
-            fontsize=30,
-            verticalalignment='top',
-        )
-        ax2.set_ylim(-0.4, 0.4)
-        plt.tight_layout(rect=[0, 0, 0.85, 1])
-        # Save or show figure
-        if save:
-            plt.savefig(f"images/{save}.jpg", dpi=300, bbox_inches='tight')
-            plt.close()
-        else:
-            plt.show()
+#         ax2.text(
+#             0.05,
+#             0.95,
+#             rf'{(sum(jnp.where(abs(residual)<=0.4,True,False))/sum(~jnp.isnan(residual)))*100:.3f} % between abs(0.4)',
+#             transform=ax2.transAxes,
+#             fontsize=30,
+#             verticalalignment='top',
+#         )
+#         ax2.set_ylim(-0.4, 0.4)
+#         plt.tight_layout(rect=[0, 0, 0.85, 1])
+#         # Save or show figure
+#         if save:
+#             plt.savefig(f"images/{save}.jpg", dpi=300, bbox_inches='tight')
+#             plt.close()
+#         else:
+#             plt.show()
 
-    def plot_valeu(self, n):
-        plt.plot(self.params_linear[n])
-        plt.axhline(0)
-        plt.axvline(10)
-        plt.axvspan(0, 10, alpha=0.2, color="r", label="galaxy linear paramters")
-        plt.axvspan(10, 60, alpha=0.2, label="qso linear paramters")
-        plt.xlim(0, 59)
-        plt.ylabel("parameter valeu")
-        plt.xlabel("parameter number")
-        plt.legend()
-        plt.show()
+#     def plot_valeu(self, n):
+#         plt.plot(self.params_linear[n])
+#         plt.axhline(0)
+#         plt.axvline(10)
+#         plt.axvspan(0, 10, alpha=0.2, color="r", label="galaxy linear paramters")
+#         plt.axvspan(10, 60, alpha=0.2, label="qso linear paramters")
+#         plt.xlim(0, 59)
+#         plt.ylabel("parameter valeu")
+#         plt.xlabel("parameter number")
+#         plt.legend()
+#         plt.show()
 
-    def plot_n_negatives(self, n):
-        # combination = self.eigenvectors[n].T*100*self.params_linear[n]
-        # negatives_per_column = jnp.nansum(combination < 0, axis=0)
-        plt.plot(self.negatives_per_column[n])
-        plt.axhline(0, ls="--", alpha=0.5)
-        plt.axvline(10)
-        plt.axvspan(0, 10, alpha=0.2, color="r", label="galaxy linear paramters")
-        plt.axvspan(10, 60, alpha=0.2, label="qso linear paramters")
-        plt.xlim(0, 59)
-        plt.ylabel("number of negatives by parameter x eigvector")
-        plt.xlabel("parameter number")
-        plt.legend()
-        plt.show()
+#     def plot_n_negatives(self, n):
+#         # combination = self.eigenvectors[n].T*100*self.params_linear[n]
+#         # negatives_per_column = jnp.nansum(combination < 0, axis=0)
+#         plt.plot(self.negatives_per_column[n])
+#         plt.axhline(0, ls="--", alpha=0.5)
+#         plt.axvline(10)
+#         plt.axvspan(0, 10, alpha=0.2, color="r", label="galaxy linear paramters")
+#         plt.axvspan(10, 60, alpha=0.2, label="qso linear paramters")
+#         plt.xlim(0, 59)
+#         plt.ylabel("number of negatives by parameter x eigvector")
+#         plt.xlabel("parameter number")
+#         plt.legend()
+#         plt.show()
 
-    def sep_componentes(self, n):
-        # combination = eigenvectors[0].T * 100 * params_linear[0]
-        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(20, 10))
-        combination = self.combination[:, :, n]
-        for i, spec in enumerate(combination.T):
-            if i < 10:
-                # Plot on the left subplot
-                ax1.plot(spec, c="r", alpha=0.2)
-            else:
-                # Plot on the right subplot
-                ax2.plot(spec, c="b", alpha=0.1)
+#     def sep_componentes(self, n):
+#         # combination = eigenvectors[0].T * 100 * params_linear[0]
+#         fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(20, 10))
+#         combination = self.combination[:, :, n]
+#         for i, spec in enumerate(combination.T):
+#             if i < 10:
+#                 # Plot on the left subplot
+#                 ax1.plot(spec, c="r", alpha=0.2)
+#             else:
+#                 # Plot on the right subplot
+#                 ax2.plot(spec, c="b", alpha=0.1)
 
-        # (Optional) adjust x-limits or other axes properties if you wish:
-        ax1.set_xlim(left=0, right=combination.shape[0])  # Or omit for auto-limits
-        ax2.set_xlim(left=0, right=combination.shape[0])  # Or omit for auto-limits
+#         # (Optional) adjust x-limits or other axes properties if you wish:
+#         ax1.set_xlim(left=0, right=combination.shape[0])  # Or omit for auto-limits
+#         ax2.set_xlim(left=0, right=combination.shape[0])  # Or omit for auto-limits
 
-        ax1.set_title("galaxy(10)")
-        ax2.set_title("qso(50)")
+#         ax1.set_title("galaxy(10)")
+#         ax2.set_title("qso(50)")
 
-        plt.tight_layout()
-        plt.show()
+#         plt.tight_layout()
+#         plt.show()
 
-    # if save:
-    #     plt.savefig(f"images/images_pca/{n}.jpg", dpi=300, bbox_inches='tight')
-    #     plt.close()
-    # else:
-    #     plt.show()
-    # brea
+#     # if save:
+#     #     plt.savefig(f"images/images_pca/{n}.jpg", dpi=300, bbox_inches='tight')
+#     #     plt.close()
+#     # else:
+#     #     plt.show()
+#     # brea
 
 
 def plot_region(x, function, region, save=''):

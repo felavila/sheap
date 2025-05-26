@@ -4,9 +4,9 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
+ 
+from sheap.Functions.utils import combine_auto
 
-from sheap.FunctionsMinimize.utils import combine_auto
-#from sheap.FunctionsMinimize.utils import mapping_params
 
 
 class SheapPlot:

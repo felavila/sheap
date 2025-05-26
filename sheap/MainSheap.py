@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import logging
-import os
 import pickle
 import sys
 import warnings
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -13,38 +11,16 @@ import jax.numpy as jnp
 import numpy as np
 
 from sheap.DataClass.DataClass import SpectralLine,FitResult
-from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
+from sheap.Functions.profiles import PROFILE_FUNC_MAP,make_g
 from sheap.HostSubtraction.HostSubtraction import HostSubtraction
 from sheap.RegionFitting.RegionFitting import RegionFitting
-
-# from sfdmap2 import sfdmap
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
-#from sheap.LineMapper.LineMapper import mapping_params
-#from sheap.utils import prepare_uncertainties  # ?
 from sheap.Plotting.SheapPlot import SheapPlot
+from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
+
 
 logger = logging.getLogger(__name__)
 
-module_dir = os.path.dirname(os.path.abspath(__file__))
-
-
-ArrayLike = Union[np.ndarray, jnp.ndarray]
-
-
-# list of SpectralLine
-def make_g(list):
-    amplitudes, centers = list.amplitude, list.center
-    return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)
-
-
-# TODO Add multiple models to the reading.
-def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
-    """Ensure *spectra* has a third channel (error) by padding with *frac* × signal."""
-    if spectra.shape[1] != 2:
-        return spectra  # already 3‑channel
-    signal = spectra[:, 1, :]
-    error = jnp.expand_dims(signal * frac, axis=1)
-    return jnp.concatenate((spectra, error), axis=1)
 
 
 class Sheapectral:
@@ -118,14 +94,13 @@ class Sheapectral:
     def _apply_extinction(self) -> None:
         """Cardelli 1989 – uses *sfdmap* if coords are available."""
         from sfdmap2 import sfdmap  # lazy import to avoid heavy deps if unused
-
         from sheap.Tools.unred import unred
-
         ebv = self.ebv
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
             l, b = self.coords.T  # type: ignore[union-attr]
-            ebv_func = sfdmap.SFDMap(os.path.join(module_dir, "SuportData", "sfddata/")).ebv
+            sfd_path = Path(__file__).resolve().parent.parent.parent / "SuportData" / "sfddata/"
+            ebv_func = sfdmap.SFDMap(sfd_path).ebv
             ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
         # propagate to error channel proportionally as pyqso
@@ -134,8 +109,7 @@ class Sheapectral:
         self.spectra = self.spectra.at[:, 2, :].multiply(ratio)
 
     def _apply_redshift(self) -> None:
-        from sheap.Tools.others import _deredshift
-
+        from sheap.Tools.spectral_basic import _deredshift
         self.spectra = _deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
@@ -143,10 +117,6 @@ class Sheapectral:
             self.spectra = self.spectra[jnp.newaxis, :]
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
-        self.spectra_exp = jnp.round(
-            jnp.log10(jnp.nanmedian(self.spectra[:, 1, :], axis=1))
-        )  # * 0
-        # maybe add a filter here to see whats going on?
 
     def _apply_hostsubstraction(self,learning_rate=1e-1,n_galaxies=5,n_qso=10) -> None:
         hostsubstraction = HostSubtraction(self.spectra,learning_rate=learning_rate,n_galaxies=n_galaxies,n_qso=n_qso)    
@@ -196,28 +166,15 @@ class Sheapectral:
         self.complex_region = self.builded_region.complex_region
     
     def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,N=2_000):
-        #We have to remove all kind of normalization in this and all the result,constrains, uncertainty have to come back in the original scale of the 
-        #spectra so in this way we can have other problems with scales 
-        #spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(
-         #   10 ** (-1 * self.spectra_exp[:, None, None])
-        #)
-
+        
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
 
         fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_rutine)
-        #print(fitting_rutine.keys())
+
         fit_output = fitting_class(self.spectra, do_return=True,N=N)
 
-        # Rescale amplitudes
-        #scaled = 10 ** self.spectra_exp
-        #idxs = mapping_params(fit_output.params_dict, [["amplitude"], ["scale"]])
-
-        #fit_output.max_flux = fit_output.max_flux * scaled
-        #fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
-        #fit_output.constraints = fit_output.constraints.at[idxs,:].multiply(scaled)
-        #fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
         fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"
         
@@ -293,28 +250,6 @@ class Sheapectral:
         obj._plotter = SheapPlot(sheap=obj)
         return obj
     
-    # def to_result(self) -> FitResult:
-    #     self.result= FitResult(
-    #         #initial_params = self.initial_params,
-    #         params=self.params,
-    #         uncertainty_params=self.uncertainty_params,
-    #         mask=self.mask,
-    #         profile_functions=self.profile_functions,
-    #         profile_names=self.profile_names,
-    #         max_flux=self.max_flux,
-    #         params_dict=self.params_dict,
-    #         complex_region=self.complex_region,
-    #         #loss = self.loss,
-    #         profile_params_index_list = self.profile_params_index_list,
-    #         outer_limits = self.outer_limits,
-    #         #inner_limits = self.inner_limits,
-    #         model_keywords=self.model_keywords,
-    #         constraints = self.constraints
-    #     )
-   
-
-    
-
     def _save(self):
         _complex_region = [i.to_dict() for i in self.complex_region]
 
@@ -404,14 +339,3 @@ class Sheapectral:
         ax.yaxis.set_major_locator(FixedLocator(ax.get_yticks()))
 
         return ax
-
-    
-
-        # complex_region: List[SpectralLine]
-        # profile_functions: List[Callable]
-        # params:np.ndarray
-        # uncertainty_params:np.ndarray
-        # profile_params_index_list: np.ndarray
-        # params_dict: Dict
-        # profile_names: List[str]
-

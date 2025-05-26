@@ -9,57 +9,8 @@ from numpyro.infer.initialization import init_to_value
 import jax 
 from jax import grad, vmap,jit, random
 
-from sheap.FunctionsMinimize.utils import combine_auto
-from sheap.LineMapper.LineMapper import mapping_params
-from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value
-from sheap.FunctionsMinimize.utils import parse_dependency,parse_dependencies
-
-
-def make_numpyro_model(name_list,wl,flux,sigma,constraints,init_values,theta_to_sheap,fixed_params,dependencies,model_func):
-    def numpyro_model():
-        params = {}    
-        idx_targets = [i[1] for i in dependencies]
-        for i, (name, (low, high)) in enumerate(zip(name_list, constraints)):
-            sheap_name = theta_to_sheap[name]
-            if i in idx_targets:
-                #print(i,idx_targets,dependencies)
-                continue  # skip tied targets; they'll be calculated later
-            elif sheap_name in fixed_params.keys():
-                val = fixed_params[sheap_name]
-                if val is None:
-                    val = init_values.get(sheap_name)
-                    if val is None:
-                        raise ValueError(f"Fixed param '{sheap_name}' is None and not found in init_values.")
-            else:
-                val = numpyro.sample(name, dist.Uniform(low, high))
-            params[name] = val
-        params = apply_arithmetic_ties(params, dependencies)
-        theta = jnp.array([params[name] for name in name_list])
-        pred = model_func(wl, theta)
-        numpyro.sample("obs", dist.Normal(pred, sigma), obs=flux)
-    return numpyro_model  
-
-#Check again all the stuff abut this indexing 
-#the official structure throughout the code is tag,target_idx,src_idx, op, val = ties
-##_, target, source, op, operand = dep
-#tag,target_idx,src_idx, op, val = ties
-def apply_arithmetic_ties(params: Dict[str, float], ties: List[Tuple]) -> Dict[str, float]:
-    #_, target, source, op, operand = dep
-    #tag,target_idx,src_idx, op, val = ties
-    for tag, target_idx,src_idx, op, val in ties:
-        src = params[f"theta_{src_idx}"]
-        if op == '+':
-            result = src + val
-        elif op == '-':
-            result = src - val
-        elif op == '*':
-            result = src * val
-        elif op == '/':
-            result = src / val
-        else:
-            raise ValueError(f"Unsupported operation: {op}")
-        params[f"theta_{target_idx}"] = result
-    return params
+from sheap.Mappers.helpers import mapping_params
+from sheap.Posterior.numpyro_helpers import make_numpyro_model
 
 class McMcSampler:
     # TODO big how to combine distributions
@@ -137,67 +88,9 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scaled[n])
             
-            #from samples to full samples here.
-            #then we choose the strategi 
             #collect_fields=("log_likelihood",)
             #samples = samples
         
         return full_samples
     
     
-   
-    
-    
-    # def _get_best_values(self,samples=None,get_best=True):
-    #     import pandas as pd
-    #     samples = samples or self.samples
-    #     ties = self.ties
-    #     dict_ ={f"theta_{i[2]}":i for i in ties}
-    #     theta_to_sheap = self.theta_to_sheap
-    #     summary_df = pd.DataFrame({
-    #         name: samples[name] if name in samples.keys() 
-    #         else apply_arithmetic_ties_restore(samples,dict_[name]) for name in list(theta_to_sheap.keys())
-    #         })
-    #     #summary_df["theta_{src_idx}"]
-    #     summary_df = summary_df.rename(columns=theta_to_sheap)
-        
-    #     summary_stats = summary_df.describe(percentiles=[0.16, 0.5, 0.84]).T
-    #     if get_best:
-    #         params_bh = summary_stats._get_best_values()["mean"].values
-    #         idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-    #         scaled = 10 ** self.spectra_exp[0]
-    #         params_bh[idxs] = params_bh[idxs]*scaled
-    #     return params_bh           
-    
-    # def _make_modelold(self,n,fixed_params = None,nrandom=10,num_warmup=500,num_samples=1000):
-    #     fixed_params =  fixed_params if fixed_params is not None else self.fixed_params
-    #     #wl,flux,sigma = self.spec_scaled[n]
-    #     name_list =  list(self.theta_to_sheap.keys())
-    #     self.init_values = {key:self.matrix_params[n][_] for _,key in enumerate(self.theta_to_sheap.values())}
-    #     tied_targets = {target_idx for (_, _, target_idx, _, _) in self.ties}
-    #     def numpyro_model():
-    #         params = {}    
-    #         for i, (name, (low, high)) in enumerate(zip(name_list, self.constraints)):
-    #             sheap_name = self.theta_to_sheap[name]
-    #             if i in tied_targets:
-    #                 continue  # skip tied targets; they'll be calculated later
-    #             elif sheap_name in self.fixed_params.keys():
-    #                 val = self.fixed_params[sheap_name]
-    #                 if val is None:
-    #                     val = self.init_values.get(sheap_name)
-    #                     if val is None:
-    #                         raise ValueError(f"Fixed param '{sheap_name}' is None and not found in init_values.")
-    #             else:
-    #                 val = numpyro.sample(name, dist.Uniform(low, high))
-    #             params[name] = val
-    #         params = apply_arithmetic_ties(params, self.ties)
-    #         theta = jnp.array([params[name] for name in name_list])
-    #         pred = self.model_func(wl, theta)
-    #         numpyro.sample("obs", dist.Normal(pred, sigma), obs=flux)
-        
-    #     kernel = NUTS(numpyro_model)#, init_strategy=init_strategy)
-    #     mcmc = MCMC(kernel, num_warmup=num_warmup, num_samples=num_samples, progress_bar=True)
-    #     mcmc.run(jax.random.PRNGKey(nrandom))
-    #     samples = mcmc.get_samples()
-    #     #collect_fields=("log_likelihood",)
-    #     self.samples = samples

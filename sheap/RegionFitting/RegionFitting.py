@@ -12,16 +12,16 @@ import yaml
 from jax import jit
 
 from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
-from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
-from sheap.FunctionsMinimize.utils import parse_dependencies
-
-from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
+from sheap.Functions.profiles import PROFILE_FUNC_MAP
+from sheap.Minimizer.utils import parse_dependencies
+from sheap.Minimizer.MasterMinimizer import MasterMinimizer
 
 # from sheap.Fitting.template_fe_func import
-from sheap.FunctionsMinimize.utils import combine_auto
+from sheap.Functions.utils import combine_auto
 from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
-from sheap.LineMapper.LineMapper import mapping_params
-from sheap.utils import mask_builder, prepare_spectra
+from sheap.Mappers.helpers import mapping_params
+from sheap.Tools.setup_utils import mask_builder, prepare_spectra
+from sheap.DataClass.utils import is_list_of_SpectralLine
 
 from .uncertainty_functions import error_for_loop
 
@@ -32,11 +32,6 @@ logger = logging.getLogger(__name__)
 OUTFLOW_COMPONENT = 10  # ID used for outflow line components
 FE_COMPONENT = 20  # ID used for Fe emission components
 CONT_COMPONENT = 0  # ID used for continuum component
-
-
-
-def is_list_of_SpectralLine(data: object) -> bool:
-    return isinstance(data, list) and all(isinstance(item, SpectralLine) for item in data)
 
 
 class RegionFitting:

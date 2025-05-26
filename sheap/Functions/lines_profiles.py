@@ -9,7 +9,7 @@ from jax import jit, vmap,lax
 from jax.scipy.special import erfc
 from jax.scipy.stats import norm #maybe dosent exist xd
 
-from sheap.FunctionsMinimize.utils import param_count,with_param_names
+from sheap.Functions.utils import param_count,with_param_names
 
 
 @with_param_names(["amplitude", "center", "fwhm"])

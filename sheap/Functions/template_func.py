@@ -1,28 +1,27 @@
-import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
 
-import jax
 import jax.numpy as jnp
 import jax.scipy as jsp
 import numpy as np
-from jax import jit, vmap
 
-from sheap.FunctionsMinimize.utils import param_count
-from sheap.Tools.others import kms_to_wl
+from sheap.Functions.utils import param_count
+from sheap.Tools.spectral_basic import kms_to_wl
 
 #TEMPLATE FAMILIES SHOULD BE ADDED 
 
 templates_path = Path(__file__).resolve().parent.parent.parent / "SuportData" / "templates"
 
 
-fe_template_OP_file = os.path.join(templates_path, 'fe2_Op.dat')
+fe_template_OP_file =   templates_path / 'fe2_Op.dat'
+
 fe_template_OP = jnp.array(
     np.loadtxt(fe_template_OP_file, comments='#').transpose()
 )  # y units?
 
-fe_template_UV_file = os.path.join(templates_path, 'fe2_UV02.dat')
+fe_template_UV_file = templates_path / 'fe2_UV02.dat'
+
 fe_template_UV = jnp.array(
     np.loadtxt(fe_template_UV_file, comments='#').transpose()
 ) 

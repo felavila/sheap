@@ -1,9 +1,18 @@
+"""
+Classes in this module:
+
+- SpectralLine: Describes a spectral line with optional metadata.
+- FitResult: Stores results from spectral region fitting.
+- LineSelectionResult: Output of a spectral line filtering routine.
+- ConstraintSet: Encodes parameter constraints and profile metadata.
+- FittingLimits: Constraint configuration for component fitting.
+"""
+
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax.numpy as jnp
 import numpy as np
-
 
 @dataclass
 class SpectralLine:
@@ -76,50 +85,25 @@ class FitResult:
     def to_dict(self) -> dict:
         return asdict(self)
     
-
-# @dataclass
-# class FitResult:
-#     params: jnp.ndarray
-#     uncertainty_params: jnp.ndarray
-#     mask: jnp.ndarray
-#     profile_functions: List[Callable]
-#     profile_names: List[str]
-#     loss: List 
-#     profile_params_index_list: List
-#     initial_params:jnp.ndarray
-#     max_flux: jnp.ndarray
-#     params_dict: Dict[str, int]
-#     complex_region: List[SpectralLine]
-#     outer_limits: List
-#     inner_limits: List
-#     model_keywords: Optional[dict] = None
-#     kind_list: List[str] = field(init=False)  # will be computed post-init
-
-#     def __post_init__(self):
-#         self.kind_list = list({line.kind for line in self.complex_region})
-
-#     def to_dict(self) -> dict:
-#         return asdict(self)
-    
-
-# @dataclass
-# class ComplexRegion:
-#     complex_region: List[SpectralLine]
-#     profile_functions: List[Callable]
-#     params: np.ndarray
-#     uncertainty_params: np.ndarray
-#     profile_params_index_list: np.ndarray
-#     params_dict: Dict
-#     profile_names: List[str]
-
-#     kind_list: List[str] = field(init=False)  # will be computed post-init
-
-#     def __post_init__(self):
-#         self.kind_list = list({line.kind for line in self.complex_region})
-
-#     def to_dict(self) -> dict:
-#         return asdict(self)
-
+@dataclass
+class LineSelectionResult:
+    idx: List[int]
+    line_name: np.ndarray
+    region: List[str]
+    center: List[float]
+    kind: List[str]
+    original_centers: np.ndarray
+    component: List[Union[int, str]]
+    lines: List[Any]
+    profile_functions: np.ndarray
+    profile_names: np.ndarray
+    profile_params_index_flat: np.ndarray
+    profile_params_index_list: np.ndarray
+    params_names: np.ndarray
+    params: np.ndarray
+    uncertainty_params: np.ndarray
+    profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
+    filtered_dict: Dict
 
 @dataclass
 class ConstraintSet:

@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 from .functions import calc_flux,calc_luminosity,calc_fwhm_kms,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
 from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
-from sheap.LineMapper.LineMapper import LineMapper, mapping_params
+from sheap.Mappers.LineMapper import LineMapper 
+from sheap.Mappers.helpers import mapping_params
 
 
 

@@ -7,60 +7,11 @@ import pandas as pd
 import yaml
 from jax import jit, vmap
 
-from sheap.DataClass.DataClass import FittingLimits, SpectralLine
+from sheap.DataClass.DataClass import SpectralLine,LineSelectionResult
 from sheap.DataClass.utils import is_list_of
-from sheap.FunctionsMinimize.utils import combine_auto
+from sheap.Functions.utils import combine_auto
 
-
-def mapping_params(params_dict, params, verbose=False):
-    """
-    params is a str or list
-    [["width","broad"],"cont"]
-    if verbose you can check if the mapping of parameters was correctly done
-    """
-    if isinstance(params_dict, np.ndarray):
-        params_dict = {str(key): n for n, key in enumerate(params_dict)}
-    if isinstance(params, str):
-        params = [params]
-    match_list = []
-    for param in params:
-        if isinstance(param, str):
-            param = [param]
-        # print(self.params_dict.keys())
-        # print([[self.params_dict[key],key] for key in self.params_dict.keys() if all([p in key for p in param])])
-
-        match_list += [
-            params_dict[key] for key in params_dict.keys() if all([p in key for p in param])
-        ]
-
-    match_list = jnp.array(match_list)
-    unique_arr = jnp.unique(match_list)
-    if verbose:
-        print(np.array(list(params_dict.keys()))[unique_arr])  # [])
-    return unique_arr
-
-
-@dataclass
-class LineSelectionResult:
-    idx: List[int]
-    line_name: np.ndarray
-    region: List[str]
-    center: List[float]
-    kind: List[str]
-    original_centers: np.ndarray
-    component: List[Union[int, str]]
-    lines: List[Any]
-    profile_functions: np.ndarray
-    profile_names: np.ndarray
-    profile_params_index_flat: np.ndarray
-    profile_params_index_list: np.ndarray
-    params_names: np.ndarray
-    params: np.ndarray
-    uncertainty_params: np.ndarray
-    profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
-    filtered_dict: Dict
-
-
+#dont fully agree with the name 
 class LineMapper:
     """
     Filters and maps spectral line entries based on attribute conditions.

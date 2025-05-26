@@ -6,7 +6,7 @@ from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
 
 
 
-
+#I need a better name for this 
 def calc_flux(norm_amplitude, fwhm):
     # norm_amplitude and fwhm are 1D arrays (shape: [N])
     return jnp.sqrt(2.0 * jnp.pi) * norm_amplitude * fwhm / (2.0 * jnp.sqrt(2.0 * jnp.log(2.0)))

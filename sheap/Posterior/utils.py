@@ -1,8 +1,10 @@
 import jax.numpy as jnp
 from jax import vmap,grad
-from sheap.LineMapper.LineMapper import LineSelectionResult
 
 
+from sheap.Mappers.LineMapper import LineSelectionResult
+
+#This is more than utils 
 
 def trapz_jax(y: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
     dx = x[1:] - x[:-1]

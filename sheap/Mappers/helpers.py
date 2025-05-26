@@ -68,34 +68,34 @@ def _build_tied(get_param_coord_value,tied_params):
         return list_tied_params
 
 
-def apply_arithmetic_ties(params: Dict[str, float], ties: List[Tuple]) -> Dict[str, float]:
-    for tag, src_idx, target_idx, op, val in ties:
-        src = params[f"theta_{src_idx}"]
-        if op == '+':
-            result = src + val
-        elif op == '-':
-            result = src - val
-        elif op == '*':
-            result = src * val
-        elif op == '/':
-            result = src / val
-        else:
-            raise ValueError(f"Unsupported operation: {op}")
-        params[f"theta_{target_idx}"] = result
-    return params
+# def apply_arithmetic_ties(params: Dict[str, float], ties: List[Tuple]) -> Dict[str, float]:
+#     for tag, src_idx, target_idx, op, val in ties:
+#         src = params[f"theta_{src_idx}"]
+#         if op == '+':
+#             result = src + val
+#         elif op == '-':
+#             result = src - val
+#         elif op == '*':
+#             result = src * val
+#         elif op == '/':
+#             result = src / val
+#         else:
+#             raise ValueError(f"Unsupported operation: {op}")
+#         params[f"theta_{target_idx}"] = result
+#     return params
 
-def apply_arithmetic_ties_restore(samples, ties):
-    tag, src_idx, target_idx, op, val = ties
-    src = samples[f"theta_{src_idx}"]
-    if op == '-':
-        result = src + val
-    elif op == '+':
-        result = src - val
-    elif op == '/':
-        result = src * val
-    elif op == '*':
-        result = src / val
-    else:
-        raise ValueError(f"Unsupported operation: {op}")
-        #params[f"theta_{target_idx}"] = result
-    return result
+# def apply_arithmetic_ties_restore(samples, ties):
+#     tag, src_idx, target_idx, op, val = ties
+#     src = samples[f"theta_{src_idx}"]
+#     if op == '-':
+#         result = src + val
+#     elif op == '+':
+#         result = src - val
+#     elif op == '/':
+#         result = src * val
+#     elif op == '*':
+#         result = src / val
+#     else:
+#         raise ValueError(f"Unsupported operation: {op}")
+#         #params[f"theta_{target_idx}"] = result
+#     return result

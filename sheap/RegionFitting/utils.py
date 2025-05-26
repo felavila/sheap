@@ -3,8 +3,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import jax.numpy as jnp
 
 from sheap.DataClass.DataClass import ConstraintSet, FittingLimits, SpectralLine
-from sheap.Tools.others import kms_to_wl
-from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP 
+from sheap.Tools.spectral_basic import kms_to_wl
+from sheap.Functions.profiles import PROFILE_FUNC_MAP 
 
 
 

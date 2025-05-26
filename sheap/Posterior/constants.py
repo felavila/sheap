@@ -10,7 +10,7 @@ BOL_CORRECTIONS = {
 }
 
 # Standard single-epoch virial estimators for common broad lines
-# Reference: see Vestergaard & Peterson 2006; Shen et al. 2011; Greene & Ho 2005
+# Reference: see Vestergaard & Peterson 2006; Shen et al. 2011; Greene & Ho 2005 TODO:look for this references
 SINGLE_EPOCH_ESTIMATORS = {
     "Hbeta": {
         "wavelength": "5100",

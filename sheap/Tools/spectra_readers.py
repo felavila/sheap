@@ -5,7 +5,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from astropy.io import fits
 
-from sheap.utils import resize_and_fill_with_nans
+from sheap.Tools.setup_utils import resize_and_fill_with_nans
 
 n_cpu = os.cpu_count()  # Number of CPUs to use
 

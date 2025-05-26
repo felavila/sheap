@@ -1,4 +1,3 @@
-import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 
@@ -10,10 +9,13 @@ from astropy.cosmology import FlatLambdaCDM
 from auto_uncertainties import Uncertainty
 from jax import grad, jit,vmap
 
-from sheap.FunctionsMinimize.utils import combine_auto
-#from sheap.Posterior.utils import combine
-from sheap.LineMapper.LineMapper import LineMapper, mapping_params
-#from sheap.Tools.others import vmap_get_EQW_mask
+
+from sheap import Sheapectral
+from sheap.DataClass.DataClass import FitResult
+
+from sheap.Minimizer.utils import combine_auto
+from sheap.Mappers.LineMapper import LineMapper
+from sheap.Mappers.helpers import mapping_params
 from .ParameterSampler import ParameterSampler
 from .McMcSampler import McMcSampler
 

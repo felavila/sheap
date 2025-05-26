@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from jax import jit, vmap
 
-from sheap.FunctionsMinimize.MasterMinimizer import MasterMinimizer
-from sheap.Tools.others import vac_to_air
-from sheap.utils import mask_builder, prepare_spectra
+from sheap.Minimizer.MasterMinimizer import MasterMinimizer
+from sheap.Tools.spectral_basic import vac_to_air
+from sheap.Tools.setup_utils import mask_builder
 
 from .utils import (
     interpolate_flux_array,
@@ -19,7 +19,7 @@ from .utils import (
 )
 
 module_dir = Path(__file__).resolve().parent.parent / "SuportData" / "eigen"
-# print(module_dir)
+
 
 
 class HostSubtraction:
