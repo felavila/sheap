@@ -25,7 +25,8 @@ def group_lines_by_region(
     collapsed_lines = []
     for region, group in grouped.items():
         centers = [line.center for line in group]
-        line_names = [line.line_name for line in group]
+        line_names = [f"{line.region}" for line in group][0]
+        region_lines = [line.line_name for line in group]
         amplitudes = [line.amplitude for line in group]
 
         base_line = group[0]
@@ -40,6 +41,7 @@ def group_lines_by_region(
                 region=region,
                 profile=profile,
                 which=base_line.which,
+                region_lines=region_lines
             )
         )
 

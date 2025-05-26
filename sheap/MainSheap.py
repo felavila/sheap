@@ -14,7 +14,7 @@ import numpy as np
 
 from sheap.DataClass.DataClass import SpectralLine,FitResult
 from sheap.FunctionsMinimize.profiles import PROFILE_FUNC_MAP
-
+from sheap.HostSubtraction.HostSubtraction import HostSubtraction
 from sheap.RegionFitting.RegionFitting import RegionFitting
 
 # from sfdmap2 import sfdmap
@@ -148,6 +148,10 @@ class Sheapectral:
         )  # * 0
         # maybe add a filter here to see whats going on?
 
+    def _apply_hostsubstraction(self,learning_rate=1e-1,n_galaxies=5,n_qso=10) -> None:
+        hostsubstraction = HostSubtraction(self.spectra,learning_rate=learning_rate,n_galaxies=n_galaxies,n_qso=n_qso)    
+        return hostsubstraction
+    
     def build_region(
         self,
         xmin: float,

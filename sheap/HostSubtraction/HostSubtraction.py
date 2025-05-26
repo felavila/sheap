@@ -29,12 +29,13 @@ class HostSubtraction:
         Spectra: jnp.array,
         num_steps=1000,
         learning_rate=1e-1,
-        xmax=7300,
-        xmin=4050,
+        xmax=7990,
+        xmin=3500,
         n_galaxies=10,
         n_qso=50,
         **kwargs,
     ):
+        #xmax and xmin based on the proper lenght of the templates
         "- Spectra shape (K, N, M)"
         self.Spectra = Spectra
         self.xmax = xmax
@@ -65,8 +66,13 @@ class HostSubtraction:
 
         galaxies_eig = fits.open(f"{module_dir}/gal_eigenspec_Yip2004.fits")[1].data
         qso_eig = fits.open(f"{module_dir}/qso_eigenspec_Yip2004_global.fits")[1].data
+        
+        
         galaxies_eig_wave = jnp.array(vac_to_air(galaxies_eig["wave"].flatten()))
+        
         qso_eig_wave = jnp.array(vac_to_air(qso_eig["wave"].flatten()))
+        
+        #print(max(galaxies_eig_wave),min(galaxies_eig_wave),max(qso_eig_wave),min(qso_eig_wave))
         galaxies_eig_flux = jnp.array(
             galaxies_eig["pca"].reshape(
                 galaxies_eig["pca"].shape[1], galaxies_eig["pca"].shape[2]
@@ -133,9 +139,9 @@ class HostSubtraction:
             optimize_in_axis=3,
             num_steps=num_steps,
             learning_rate=learning_rate,
-            penalty_function=penalty_function,  # <--- Add this
+            penalty_function=penalty_function,  
             penalty_weight=penalty_weight,
-        )  # <--- Add this)
+        )  
         params, loss = minimizer(
             initial_params,
             eigenvectors,

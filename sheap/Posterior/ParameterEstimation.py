@@ -15,6 +15,7 @@ from sheap.FunctionsMinimize.utils import combine_auto
 from sheap.LineMapper.LineMapper import LineMapper, mapping_params
 #from sheap.Tools.others import vmap_get_EQW_mask
 from .ParameterSampler import ParameterSampler
+from .McMcSampler import McMcSampler
 
 from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
 
@@ -204,9 +205,10 @@ class ParameterEstimation:
         return sampler.sample_params(N=N, key_seed=key_seed)
     
     
-    def sample_paramsmcmc(self):
+    def sample_paramsmcmc(self,n_random = 0,num_warmup=500,num_samples=1000):
         print("place holder mcmc sampler")
-        return
+        sampler = McMcSampler(self)
+        return sampler.sample_params(n_random,num_warmup,num_samples)
 
     
     def _from_sheap(self, sheap):
@@ -215,7 +217,7 @@ class ParameterEstimation:
         self.result = sheap.result
 
         result = sheap.result  # for convenience
-
+        self.constraints = result.constraints
         self.params = result.params
         self.max_flux = result.max_flux
         self.uncertainty_params = result.uncertainty_params
@@ -232,6 +234,7 @@ class ParameterEstimation:
         self.kind_list = result.kind_list
         self.params_dict = result.params_dict
         self.dependencies = result.dependencies
+        
 
     def _from_fit_result(self, result, spectra, z):
         self.spec = spectra
@@ -250,7 +253,7 @@ class ParameterEstimation:
         self.model = jit(combine_auto(self.profile_functions))
         self.kind_list = result.kind_list
         self.params_dict = result.params_dict
-
+        self.constraints = result.constraints
 
     
     # def sample_params_original(self,N = 2_000):

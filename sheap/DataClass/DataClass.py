@@ -16,7 +16,7 @@ class SpectralLine:
     region: Optional[str] = None
     profile: Optional[str] = None
     which: Optional[str] = None
-
+    region_lines: Optional[List[str]] = None
     def to_dict(self) -> dict:
         return asdict(self)
 
