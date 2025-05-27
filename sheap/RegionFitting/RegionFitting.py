@@ -107,7 +107,7 @@ class RegionFitting:
         outer_limits: Optional[Tuple[float, float]] = None,
         force_cut: bool = False,
         #exp_factor: jnp.ndarray = jnp.array([0.0]),# this is part of the posterior that cames from the class Mainsheap
-        N: int = 2_000,
+        #N: int = 2_000,
         do_return=False,  # meanwhile variable
         sigma_params=True,) -> None:
         # the idea is that is exp_factor dosent have the same shape of max_flux could be fully renormalice the spectra.
@@ -131,11 +131,11 @@ class RegionFitting:
             params, loss = self._fit(norm_spec, self.model, params, **step)
             uncertainty_params = jnp.zeros_like(params)
         if sigma_params:
-            print("running uncertainty")
+            print("running error_covariance_matrix")
             # error_for_loop(model,params,spectra,free_params=0)
             dependencies = parse_dependencies(self._build_tied(step["tied"]))
             #print(dependencies)
-            uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies,N = N)
+            uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies)
         self.dependencies = dependencies
         self._postprocess(norm_spec, params, uncertainty_params, max_flux)
         self.mask = mask

@@ -119,7 +119,9 @@ class Sheapectral:
         self.spectra_nans = jnp.isnan(self.spectra)
 
     def _apply_hostsubstraction(self,learning_rate=1e-1,n_galaxies=5,n_qso=10) -> None:
+        "Experimental feature"
         hostsubstraction = HostSubtraction(self.spectra,learning_rate=learning_rate,n_galaxies=n_galaxies,n_qso=n_qso)    
+        hostsubstraction._run_substraction(num_steps=50_000)
         return hostsubstraction
     
     def build_region(
@@ -139,7 +141,7 @@ class Sheapectral:
         add_balmercontiniumm: bool = False,
         fe_tied_params: Union[tuple, list] = ('center', 'fwhm'),
         add_NLR = False,
-        powerlaw_profile = "powerlaw",
+        powerlaw_profile = "powerlaw", #can be broken power law also we have to add that to the main class
         no_fe = False
     ):
         self.builded_region = RegionBuilder(

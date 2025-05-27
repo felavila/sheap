@@ -51,7 +51,7 @@ class MasterMinimizer:
         self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate))
         # print('optimizer:',self.optimizer)
 
-        self.loss_function, self.optimize_model, self.residuals = (
+        self.loss_function, self.optimize_model = (
             MasterMinimizer.minimization_function(
                 self.func,
                 weighted=weighted,
@@ -163,16 +163,16 @@ class MasterMinimizer:
         - be carefull with uncertainty and weight
         """
 
-        @jit
-        def residuals(
-            params: jnp.ndarray,
-            xs: List[jnp.ndarray],
-            y: jnp.ndarray,
-            y_uncertainties: jnp.ndarray,
-        ):
-            predictions = func(xs, params)
+        # @jit
+        # def residuals(
+        #     params: jnp.ndarray,
+        #     xs: List[jnp.ndarray],
+        #     y: jnp.ndarray,
+        #     y_uncertainties: jnp.ndarray,
+        # ):
+        #     predictions = func(xs, params)
 
-            return jnp.abs(y - predictions) / y_uncertainties
+        #     return jnp.abs(y - predictions) / y_uncertainties
 
         loss_function = build_loss_function(func, weighted, penalty_function, penalty_weight)
         loss_function = jit(loss_function)
@@ -221,4 +221,4 @@ class MasterMinimizer:
 
             return params, loss_history
 
-        return loss_function, optimize_model, residuals
+        return loss_function, optimize_model

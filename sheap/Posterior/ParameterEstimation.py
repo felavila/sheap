@@ -16,7 +16,7 @@ from sheap.DataClass.DataClass import FitResult
 from sheap.Minimizer.utils import combine_auto
 from sheap.Mappers.LineMapper import LineMapper
 from sheap.Mappers.helpers import mapping_params
-from .ParameterSampler import ParameterSampler
+from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler
 
 from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
@@ -198,17 +198,20 @@ class ParameterEstimation:
     #def 
     
     
-    def sample_params(self, N: int = 2000, key_seed: int = 0):
+    def sample_montecarlo(self, N: int = 2000, key_seed: int = 0):
         """
-        Run Monte Carlo parameter sampling (see ParameterSampler for details).
-        Returns (L_w, L_bol, masses), each as a list of dicts, one per object.
+        Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
+        Returns megafullsample
         """
-        sampler = ParameterSampler(self)
+        sampler = MonteCarloSampler(self)
         return sampler.sample_params(N=N, key_seed=key_seed)
     
     
-    def sample_paramsmcmc(self,n_random = 0,num_warmup=500,num_samples=1000):
-        print("place holder mcmc sampler")
+    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000):
+        """
+        Run mcmc using numpyro parameter sampling.
+        Returns megafullsample
+        """
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random,num_warmup,num_samples)
 
