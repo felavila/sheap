@@ -21,7 +21,8 @@ from .utils import (
 module_dir = Path(__file__).resolve().parent.parent / "SuportData" / "eigen"
 # print(module_dir)
 
-
+#xmax=7990,
+#xmin=3500,
 class HostSubtraction:
 
     def __init__(
@@ -37,17 +38,21 @@ class HostSubtraction:
     ):
         #xmax and xmin based on the proper lenght of the templates
         "- Spectra shape (K, N, M)"
-        self.Spectra = Spectra
+        self.spectra = Spectra
+        
         self.xmax = xmax
         self.xmin = xmin
         self.n_galaxies = n_galaxies
         self.n_qso = n_qso
-        self._setup_eigenvectors()
         self.num_steps = num_steps
         self.learning_rate = learning_rate
         self.names = kwargs.get("names")
         self.z = kwargs.get("z")
-
+        self.spectra_exp = jnp.round(
+            jnp.log10(jnp.nanmedian(self.spectra[:, 1, :], axis=1))
+        )
+        self.spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(10 ** (-1 * self.spectra_exp[:, None, None]))
+        self._setup_eigenvectors()
     def _setup_eigenvectors(
         self, n_galaxies=None, n_qso=None, xmin=None, xmax=None
     ):  # here add the constrain in the number of objects
@@ -82,7 +87,7 @@ class HostSubtraction:
             qso_eig["pca"].reshape(qso_eig["pca"].shape[1], qso_eig["pca"].shape[2])
         )[:n_qso, :]
 
-        obj_spectra, _, _, _ = mask_builder(self.Spectra, outer_limits=[xmin, xmax])
+        obj_spectra, _, _, _ = mask_builder(self.spectra_scaled, outer_limits=[xmin, xmax])
 
         mask_qso = (obj_spectra[:, 0, :] >= xmin) & (obj_spectra[:, 0, :] <= xmax)
         mask_galaxies = (obj_spectra[:, 0, :] >= xmin) & (obj_spectra[:, 0, :] <= xmax)
@@ -107,18 +112,25 @@ class HostSubtraction:
     def _run_substraction(
         self,
         num_steps=None,
-        learning_rate=1e-1,
+        learning_rate=None,
         penalty_function=None,
         penalty_weight=None,
         n_galaxies=None,
         n_qso=None,
         xmin=None,
         xmax=None,
-    ):
-
-        if any(
-            eval(v) is not None or eval(v) != eval(f"self.{v}")
-            for v in ("n_galaxies", "n_qso", "xmin", "xmax")
+    ):  
+        
+        n_galaxies = n_galaxies if n_galaxies is not None else self.n_galaxies
+        n_qso = n_qso if n_qso is not None else self.n_qso
+        xmin = xmin if xmin is not None else self.xmin
+        xmax = xmax if xmax is not None else self.xmax
+        learning_rate = learning_rate if learning_rate is not None else self.learning_rate
+        if (
+            n_galaxies != self.n_galaxies or
+            n_qso != self.n_qso or
+            xmin != self.xmin or
+            xmax != self.xmax
         ):
             print("set up again")
             self._setup_eigenvectors(n_galaxies=n_galaxies, n_qso=n_qso, xmin=xmin, xmax=xmax)
@@ -133,12 +145,25 @@ class HostSubtraction:
         constraints = jnp.array(
             [[-1.0e3, +1.0e3]] * self.n_galaxies + [[-1e3, +1e3]] * self.n_qso
         )
+        print("num_steps", num_steps,'learning_rate',learning_rate)
         start = time.perf_counter()
+        import optax 
+        
+        scheduler = optax.join_schedules(
+                    schedules=[
+                        optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=1000),  # quick warmup
+                        optax.cosine_decay_schedule(init_value=1e-3, decay_steps=50_000, alpha=1e-5)  # rapid refinement
+                    ],
+                    boundaries=[1000]
+                )
+        
         minimizer = MasterMinimizer(
             linear_combination,
             optimize_in_axis=3,
+            optimizer = optax.adamw(scheduler, weight_decay=1e-4),
+            
             num_steps=num_steps,
-            learning_rate=learning_rate,
+            #learning_rate=learning_rate,
             penalty_function=penalty_function,  
             penalty_weight=penalty_weight,
         )  
@@ -178,11 +203,16 @@ class HostSubtraction:
         n_qso = self.n_qso
         params = self.params
         x_axis, y_axis, yerr = self.obj_spectra[n, :]
-        print(eigenvectors[n][n_galaxies:].shape)
+        #print(eigenvectors[n][n_galaxies:].shape)
         model_qso = jnp.nansum(eigenvectors[n][n_galaxies:].T * params[n][n_galaxies:], axis=1)
         model_galaxy = jnp.nansum(
             eigenvectors[n][:n_galaxies].T * params[n][:n_galaxies], axis=1
         )
+        #model_top =  linear_combination(eigenvectors[n], params[n])
+        
+        # jnp.nansum(
+        #     eigenvectors[n].T * params[n], axis=1
+        # )
         text1, text2 = self._make_text(n, model_galaxy)
         # Plot the components
         plt.figure(figsize=(20, 10))
@@ -190,6 +220,7 @@ class HostSubtraction:
         plt.plot(x_axis, model_qso, label='QSO Model')
         plt.plot(x_axis, model_galaxy, label='Galaxy Model')
         plt.plot(x_axis, model_qso + model_galaxy, label='Total Model')
+        #plt.plot(x_axis,model_top, label='Total Model')
         plt.axhline(0, ls="--", c="k")
         plt.text(
             0.05,

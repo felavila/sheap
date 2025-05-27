@@ -149,7 +149,9 @@ class Sheapectral:
         # maybe add a filter here to see whats going on?
 
     def _apply_hostsubstraction(self,learning_rate=1e-1,n_galaxies=5,n_qso=10) -> None:
+        "Experimental feature"
         hostsubstraction = HostSubtraction(self.spectra,learning_rate=learning_rate,n_galaxies=n_galaxies,n_qso=n_qso)    
+        hostsubstraction._run_substraction(num_steps=50_000)
         return hostsubstraction
     
     def build_region(
@@ -169,7 +171,7 @@ class Sheapectral:
         add_balmercontiniumm: bool = False,
         fe_tied_params: Union[tuple, list] = ('center', 'fwhm'),
         add_NLR = False,
-        powerlaw_profile = "powerlaw",
+        powerlaw_profile = "powerlaw", #can be broken power law also we have to add that to the main class
         no_fe = False
     ):
         self.builded_region = RegionBuilder(
@@ -195,30 +197,14 @@ class Sheapectral:
         self.fitting_rutine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,N=2_000):
-        #We have to remove all kind of normalization in this and all the result,constrains, uncertainty have to come back in the original scale of the 
-        #spectra so in this way we can have other problems with scales 
-        #spectra_scaled = self.spectra.at[:, [1, 2], :].multiply(
-         #   10 ** (-1 * self.spectra_exp[:, None, None])
-        #)
-
+    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
 
         fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_rutine)
-        #print(fitting_rutine.keys())
-        fit_output = fitting_class(self.spectra, do_return=True,N=N)
-
-        # Rescale amplitudes
-        #scaled = 10 ** self.spectra_exp
-        #idxs = mapping_params(fit_output.params_dict, [["amplitude"], ["scale"]])
-
-        #fit_output.max_flux = fit_output.max_flux * scaled
-        #fit_output.params = fit_output.params.at[:, idxs].multiply(scaled[:, None])
-        #fit_output.constraints = fit_output.constraints.at[idxs,:].multiply(scaled)
-        #fit_output.uncertainty_params = fit_output.uncertainty_params.at[:, idxs].multiply(scaled[:, None])
-        fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
+        fit_output = fitting_class(self.spectra, do_return=True)
+        fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale ?"
         fit_output.source = "computed"
         
         # Store result using FitResult directly

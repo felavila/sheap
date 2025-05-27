@@ -47,11 +47,11 @@ class MasterMinimizer:
         self.num_steps = num_steps
         self.learning_rate = learning_rate or 1e-3
         self.list_dependencies = list_dependencies
-        self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
+        self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)#this can be move to the main class.
         self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate))
         # print('optimizer:',self.optimizer)
 
-        self.loss_function, self.optimize_model, self.residuals = (
+        self.loss_function, self.optimize_model = (
             MasterMinimizer.minimization_function(
                 self.func,
                 weighted=weighted,
@@ -94,11 +94,15 @@ class MasterMinimizer:
             _type_: _description_
         """
         self.learning_rate = learning_rate or self.learning_rate
+        
         list_dependencies = list_dependencies or self.list_dependencies
+        
         self.parsed_dependencies_tuple = parse_dependencies(list_dependencies)
         self.num_steps = num_steps or self.num_steps
         self.optimizer = optimizer or self.optimizer
+        #self.learning_rate or schedule?
         non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
+        
         #     schedule = optax.join_schedules(
         # schedules=[
         #     optax.linear_schedule(init_value=0.0, end_value=1e-3, transition_steps=500),
@@ -106,7 +110,7 @@ class MasterMinimizer:
         # ],
         # boundaries=[500]
         # )
-        # print("eje")
+      
         self.default_args = (
             self.parsed_dependencies_tuple,
             self.learning_rate,
@@ -163,16 +167,16 @@ class MasterMinimizer:
         - be carefull with uncertainty and weight
         """
 
-        @jit
-        def residuals(
-            params: jnp.ndarray,
-            xs: List[jnp.ndarray],
-            y: jnp.ndarray,
-            y_uncertainties: jnp.ndarray,
-        ):
-            predictions = func(xs, params)
+        # @jit
+        # def residuals(
+        #     params: jnp.ndarray,
+        #     xs: List[jnp.ndarray],
+        #     y: jnp.ndarray,
+        #     y_uncertainties: jnp.ndarray,
+        # ):
+        #     predictions = func(xs, params)
 
-            return jnp.abs(y - predictions) / y_uncertainties
+        #     return jnp.abs(y - predictions) / y_uncertainties
 
         loss_function = build_loss_function(func, weighted, penalty_function, penalty_weight)
         loss_function = jit(loss_function)
@@ -221,4 +225,4 @@ class MasterMinimizer:
 
             return params, loss_history
 
-        return loss_function, optimize_model, residuals
+        return loss_function, optimize_model

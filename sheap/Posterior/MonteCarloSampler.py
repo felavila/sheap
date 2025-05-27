@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from .functions import calc_flux,calc_luminosity,calc_fwhm_kms,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
 from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
-from sheap.LineMapper.LineMapper import LineMapper, mapping_params
+#from sheap.LineMapper.LineMapper import LineMapper
 
 
 
@@ -23,7 +23,7 @@ from sheap.LineMapper.LineMapper import LineMapper, mapping_params
 # kt = kurtosis(emission_profiles, axis=1, fisher=False)  
 # print("kt",kt)
 
-class ParameterSampler:
+class MonteCarloSampler:
     """
     Monte Carlo sampler for spectral fit results and parameter uncertainties.
     BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS should came from ParameterEstimation
@@ -59,9 +59,12 @@ class ParameterSampler:
         idx_target = [i[1] for i in dependencies]
         idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         key = random.PRNGKey(key_seed)
-        mega_full_sample = []
+        
+        matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1]))
+        #mega_full_sample = []
         results_L_w, results_L_bol, results_masses = [], [], []
         #add tqm 
+        
         for n, (params_i, wl_i, flux_i, yerr_i) in enumerate(tqdm(zip(params, wl, flux, yerr), total=len(params), desc="Sampling obj")):
             free_params = params_i[jnp.array(idx_free_params)]
             res_fn = make_residuals_free_fn(
@@ -86,8 +89,8 @@ class ParameterSampler:
 
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scaled[n])
-            mega_full_sample.append(full_samples)
-        return mega_full_sample
+            matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
+        return matrix_sample_params
     
     
     

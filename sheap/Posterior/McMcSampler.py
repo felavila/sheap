@@ -102,24 +102,31 @@ class McMcSampler:
         #self.init_values = {key:self.matrix_params[n][_] for _,key in enumerate(self.theta_to_sheap.values())}
         #key = random.PRNGKey(key_seed)
     
-    def sample_params(self,n_random,num_warmup=500,num_samples=1000):
+    def sample_params(self,n_random,num_warmup=500,num_samples=1000,list_of_objects=None):
         from sheap.RegionFitting.uncertainty_functions import (
             apply_tied_and_fixed_params
         )
+        if list_of_objects is None:
+            import numpy as np 
+            print("The mcmc will be runend for all the sample")
+            list_of_objects = np.arange(self.norm_spec.shape[0])
+
         name_list = self.name_list
         constraints = self.constraints
         theta_to_sheap = self.theta_to_sheap
         #tied_targets = self.tied_targets
         fixed_params = self.fixed_params
         dependencies = self.dependencies
-        #print(dependencies)
         model_func = self.model_func
         dependencies = self.dependencies
-        params_i = self.matrix_params[0]
+        
         idxs = self.idxs #scale indx
         scaled = self.scaled
-        for n in [0]:#range(self.max_flux.shape[0]): over all over this system option
+        #mmm 
+        matrix_sample_params = jnp.zeros((len(list_of_objects),num_samples,self.matrix_params.shape[1]))
+        for n in list_of_objects:#range(self.max_flux.shape[0]): over all over this system option
             wl,flux,sigma = self.norm_spec[n]
+            params_i = self.matrix_params[n]
             free_params = self.matrix_params[n][jnp.array(self.idx_free_params)]
             init_values = {key: self.matrix_params[n][_] for _,key in enumerate(self.theta_to_sheap.values())}
             numpyro_model = make_numpyro_model(name_list,wl,flux,sigma,constraints,init_values,theta_to_sheap,fixed_params,dependencies,model_func)
@@ -130,19 +137,19 @@ class McMcSampler:
             mcmc.run(jax.random.PRNGKey(n_random))
             get_samples = mcmc.get_samples()
             sorted_theta = sorted(get_samples.keys(), key=lambda x: int(x.split('_')[1]))  #How much info can be lost in this steep?
-            samples_free = jnp.array([get_samples[i] for i in sorted_theta]).T
+            samples_free = jnp.array([get_samples[i] for i in sorted_theta]).T             #collect_fields=("log_likelihood",)
             #full_samples = vmap(apply_one_sample)(samples_free)
             def apply_one_sample(free_sample):
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scaled[n])
-            
+            matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
             #from samples to full samples here.
             #then we choose the strategi 
-            #collect_fields=("log_likelihood",)
+
             #samples = samples
         
-        return full_samples
+        return matrix_sample_params
     
     
    
