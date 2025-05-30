@@ -11,7 +11,7 @@ from sheap.Tools.spectral_basic import kms_to_wl
 
 #TEMPLATE FAMILIES SHOULD BE ADDED 
 
-templates_path = Path(__file__).resolve().parent.parent.parent / "SuportData" / "templates"
+templates_path = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
 
 
 fe_template_OP_file =   templates_path / 'fe2_Op.dat'

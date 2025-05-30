@@ -10,16 +10,16 @@ from auto_uncertainties import Uncertainty
 from jax import grad, jit,vmap
 
 
-from sheap import Sheapectral
+from sheap.MainSheap import Sheapectral
 from sheap.DataClass.DataClass import FitResult
 
-from sheap.Minimizer.utils import combine_auto
+from sheap.Functions.utils import combine_auto
 from sheap.Mappers.LineMapper import LineMapper
 from sheap.Mappers.helpers import mapping_params
 from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler
 
-from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
+from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c
 
 cm_per_mpc = 3.08568e24
 
@@ -36,7 +36,9 @@ class ParameterEstimation:
         z: Optional[jnp.ndarray] = None,
         fluxnorm=None,
         cosmo=None,
-        c=299792.458,
+        BOL_CORRECTIONS = BOL_CORRECTIONS,
+        SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS,
+        c=c,
     ):
         if sheap is not None:
             self._from_sheap(sheap)
@@ -44,7 +46,9 @@ class ParameterEstimation:
             self._from_fit_result(fit_result, spectra, z)
         else:
             raise ValueError("Provide either `sheap` or (`fit_result` + `spectra`).")
-
+        
+        self.BOL_CORRECTIONS = BOL_CORRECTIONS
+        self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
         self.c = c
         self.RegionMap = LineMapper(
             complex_region=self.complex_region,
@@ -73,7 +77,8 @@ class ParameterEstimation:
         self.kinds_map = {}
         for k in self.kind_list:
             self.kinds_map[k] = self.RegionMap._get(where="kind", what=k)
-
+       
+    
     def compute_params_wu(self):
         """
         Compute line flux, FWHM, luminosity, and FWHM in km/s with uncertainties for each emission line kind.
@@ -198,13 +203,13 @@ class ParameterEstimation:
     #def 
     
     
-    def sample_montecarlo(self, N: int = 2000, key_seed: int = 0):
+    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0):
         """
         Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
         Returns megafullsample
         """
         sampler = MonteCarloSampler(self)
-        return sampler.sample_params(N=N, key_seed=key_seed)
+        return sampler.sample_params(N=num_samples, key_seed=key_seed)
     
     
     def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000):

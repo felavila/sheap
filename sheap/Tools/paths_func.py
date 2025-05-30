@@ -1,11 +1,6 @@
 import glob
 import os
-
-import jax
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
 import pandas as pd
-from jax import jit
 
 
 ###

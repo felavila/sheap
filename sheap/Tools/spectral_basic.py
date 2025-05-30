@@ -6,7 +6,7 @@ import numpy as np
 from jax import jit, lax, vmap
 
 
-@jit
+#@jit
 @ft.partial(vmap, in_axes=(0, 0), out_axes=0)
 def _deredshift(spectra, z):
     # PyQSO DR16 pass the results in redshift
@@ -15,7 +15,7 @@ def _deredshift(spectra, z):
     return spectra
 
 
-@jit
+#@jit
 def kms_to_wl(kms, line_center, c=2.99792458e5):
     """
     Convert a velocity in km/s to a wavelength shift based on the line center.
@@ -38,7 +38,7 @@ def kms_to_wl(kms, line_center, c=2.99792458e5):
     return wl
 
 
-@jit
+#@jit
 def wl_to_kms(wl, line_center, c=2.99792458e5):
     """
     Convert a velocity in km/s to a wavelength shift based on the line center.

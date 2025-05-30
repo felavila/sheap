@@ -4,6 +4,8 @@ import jax.numpy as jnp
 import numpy as np
 from jax import jit, lax, vmap
 
+from .spectra_readers import resize_and_fill_with_nans
+
 ArrayLike = Union[np.ndarray, jnp.ndarray]
 
 
@@ -107,30 +109,4 @@ def prepare_uncertainties(
     return y_uncertainties
 
 
-def resize_and_fill_with_nans(original_array, new_xaxis_lenght, number_colums=3):
-    """
-    Resize an array to the target shape, filling new entries with NaNs.
 
-    Parameters:
-    - original_array: np.ndarray
-        The original NumPy array to resize.
-    - target_shape: tuple
-        The desired shape for the resized array.
-
-    Returns:
-    - new_array: np.ndarray
-        The resized array with NaNs filled in the new spaces.
-    """
-    # Create a new array filled with NaNs
-    new_array = np.full((number_colums, new_xaxis_lenght), np.nan, dtype=float)
-
-    # Determine the slices for each dimension
-    slices = tuple(
-        slice(0, min(o, t))
-        for o, t in zip(original_array.shape, (number_colums, new_xaxis_lenght))
-    )
-
-    # Create a slice object to copy data
-    new_array[slices] = original_array[slices]
-
-    return new_array

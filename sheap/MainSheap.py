@@ -99,7 +99,7 @@ class Sheapectral:
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
             l, b = self.coords.T  # type: ignore[union-attr]
-            sfd_path = Path(__file__).resolve().parent.parent.parent / "SuportData" / "sfddata/"
+            sfd_path = Path(__file__).resolve().parent / "SuportData" / "sfddata/"
             ebv_func = sfdmap.SFDMap(sfd_path).ebv
             ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
@@ -167,7 +167,7 @@ class Sheapectral:
         self.fitting_rutine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,N=2_000):
+    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
         
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
@@ -175,9 +175,9 @@ class Sheapectral:
         fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_rutine)
 
-        fit_output = fitting_class(self.spectra, do_return=True,N=N)
+        fit_output = fitting_class(self.spectra, do_return=True)
 
-        fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
+        #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"
         
         # Store result using FitResult directly
@@ -195,8 +195,8 @@ class Sheapectral:
             complex_region=fit_output.complex_region,
             outer_limits=fit_output.outer_limits,
             inner_limits=fit_output.inner_limits,
-            model_keywords= fitting_rutine.get("model_keywords"),
-            fitting_rutine = fitting_rutine.get("fitting_rutine"),
+            model_keywords= fit_output.model_keywords,
+            fitting_rutine = fit_output.fitting_rutine,
             constraints = fit_output.constraints,
             source=fit_output.source,
             dependencies=fit_output.dependencies
@@ -341,3 +341,5 @@ class Sheapectral:
         ax.yaxis.set_major_locator(FixedLocator(ax.get_yticks()))
 
         return ax
+
+

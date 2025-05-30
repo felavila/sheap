@@ -1,6 +1,10 @@
 
 
+
+c = 299792.458 #speed of light in km/s
+
 #Common correction factors (e.g., Richards et al. 2006 or Netzer 2019) TODO:look for this references
+#This can be change for the users the "only" condition is this should be a dictionary with keys with wavelenght and the values are floats.
 BOL_CORRECTIONS = {
     "1350": 3.81,
     "1450": 3.81,
@@ -11,6 +15,9 @@ BOL_CORRECTIONS = {
 
 # Standard single-epoch virial estimators for common broad lines
 # Reference: see Vestergaard & Peterson 2006; Shen et al. 2011; Greene & Ho 2005 TODO:look for this references
+#This can be change for the users the "only" condition is the user use the same line_name convenction as sheap
+#and the requrided paramter a,b,f,wavelenght and also the bol correction should be also inside the wavelenth 
+
 SINGLE_EPOCH_ESTIMATORS = {
     "Hbeta": {
         "wavelength": "5100",

@@ -9,7 +9,7 @@ from tqdm import tqdm
 # from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
 # from sheap.Mappers.LineMapper import LineMapper 
 from sheap.Mappers.helpers import mapping_params
-
+from .parameter_from_sampler import full_params_sampled_to_posterior_params
 
 
 # this have to be move outside 
@@ -42,8 +42,9 @@ class MonteCarloSampler:
         self.d = estimator.d
         self.params = estimator.params
         self.params_dict = estimator.params_dict
-
-
+        self.BOL_CORRECTIONS = estimator.BOL_CORRECTIONS
+        self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
+    
     def sample_params(self, N: int = 2000, key_seed: int = 0) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import (
             apply_tied_and_fixed_params, make_residuals_free_fn, error_covariance_matrix
@@ -61,9 +62,10 @@ class MonteCarloSampler:
         idx_target = [i[1] for i in dependencies]
         idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         key = random.PRNGKey(key_seed)
-        
+        dic_posterior_params = {}
         matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1])) 
-        for n, (params_i, wl_i, flux_i, yerr_i) in enumerate(tqdm(zip(params, wl, flux, yerr), total=len(params), desc="Sampling obj")):
+        iterator =tqdm(zip(params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
+        for n, (params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
             free_params = params_i[jnp.array(idx_free_params)]
             res_fn = make_residuals_free_fn(
                 model_func=model, xs=wl_i, y=flux_i, yerr=yerr_i,
@@ -87,8 +89,15 @@ class MonteCarloSampler:
 
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scaled[n])
+            
+            dic_posterior_params[n] = full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,full_samples,self.kinds_map,self.d[n],
+                                                                              c=self.c,
+                                                                              BOL_CORRECTIONS=self.BOL_CORRECTIONS,
+                                                                              SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS)
+            
             matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-        return matrix_sample_params
+        iterator.close()
+        return matrix_sample_params,dic_posterior_params
     
     
     

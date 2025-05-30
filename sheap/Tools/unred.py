@@ -11,7 +11,7 @@ from jax import jit, vmap
 from sheap.Tools.interp_tools import cubic_spline_coefficients, spline_eval
 
 
-@jit
+#@jit
 @ft.partial(vmap, in_axes=(0, 0, 0), out_axes=0)
 def unred(wave, flux, ebv, R_V=3.1, LMC2=False, AVGLMC=False):
     LMC2, AVGLMC = False, False

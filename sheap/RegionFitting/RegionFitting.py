@@ -23,7 +23,7 @@ from sheap.Mappers.helpers import mapping_params
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
 from sheap.DataClass.utils import is_list_of_SpectralLine
 
-from .uncertainty_functions import error_for_loop
+from sheap.RegionFitting.uncertainty_functions import error_for_loop
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
@@ -450,7 +450,9 @@ class RegionFitting:
             outer_limits = self.outer_limits,
             inner_limits = self.inner_limits,
             fitting_rutine = self.fitting_rutine,
-            dependencies = self.dependencies 
+            dependencies = self.dependencies,
+            model_keywords= self.fitting_rutine.get("model_keywords"),
+            #fitting_rutine = fitting_rutine.get("fitting_rutine"),
             #model_keywords=self.fitting_rutine.get("model_keywords", {})
         )
     
