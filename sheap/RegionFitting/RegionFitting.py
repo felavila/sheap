@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import time
 
 import jax.numpy as jnp
 import numpy as np
@@ -53,6 +54,7 @@ class RegionFitting:
         tied_params: Optional[List[List[Any]]] = None,
         log_mode: bool = False,
         limits_overrides: Optional[Dict[str, FittingLimits]] = None,
+        profile = "gaussian"
     ) -> None:
         """
         Initialize RegionFitting.
@@ -64,9 +66,12 @@ class RegionFitting:
             log_mode: If True, log additional debug info.
             limits_overrides: User-specified FittingLimits per kind.
         """
+        if profile not in ['gaussian','lorentzian']:
+            print(profile," not added to the code yet")
+            profile = "gaussian"
         self.complex_region_ = self._load_region(region_template, yaml_dir)  # fitting rutine
         self.complex_region = self.complex_region_.get("complex_region") or []
-        self.fitting_rutine = self.complex_region_.get("fitting_rutine") or {}
+        self.fitting_routine = self.complex_region_.get("fitting_routine") or {}
         limits = self.complex_region_.get("inner_limits")
         self.inner_limits = (
             tuple(limits) if isinstance(limits, list) and len(limits) == 2 else None
@@ -98,7 +103,7 @@ class RegionFitting:
         self.constraints: Optional[jnp.ndarray] = None
         self.params: Optional[jnp.ndarray] = None
         self.loss: Optional[float] = None
-        self._build_fit_components()
+        self._build_fit_components(profile="gaussian")
 
     def __call__(
         self,
@@ -110,11 +115,11 @@ class RegionFitting:
         #N: int = 2_000,
         do_return=False,  # meanwhile variable
         sigma_params=True,) -> None:
-        # the idea is that is exp_factor dosent have the same shape of max_flux could be fully renormalice the spectra.
+        # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra")
         self.model = jit(
             combine_auto(self.profile_functions))  # maybe this could be taked before
-        _, mask, max_flux, norm_spec = self._prep_data(
+        _, mask, scale, norm_spec = self._prep_data(
             spectra, inner_limits, outer_limits, force_cut)
 
         inner_limits = self.inner_limits or inner_limits
@@ -122,32 +127,42 @@ class RegionFitting:
 
         if not (self.inner_limits and self.outer_limits):
             raise ValueError("inner_limits and outer_limits must be specified")
-        if not isinstance(self.fitting_rutine, dict):
-            raise TypeError("fitting_rutine must be a dictionary.")
+        if not isinstance(self.fitting_routine, dict):
+            raise TypeError("fitting_routine must be a dictionary.")
         params = self.initial_params
-        for i, (key, step) in enumerate(self.fitting_rutine.items()):
-            print(key.upper())
+        total_time = 0
+        for i, (key, step) in enumerate(self.fitting_routine.items()):
+            print(f"\n{'='*40}\n{key.upper()} (step {i+1})")
+            start_time = time.time()  # 
             # step #step is a dictionary so it can take all the parameters directly to fit
             params, loss = self._fit(norm_spec, self.model, params, **step)
             uncertainty_params = jnp.zeros_like(params)
+            end_time = time.time()  # 
+            elapsed = end_time - start_time
+            print(f"Time for step '{key}': {elapsed:.2f} seconds")
+            total_time += elapsed
+        dependencies = parse_dependencies(self._build_tied(step["tied"]))
         if sigma_params:
-            print("running error_covariance_matrix")
-            # error_for_loop(model,params,spectra,free_params=0)
-            dependencies = parse_dependencies(self._build_tied(step["tied"]))
-            #print(dependencies)
+            print("\n==Running error_covariance_matrix==")
+            start_time = time.time()  # 
             uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies)
+            end_time = time.time()  # 
+            elapsed = end_time - start_time
+            print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
+            total_time += elapsed
+        print(f'The entire process took {total_time:.2f}')
         self.dependencies = dependencies
-        self._postprocess(norm_spec, params, uncertainty_params, max_flux)
+        self._postprocess(norm_spec, params, uncertainty_params, scale)
         self.mask = mask
         self.loss = loss
-        self.max_flux = max_flux
+        self.scale = scale
         self.outer_limits = outer_limits
         self.inner_limits = inner_limits
         if do_return:
             return self.to_result()
         #else:
            
-        # spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(max_flux,(2,1)),0,1)[:,:,None]) #This could be forget after   
+        # spec.at[:,[1,2],:].multiply(jnp.moveaxis(jnp.tile(scale,(2,1)),0,1)[:,:,None]) #This could be forget after   
     
     def _fit(
         self,
@@ -207,7 +222,7 @@ class RegionFitting:
           - Normalize flux by max per pixel
 
         Returns:
-            spec, mask, max_flux, normalized spec
+            spec, mask, scale, normalized spec
         """
         # Set or verify limits
         self.inner_limits = inner_limits or self.inner_limits
@@ -228,22 +243,23 @@ class RegionFitting:
 
         # Normalize flux dimension
         try:
-            max_flux = jnp.nanmax(jnp.where(mask, 0, spec[:, 1, :]), axis=1)
+            scale = jnp.nanmax(jnp.where(mask, 0, spec[:, 1, :]), axis=1) #maybe is best sum to move all the spectra to 1?
+            #print(scale) 
             norm_spec = spec.at[:, [1, 2], :].divide(
-                jnp.moveaxis(jnp.tile(max_flux, (2, 1)), 0, 1)[:, :, None]
+                jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None]
             )
         except Exception as e:
             logger.exception("Normalization error")
             raise ValueError(f"Normalization error: {e}")
 
-        return spec, mask, max_flux, norm_spec
+        return spec, mask, scale, norm_spec
 
     def _postprocess(
         self,
         norm_spec: jnp.ndarray,
         params: jnp.ndarray,
         uncertainty_params: jnp.ndarray,
-        max_flux: jnp.ndarray,
+        scale: jnp.ndarray,
         # exp_factor: Union[float, jnp.ndarray],
         # srenormalize: bool
     ) -> None:
@@ -254,14 +270,14 @@ class RegionFitting:
         # self.loss = loss
         # if renormalize:
         try:
-            scaled = max_flux  # / (10**exp_factor)
+            #scaled = scaleux  # / (10**exp_factor)
             idxs = mapping_params(
                 self.params_dict, [["amplitude"], ["scale"]]
             )  # check later on cont how it works
-            self.params = params.at[:, idxs].multiply(scaled[:, None])
-            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scaled[:, None])
+            self.params = params.at[:, idxs].multiply(scale[:, None])
+            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
             self.spec = norm_spec.at[:, [1, 2], :].multiply(
-                jnp.moveaxis(jnp.tile(scaled, (2, 1)), 0, 1)[:, :, None]
+                jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None]
             )
         except Exception as e:
             logger.exception("Renormalization failed")
@@ -277,7 +293,7 @@ class RegionFitting:
         Load line definitions from YAML, dict, or list of SpectralLine-compatible entries.
 
         Returns:
-            Dict containing complex_region, fitting_rutine, inner_limits, outer_limits
+            Dict containing complex_region, fitting_routine, inner_limits, outer_limits
         """
         if isinstance(template, str):
             path = Path(template)
@@ -293,7 +309,7 @@ class RegionFitting:
             # Assume this is a list of dicts defining SpectralLine entries
             data = {
                 "complex_region": [SpectralLine(**entry) for entry in template],
-                "fitting_rutine": {},
+                "fitting_routine": {},
                 "inner_limits": None,
                 "outer_limits": None,
             }
@@ -313,7 +329,7 @@ class RegionFitting:
 
         return {
             "complex_region": region_lines,
-            "fitting_rutine": data.get("fitting_rutine", {}),
+            "fitting_routine": data.get("fitting_routine", {}),
             "inner_limits": data.get("inner_limits"),
             "outer_limits": data.get("outer_limits"),
         }
@@ -358,7 +374,7 @@ class RegionFitting:
                     PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"])
                 )
                 self.profile_names.append(constraints.profile)
-            if cfg.profile == "powerlaw" or cfg.profile =="brokenpowerlaw":
+            if cfg.profile in ["powerlaw","brokenpowerlaw",'linear']:
                 add_linear = False
             for i, name in enumerate(constraints.param_names):
                 key = f"{name}_{cfg.line_name}_{cfg.component}_{cfg.kind}"
@@ -371,30 +387,13 @@ class RegionFitting:
 
 
         if add_linear:
-            print("adding linear")
-            # maybe a class method?
-            self.profile_names.append("linear")
-            self.profile_functions.append(PROFILE_FUNC_MAP["linear"])
-            init_list.extend([0.1e-4, 0.5])
-            high_list.extend([10.0, 10.0])
-            low_list.extend([-10.0, -10.0])
-            for i, name in enumerate(["scale_b", "scale_m"]):
-                key = f"{name}_{'continiumm'}_{0}_{'linear'}"
-                self.params_dict[key] = idx + i
-            # self.profile_params_index.append([idx,idx+2])
-            self.profile_params_index_list.append(np.arange(idx, idx + 2))
-            complex_region.append(
-                SpectralLine(
-                    center=0.0,
-                    line_name='linear',
-                    kind='continuum',
-                    component=0,
-                    profile='linear',
-                    region='continuum',
-                )
-            )
-        # Always add a linear continuum fallback
-
+            print("Continuum profile not found a linear profile will be added")
+            init_,upper_,lower_,spl=self._add_linear(idx)
+            init_list.extend(init_)
+            high_list.extend(upper_)
+            low_list.extend(lower_)
+            complex_region.append(spl)
+            
         self.initial_params = jnp.array(init_list)
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(
@@ -441,7 +440,7 @@ class RegionFitting:
             mask=self.mask,
             profile_functions=self.profile_functions,
             profile_names=self.profile_names,
-            max_flux=self.max_flux,
+            scale=self.scale,
             params_dict=self.params_dict,
             complex_region=self.complex_region,
             loss = self.loss,
@@ -449,13 +448,21 @@ class RegionFitting:
             profile_params_index_list = self.profile_params_index_list,
             outer_limits = self.outer_limits,
             inner_limits = self.inner_limits,
-            fitting_rutine = self.fitting_rutine,
+            fitting_routine = self.fitting_routine,
             dependencies = self.dependencies,
-            model_keywords= self.fitting_rutine.get("model_keywords"),
-            #fitting_rutine = fitting_rutine.get("fitting_rutine"),
-            #model_keywords=self.fitting_rutine.get("model_keywords", {})
+            model_keywords= self.fitting_routine.get("model_keywords"),
+            #fitting_routine = fitting_routine.get("fitting_routine"),
+            #model_keywords=self.fitting_routine.get("model_keywords", {})
         )
     
+    def _add_linear(self,idx):
+        self.profile_names.append("linear")
+        self.profile_functions.append(PROFILE_FUNC_MAP["linear"])
+        for i, name in enumerate(["scale_b", "scale_m"]):
+            key = f"{name}_{'continuum'}_{0}_{'linear'}"
+            self.params_dict[key] = idx + i
+        self.profile_params_index_list.append(np.arange(idx, idx + 2))
+        return [0.1e-4, 0.5],[10.0, 10.0],[-10.0, -10.0],SpectralLine(center=None,line_name='linear',kind='continuum',component=0,profile='linear',region='continuum')
     @property
     def pandas_params(self) -> pd.DataFrame:
         """Return fit parameters as a pandas DataFrame."""

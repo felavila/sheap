@@ -121,6 +121,7 @@ def error_for_loop(model,spectra,params,dependencies):
                                         yerr=yerr_i,
                                         template_params=params_i,
                                         dependencies=dependencies)
+        
         std_errs, _ = error_covariance_matrix(residual_fn=res_fn,
                                                         params_i=free_params,
                                                         xs_i=wl_i,

@@ -2,11 +2,11 @@ import os
 import numpy as np
 from multiprocessing import Pool, set_start_method
 from astropy.io import fits
-
+from functools import partial
 # Limit CPUs for safety
 n_cpu = min(4, os.cpu_count())  # Adjustable
 
-def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=3):
+def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=4):
     """
     Resize an array to the target shape, filling new entries with NaNs.
     """
@@ -18,20 +18,31 @@ def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=3
     new_array[slices] = original_array[slices]
     return new_array
 
-def fits_reader_simulation(file):
+#('WAVE', '>f4', (23198,)), ('FLUX', '>f4', (23198,)), ('ERR_FLUX', '>f4', (23198,)
+def fits_reader_simulation(file,chanel=1,template=False):
     hdul = fits.open(file)
-    data_array = np.array([hdul[1].data["LAMBDA"], hdul[1].data["FLUX_DENSITY"]])
     header_array = []
-    return data_array, header_array
+    if template:
+        data_array = np.array([hdul[chanel].data['LAMBDA'], hdul[chanel].data["FLUX_DENSITY"]])
+        return data_array.squeeze(), header_array
+    if chanel==1:
+        data_array = np.array([hdul[chanel].data["WAVE"], hdul[chanel].data["FLUX"],hdul[chanel].data["ERR_FLUX"]])
+    else:
+        data_array = np.array([hdul[chanel].data["WAVE"], hdul[chanel].data["FLUX"],hdul[chanel].data["ERR"]])
+    
+    return data_array.squeeze(), header_array
 
 def fits_reader_sdss(file):
+    "wdisp in pixels i guess"
+    
+    
     hdul = fits.open(file)
     flux_scale = float(hdul[0].header["BUNIT"].split(" ")[0])
+    data = hdul[1].data
     data_array = np.array([
-        10 ** hdul[1].data["loglam"],
-        hdul[1].data["flux"] * flux_scale,
-        flux_scale / np.sqrt(hdul[1].data["ivar"]),
-    ])
+        10 ** data["loglam"],
+        data["flux"] * flux_scale,
+        flux_scale / np.sqrt(data["ivar"]),data["wdisp"]])
     data_array[np.isinf(data_array)] = 1e20
     header_array = np.array([hdul[0].header["PLUG_RA"], hdul[0].header["PLUG_DEC"]])
     return data_array, header_array
@@ -51,23 +62,48 @@ READER_FUNCTIONS = {
     "fits_reader_pyqso": fits_reader_pyqso,
 }
 
-def parallel_reader_safe(paths, n_cpu=n_cpu, function=fits_reader_sdss):
+
+
+
+def parallel_reader_safe(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     """
     Safe parallel reading using multiprocessing.Pool.
+    Accepts additional keyword arguments for the reader function.
     """
     if isinstance(function, str):
         function = READER_FUNCTIONS[function]
 
+    func_with_args = partial(function, **kwargs)
+
     with Pool(processes=min(n_cpu, len(paths))) as pool:
-        results = pool.map(function, paths, chunksize=1)
+        results = pool.map(func_with_args, paths, chunksize=1)
 
     spectra = [result[0] for result in results]
     coords = np.array([result[1] for result in results])
     shapes_max = max(s.shape[1] for s in spectra)
-    spectra_reshaped = np.array([
-        resize_and_fill_with_nans(s, shapes_max) for s in spectra
-    ])
+    spectra_reshaped = []
+    #np.array([
+        #resize_and_fill_with_nans(s, shapes_max) for s in spectra
+    #])
     return coords, spectra_reshaped, spectra
+
+# def parallel_reader_safe(paths, n_cpu=n_cpu, function=fits_reader_sdss):
+#     """
+#     Safe parallel reading using multiprocessing.Pool.
+#     """
+#     if isinstance(function, str):
+#         function = READER_FUNCTIONS[function]
+
+#     with Pool(processes=min(n_cpu, len(paths))) as pool:
+#         results = pool.map(function, paths, chunksize=1)
+
+#     spectra = [result[0] for result in results]
+#     coords = np.array([result[1] for result in results])
+#     shapes_max = max(s.shape[1] for s in spectra)
+#     spectra_reshaped = np.array([
+#         resize_and_fill_with_nans(s, shapes_max) for s in spectra
+#     ])
+#     return coords, spectra_reshaped, spectra
 
 def batched_reader(paths, batch_size=8, function=fits_reader_sdss):
     """

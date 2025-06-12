@@ -21,7 +21,7 @@ class McMcSampler:
         self.c = estimator.c
         self.dependencies = estimator.dependencies
         self.kinds_map = estimator.kinds_map
-        self.max_flux = estimator.max_flux
+        self.scale = estimator.scale
         self.fluxnorm = estimator.fluxnorm
         self.spec = estimator.spec
         self.mask = estimator.mask
@@ -32,15 +32,14 @@ class McMcSampler:
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
         
         ####part of the re-scale###
-        scaled = self.max_flux
+        #scale = self.scale
         norm_spec = self.spec.at[:, [1, 2], :].divide(
-            jnp.moveaxis(jnp.tile(scaled, (2, 1)), 0, 1)[:, :, None]
+            jnp.moveaxis(jnp.tile(self.scale, (2, 1)), 0, 1)[:, :, None]
         )
         self.norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
         self.idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        self.matrix_params = self.params.at[:, self.idxs].divide(scaled[:, None])
-        constraints = estimator.constraints #.at[self.idxs,:].divide(scaled)
-        #print(constraints)
+        self.matrix_params = self.params.at[:, self.idxs].divide(self.scale[:, None])
+        constraints = estimator.constraints #.at[self.idxs,:].divide(scale)
         #self.model_func = self.model #can  test if a model is already jited?
         
         dependencies = self.dependencies
@@ -53,7 +52,6 @@ class McMcSampler:
         self.tied_targets = {target_idx for (_, _, target_idx, _, _) in  self.dependencies}
         self.fixed_params = {}
         self.ties = None 
-        self.scaled = scaled #change names require 
         
     
     def sample_params(self,n_random,num_warmup=500,num_samples=1000,list_of_objects=None):
@@ -75,7 +73,7 @@ class McMcSampler:
             model_func = self.model_func
             ##
             idxs = self.idxs #scale indx
-            scaled = self.scaled
+            scale = self.scale
             #mmm 
             matrix_sample_params = jnp.zeros((len(list_of_objects),num_samples,self.matrix_params.shape[1]))
             dic_posterior_params = {}
@@ -100,7 +98,7 @@ class McMcSampler:
                 def apply_one_sample(free_sample):
                      return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
                 full_samples = vmap(apply_one_sample)(samples_free)
-                full_samples = full_samples.at[:, idxs].multiply(scaled[n])
+                full_samples = full_samples.at[:, idxs].multiply(scale[n])
                 matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
                 
                 dic_posterior_params[n] = full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,full_samples,

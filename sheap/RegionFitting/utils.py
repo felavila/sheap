@@ -27,7 +27,7 @@ DEFAULT_LIMITS = {
     'outflow': dict(
         upper_fwhm=11775.0,   # FWHM for blueshifted or broad outflowing components
         lower_fwhm=1000.875,
-        center_shift=2500.0,
+        center_shift=3000.0,
         max_amplitude=10.0,
         # Ref: Bischetti+2017, Perrotta+2019
     ),
@@ -108,7 +108,14 @@ def make_constraints(
             profile='powerlaw',
             param_names=['index', 'scale'],
         )
-
+    if selected_profile == 'linear':
+        return ConstraintSet(init=[0.1e-4, 0.5],
+                             upper=[10.0, 10.0],
+                             lower=[-3.0, 0.0],
+                             profile='linear',
+                            param_names=["scale_b", "scale_m"])
+        
+        
     if selected_profile == "brokenpowerlaw":
         return ConstraintSet(
             init=[-1.7, 0.0, 0.1, 5500.0],
@@ -135,9 +142,10 @@ def make_constraints(
         center_lower = center - kms_to_wl(limits.center_shift, center)
         fwhm_upper = kms_to_wl(limits.upper_fwhm, center)
         fwhm_lower = kms_to_wl(limits.lower_fwhm, center)
+        fwhm_init = fwhm_lower*2.0 if cfg.kind == "outflow" else fwhm_lower 
 
         return ConstraintSet(
-            init=[float(cfg.amplitude), float(center + shift), float(fwhm_lower)],
+            init=[float(cfg.amplitude), float(center + shift), float(fwhm_init)],
             upper=[limits.max_amplitude, center_upper, fwhm_upper],
             lower=[0.0, center_lower, fwhm_lower],
             profile='gaussian',

@@ -40,7 +40,7 @@ class FeIITemplateModel:
         delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - self.sigmatemplate**2, 1e-12))
         dl = jnp.maximum(x[1] - x[0], 1e-6)
         sigma_wl = kms_to_wl(delta_sigma, self.central_wl) / dl
-
+        
         max_radius = 1000
         x_local = jnp.arange(-max_radius, max_radius + 1)
         mask = jnp.where(jnp.abs(x_local) <= jnp.round(4 * sigma_wl), 1.0, 0.0)

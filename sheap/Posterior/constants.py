@@ -3,6 +3,8 @@
 
 c = 299792.458 #speed of light in km/s
 
+
+
 #Common correction factors (e.g., Richards et al. 2006 or Netzer 2019) TODO:look for this references
 #This can be change for the users the "only" condition is this should be a dictionary with keys with wavelenght and the values are floats.
 BOL_CORRECTIONS = {

@@ -17,7 +17,7 @@ from sheap.RegionFitting.RegionFitting import RegionFitting
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
 from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
-
+from sheap.Posterior.constants import c
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +40,23 @@ class Sheapectral:
         # self.cfg = config or SheapConfig()
         self.extinction_correction = extinction_correction
         self.redshift_correction = redshift_correction
+        self.wdisp = None
         spec_arr = self._load_spectra(spectra)
+        if spec_arr.shape[1] == 4:
+            self.wdisp = spec_arr[:,3,:]
+            spec_arr = spec_arr[:,[0,1,2],:]
         spec_arr = pad_error_channel(spec_arr)
         self.spectra = spec_arr.astype(jnp.float64)
+        if self.wdisp is not None:
+            #Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
+            #This aprouch only is usseful for log sample spectra
+            # Resolution fwhm_lambda of every pixel, in Angstroms
+            self.velscale = np.log(np.atleast_2d(self.spectra[:,0,-1]/self.spectra[:,0,0]).T)/(self.spectra.shape[2]- 1 ) * c
+            self.dlam = np.gradient(self.spectra[:,0,:],axis=1)   
+            self.fwhm_lambda = 2.355 * self.wdisp * self.dlam #A
+            self.fwhm_kms = self.fwhm_lambda / self.spectra[:,0,:] * c
+            # in cases without wdisp 
+            #     
         # self.in_spectra = spec_arr
         self.coords = coords  # may be None – handle carefully downstream
         self.ebv = ebv
@@ -78,10 +92,15 @@ class Sheapectral:
             return jnp.array(arr).T  # ensure (c, λ) then transpose later
         elif isinstance(spectra, np.ndarray):
             return jnp.array(spectra)
+        elif isinstance(spectra,list):
+            return jnp.array(spectra)
         elif isinstance(spectra, jnp.ndarray):
             return spectra
         raise TypeError("spectra must be a path or ndarray")
 
+    
+    
+    
     def _prepare_z(
         self, z: Optional[Union[float, ArrayLike]], nobj: int
     ) -> Optional[jnp.ndarray]:
@@ -132,18 +151,20 @@ class Sheapectral:
         n_broad: int = 1,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        fe_regions: List[str] = ['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        fe_mode: str = "template",
+        fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
+        fe_mode="template",  # "sum,combined,template"
         add_outflow: bool = False,
-        add_narrowplus: bool = False,
+        add_narrow_plus: bool = False,
         by_region: bool = False,
-        force_linear: bool = False,
-        add_balmercontiniumm: bool = False,
-        fe_tied_params: Union[tuple, list] = ('center', 'fwhm'),
-        add_NLR = False,
-        powerlaw_profile = "powerlaw", #can be broken power law also we have to add that to the main class
+        #force_linear: bool = False,
+        add_balmer_continuum: bool = False,
+        fe_tied_params = ('center', 'fwhm'),
+        add_NLR : bool = False,
+        continuum_profile = "powerlaw",
+        #powerlaw_profile: str = "powerlaw",
         no_fe = False
     ):
+        #i dont like this name xd
         self.builded_region = RegionBuilder(
             xmin=xmin,
             xmax=xmax,
@@ -154,28 +175,27 @@ class Sheapectral:
             fe_regions=fe_regions,
             fe_mode=fe_mode,
             add_outflow=add_outflow,
-            add_narrowplus=add_narrowplus,
+            add_narrow_plus=add_narrow_plus,
             by_region=by_region,
-            force_linear=force_linear,
-            add_balmercontiniumm=add_balmercontiniumm,
+            add_balmer_continuum=add_balmer_continuum,
             fe_tied_params=fe_tied_params,
             add_NLR = add_NLR,
-            powerlaw_profile = powerlaw_profile,
-            no_fe = no_fe
+            no_fe = no_fe,
+            continuum_profile = continuum_profile,
         )
         
-        self.fitting_rutine = self.builded_region()
+        self.fitting_routine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False):
+    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,sigma_params=True,profile ='gaussian'):
         
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
 
-        fitting_rutine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
-        fitting_class = RegionFitting(fitting_rutine)
+        fitting_routine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
+        fitting_class = RegionFitting(fitting_routine,profile=profile)
 
-        fit_output = fitting_class(self.spectra, do_return=True)
+        fit_output = fitting_class(self.spectra, do_return=True,sigma_params=sigma_params)
 
         #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"
@@ -190,13 +210,13 @@ class Sheapectral:
             #loss=fit_output.loss,
             profile_params_index_list=fit_output.profile_params_index_list,
             initial_params=fit_output.initial_params,
-            max_flux=fit_output.max_flux,
+            scale=fit_output.scale,
             params_dict=fit_output.params_dict,
             complex_region=fit_output.complex_region,
             outer_limits=fit_output.outer_limits,
             inner_limits=fit_output.inner_limits,
             model_keywords= fit_output.model_keywords,
-            fitting_rutine = fit_output.fitting_rutine,
+            fitting_routine = fit_output.fitting_routine,
             constraints = fit_output.constraints,
             source=fit_output.source,
             dependencies=fit_output.dependencies
@@ -239,7 +259,7 @@ class Sheapectral:
             profile_names=profile_names,
             loss=None,  # Not saved currently, could be added if needed
             profile_params_index_list=data.get("profile_params_index_list"),
-            max_flux=data.get("max_flux"),  # Not saved currently, could be added if needed
+            scale=data.get("scale"),  # Not saved currently, could be added if needed
             params_dict=data.get("params_dict"),
             complex_region=obj.complex_region,
             outer_limits=data.get("outer_limits"),
@@ -247,7 +267,7 @@ class Sheapectral:
             model_keywords=data.get("model_keywords"),
             source=data.get("source", "pickle"),
             constraints = data.get('constraints'),
-            fitting_rutine = data.get("fitting_rutine")
+            fitting_routine = data.get("fitting_routine")
         )
         obj._plotter = SheapPlot(sheap=obj)
         return obj
@@ -270,12 +290,12 @@ class Sheapectral:
             "complex_region": _complex_region,
             "profile_params_index_list": self.result.profile_params_index_list,
             "profile_names": self.result.profile_names,
-            "fitting_rutine": self.fitting_rutine["fitting_rutine"],
+            "fitting_routine": self.fitting_routine["fitting_routine"],
             "outer_limits": self.result.outer_limits,
             "inner_limits": self.result.inner_limits,
             "model_keywords": self.result.model_keywords,
             "source": self.result.source,
-            "max_flux":np.array(self.result.max_flux),
+            "scale":np.array(self.result.scale),
             'constraints':np.array(self.result.constraints)
         }
 

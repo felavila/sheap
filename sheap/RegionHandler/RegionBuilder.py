@@ -59,44 +59,56 @@ class RegionBuilder:
         fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
         fe_mode="template",  # "sum,combined,template"
         add_outflow: bool = False,
-        add_narrowplus: bool = False,
+        add_narrow_plus: bool = False,
         by_region: bool = False,
-        force_linear: bool = False,
-        add_balmercontiniumm: bool = False,
+        #force_linear: bool = False,
+        add_balmer_continuum: bool = False,
         fe_tied_params=('center', 'fwhm'),
         add_NLR : bool = False,
-        powerlaw_profile: str = "powerlaw",
+        continuum_profile = "powerlaw",
+        #powerlaw_profile: str = "powerlaw",
         no_fe = False
         # model_fii = False
     ) -> None:
         if fe_mode not in ["sum", "model", "template"]:
             print(f"fe_mode:{fe_mode} not recognized moving to template")
             fe_mode = "template"
+        if continuum_profile not in ['linear','powerlaw',"brokenpowerlaw"]:
+            print(f"continuum_profile:{continuum_profile} not recognized moving to powerlaw")
+            continuum_profile = "powerlaw"
+        #basic ones
         self.xmin: float = xmin
         self.xmax: float = xmax
-        self.tied_narrow_to = tied_narrow_to
-        self.tied_broad_to = tied_broad_to
         self.n_narrow: int = n_narrow
         self.n_broad: int = n_broad
+        self.continuum_profile = continuum_profile
+        self.tied_narrow_to = tied_narrow_to
+        self.tied_broad_to = tied_broad_to
+        
         self.lines_regions_available: Dict[str, Any] = {}
         self.regions_available: List[str] = []
-        self.complex_region: List[SpectralLine] = []
-        self._load_region_templates(yaml_paths)
+        self.by_region = by_region
+        
+        self._load_region_templates(yaml_paths) #this should be always here?
         self.tied_params: List[List[str]] = []
+        #fe 
         self.fe_mode = fe_mode
+        self.no_fe = no_fe
+        self.fe_tied_params = fe_tied_params
+        self.fe_regions = fe_regions
+        #######
         # self.template_mode_fe = template_mode_fe
         # self.mainline_candidates = mainline_candidates
+        #adds:
         self.add_outflow = add_outflow
-        self.add_narrowplus = add_narrowplus
-        self.fe_regions = fe_regions
-        self.by_region = by_region
-        self.fe_tied_params = fe_tied_params
-        self.force_linear = force_linear
-        self.add_balmercontiniumm = add_balmercontiniumm
+        self.add_narrow_plus = add_narrow_plus
+        self.add_balmer_continuum = add_balmer_continuum
         self.add_NLR = add_NLR
-        self.powerlaw_profile = powerlaw_profile
-        self.no_fe = no_fe
-        # self.model_fii = model_fii
+        ######
+        #self.force_linear = force_linear
+        #self.powerlaw_profile = powerlaw_profile
+        
+        self.complex_region: List[SpectralLine] = []
         self.make_region()
         
 
@@ -124,7 +136,7 @@ class RegionBuilder:
         "build a simple rutine to be fitted"
         _rutine_dict = {
             "complex_region": self.complex_region,
-            "fitting_rutine": {
+            "fitting_routine": {
                 "step1": {
                     "tied": self.tied_params,
                     "non_optimize_in_axis": 3,
@@ -151,7 +163,7 @@ class RegionBuilder:
             )
             if self.fe_mode == "sum" and tied_fe:
                 _tied_params.extend(fe_ties(self.complex_region))
-            _rutine_dict["fitting_rutine"]["step2"] = {
+            _rutine_dict["fitting_routine"]["step2"] = {
                 "tied": _tied_params,
                 "non_optimize_in_axis": 4,
                 "learning_rate": 1e-2,
@@ -167,18 +179,20 @@ class RegionBuilder:
         n_narrow: Optional[int] = None,
         main_regions: List[str] = ['hydrogen', 'helium'],
         fe_regions: Optional[List[str]] = None,
-        add_outflow: Optional[bool] = None,
-        add_narrowplus: Optional[bool] = None,
+        continuum_profile:Optional[str] = None, 
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        force_linear: Optional[bool] = None,
+        #force_linear: Optional[bool] = None,
         by_region: Optional[bool] = None,
         fe_tied_params: Optional[Tuple] = None,
-        add_balmercontiniumm: Optional[Tuple] = None,
-        fe_mode=None,
+        add_outflow: Optional[bool] = None,
+        add_narrow_plus: Optional[bool] = None,
+        add_balmer_continuum: Optional[Tuple] = None,
         add_NLR = None,
-        powerlaw_profile = None,
-        no_fe = None
+        fe_mode=None,
+        no_fe = None,
+        #powerlaw_profile = None,
+        
     ) -> None:
         xmin = xmin if xmin is not None else self.xmin
         xmax = xmax if xmax is not None else self.xmax
@@ -186,29 +200,27 @@ class RegionBuilder:
         n_narrow = n_narrow if n_narrow is not None else self.n_narrow
         tied_narrow_to = tied_narrow_to if tied_narrow_to is not None else self.tied_narrow_to
         tied_broad_to = tied_broad_to if tied_broad_to is not None else self.tied_broad_to
-        # mainline_candidates =  mainline_candidates #if mainline_candidates is not None else self.mainline_candidates
-        # template_mode_fe =  template_mode_fe if template_mode_fe is not None else self.template_mode_fe
+        continuum_profile = continuum_profile if continuum_profile is not None else self.continuum_profile 
         add_outflow = add_outflow if add_outflow is not None else self.add_outflow
-        add_narrowplus = add_narrowplus if add_narrowplus is not None else self.add_narrowplus
+        add_narrow_plus = add_narrow_plus if add_narrow_plus is not None else self.add_narrow_plus
         fe_regions = fe_regions if fe_regions is not None else self.fe_regions
-        force_linear = force_linear if force_linear is not None else self.force_linear
         add_NLR = add_NLR if add_NLR is not None else self.add_NLR
-        add_balmercontiniumm = (
-            add_balmercontiniumm
-            if add_balmercontiniumm is not None
-            else self.add_balmercontiniumm
+        add_balmer_continuum = (
+            add_balmer_continuum
+            if add_balmer_continuum is not None
+            else self.add_balmer_continuum
         )
         # model_fii = model_fii if model_fii is not None else self.model_fii
         fe_mode = fe_mode if fe_mode is not None else self.fe_mode
         by_region = by_region if by_region is not None else self.by_region
         fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
-        powerlaw_profile = powerlaw_profile if powerlaw_profile is not None else self.powerlaw_profile
+        #powerlaw_profile = powerlaw_profile if powerlaw_profile is not None else self.powerlaw_profile
         no_fe = no_fe if no_fe is not None else self.no_fe
         # template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
 
         self.complex_region.clear()
         self.tied_params.clear()
-        narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrowplus else [])
+        narrow_keys = ['narrow_basic'] + (['narrow_plus'] if add_narrow_plus else [])
         if fe_mode.lower() == "template" and not no_fe:  # and (xmax - xmin) > 1000:
             # the cuantity of pixels should be related to the the region in where the spectra have to be
             # if xmin>=3000 and xmax<=6000:
@@ -256,11 +268,11 @@ class RegionBuilder:
                 )
 
                 # template_mode_Fe = False
-        if self.xmin > 3640.0 and add_balmercontiniumm:
+        if self.xmin > 3640.0 and add_balmer_continuum:
             print(
-                "Warning: Balmer continiuum dosent have effect under 3640 A add_balmercontiniumm change to False"
+                "Warning: Balmer continiuum dosent have effect under 3640 A add_balmer_continuum change to False"
             )
-            add_balmercontiniumm = False
+            add_balmer_continuum = False
         is_tied_broad = False if tied_broad_to is not None else True
         is_tied_narrow = False if tied_narrow_to is not None else True
         tie_fe = False
@@ -295,7 +307,7 @@ class RegionBuilder:
                         print("work in progress")
 
                 if name in main_regions:
-                    comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR)
+                    comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR,add_outflow)
                 elif name in narrow_keys:
                     comps = self._handle_narrow_line(base, n_narrow, add_outflow)
                 elif name == 'broad':
@@ -319,7 +331,7 @@ class RegionBuilder:
         assert is_tied_broad, f"'tied_broad_to': {tied_broad_to} not in the region"
         assert is_tied_narrow, f"'tied_narrow_to': {tied_narrow_to} not in the region"
 
-        if add_balmercontiniumm:
+        if add_balmer_continuum:
             self.complex_region.append(
                 SpectralLine(
                     center=0.0,
@@ -331,17 +343,19 @@ class RegionBuilder:
                 )
             )
 
-        if (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD and not force_linear:
-            self.complex_region.append(
-                SpectralLine(
-                    center=0.0,
-                    line_name=powerlaw_profile,
-                    kind='continuum',
-                    component=0,
-                    profile=powerlaw_profile,
-                    region='continuum',
-                )
+        #if (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD:
+        if 'powerlaw' in continuum_profile and (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD:
+            print('POWER_LAW_RANGE_THRESHOLD:',POWER_LAW_RANGE_THRESHOLD,"<",(xmax - xmin) )
+        self.complex_region.append(
+            SpectralLine(
+                center=None,
+                line_name=continuum_profile,
+                kind='continuum',
+                component=0,
+                profile=continuum_profile,
+                region='continuum',
             )
+        )
 
        
         if not no_fe:
@@ -377,8 +391,9 @@ class RegionBuilder:
             "fe_mode": fe_mode,
         }
 
+
     def _handle_main_line(
-        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_NLR:bool 
+        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_NLR:bool , add_outflow:bool
     ) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
         total = n_narrow + n_broad
@@ -396,7 +411,26 @@ class RegionBuilder:
                 how=entry.how,
                 region=entry.region,
             )
-            comps.append(new)
+            
+            if comp_num>1 and entry.region == "hydrogen":
+                comps.append(new)
+            elif comp_num==1:
+                comps.append(new)
+            else:
+                continue
+            
+        if add_outflow and 'Halpha' in entry.line_name:
+            out = SpectralLine(
+                    center=entry.center,
+                    line_name=entry.line_name,
+                    kind='outflow',
+                    component=OUTFLOW_COMPONENT,
+                    amplitude=0.5,
+                    profile=entry.profile,
+                    region=entry.region,
+                )
+            comps.append(out)
+                   
         if add_NLR and entry.region == "hydrogen":
             new = SpectralLine(
                 center=entry.center,
@@ -442,7 +476,11 @@ class RegionBuilder:
 
     def _handle_broad_line(self, entry: SpectralLine, n_broad: int) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
+        #extra broad? 
+        return comps
         for idx in range(n_broad):
+            if idx>0:
+                continue 
             amp = SpectralLine.amplitude if idx == 0 else 0.5
             new = SpectralLine(
                 center=entry.center,
@@ -467,10 +505,10 @@ class RegionBuilder:
             region=entry.region,
         )
 
-    # def _fitting_rutine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
+    # def _fitting_routine(self,add_step=True,tied_fe=False,num_steps_list=[1000,500]):
     #     "build a simple rutine to be fitted"
     #     print("xd")
-    #     _rutine_dict = {"complex_region":self.complex_region,"fitting_rutine":
+    #     _rutine_dict = {"complex_region":self.complex_region,"fitting_routine":
     #         {"step1":{"tied":self.tied_params,"non_optimize_in_axis":3,"learning_rate":1e-1,"num_steps":num_steps_list[0]}},
     #         "outer_limits":[self.xmin,self.xmax],"inner_limits":[self.xmin+50,self.xmax-50],"model_keywords":self.model_keywords}
     #     if add_step:
@@ -482,5 +520,5 @@ class RegionBuilder:
     #                     known_tied_relations=self.known_tied_relations,only_known=True))
     #         if not self.template_mode_fe and tied_fe:
     #             _tied_params.extend(fe_ties(self.complex_region))
-    #         _rutine_dict["fitting_rutine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
+    #         _rutine_dict["fitting_routine"]["step2"] = {"tied":_tied_params,"non_optimize_in_axis":4,"learning_rate":1e-2,"num_steps":num_steps_list[1]}
     #     return _rutine_dict

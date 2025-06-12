@@ -36,7 +36,7 @@ class SheapPlot:
         result = sheap.result  # for convenience
 
         self.params = result.params
-        self.max_flux = result.max_flux
+        self.scale = result.scale
         self.uncertainty_params = result.uncertainty_params
         self.profile_params_index_list = result.profile_params_index_list
         self.profile_functions = result.profile_functions
@@ -51,7 +51,7 @@ class SheapPlot:
 
     def _from_fit_result(self, result, spectra):
         self.spec = spectra
-        self.max_flux = jnp.nanmax(spectra[:, 1, :], axis=1)
+        self.scale = jnp.nanmax(spectra[:, 1, :], axis=1)
         self.params = result.params
         self.uncertainty_params = result.uncertainty_params
         self.profile_params_index_list = result.profile_params_index_list
@@ -65,7 +65,7 @@ class SheapPlot:
         self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
 
-    def plot(self, n, save=None, add_name=False, residual=True,params=None, **kwargs):
+    def plot(self, n, save=None, add_name=False, residual=True,params=None,line=None, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -73,7 +73,7 @@ class SheapPlot:
             c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f']
         ] * 50
 
-        ylim = kwargs.get("ylim", [0, self.max_flux[n]])
+        ylim = kwargs.get("ylim", [0,self.scale[n]])
         xlim = kwargs.get("xlim", self.xlim)
 
         x_axis, y_axis, yerr = self.spec[n, :]
@@ -132,7 +132,8 @@ class SheapPlot:
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, ls="--", color="red")
         ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1)
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
-
+        if line:
+            ax1.axhline(line)
         ax1.set_ylabel("Flux [arb]", fontsize=20)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)

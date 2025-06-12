@@ -35,7 +35,7 @@ class MonteCarloSampler:
         self.c = estimator.c
         self.dependencies = estimator.dependencies
         self.kinds_map = estimator.kinds_map
-        self.max_flux = estimator.max_flux
+        self.scale = estimator.scale
         self.fluxnorm = estimator.fluxnorm
         self.spec = estimator.spec
         self.mask = estimator.mask
@@ -44,18 +44,20 @@ class MonteCarloSampler:
         self.params_dict = estimator.params_dict
         self.BOL_CORRECTIONS = estimator.BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
+        self.names = estimator.names 
     
-    def sample_params(self, N: int = 2000, key_seed: int = 0) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    def sample_params(self, N: int = 2000, key_seed: int = 0,summarize=True,get_full_posterior=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import (
             apply_tied_and_fixed_params, make_residuals_free_fn, error_covariance_matrix
         )
-        scaled = self.max_flux
+        scale = self.scale
         norm_spec = self.spec.at[:, [1, 2], :].divide(
-            jnp.moveaxis(jnp.tile(scaled, (2, 1)), 0, 1)[:, :, None]
+            jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None]
         )
         norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
         idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        params = self.params.at[:, idxs].divide(scaled[:, None])
+        params = self.params.at[:, idxs].divide(scale[:, None])
+        names = self.names 
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
         model = self.model
         dependencies = self.dependencies
@@ -64,8 +66,8 @@ class MonteCarloSampler:
         key = random.PRNGKey(key_seed)
         dic_posterior_params = {}
         matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1])) 
-        iterator =tqdm(zip(params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
-        for n, (params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
+        iterator =tqdm(zip(names,params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
+        for n, (name_i,params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
             free_params = params_i[jnp.array(idx_free_params)]
             res_fn = make_residuals_free_fn(
                 model_func=model, xs=wl_i, y=flux_i, yerr=yerr_i,
@@ -88,12 +90,13 @@ class MonteCarloSampler:
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
 
             full_samples = vmap(apply_one_sample)(samples_free)
-            full_samples = full_samples.at[:, idxs].multiply(scaled[n])
-            
-            dic_posterior_params[n] = full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,full_samples,self.kinds_map,self.d[n],
-                                                                              c=self.c,
-                                                                              BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                              SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS)
+            full_samples = full_samples.at[:, idxs].multiply(scale[n])
+            if get_full_posterior:
+                dic_posterior_params[name_i] = full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,full_samples,self.kinds_map
+                                                                                ,self.d[n],
+                                                                                c=self.c,
+                                                                                BOL_CORRECTIONS=self.BOL_CORRECTIONS,
+                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize)
             
             matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
         iterator.close()

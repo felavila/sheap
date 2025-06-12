@@ -52,7 +52,7 @@ class FitResult:
         loss (Optional[List]): Values of the loss function during optimization.
         profile_params_index_list (Optional[List]): Indices mapping profile parameters.
         initial_params (Optional[jnp.ndarray]): Initial guess parameters before fitting.
-        max_flux (Optional[jnp.ndarray]): Maximum flux used for normalization.
+        scale (Optional[jnp.ndarray]): scale used for normalization.
         params_dict (Optional[Dict[str, int]]): Mapping from parameter names to indices.
         outer_limits (Optional[List]): Outer wavelength limits of the fitting region.
         inner_limits (Optional[List]): Inner wavelength limits defining the region of interest.
@@ -61,7 +61,7 @@ class FitResult:
         constraints same as constrains from fit 
     """
     complex_region: List[SpectralLine]
-    fitting_rutine: Optional[dict] = None
+    fitting_routine: Optional[dict] = None
     params: Optional[jnp.ndarray] = None
     uncertainty_params: Optional[jnp.ndarray] = None
     mask: Optional[jnp.ndarray] = None
@@ -71,7 +71,7 @@ class FitResult:
     loss: Optional[List] = None
     profile_params_index_list: Optional[List] = None
     initial_params: Optional[jnp.ndarray] = None
-    max_flux: Optional[jnp.ndarray] = None
+    scale: Optional[jnp.ndarray] = None
     params_dict: Optional[Dict[str, int]] = None
     outer_limits: Optional[List] = None
     inner_limits: Optional[List] = None

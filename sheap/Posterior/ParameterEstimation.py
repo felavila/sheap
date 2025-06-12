@@ -67,6 +67,7 @@ class ParameterEstimation:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         else:
             self.cosmo = cosmo
+        print(cosmo)
         if fluxnorm is None:
             self.fluxnorm = np.ones(self.spec.shape[0])
         else:
@@ -89,8 +90,10 @@ class ParameterEstimation:
         """
         dict_ = {}
         for k, k_map in self.kinds_map.items():
+            #print(k)
             if k in ('fe', 'continuum'):
                 continue
+            
             idx_amplitude = mapping_params(k_map.params_names, "amplitude")
             idx_fwhm = mapping_params(k_map.params_names, "fwhm")
             idx_center = mapping_params(k_map.params_names, "center")
@@ -131,7 +134,7 @@ class ParameterEstimation:
         self.dict_params = dict_
         return dict_
 
-    def compute_Luminosity_w(self, wavelenghts=[1350.0, 1450.0, 3000.0, 5100.0, 6200.0]):
+    def compute_Luminosity_w(self, wavelengths=[1350.0, 1450.0, 3000.0, 5100.0, 6200.0]):
         """
         Compute monochromatic luminosities (and uncertainties) at key wavelengths.
         Returns a dict with wavelength (as str) to value/error arrays.
@@ -141,7 +144,7 @@ class ParameterEstimation:
         params = map_cont.params.T
         uncertainty_params = map_cont.uncertainty_params.T
         L_w = {}
-        for w in wavelenghts:
+        for w in wavelengths:
             hits = jnp.isclose(self.spec[:, 0, :], w, atol=1)
             valid = (hits & (~self.mask)).any(axis=1, keepdims=True)
             grad_f = grad(lambda p: jnp.sum(profile_func(jnp.array([w]), p)))(params)
@@ -182,7 +185,7 @@ class ParameterEstimation:
         masses = {}
 
         for line_name, params in SINGLE_EPOCH_ESTIMATORS.items():
-            wave = params["wavelength"]
+            wave = str(float(params["wavelength"]))
             if line_name not in line_name_list or wave not in L_w.keys():
                 continue
             else:
@@ -203,19 +206,21 @@ class ParameterEstimation:
     #def 
     
     
-    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0):
+    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True):
         """
         Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
-        Returns megafullsample
+        Returns megafullsample, dic_posterior_params
         """
         sampler = MonteCarloSampler(self)
-        return sampler.sample_params(N=num_samples, key_seed=key_seed)
+        if summarize:
+            print("The samples will be summarize is you want to keep the samples summarize=False")
+        return sampler.sample_params(N=num_samples, key_seed=key_seed,summarize=summarize,get_full_posterior=get_full_posterior)
     
     
     def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000):
         """
         Run mcmc using numpyro parameter sampling.
-        Returns megafullsample
+        Returns megafullsample, dic_posterior_params
         """
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random,num_warmup,num_samples)
@@ -229,7 +234,7 @@ class ParameterEstimation:
         result = sheap.result  # for convenience
         self.constraints = result.constraints
         self.params = result.params
-        self.max_flux = result.max_flux
+        self.scale = result.scale
         self.uncertainty_params = result.uncertainty_params
         self.profile_params_index_list = result.profile_params_index_list
         self.profile_functions = result.profile_functions
@@ -361,9 +366,9 @@ class ParameterEstimation:
     #                 dict_[k] = {'lines': k_map.line_name, "component":np.array(k_map.component),'flux':flux,"fwhm":fwhm,"fwhm_kms":fwhm_kms,"L":L}
     #         L_w = {}
     #         L_bol = {}
-    #         wavelenghts = [1350.0, 1450.0, 3000.0, 5100.0, 6200.0]
+    #         wavelengths = [1350.0, 1450.0, 3000.0, 5100.0, 6200.0]
     #         cont_params = full_samples[:, idx_cont]
-    #         for w in wavelenghts:
+    #         for w in wavelengths:
     #             #maybe just pass if not here but mmm
     #             wave = str(int(w))
     #             hits = jnp.isclose(norm_spec[n, 0, :], jnp.array([w]), atol=1)
