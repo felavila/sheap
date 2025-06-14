@@ -24,8 +24,9 @@ class SpectralLine:
     how: Optional[str] = None
     region: Optional[str] = None
     profile: Optional[str] = None
-    which: Optional[str] = None
+    which: Optional[str] = None #what is the maning of these xd
     region_lines: Optional[List[str]] = None
+    amplitude_relations: Optional[List[List]] = None
     def to_dict(self) -> dict:
         return asdict(self)
 

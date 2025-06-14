@@ -9,6 +9,15 @@ from sheap.Functions.profiles import PROFILE_FUNC_MAP
 
 
 
+CANONICAL_WAVELENGTHS = {
+    'broad': 4861.0,    # Hbeta
+    'narrow': 5007.0,   # [OIII]
+    'outflow': 5007.0,  # [OIII]
+    'fe': 4570.0,       # Mean FeII blend
+    'nlr': 6583.0       # [NII]
+}
+
+
 DEFAULT_LIMITS = {
     'broad': dict(
         upper_fwhm=11775.0,  # FWHM ~ 1000–10000 km/s for broad lines
@@ -24,9 +33,10 @@ DEFAULT_LIMITS = {
         max_amplitude=10.0,
         # Ref: Osterbrock & Ferland 2006, Véron-Cetty+2001
     ),
+    #not sure about this 
     'outflow': dict(
         upper_fwhm=11775.0,   # FWHM for blueshifted or broad outflowing components
-        lower_fwhm=1000.875,
+        lower_fwhm=5000.875,
         center_shift=3000.0,
         max_amplitude=10.0,
         # Ref: Bischetti+2017, Perrotta+2019
@@ -145,13 +155,30 @@ def make_constraints(
         fwhm_init = fwhm_lower*2.0 if cfg.kind == "outflow" else fwhm_lower 
 
         return ConstraintSet(
-            init=[float(cfg.amplitude), float(center + shift), float(fwhm_init)],
+            init=[float(cfg.amplitude)/10, float(center + shift), float(fwhm_init)],
             upper=[limits.max_amplitude, center_upper, fwhm_upper],
             lower=[0.0, center_lower, fwhm_lower],
             profile='gaussian',
             param_names=['amplitude', 'center', 'fwhm'],
         )
-
+    if selected_profile == "sum_gaussian_amplitude_free":
+        #add kind in case of 
+        
+        shift_upper = kms_to_wl(limits.center_shift, CANONICAL_WAVELENGTHS[cfg.kind]) #limits.center_shift #center + kms_to_wl(limits.center_shift, center)
+        shift_lower = -kms_to_wl(limits.center_shift, CANONICAL_WAVELENGTHS[cfg.kind])  #center - kms_to_wl(limits.center_shift, center)
+        #fwhm_init = limits.fwhm_init #also in km 
+        fwhm_upper = kms_to_wl(limits.upper_fwhm, CANONICAL_WAVELENGTHS[cfg.kind])
+        fwhm_lower = kms_to_wl(limits.lower_fwhm, CANONICAL_WAVELENGTHS[cfg.kind])
+        #print(cfg.kind,fwhm_upper,fwhm_lower)
+        upper_amp = len(cfg.amplitude)*[1.0]
+        lower_amp = len(cfg.amplitude)*[0.0]
+        return ConstraintSet(
+            init=[*cfg.amplitude,0.0 , fwhm_upper/2.0],
+            upper=[*upper_amp, shift_upper, fwhm_upper],
+            lower=[*lower_amp, shift_lower, fwhm_lower],
+            profile="sum_gaussian_amplitude_free",
+            param_names=[*['amplitude'+ str(n) for n in range(len(cfg.amplitude))], 'shift', 'fwhm'],
+        )
     raise NotImplementedError(
         f"No constraints defined for profile '{selected_profile}'. "
         f"Define its ConstraintSet explicitly in make_constraints."

@@ -116,7 +116,7 @@ class RegionFitting:
         do_return=False,  # meanwhile variable
         sigma_params=True,) -> None:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
-        print(f"Fitting {spectra.shape[0]} spectra")
+        print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         self.model = jit(
             combine_auto(self.profile_functions))  # maybe this could be taked before
         _, mask, scale, norm_spec = self._prep_data(
@@ -132,7 +132,7 @@ class RegionFitting:
         params = self.initial_params
         total_time = 0
         for i, (key, step) in enumerate(self.fitting_routine.items()):
-            print(f"\n{'='*40}\n{key.upper()} (step {i+1})")
+            print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
             start_time = time.time()  # 
             # step #step is a dictionary so it can take all the parameters directly to fit
             params, loss = self._fit(norm_spec, self.model, params, **step)
@@ -357,8 +357,8 @@ class RegionFitting:
         # Loop over each line configuration
         idx = 0  # parameter_position
         complex_region = []
+        #I have to decide between sp or cfg for the lines 
         for cfg in self.complex_region:
-
             constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=profile)
             cfg.profile = constraints.profile
             complex_region.append(cfg)
@@ -369,6 +369,11 @@ class RegionFitting:
                 ngaussian = PROFILE_FUNC_MAP["Gsum_model"](cfg.center, cfg.amplitude)
                 self.profile_names.append(f"combine_{cfg.profile}")
                 self.profile_functions.append(ngaussian)
+            if cfg.profile == 'sum_gaussian_amplitude_free':
+                sm = PROFILE_FUNC_MAP[cfg.profile](cfg.center,cfg.amplitude_relations, len(cfg.amplitude))
+                self.profile_names.append(cfg.profile)
+                self.profile_functions.append(sm)
+
             else:
                 self.profile_functions.append(
                     PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"])
@@ -376,6 +381,7 @@ class RegionFitting:
                 self.profile_names.append(constraints.profile)
             if cfg.profile in ["powerlaw","brokenpowerlaw",'linear']:
                 add_linear = False
+            #print(constraints.param_names)
             for i, name in enumerate(constraints.param_names):
                 key = f"{name}_{cfg.line_name}_{cfg.component}_{cfg.kind}"
                 self.params_dict[key] = idx + i

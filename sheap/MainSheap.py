@@ -161,7 +161,7 @@ class Sheapectral:
         fe_tied_params = ('center', 'fwhm'),
         add_NLR : bool = False,
         continuum_profile = "powerlaw",
-        #powerlaw_profile: str = "powerlaw",
+        grouped_method = False,
         no_fe = False
     ):
         #i dont like this name xd
@@ -182,6 +182,7 @@ class Sheapectral:
             add_NLR = add_NLR,
             no_fe = no_fe,
             continuum_profile = continuum_profile,
+            grouped_method = grouped_method
         )
         
         self.fitting_routine = self.builded_region()

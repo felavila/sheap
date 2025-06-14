@@ -11,7 +11,7 @@ import numpy as np
 import yaml
 
 from sheap.DataClass.DataClass import SpectralLine
-from sheap.RegionHandler.utils import fe_ties, group_lines_by_region, region_ties
+from sheap.RegionHandler.utils import fe_ties, group_lines_by_region, region_ties,group_lines
 
 # yaml_files =
 # Named constants for special components
@@ -58,6 +58,7 @@ class RegionBuilder:
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
         fe_mode="template",  # "sum,combined,template"
+        grouped_method = False, #if this is true all the lines will be combine for kind, also is interesting see wich one could be the best one in this case 
         add_outflow: bool = False,
         add_narrow_plus: bool = False,
         by_region: bool = False,
@@ -107,7 +108,7 @@ class RegionBuilder:
         ######
         #self.force_linear = force_linear
         #self.powerlaw_profile = powerlaw_profile
-        
+        self.grouped_method = grouped_method
         self.complex_region: List[SpectralLine] = []
         self.make_region()
         
@@ -188,6 +189,7 @@ class RegionBuilder:
         add_outflow: Optional[bool] = None,
         add_narrow_plus: Optional[bool] = None,
         add_balmer_continuum: Optional[Tuple] = None,
+        grouped_method = None,
         add_NLR = None,
         fe_mode=None,
         no_fe = None,
@@ -216,6 +218,7 @@ class RegionBuilder:
         fe_tied_params = fe_tied_params if fe_tied_params is not None else self.fe_tied_params
         #powerlaw_profile = powerlaw_profile if powerlaw_profile is not None else self.powerlaw_profile
         no_fe = no_fe if no_fe is not None else self.no_fe
+        grouped_method = grouped_method if grouped_method is not None else self.grouped_method
         # template = {"line_name":"feop","kind": "fe","component":20,"how":"template","which":"OP"}
 
         self.complex_region.clear()
@@ -276,7 +279,7 @@ class RegionBuilder:
         is_tied_broad = False if tied_broad_to is not None else True
         is_tied_narrow = False if tied_narrow_to is not None else True
         tie_fe = False
-        # print(model_fii)
+        Kinds = []
         for name, region in self.lines_regions_available.items():
             for entry in region['region']:
                 center = float(entry.get('center', -np.inf))
@@ -327,7 +330,7 @@ class RegionBuilder:
                 else:
                     continue
                 self.complex_region.extend(comps)
-
+        Kinds = np.unique(np.array([sp.kind for sp in self.complex_region]))
         assert is_tied_broad, f"'tied_broad_to': {tied_broad_to} not in the region"
         assert is_tied_narrow, f"'tied_narrow_to': {tied_narrow_to} not in the region"
 
@@ -344,7 +347,7 @@ class RegionBuilder:
             )
 
         #if (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD:
-        if 'powerlaw' in continuum_profile and (xmax - xmin) > POWER_LAW_RANGE_THRESHOLD:
+        if 'powerlaw' in continuum_profile and (xmax - xmin) < POWER_LAW_RANGE_THRESHOLD:
             print('POWER_LAW_RANGE_THRESHOLD:',POWER_LAW_RANGE_THRESHOLD,"<",(xmax - xmin) )
         self.complex_region.append(
             SpectralLine(
@@ -364,19 +367,25 @@ class RegionBuilder:
         
         if fe_mode == "model" and not no_fe:
             self.complex_region = group_lines_by_region(self.complex_region,kind = "fe", component  = 20, exception = ["feii_coronal"])
-        
-        
-        self.tied_params.extend(
-            region_ties(
-                self.complex_region,
-                n_narrow,
-                n_broad,
-                tied_narrow_to=tied_narrow_to,
-                tied_broad_to=tied_broad_to,
-                known_tied_relations=self.known_tied_relations,
+        if grouped_method:
+            for k in Kinds:
+                if k=="fe":
+                    continue
+                self.complex_region = group_lines(self.complex_region,kind = k,profile="sum_gaussian_amplitude_free",mode="kind", exception = [],known_tied_relations = self.known_tied_relations)
+        #this maybe should die in this step?
+        #if  not grouped_method:
+        if not grouped_method:
+            self.tied_params.extend(
+                region_ties(
+                    self.complex_region,
+                    n_narrow,
+                    n_broad,
+                    tied_narrow_to=tied_narrow_to,
+                    tied_broad_to=tied_broad_to,
+                    known_tied_relations=self.known_tied_relations,
+                )
             )
-        )
-        
+            
 
         self.xmin, self.xmax = xmin, xmax
         self.n_narrow, self.n_broad = n_narrow, n_broad

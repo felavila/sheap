@@ -25,6 +25,49 @@ def lorentzian_fwhm(x, params):
     return amplitude / (1.0 + ((x - center) / gamma) ** 2)
 
 
+# def sum_gaussian_amplitude_free(centers):
+#     centers = jnp.array(centers)
+#     _param_count = 2*len(centers)+1
+#     @param_count(_param_count)
+#     def G(x, params):
+#         amplitude = params[0]
+#         delta = params[1]
+#         fwhm = params[2]
+#         sigma = fwhm / 2.355
+#         shifted_centers = centers + delta
+#         dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
+#         gaussians = amplitude * amplitudes[:, None] * jnp.exp(-0.5 * (dx / sigma) ** 2)
+#         return jnp.sum(gaussians, axis=0)
+    
+
+def sum_gaussian_amplitude_free(centers, amplitude_rules,n_params):
+    """
+    centers: list of Gaussian centers
+    amplitude_rules: list of (idx, coefficient, free_idx)
+        idx → which Gaussian
+        coefficient → scale relative to free param
+        free_idx → which parameter index it depends on
+    """
+    centers = jnp.array(centers)
+    #_param_count = max(r[2] for r in amplitude_rules) + 2  # free amps + delta + fwhm
+
+    @param_count(n_params+2)
+    def G(x, params):
+        free = params[:-2]
+        delta = params[-2]
+        fwhm = params[-1]
+        sigma = fwhm / 2.355
+
+        result = 0.0
+        for idx, coef, free_idx in amplitude_rules:
+            amp = coef * free[free_idx]
+            dx = x - (centers[idx] + delta)
+            result += amp * jnp.exp(-0.5 * (dx / sigma) ** 2)
+        return result
+
+    return G
+
+
 def Gsum_model(centers, amplitudes):
     """
     Returns a Gaussian sum model function with shared FWHM and shift.
