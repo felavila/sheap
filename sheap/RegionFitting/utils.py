@@ -93,6 +93,7 @@ def make_constraints(
             )
 
         elif cfg.how == "combine":
+            #print("here?")
             center = cfg.center
             shift = -5 if cfg.kind == "outflow" else 0
 

@@ -188,7 +188,7 @@ class Sheapectral:
         self.fitting_routine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,sigma_params=True,profile ='gaussian'):
+    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,sigma_params=True,profile ='gaussian',learning_rate = None):
         
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
@@ -196,7 +196,7 @@ class Sheapectral:
         fitting_routine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
         fitting_class = RegionFitting(fitting_routine,profile=profile)
 
-        fit_output = fitting_class(self.spectra, do_return=True,sigma_params=sigma_params)
+        fit_output = fitting_class(self.spectra, do_return=True,sigma_params=sigma_params,learning_rate=learning_rate)
 
         #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"

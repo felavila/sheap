@@ -361,17 +361,21 @@ class RegionBuilder:
         )
 
        
-        if not no_fe:
+        if not no_fe and not grouped_method:
             self.tied_params.extend(
                     fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
         
-        if fe_mode == "model" and not no_fe:
+        if fe_mode == "model" and not no_fe and not grouped_method:
             self.complex_region = group_lines_by_region(self.complex_region,kind = "fe", component  = 20, exception = ["feii_coronal"])
         if grouped_method:
             for k in Kinds:
                 if k=="fe":
                     continue
-                self.complex_region = group_lines(self.complex_region,kind = k,profile="sum_gaussian_amplitude_free",mode="kind", exception = [],known_tied_relations = self.known_tied_relations)
+                self.complex_region = group_lines(self.complex_region,kind = k,profile="sum_gaussian_amplitude_free",mode="kind", exception_region = [],known_tied_relations = self.known_tied_relations)
+            
+            self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region")
+            self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]]
+            #,profile="sum_gaussian_amplitude_free"
         #this maybe should die in this step?
         #if  not grouped_method:
         if not grouped_method:
@@ -409,7 +413,7 @@ class RegionBuilder:
         for idx in range(total):
             kind = 'narrow' if idx < n_narrow else 'broad'
             comp_num = idx + 1 if kind == 'narrow' else idx - n_narrow + 1
-            amp = SpectralLine.amplitude if kind == 'narrow' or comp_num == 1 else 0.5
+            amp = SpectralLine.amplitude if kind == 'narrow' or comp_num == 1 else 1.0/comp_num
             new = SpectralLine(
                 center=entry.center,
                 line_name=entry.line_name,

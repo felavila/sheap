@@ -114,7 +114,8 @@ class RegionFitting:
         #exp_factor: jnp.ndarray = jnp.array([0.0]),# this is part of the posterior that cames from the class Mainsheap
         #N: int = 2_000,
         do_return=False,  # meanwhile variable
-        sigma_params=True,) -> None:
+        sigma_params=True,
+        learning_rate=None) -> None:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         self.model = jit(
@@ -133,6 +134,8 @@ class RegionFitting:
         total_time = 0
         for i, (key, step) in enumerate(self.fitting_routine.items()):
             print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
+            if isinstance(learning_rate,list):
+                step["learning_rate"] = learning_rate[i]
             start_time = time.time()  # 
             # step #step is a dictionary so it can take all the parameters directly to fit
             params, loss = self._fit(norm_spec, self.model, params, **step)
@@ -150,7 +153,7 @@ class RegionFitting:
             elapsed = end_time - start_time
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
             total_time += elapsed
-        print(f'The entire process took {total_time:.2f}')
+        print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         self.dependencies = dependencies
         self._postprocess(norm_spec, params, uncertainty_params, scale)
         self.mask = mask
@@ -369,7 +372,8 @@ class RegionFitting:
                 ngaussian = PROFILE_FUNC_MAP["Gsum_model"](cfg.center, cfg.amplitude)
                 self.profile_names.append(f"combine_{cfg.profile}")
                 self.profile_functions.append(ngaussian)
-            if cfg.profile == 'sum_gaussian_amplitude_free':
+            
+            elif cfg.profile == 'sum_gaussian_amplitude_free':
                 sm = PROFILE_FUNC_MAP[cfg.profile](cfg.center,cfg.amplitude_relations, len(cfg.amplitude))
                 self.profile_names.append(cfg.profile)
                 self.profile_functions.append(sm)

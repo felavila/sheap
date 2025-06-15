@@ -264,6 +264,7 @@ def group_lines(
     kind: str = "fe",
     profile: str = "gaussian",
     exception_region: List[str] = [],
+    include_region: List[str] = [],
     mode: str = "region",
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [],
     exception = []
@@ -274,7 +275,7 @@ def group_lines(
 
     # Group lines by (region/kind, component)
     for line in lines:
-        if line.kind == kind and line.region is not None and line.region not in exception_region:
+        if line.kind == kind and line.region is not None and line.region not in exception_region: #sheapectral.complex_region
             key_base = line.region if mode == "region" else line.kind
             key = (key_base, line.component)  # enforce component consistency
             grouped[key].append(line)
@@ -320,7 +321,10 @@ def group_lines(
         amplitudes = [line.amplitude for i, line in enumerate(group) if i not in dependent_list]
         region_lines = [line.line_name for line in group]
         base_line = group[0]
-
+        if region=="feii_coronal" and kind=="fe":
+            profile="sum_gaussian_amplitude_free"
+        elif kind=="fe":
+            profile="gaussian"
         collapsed_lines.append(
             SpectralLine(
                 center=centers,
@@ -333,7 +337,7 @@ def group_lines(
                 profile=profile,
                 which=base_line.which,
                 region_lines=region_lines,
-                amplitude_relations=full_rules
+                amplitude_relations=full_rules #not necesary 
             )
         )
 
