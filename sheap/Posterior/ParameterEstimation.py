@@ -67,7 +67,6 @@ class ParameterEstimation:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         else:
             self.cosmo = cosmo
-        print(cosmo)
         if fluxnorm is None:
             self.fluxnorm = np.ones(self.spec.shape[0])
         else:

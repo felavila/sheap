@@ -3,8 +3,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 import jax
 import jax.numpy as jnp
 import optax
-from jax import jit, vmap
-
+from jax import jit, vmap,lax
+#from jax import 
 from .utils import build_loss_function, parse_dependencies, project_params
 
 
@@ -32,9 +32,9 @@ class MasterMinimizer:
         self,
         func: Callable,
         non_optimize_in_axis: int = 3,
-        constraints: Optional[Callable] = None,
+        #constraints: Optional[Callable] = None,
         num_steps: int = 1000,
-        optimizer: optax.GradientTransformation = None,
+        #optimizer: optax.GradientTransformation = None,
         learning_rate=None,
         list_dependencies=[],
         weighted=True,
@@ -48,7 +48,7 @@ class MasterMinimizer:
         self.learning_rate = learning_rate or 1e-3
         self.list_dependencies = list_dependencies
         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-        self.optimizer = kwargs.get("optimizer", optax.adabelief(self.learning_rate))
+        self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
         # print('optimizer:',self.optimizer)
 
         self.loss_function, self.optimize_model = (
@@ -60,7 +60,7 @@ class MasterMinimizer:
             )
         )
 
-        self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0)  # ?
+        #self.vmap_func = vmap(self.func, in_axes=(0, 0), out_axes=0)  # ?
 
     def __call__(
         self,
@@ -135,10 +135,18 @@ class MasterMinimizer:
             optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
         self.optimize_in_axis = optimize_in_axis
         vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
-
-        return vmap_optimize_model(
-            initial_params, y, x, yerror, constraints, *self.default_args
+        jitted_vm = vmap_optimize_model#jit(vmap_optimize_model, static_argnums=(5, 6, 7, 8, 9))
+        return jitted_vm(
+            initial_params,
+            y,
+            x,
+            yerror,
+            constraints,
+            *self.default_args
         )
+        #return vmap_optimize_model(
+         #   initial_params, y, x, yerror, constraints, *self.default_args
+        #)
 
     @staticmethod
     def minimization_function(
@@ -149,7 +157,6 @@ class MasterMinimizer:
     ) -> Tuple[
         Callable[..., jnp.ndarray],  # loss_function
         Callable[..., Tuple[jnp.ndarray, list]],  # optimize_model
-        Callable[..., jnp.ndarray],  # residuals
     ]:
         """
         Factory function to create a JIT-compiled constrained loss function with multiple input variables.
@@ -162,18 +169,6 @@ class MasterMinimizer:
         TODO:
         - be carefull with uncertainty and weight
         """
-
-        # @jit
-        # def residuals(
-        #     params: jnp.ndarray,
-        #     xs: List[jnp.ndarray],
-        #     y: jnp.ndarray,
-        #     y_uncertainties: jnp.ndarray,
-        # ):
-        #     predictions = func(xs, params)
-
-        #     return jnp.abs(y - predictions) / y_uncertainties
-
         loss_function = build_loss_function(func, weighted, penalty_function, penalty_weight)
         loss_function = jit(loss_function)
 
@@ -191,34 +186,54 @@ class MasterMinimizer:
         ) -> Tuple[jnp.ndarray, list]:
             # Initialize parameters and optimizer state
             params = initial_params
-            optimizer = optimizer or optax.adabelief(learning_rate)
+            optimizer = optimizer or optax.adam(learning_rate)
             opt_state = optimizer.init(params)
             loss_history = []
 
             if constraints is None:
                 constraints = jnp.array([[-1e41, 1e41]] * params.shape[0])
 
-            # Define the step function with constraints captured via closure
-            @jit
-            def step(params, opt_state, xs, y):
-                # Compute loss and gradients
+            # This works we can add it as a keyword
+            
+            def step_fn(carry, _):
+                #print("Tracing!")
+                params, opt_state = carry
                 loss, grads = jax.value_and_grad(loss_function)(
-                    params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties
-                )
-
+                params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties)
                 updates, opt_state = optimizer.update(grads, opt_state, params)
                 params = optax.apply_updates(params, updates)
-
                 params = project_params(params, constraints, parsed_dependencies)
-                return params, opt_state, loss
+                return (params, opt_state), loss
 
-            # Optimization loop
-            for step_num in range(num_steps):
-                params, opt_state, loss = step(params, opt_state, xs, y)
-                loss_history.append(loss)
-                if step_num % 100 == 0 and verbose:
-                    print(f"Step {step_num}, Loss: {loss:.4f}")
+            # Use lax.scan to run for num_steps
+            (final_params, _), loss_history = lax.scan(step_fn,(params, opt_state),None,length=num_steps,)
+            # loss_history: shape (num_steps,)
 
-            return params, loss_history
+            if verbose:
+                print("Final loss:", loss_history[-1])
+
+            return final_params, loss_history
+            
+            # @jit
+            # def step(params, opt_state, xs, y):
+            #     # Compute loss and gradients
+            #     loss, grads = jax.value_and_grad(loss_function)(
+            #         params, jnp.nan_to_num(xs), jnp.nan_to_num(y), y_uncertainties
+            #     )
+
+            #     updates, opt_state = optimizer.update(grads, opt_state, params)
+            #     params = optax.apply_updates(params, updates)
+
+            #     params = project_params(params, constraints, parsed_dependencies)
+            #     return params, opt_state, loss
+
+            # # Optimization loop
+            # for step_num in range(num_steps):
+            #     params, opt_state, loss = step(params, opt_state, xs, y)
+            #     loss_history.append(loss)
+            #     if step_num % 100 == 0 and verbose:
+            #         print(f"Step {step_num}, Loss: {loss:.4f}")
+
+            # return params, loss_history
 
         return loss_function, optimize_model

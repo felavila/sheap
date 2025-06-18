@@ -306,32 +306,32 @@ def group_lines(
                     index_ties.append((target_idx, source_idx, op, val))
 
         resolved_map = flatten_index_ties(index_ties)
-
+        
         full_rules: List[Tuple[int, float, int]] = []
         dependent_list = []
         for i in range(len(group)):
             if i in resolved_map:
                 coef, idx = resolved_map[i]
-                dependent_list.append(i)
+                dependent_list.append(idx)
                 full_rules.append((i, coef, idx))
             else:
                 full_rules.append((i, 1.0, i))  # Free amplitude
-
+        amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list]) # this only can work in 
+        arg_max = np.argmax(amplitudes)
+        if kind=="fe" and region != "feii_coronal":
+            full_rules = []
+            for n,coef in enumerate(amplitudes):
+                full_rules.append((n,coef, int(arg_max)))
         centers = [line.center for line in group]
-        amplitudes = [line.amplitude for i, line in enumerate(group) if i not in dependent_list]
         region_lines = [line.line_name for line in group]
         base_line = group[0]
-        if region=="feii_coronal" and kind=="fe":
-            profile="sum_gaussian_amplitude_free"
-        elif kind=="fe":
-            profile="gaussian"
         collapsed_lines.append(
             SpectralLine(
                 center=centers,
                 line_name=region+str(comp), #maybe i should think about this a little more 
                 kind=kind,
                 component=comp,
-                amplitude=amplitudes,
+                amplitude=list(amplitudes), #maybe in a near future move this from amplitude to init_amplitude 
                 how=base_line.how,
                 region=region,
                 profile=profile,

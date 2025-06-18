@@ -59,58 +59,54 @@ DEFAULT_LIMITS = {
 
 
 def make_constraints(
-    cfg: SpectralLine, limits: FittingLimits, profile="gaussian"
+    cfg: SpectralLine,
+    limits: FittingLimits,
+    profile: str = "gaussian",
+    subprofile: Optional[str] = None
 ) -> ConstraintSet:
     """
     Compute initial values and bounds for the profile parameters of a spectral line.
 
     Args:
         cfg: SpectralLine configuration.
-        limits: Kinematic constraints (velocity fwhm and center shift in km/s).
+        limits: Kinematic constraints (FWHM and center shift in km/s).
+        profile: Default profile if cfg.profile is None.
+        subprofile: Sub-profile function to use within compound models like SPAF.
 
     Returns:
-        A ConstraintSet containing init values, upper/lower bounds, profile type, and parameter names.
+        ConstraintSet: Contains initial values, bounds, profile type, and parameter names.
     """
     selected_profile = cfg.profile or profile
 
-    if selected_profile not in PROFILE_FUNC_MAP:
+    if selected_profile not in PROFILE_FUNC_MAP and selected_profile not in {"SPAF", "balmerconti", "brokenpowerlaw"}:
         raise ValueError(
-            f"Profile '{selected_profile}' is not defined in PROFILE_FUNC_MAP. "
-            f"Available profiles: {list(PROFILE_FUNC_MAP.keys())}"
+            f"Profile '{selected_profile}' is not defined. "
+            f"Available: {list(PROFILE_FUNC_MAP.keys()) + ['SPAF', 'balmerconti', 'brokenpowerlaw']}"
         )
 
-    if cfg.kind.lower() == 'fe':
-        if cfg.how == 'template':
-            if not cfg.which:
-                raise ValueError("Fe template must define 'which' (e.g., 'OP', 'UV')")
+    # ---- Template Fe profiles (logFWHM, shift, scale) ----
+    if cfg.kind.lower() == 'fe' and cfg.how == 'template':
+        if not cfg.which:
+            raise ValueError("Fe template must define 'which' (e.g., 'OP', 'UV')")
+        return ConstraintSet(
+            init=[3.045, 0.0, 1.0],
+            upper=[3.8, 100.0, 100.0],
+            lower=[2.7, -100.0, 0.0],
+            profile='fitFe' + cfg.which,
+            param_names=['logFWHM', 'shift', 'scale'],
+        )
 
-            return ConstraintSet(
-                init=[3.045, 0.0, 1.0],
-                upper=[3.5, 100.0, 100.0],
-                lower=[2.7, -100.0, 0.0],
-                profile='fitFe' + cfg.which,
-                param_names=['logFWHM', 'shift', 'scale'],
-            )
+    # ---- Balmer continuum ----
+    if selected_profile == "balmerconti":
+        return ConstraintSet(
+            init=[1.0, 10000.0, 1.0],
+            upper=[10.0, 50000.0, 2.0],
+            lower=[0.0, 5000.0, 0.01],
+            profile='balmerconti',
+            param_names=['scale', "T", 'τ0'],
+        )
 
-        elif cfg.how == "combine":
-            #print("here?")
-            center = cfg.center
-            shift = -5 if cfg.kind == "outflow" else 0
-
-            shift_upper = 10.0
-            shift_lower = -10.0
-            #This steall require a phisical reason 
-            fwhm_upper = 85*2.355
-            fwhm_lower = 8.5*2.355
-
-            return ConstraintSet(
-                init=[1.0, 0, float(fwhm_lower)],
-                upper=[5.0, shift_upper, fwhm_upper],
-                lower=[0.0, shift_lower, fwhm_lower],
-                profile=selected_profile,
-                param_names=['amplitude', 'shift', 'fwhm'],
-            )
-
+    # ---- Power-law continuum ----
     if selected_profile == 'powerlaw':
         return ConstraintSet(
             init=[-1.1, 0.0],
@@ -119,32 +115,28 @@ def make_constraints(
             profile='powerlaw',
             param_names=['index', 'scale'],
         )
+
+    # ---- Linear continuum ----
     if selected_profile == 'linear':
-        return ConstraintSet(init=[0.1e-4, 0.5],
-                             upper=[10.0, 10.0],
-                             lower=[-3.0, 0.0],
-                             profile='linear',
-                            param_names=["scale_b", "scale_m"])
-        
-        
+        return ConstraintSet(
+            init=[0.1e-4, 0.5],
+            upper=[10.0, 10.0],
+            lower=[-3.0, 0.0],
+            profile='linear',
+            param_names=["scale_b", "scale_m"],
+        )
+
+    # ---- Broken Power-law ----
     if selected_profile == "brokenpowerlaw":
         return ConstraintSet(
             init=[-1.7, 0.0, 0.1, 5500.0],
             upper=[0.0, 1.0, 10.0, 7000.0],
-            lower=[-3.0, -1.0, 0.0, 4000],
+            lower=[-3.0, -1.0, 0.0, 4000.0],
             profile='brokenpowerlaw',
             param_names=['index1', 'index2', 'scale', 'refer'],
         )
 
-    if selected_profile == "balmerconti":
-        return ConstraintSet(
-            init=[1.0, 10000.0, 1.0],
-            upper=[10.0, 50000, 2.0],
-            lower=[0.0, 5000.0, 0.01],
-            profile='balmerconti',
-            param_names=['scale', "T", 'τ0'],
-        )
-
+    # ---- Standard Gaussian ----
     if selected_profile == "gaussian":
         center = cfg.center
         shift = -5 if cfg.kind == "outflow" else 0
@@ -153,37 +145,50 @@ def make_constraints(
         center_lower = center - kms_to_wl(limits.center_shift, center)
         fwhm_upper = kms_to_wl(limits.upper_fwhm, center)
         fwhm_lower = kms_to_wl(limits.lower_fwhm, center)
-        fwhm_init = fwhm_lower*2.0 if cfg.kind == "outflow" else fwhm_lower 
+        fwhm_init = fwhm_lower * (2.0 if cfg.kind == "outflow" else 1.0)
 
         return ConstraintSet(
-            init=[float(cfg.amplitude)/10, float(center + shift), float(fwhm_init)],
+            init=[float(cfg.amplitude) / 10, float(center + shift), float(fwhm_init)],
             upper=[limits.max_amplitude, center_upper, fwhm_upper],
             lower=[0.0, center_lower, fwhm_lower],
             profile='gaussian',
             param_names=['amplitude', 'center', 'fwhm'],
         )
-    if selected_profile == "sum_gaussian_amplitude_free":
-        #add kind in case of 
-        
-        shift_upper = kms_to_wl(limits.center_shift, CANONICAL_WAVELENGTHS[cfg.kind]) #limits.center_shift #center + kms_to_wl(limits.center_shift, center)
-        shift_lower = -kms_to_wl(limits.center_shift, CANONICAL_WAVELENGTHS[cfg.kind])  #center - kms_to_wl(limits.center_shift, center)
-        #fwhm_init = limits.fwhm_init #also in km 
-        fwhm_upper = kms_to_wl(limits.upper_fwhm, CANONICAL_WAVELENGTHS[cfg.kind])
-        fwhm_lower = kms_to_wl(limits.lower_fwhm, CANONICAL_WAVELENGTHS[cfg.kind])
-        #print(cfg.kind,fwhm_upper,fwhm_lower)
-        upper_amp = len(cfg.amplitude)*[1.0]
-        lower_amp = len(cfg.amplitude)*[0.0]
+
+    # ---- SPAF: Sum of Profiles with Free Amplitudes ----
+    if selected_profile == "SPAF":
+        #print(type(cfg.amplitude))
+        if not subprofile:
+            raise ValueError("SPAF profile requires a defined subprofile (e.g., 'gaussian').")
+        if not isinstance(cfg.amplitude, list):
+            raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
+        if cfg.kind not in CANONICAL_WAVELENGTHS:
+            raise KeyError(f"Missing canonical wavelength for kind='{cfg.kind}' in CANONICAL_WAVELENGTHS.")
+
+        lambda0 = CANONICAL_WAVELENGTHS[cfg.kind]
+        shift_upper = kms_to_wl(limits.center_shift, lambda0)
+        fwhm_upper = kms_to_wl(limits.upper_fwhm, lambda0)
+        fwhm_lower = kms_to_wl(limits.lower_fwhm, lambda0)
+
+        amp_list = list(cfg.amplitude)
+        amp_upper = [1.0] * len(amp_list)
+        amp_lower = [0.0] * len(amp_list)
+        shift_init = 0.0 if cfg.component == 1 else (-2.0) ** cfg.component
+
         return ConstraintSet(
-            init=[*cfg.amplitude,0.0 , fwhm_upper/2.0],
-            upper=[*upper_amp, shift_upper, fwhm_upper],
-            lower=[*lower_amp, shift_lower, fwhm_lower],
-            profile="sum_gaussian_amplitude_free",
-            param_names=[*['amplitude'+ str(n) for n in range(len(cfg.amplitude))], 'shift', 'fwhm'],
+            init=amp_list + [shift_init, (fwhm_upper - fwhm_lower) / 2.0],
+            upper=amp_upper + [shift_upper * 5.0, fwhm_upper],
+            lower=amp_lower + [-shift_upper * 5.0, fwhm_lower],
+            profile= f"{selected_profile}_{subprofile}",
+            param_names=[f"amplitude{n}" for n in range(len(amp_list))] + ['shift', 'fwhm'],
         )
+
+    # ---- If no known configuration matched ----
     raise NotImplementedError(
         f"No constraints defined for profile '{selected_profile}'. "
         f"Define its ConstraintSet explicitly in make_constraints."
     )
+
 
 
 

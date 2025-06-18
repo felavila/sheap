@@ -11,7 +11,6 @@ import jax.numpy as jnp
 import numpy as np
 
 from sheap.DataClass.DataClass import SpectralLine,FitResult
-from sheap.Functions.profiles import PROFILE_FUNC_MAP,make_g
 from sheap.HostSubtraction.HostSubtraction import HostSubtraction
 from sheap.RegionFitting.RegionFitting import RegionFitting
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
@@ -194,6 +193,7 @@ class Sheapectral:
             raise RuntimeError("build_region() must be called before fit_region()")
 
         fitting_routine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
+        
         fitting_class = RegionFitting(fitting_routine,profile=profile)
 
         fit_output = fitting_class(self.spectra, do_return=True,sigma_params=sigma_params,learning_rate=learning_rate)

@@ -18,7 +18,7 @@ from sheap.Minimizer.utils import parse_dependencies
 from sheap.Minimizer.MasterMinimizer import MasterMinimizer
 
 # from sheap.Fitting.template_fe_func import
-from sheap.Functions.utils import combine_auto
+from sheap.Functions.utils import combine_auto,make_fused_profiles,make_super_fused
 from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
 from sheap.Mappers.helpers import mapping_params
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
@@ -118,8 +118,12 @@ class RegionFitting:
         learning_rate=None) -> None:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
+        #make_fused_profiles(funcs)
+        #self.model = jit(
+         #   make_fused_profiles(self.profile_functions))  # maybe this could be taked before
         self.model = jit(
-            combine_auto(self.profile_functions))  # maybe this could be taked before
+            make_fused_profiles(self.profile_functions))
+        
         _, mask, scale, norm_spec = self._prep_data(
             spectra, inner_limits, outer_limits, force_cut)
 
@@ -136,8 +140,12 @@ class RegionFitting:
             print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
             if isinstance(learning_rate,list):
                 step["learning_rate"] = learning_rate[i]
+                step["non_optimize_in_axis"] = 4 #experimental
+                if len(params.shape)==1:
+                    params = jnp.tile(params, (spectra.shape[0], 1))
+                #print(params.dtype,params.shape)
+                #break 
             start_time = time.time()  # 
-            # step #step is a dictionary so it can take all the parameters directly to fit
             params, loss = self._fit(norm_spec, self.model, params, **step)
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time()  # 
@@ -145,6 +153,7 @@ class RegionFitting:
             print(f"Time for step '{key}': {elapsed:.2f} seconds")
             total_time += elapsed
         dependencies = parse_dependencies(self._build_tied(step["tied"]))
+        
         if sigma_params:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 
@@ -362,26 +371,25 @@ class RegionFitting:
         complex_region = []
         #I have to decide between sp or cfg for the lines 
         for cfg in self.complex_region:
-            constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=profile)
-            cfg.profile = constraints.profile
+            if 'SPAF' in cfg.profile:
+                if len(cfg.profile.split("_")) == 2:
+                    cfg.profile,cfg.subprofile = cfg.profile.split("_")
+                elif not cfg.subprofile:
+                    cfg.subprofile = profile 
+            constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=profile, subprofile= cfg.subprofile)
+            cfg.profile = constraints.profile  #re writte the complex line 
+            #print(cfg.profile,cfg.subprofile)
             complex_region.append(cfg)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
-            if cfg.how == "combine":
-                ngaussian = PROFILE_FUNC_MAP["Gsum_model"](cfg.center, cfg.amplitude)
-                self.profile_names.append(f"combine_{cfg.profile}")
-                self.profile_functions.append(ngaussian)
-            
-            elif cfg.profile == 'sum_gaussian_amplitude_free':
-                sm = PROFILE_FUNC_MAP[cfg.profile](cfg.center,cfg.amplitude_relations, len(cfg.amplitude))
+            if 'SPAF' in cfg.profile:
+                sm = PROFILE_FUNC_MAP["SPAF"](cfg.center,cfg.amplitude_relations,cfg.subprofile)
                 self.profile_names.append(cfg.profile)
                 self.profile_functions.append(sm)
-
             else:
                 self.profile_functions.append(
-                    PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"])
-                )
+                    PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"]))
                 self.profile_names.append(constraints.profile)
             if cfg.profile in ["powerlaw","brokenpowerlaw",'linear']:
                 add_linear = False
@@ -394,7 +402,7 @@ class RegionFitting:
                 np.arange(idx, idx + len(constraints.param_names))
             )
             idx += len(constraints.param_names)
-
+            #profile="gaussian"
 
         if add_linear:
             print("Continuum profile not found a linear profile will be added")

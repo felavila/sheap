@@ -16,6 +16,24 @@ import numpy as np
 
 @dataclass
 class SpectralLine:
+    """
+    Represents a single spectral emission or absorption line component.
+
+    Attributes:
+        center (float or list of floats): Central wavelength(s) of the line in Angstroms.
+        line_name (str or list of str): Identifier(s) for the spectral line (e.g., 'Halpha').
+        kind (str): Component type, such as 'narrow', 'broad', 'outflow', or 'fe'.
+        component (int): Integer identifier for the component number within its kind.
+        amplitude (float or list of floats, default=1.0): Initial or fixed amplitude for the line.
+        how (Optional[str]): Method to handle the line (e.g., 'template', 'sum'). Usually used for Fe templates.
+        region (Optional[str]): Region label from the YAML template file or source.
+        profile (Optional[str]): Profile function name (e.g., 'gaussian', 'lorentzian').
+        which (Optional[str]): Sub-template or subtype for complex profiles (e.g., 'OP' or 'UV' for FeII templates).
+        region_lines (Optional[List[str]]): Explicit list of line names used in a sum or composite region.
+        amplitude_relations (Optional[List[List]]): Parameter tying or scaling definitions, typically for ratios.
+        subprofile (str):  Sub-profile function to use within compound models like.
+    """
+
     center: Union[float, List[float]]
     line_name: Union[str, List[str]]
     kind: str
@@ -24,12 +42,15 @@ class SpectralLine:
     how: Optional[str] = None
     region: Optional[str] = None
     profile: Optional[str] = None
-    which: Optional[str] = None #what is the maning of these xd
+    which: Optional[str] = None
     region_lines: Optional[List[str]] = None
     amplitude_relations: Optional[List[List]] = None
-    def to_dict(self) -> dict:
-        return asdict(self)
+    subprofile: None = None  # not currently used or typed
 
+    def to_dict(self) -> dict:
+        """Convert the SpectralLine to a dictionary."""
+        return asdict(self)
+    
 #     complex_region: List[SpectralLine]
 #     profile_functions: List[Callable]
 #     params: np.ndarray

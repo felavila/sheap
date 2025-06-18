@@ -11,35 +11,79 @@ from jax.scipy.stats import norm #maybe dosent exist xd
 
 from sheap.Functions.utils import param_count,with_param_names
 
-
+###################profiles with_center###############
 @with_param_names(["amplitude", "center", "fwhm"])
 def gaussian_fwhm(x, params):
     amplitude, center, fwhm = params
     sigma = fwhm / 2.355
     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
-@param_count(3)
+@with_param_names(["amplitude", "center", "fwhm"])
 def lorentzian_fwhm(x, params):
     amplitude, center, fwhm = params
     gamma = fwhm / 2.0
     return amplitude / (1.0 + ((x - center) / gamma) ** 2)
+#################### Exotic ##############
+
+@with_param_names(["amplitude", "center", "fwhm_g", "fwhm_l"])
+def voigt_pseudo(x, params):
+    amplitude, center, fwhm_g, fwhm_l = params
+    sigma = fwhm_g / 2.355
+    gamma = fwhm_l / 2.0
+
+    # Ratio for weighting
+    r = gamma / (gamma + sigma * jnp.sqrt(2 * jnp.log(2)))
+    eta = 1.36603 * r - 0.47719 * r**2 + 0.11116 * r**3
+
+    # Gaussian and Lorentzian parts
+    gauss = jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
+    lorentz = 1.0 / (1.0 + ((x - center) / gamma) ** 2)
+
+    return amplitude * (eta * lorentz + (1.0 - eta) * gauss)
 
 
-# def sum_gaussian_amplitude_free(centers):
-#     centers = jnp.array(centers)
-#     _param_count = 2*len(centers)+1
-#     @param_count(_param_count)
-#     def G(x, params):
-#         amplitude = params[0]
-#         delta = params[1]
-#         fwhm = params[2]
-#         sigma = fwhm / 2.355
-#         shifted_centers = centers + delta
-#         dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
-#         gaussians = amplitude * amplitudes[:, None] * jnp.exp(-0.5 * (dx / sigma) ** 2)
-#         return jnp.sum(gaussians, axis=0)
+@with_param_names(["amplitude", "center", "fwhm", "alpha"])
+def skewed_gaussian(x, params):
+    amp, center, fwhm, alpha = params  # alpha = skewness
+    sigma = fwhm / 2.355
+    t = (x - center) / sigma
+    return 2 * amp * norm.pdf(t) * norm.cdf(alpha * t)
+
+
+
+@with_param_names(["amplitude", "center", "fwhm", "lambda"])
+def emg_fwhm(x, params):
+    """
+    Exponentially Modified Gaussian profile.
     
+    Parameters:
+        amplitude: peak scaling
+        center: Gaussian mean (mu)
+        fwhm: Gaussian FWHM (converted to sigma)
+        lambda_: exponential decay rate (1 / tau)
+    """
+    amplitude, mu, fwhm, lambda_ = params
+    sigma = fwhm / 2.355
+    arg1 = 0.5 * lambda_ * (2 * mu + lambda_ * sigma**2 - 2 * x)
+    arg2 = (mu + lambda_ * sigma**2 - x) / (jnp.sqrt(2) * sigma)
+    return amplitude * 0.5 * lambda_ * jnp.exp(arg1) * erfc(arg2)
 
+
+@with_param_names(["amplitude", "center", "width"])
+def top_hat(x, params):
+    """
+    Top-hat function: constant value over a fixed width.
+    
+    Parameters:
+        amplitude: height of the top
+        center: midpoint of the top-hat
+        width: full width of the top-hat
+    """
+    amplitude, center, width = params
+    half_width = width / 2.0
+    return amplitude * ((x >= (center - half_width)) & (x <= (center + half_width))).astype(jnp.float32)
+
+####### actual combination##############################
 def sum_gaussian_amplitude_free(centers, amplitude_rules,n_params):
     """
     centers: list of Gaussian centers
@@ -94,65 +138,6 @@ def Gsum_model(centers, amplitudes):
         return jnp.sum(gaussians, axis=0)
 
     return G
-#################### Exotic ##############
-
-@param_count(4)
-def voigt_pseudo(x, params):
-    amplitude, center, fwhm_g, fwhm_l = params
-    sigma = fwhm_g / 2.355
-    gamma = fwhm_l / 2.0
-
-    # Ratio for weighting
-    r = gamma / (gamma + sigma * jnp.sqrt(2 * jnp.log(2)))
-    eta = 1.36603 * r - 0.47719 * r**2 + 0.11116 * r**3
-
-    # Gaussian and Lorentzian parts
-    gauss = jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
-    lorentz = 1.0 / (1.0 + ((x - center) / gamma) ** 2)
-
-    return amplitude * (eta * lorentz + (1.0 - eta) * gauss)
-
-
-@param_count(4)
-def skewed_gaussian(x, params):
-    amp, center, fwhm, alpha = params  # alpha = skewness
-    sigma = fwhm / 2.355
-    t = (x - center) / sigma
-    return 2 * amp * norm.pdf(t) * norm.cdf(alpha * t)
-
-
-
-@param_count(4)
-def emg_fwhm(x, params):
-    """
-    Exponentially Modified Gaussian profile.
-    
-    Parameters:
-        amplitude: peak scaling
-        center: Gaussian mean (mu)
-        fwhm: Gaussian FWHM (converted to sigma)
-        lambda_: exponential decay rate (1 / tau)
-    """
-    amplitude, mu, fwhm, lambda_ = params
-    sigma = fwhm / 2.355
-    arg1 = 0.5 * lambda_ * (2 * mu + lambda_ * sigma**2 - 2 * x)
-    arg2 = (mu + lambda_ * sigma**2 - x) / (jnp.sqrt(2) * sigma)
-    return amplitude * 0.5 * lambda_ * jnp.exp(arg1) * erfc(arg2)
-
-
-@param_count(3)
-def top_hat(x, params):
-    """
-    Top-hat function: constant value over a fixed width.
-    
-    Parameters:
-        amplitude: height of the top
-        center: midpoint of the top-hat
-        width: full width of the top-hat
-    """
-    amplitude, center, width = params
-    half_width = width / 2.0
-    return amplitude * ((x >= (center - half_width)) & (x <= (center + half_width))).astype(jnp.float32)
 
 #################### Comming projects ##############
 

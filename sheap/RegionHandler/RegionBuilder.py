@@ -134,25 +134,24 @@ class RegionBuilder:
         self.regions_available = list(self.lines_regions_available.keys())
 
     def __call__(self, add_step=True, tied_fe=False, num_steps_list=[3000, 3000]):
-        "build a simple rutine to be fitted"
-        _rutine_dict = {
-            "complex_region": self.complex_region,
-            "fitting_routine": {
-                "step1": {
-                    "tied": self.tied_params,
-                    "non_optimize_in_axis": 3,
-                    "learning_rate": 1e-1,
-                    "num_steps": num_steps_list[0],
-                }
-            },
-            "outer_limits": [self.xmin, self.xmax],
-            "inner_limits": [self.xmin + 50, self.xmax - 50],
-            "model_keywords": self.model_keywords,
-        }
-        if add_step:
-            _tied_params = []
-            _tied_params.extend(
-                region_ties(
+            """
+            Build a fitting routine dictionary with support for multiple steps.
+            
+            Step1 uses self.tied_params, subsequent steps repeat known-tied logic.
+            """
+            fitting_routine = {}
+
+            # Step 1: always present
+            fitting_routine["step1"] = {
+                "tied": self.tied_params,
+                "non_optimize_in_axis": 3,
+                "learning_rate": 1e-1,
+                "num_steps": num_steps_list[0],
+            }
+
+            if add_step and len(num_steps_list) > 1:
+                # Generate tied params for reuse in all later steps
+                tied_later = region_ties(
                     self.complex_region,
                     self.n_narrow,
                     self.n_broad,
@@ -161,16 +160,26 @@ class RegionBuilder:
                     known_tied_relations=self.known_tied_relations,
                     only_known=True,
                 )
-            )
-            if self.fe_mode == "sum" and tied_fe:
-                _tied_params.extend(fe_ties(self.complex_region))
-            _rutine_dict["fitting_routine"]["step2"] = {
-                "tied": _tied_params,
-                "non_optimize_in_axis": 4,
-                "learning_rate": 1e-2,
-                "num_steps": num_steps_list[1],
+                if self.fe_mode == "sum" and tied_fe:
+                    tied_later.extend(fe_ties(self.complex_region))
+
+                # Add step2, step3, ..., stepN
+                for i, steps in enumerate(num_steps_list[1:], start=2):
+                    fitting_routine[f"step{i}"] = {
+                        "tied": tied_later,
+                        "non_optimize_in_axis": 4,  # generalize axis as 4, 5, ...
+                        "learning_rate": 1e-2,
+                        "num_steps": steps,
+                    }
+
+            return {
+                "complex_region": self.complex_region,
+                "fitting_routine": fitting_routine,
+                "outer_limits": [self.xmin, self.xmax],
+                "inner_limits": [self.xmin + 50, self.xmax - 50],
+                "model_keywords": self.model_keywords,
             }
-        return _rutine_dict
+        
 
     def make_region(
         self,
@@ -366,18 +375,17 @@ class RegionBuilder:
                     fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
         
         if fe_mode == "model" and not no_fe and not grouped_method:
-            self.complex_region = group_lines_by_region(self.complex_region,kind = "fe", component  = 20, exception = ["feii_coronal"])
+            print("put to true this after")
+            self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region") # in some place i have to add the restriction for feii_coronal
+        
         if grouped_method:
             for k in Kinds:
                 if k=="fe":
                     continue
-                self.complex_region = group_lines(self.complex_region,kind = k,profile="sum_gaussian_amplitude_free",mode="kind", exception_region = [],known_tied_relations = self.known_tied_relations)
-            
-            self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region")
-            self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]]
-            #,profile="sum_gaussian_amplitude_free"
-        #this maybe should die in this step?
-        #if  not grouped_method:
+                self.complex_region = group_lines(self.complex_region,kind = k,profile="SPAF",mode="kind", exception_region = [],known_tied_relations = self.known_tied_relations)
+            if fe_mode == "model":
+                self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region",profile="SPAF")
+                self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]] #hard to see 
         if not grouped_method:
             self.tied_params.extend(
                 region_ties(
