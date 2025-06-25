@@ -77,7 +77,6 @@ def make_constraints(
         ConstraintSet: Contains initial values, bounds, profile type, and parameter names.
     """
     selected_profile = cfg.profile or profile
-
     if selected_profile not in PROFILE_FUNC_MAP and selected_profile not in {"SPAF", "balmerconti", "brokenpowerlaw"}:
         raise ValueError(
             f"Profile '{selected_profile}' is not defined. "

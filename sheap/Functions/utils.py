@@ -2,7 +2,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np 
 import jax.numpy as jnp 
-
+from jax.scipy.integrate import trapezoid
+from jax import vmap, jit
 
 
 
@@ -102,3 +103,47 @@ def with_param_names(param_names: list[str]):
 #     return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)
 #here add the function to reconstruct sum_gaussian_amplitude_free 
 
+def make_integrator(profile_fn, method="broadcast"):
+    """
+    profile_fn : callable
+        f(x, p) → y, where
+          x has shape (n_pixels,) or (n_pixels,1,1,…),
+          p has shape (..., n_params),
+        and y broadcasts to shape (n_pixels, ...).
+    method : {"broadcast", "vmap"}
+    Returns
+    -------
+    integrate(x, params) → integral over x of profile_fn(x,p)
+       x      shape (n_pixels,)
+       params shape (n_spectra, n_lines, n_params)
+       → returns array of shape (n_spectra, n_lines)
+    """
+
+    if method == "broadcast":
+        @jit
+        def integrate(x, params):
+            # ensure jnp arrays
+            x      = jnp.asarray(x)                    # (n_pixels,)
+            params = jnp.asarray(params)               # (n_spec, n_lines, n_params)
+
+            # expand x to broadcast against params’ leading dims
+            x_exp = x[:, None, None]                   # (n_pixels,1,1)
+            y     = profile_fn(x_exp, params)          # -> (n_pixels, n_spec, n_lines)
+            return trapezoid(y, x, axis=0)             # integrate over 0 → (n_spec, n_lines)
+
+        return integrate
+
+    elif method == "vmap":
+        # first define a scalar integrator for a single (x,p) pair
+        def single_int(x, p):
+            y = profile_fn(x, p)        # p: (n_params,) → y: (n_pixels,)
+            return trapezoid(y, x)
+
+        # lift over lines, then over spectra
+        int_lines = vmap(single_int, in_axes=(None, 0))  # maps over p-lines
+        int_specs = vmap(int_lines,  in_axes=(None, 0))  # maps over spectra
+        integrate  = jit(lambda x, params: int_specs(x, params))
+        return integrate
+
+    else:
+        raise ValueError(f"unknown method {method!r}")

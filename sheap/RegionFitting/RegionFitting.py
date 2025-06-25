@@ -69,6 +69,7 @@ class RegionFitting:
         if profile not in ['gaussian','lorentzian']:
             print(profile," not added to the code yet")
             profile = "gaussian"
+        
         self.complex_region_ = self._load_region(region_template, yaml_dir)  # fitting rutine
         self.complex_region = self.complex_region_.get("complex_region") or []
         self.fitting_routine = self.complex_region_.get("fitting_routine") or {}
@@ -104,7 +105,8 @@ class RegionFitting:
         self.params: Optional[jnp.ndarray] = None
         self.loss: Optional[float] = None
         self._build_fit_components(profile="gaussian")
-
+        self.model = jit(make_fused_profiles(self.profile_functions))
+    
     def __call__(
         self,
         spectra: Union[List[Any], jnp.ndarray],
@@ -121,8 +123,7 @@ class RegionFitting:
         #make_fused_profiles(funcs)
         #self.model = jit(
          #   make_fused_profiles(self.profile_functions))  # maybe this could be taked before
-        self.model = jit(
-            make_fused_profiles(self.profile_functions))
+        
         
         _, mask, scale, norm_spec = self._prep_data(
             spectra, inner_limits, outer_limits, force_cut)
@@ -201,7 +202,7 @@ class RegionFitting:
             non_optimize_in_axis,
         )
         list_dependencies = self._build_tied(tied)
-        # print(list_dependencies)
+        #print(list_dependencies)
         minimizer = MasterMinimizer(
             model,
             non_optimize_in_axis=non_optimize_in_axis,
@@ -371,12 +372,14 @@ class RegionFitting:
         complex_region = []
         #I have to decide between sp or cfg for the lines 
         for cfg in self.complex_region:
-            if 'SPAF' in cfg.profile:
+            holder_profile = getattr(cfg, "profile", None) or profile
+            cfg.profile = holder_profile
+            if "SPAF" in holder_profile:
                 if len(cfg.profile.split("_")) == 2:
                     cfg.profile,cfg.subprofile = cfg.profile.split("_")
                 elif not cfg.subprofile:
-                    cfg.subprofile = profile 
-            constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=profile, subprofile= cfg.subprofile)
+                    cfg.subprofile = profile
+            constraints = make_constraints(cfg, self.limits_map.get(cfg.kind), profile=  cfg.profile, subprofile= cfg.subprofile)
             cfg.profile = constraints.profile  #re writte the complex line 
             #print(cfg.profile,cfg.subprofile)
             complex_region.append(cfg)
@@ -412,7 +415,7 @@ class RegionFitting:
             low_list.extend(lower_)
             complex_region.append(spl)
             
-        self.initial_params = jnp.array(init_list)
+        self.initial_params = jnp.array(init_list).astype(jnp.float32)
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(
             self.params_dict, self.initial_params
@@ -432,6 +435,7 @@ class RegionFitting:
                 )
                 if len(tied) == 2:
                     if param_1 == param_2 == "center" and len(tied):
+                        #print(param_1,param_2)
                         delta = val_param1 - val_param2
                         tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
                         # if log_mode:
@@ -496,4 +500,4 @@ class RegionFitting:
         """
         Utility to stack lower and upper bounds into a (N,2) array.
         """
-        return jnp.stack([jnp.array(low), jnp.array(high)], axis=1)
+        return jnp.stack([jnp.array(low), jnp.array(high)], axis=1).astype(jnp.float32)

@@ -160,6 +160,7 @@ class RegionBuilder:
                     known_tied_relations=self.known_tied_relations,
                     only_known=True,
                 )
+                #print(tied_later)
                 if self.fe_mode == "sum" and tied_fe:
                     tied_later.extend(fe_ties(self.complex_region))
 

@@ -14,7 +14,8 @@ from sheap.MainSheap import Sheapectral
 from sheap.DataClass.DataClass import FitResult
 
 from sheap.Functions.utils import combine_auto
-from sheap.Mappers.LineMapper import LineMapper
+#from sheap.Mappers.LineMapper import LineMapper
+from sheap.DataClass.test_class import ComplexRegion
 from sheap.Mappers.helpers import mapping_params
 from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler
@@ -50,15 +51,10 @@ class ParameterEstimation:
         self.BOL_CORRECTIONS = BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
         self.c = c
-        self.RegionMap = LineMapper(
-            complex_region=self.complex_region,
-            profile_functions=self.profile_functions,
-            params=self.params,
-            uncertainty_params=self.uncertainty_params,
-            profile_params_index_list=self.profile_params_index_list,
-            params_dict=self.params_dict,
-            profile_names=self.profile_names
-        )
+        #this should be called before i think
+        self.ComplexRegion_class = ComplexRegion(self.complex_region)
+        self.ComplexRegion_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
+                                    ,self.profile_params_index_list,self.params_dict)
 
         if self.z is None:
             print("None informed redshift, assuming zero.")
@@ -74,9 +70,9 @@ class ParameterEstimation:
 
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
 
-        self.kinds_map = {}
-        for k in self.kind_list:
-            self.kinds_map[k] = self.RegionMap._get(where="kind", what=k)
+        #self.kinds_map = {}
+        #for k in self.kind_list:
+         #   self.kinds_map[k] = self.RegionMap._get(where="kind", what=k)
        
     
     def compute_params_wu(self):

@@ -10,7 +10,7 @@ from tqdm import tqdm
 # from sheap.Mappers.LineMapper import LineMapper 
 from sheap.Mappers.helpers import mapping_params
 from .parameter_from_sampler import full_params_sampled_to_posterior_params
-
+from .posterior_v2 import posterior_physical_parameters
 
 # this have to be move outside 
 
@@ -23,6 +23,26 @@ from .parameter_from_sampler import full_params_sampled_to_posterior_params
 # print("sk",sk)
 # kt = kurtosis(emission_profiles, axis=1, fisher=False)  
 # print("kt",kt)
+def safe_cholesky(
+    cov: jnp.ndarray,
+    initial_jitter: float = 1e-6,
+    max_tries: int = 5
+) -> jnp.ndarray:
+    """
+    Robust Cholesky decomposition: adds increasing diagonal jitter until SPD.
+    """
+    # ensure jitter matches matrix dtype
+    dtype = cov.dtype
+    I = jnp.eye(cov.shape[-1], dtype=dtype)
+    jitter = jnp.array(initial_jitter, dtype=dtype)
+    for _ in range(max_tries):
+        try:
+            return jnp.linalg.cholesky(cov + jitter * I)
+        except Exception:
+            jitter = jitter * 10
+    raise RuntimeError(f"Cholesky failed after adding up to {float(jitter)} jitter.")
+
+
 
 class MonteCarloSampler:
     """
@@ -34,7 +54,6 @@ class MonteCarloSampler:
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
-        self.kinds_map = estimator.kinds_map
         self.scale = estimator.scale
         self.fluxnorm = estimator.fluxnorm
         self.spec = estimator.spec
@@ -45,6 +64,7 @@ class MonteCarloSampler:
         self.BOL_CORRECTIONS = estimator.BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
         self.names = estimator.names 
+        self.ComplexRegion_class = estimator.ComplexRegion_class
     
     def sample_params(self, N: int = 2000, key_seed: int = 0,summarize=True,get_full_posterior=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import (
@@ -55,8 +75,9 @@ class MonteCarloSampler:
             jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None]
         )
         norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
+        norm_spec = norm_spec.astype(jnp.float64)
         idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        params = self.params.at[:, idxs].divide(scale[:, None])
+        params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
         names = self.names 
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
         model = self.model
@@ -66,13 +87,18 @@ class MonteCarloSampler:
         key = random.PRNGKey(key_seed)
         dic_posterior_params = {}
         matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1])) 
+        if len(dependencies) == 0:
+            print('No dependencies')
+            dependencies = None 
         iterator =tqdm(zip(names,params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
         for n, (name_i,params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
-            free_params = params_i[jnp.array(idx_free_params)]
+            free_params = params_i[jnp.array(idx_free_params)]                 
             res_fn = make_residuals_free_fn(
                 model_func=model, xs=wl_i, y=flux_i, yerr=yerr_i,
                 template_params=params_i, dependencies=dependencies
             )
+            
+            
             _, cov_matrix = error_covariance_matrix(
                 residual_fn=res_fn,
                 params_i=free_params,
@@ -82,18 +108,19 @@ class MonteCarloSampler:
                 free_params=len(free_params),
                 return_full=True
             )
+            
             L = jnp.linalg.cholesky(cov_matrix + 1e-6 * jnp.eye(cov_matrix.shape[0]))
             z = random.normal(key, shape=(N, len(free_params)))
             samples_free = free_params + z @ L.T  # (N, n_free)
 
             def apply_one_sample(free_sample):
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
-
+        
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scale[n])
             if get_full_posterior:
-                dic_posterior_params[name_i] = full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,full_samples,self.kinds_map
-                                                                                ,self.d[n],
+                dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.ComplexRegion_class
+                                                                                ,np.full((N,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
                                                                                 SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize)
@@ -103,69 +130,15 @@ class MonteCarloSampler:
         return matrix_sample_params,dic_posterior_params
     
     
-    
-        #     #this have to be a only one runite that can be share between the samplers.
-        #     dict_ = {}
-        #     for k, k_map in self.kinds_map.items():
-        #         if k not in ['fe', 'continuum']:
-        #             idx_amplitude = mapping_params(k_map.filtered_dict, "amplitude")
-        #             idx_fwhm = mapping_params(k_map.filtered_dict, "fwhm")
-        #             idx_center = mapping_params(k_map.filtered_dict, "center")
-                    
-        #             norm_amplitude = full_samples[:, idx_amplitude]
-        #             fwhm = full_samples[:, idx_fwhm]
-        #             center = full_samples[:, idx_center]
-        #             flux = calc_flux(norm_amplitude, fwhm)
-        #             fwhm_kms = calc_fwhm_kms(fwhm, self.c, center)
-        #             L_line = calc_luminosity(self.d[n], flux, center)
-        #             dict_[k] = {
-        #                 'lines': k_map.line_name,
-        #                 "component": jnp.array(k_map.component),
-        #                 'flux': flux, "fwhm": fwhm, "fwhm_kms": fwhm_kms, "L": L_line,
-        #                 'center': center, 'amplitude': norm_amplitude
-        #             }
-
-        #     L_w, L_bol = {}, {}
-        #     wavelenghts = [1350.0, 1450.0, 3000.0, 5100.0, 6200.0]
-        #     # Assume 'continuum' is present
-        #     #idx_cont = mapping_params(self.params_dict, "scale")  # Adapt if needed
-        #     #profile_func = self.estimator.RegionMap.profile_functions_combine
-        #     map_cont = self.kinds_map['continuum']
-        #     profile_func = map_cont.profile_functions_combine
-        #     idx_cont = jnp.array(list(map_cont.filtered_dict.values()))
-            
-        #     cont_params = full_samples[:, idx_cont]
-        #     for w in wavelenghts:
-        #         wave = str(int(w))
-        #         hits = jnp.isclose(norm_spec[n, 0, :], jnp.array([w]), atol=1)
-        #         valid = (hits & (~self.mask[n])).any()
-        #         corr = BOL_CORRECTIONS.get(wave, 0.0)
-        #         if valid:
-        #             flux_at_w = vmap(profile_func, in_axes=(None, 0))(jnp.array([w]), cont_params).squeeze()
-        #             Lw = calc_monochromatic_luminosity(self.d[n], flux_at_w, w)
-        #             L_w[wave] = Lw
-        #             L_bol[wave] = calc_bolometric_luminosity(Lw, corr)
-        #         else:
-        #             L_w[wave] = jnp.zeros(full_samples.shape[0])
-        #             L_bol[wave] = jnp.zeros(full_samples.shape[0])
-
-        #     # --- Compute black hole masses ---
-        #     dict_broad = dict_.get("broad")
-        #     masses = {}
-        #     if dict_broad is not None:
-        #         fwhm_kms = dict_broad.get('fwhm_kms')
-        #         line_name_list = np.array(dict_broad["lines"])
-        #         for line_name, estimator in SINGLE_EPOCH_ESTIMATORS.items():
-        #             wave = estimator["wavelength"]
-        #             if line_name not in line_name_list or wave not in L_w:
-        #                 continue
-        #             idx_broad = list(jnp.where(line_name == line_name_list)[0])
-        #             Lwave = L_w[wave]
-        #             fwhm_kms_ = fwhm_kms[:, idx_broad].squeeze()
-        #             masses[line_name] = calc_black_hole_mass(Lwave, fwhm_kms_, estimator)
-            
-        #     results_L_w.append(L_w)
-        #     results_L_bol.append(L_bol)
-        #     results_masses.append(masses)
-            
-        # return results_L_w, results_L_bol, results_masses
+    # def posterior_physical_parameters(
+    # wl_i: np.ndarray,
+    # flux_i: np.ndarray,
+    # yerr_i: np.ndarray,
+    # mask_i: np.ndarray,
+    # full_samples: np.ndarray,
+    # region_group: Any,
+    # distances: np.ndarray,
+    # BOL_CORRECTIONS: Dict[str, float],
+    # SINGLE_EPOCH_ESTIMATORS: Dict[str, Dict[str, Any]],
+    # c: float,
+    # summarize: bool = False,

@@ -15,7 +15,7 @@ def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
     if spectra.shape[1] != 2:
         return spectra  # already 3‑channel
     signal = spectra[:, 1, :]
-    error = jnp.expand_dims(signal * 0.0, axis=1)
+    error = jnp.expand_dims(signal * frac, axis=1)
     return jnp.concatenate((spectra, error), axis=1)
 
 

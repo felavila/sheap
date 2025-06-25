@@ -21,7 +21,8 @@ from sheap.Posterior.constants import c
 logger = logging.getLogger(__name__)
 
 
-
+#WE CAN mode fast, we will stay in this 32 to go faster. 
+#
 class Sheapectral:
     # the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A
     def __init__(
@@ -193,10 +194,10 @@ class Sheapectral:
             raise RuntimeError("build_region() must be called before fit_region()")
 
         fitting_routine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
-        
+        #this make more sence in the build region part and then we can add another "subfunction"
         fitting_class = RegionFitting(fitting_routine,profile=profile)
-
-        fit_output = fitting_class(self.spectra, do_return=True,sigma_params=sigma_params,learning_rate=learning_rate)
+        spectra = self.spectra.astype(jnp.float32)
+        fit_output = fitting_class(spectra, do_return=True,sigma_params=sigma_params,learning_rate=learning_rate)
 
         #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
         fit_output.source = "computed"

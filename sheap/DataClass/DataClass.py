@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax.numpy as jnp
 import numpy as np
+import pandas as pd 
 
 @dataclass
 class SpectralLine:
@@ -106,9 +107,10 @@ class FitResult:
 
     def to_dict(self) -> dict:
         return asdict(self)
-    
+
+ 
 @dataclass
-class LineSelectionResult:
+class LineSelectionResult_stable:
     idx: List[int]
     line_name: np.ndarray
     region: List[str]
@@ -126,6 +128,8 @@ class LineSelectionResult:
     uncertainty_params: np.ndarray
     profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
     filtered_dict: Dict
+    complex:np.ndarray
+    
 
 @dataclass
 class ConstraintSet:

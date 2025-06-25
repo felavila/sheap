@@ -85,13 +85,13 @@ def error_covariance_matrix(
         return (fallback, jnp.diag(fallback**2)) if return_full else fallback
 
     #xs_valid, y_valid, yerr_valid = xs_i[mask], y_i[mask], yerr_i[mask]
-    residual = residual_fn(params_i)[mask]
+    residual = residual_fn(params_i)[mask]#.astype(jnp.float32)
 
     if jnp.any(jnp.isnan(residual)) or jnp.any(jnp.isinf(residual)):
         fallback = jnp.abs(params_i) * 5.0 + 1.0
         return (fallback, jnp.diag(fallback**2)) if return_full else fallback
 
-    jacobian = jax.jacobian(residual_fn)(params_i)
+    jacobian = jax.jacobian(residual_fn)(params_i)#.astype(jnp.float32)
     JTJ = jacobian.T @ jacobian
     dof = max(residual.size - free_params, 1) #to avoid fall back in negatives values 
     s_sq = jnp.sum(residual**2) / dof

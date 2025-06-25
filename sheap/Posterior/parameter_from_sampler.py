@@ -56,8 +56,23 @@ def summarize_nested_samples(d: dict) -> dict:
     return summarized
 
 
-
 def full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,
+                                            full_samples,
+                                            kinds_map,d,
+                                            c=c,BOL_CORRECTIONS=BOL_CORRECTIONS,
+                                            SINGLE_EPOCH_ESTIMATORS=SINGLE_EPOCH_ESTIMATORS,summarize=False):
+    
+
+    full_dictionary = {}
+    dict_basic_params = {}
+    cont_map = kinds_map['continuum']
+    cont_fun= cont_map.profile_functions_combine #
+    cont_idx = jnp.array(list(cont_map.filtered_dict.values())) #a.
+    cont_params = full_samples[:, cont_idx]
+    
+
+
+def full_params_sampled_to_posterior_params_old_stable(wl_i, flux_i, yerr_i,mask_i,
                                             full_samples,
                                             kinds_map,d,
                                             c=c,BOL_CORRECTIONS=BOL_CORRECTIONS,
@@ -74,8 +89,9 @@ def full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,
     for k, k_map in kinds_map.items():
         #This code assume that all the lines in a certain region share "profile" that cant be always the case. 
         #the so called emission lines ? 
-        
+        #here the idea will be move from "combine models to more simples ones "
          if k not in ['fe', 'continuum']:
+            
             idx_amplitude = mapping_params(k_map.filtered_dict, "amplitude")
             idx_fwhm = mapping_params(k_map.filtered_dict, "fwhm") 
             idx_center = mapping_params(k_map.filtered_dict, "center")
@@ -95,6 +111,8 @@ def full_params_sampled_to_posterior_params(wl_i, flux_i, yerr_i,mask_i,
                          'flux': flux, "fwhm": fwhm, "fwhm_kms": fwhm_kms, "L": L_line,
                          'center': center, 'amplitude': norm_amplitude,"eqw":eqw
                      }
+    
+    
     wavelengths = np.array(list(BOL_CORRECTIONS.keys())).astype(float)
     #idx_cont = mapping_params(params_dict, "scale")  # Adapt if needed
     L_w, L_bol = {}, {}
@@ -254,3 +272,7 @@ def full_params_sampled_to_posterior_paramsv2(wl_i, flux_i, yerr_i,mask_i,
     if summarize:
         full_dictionary = summarize_nested_samples(full_dictionary)
     return full_dictionary
+
+
+
+
