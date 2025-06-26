@@ -10,12 +10,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import yaml
 
-from sheap.DataClass.DataClass import SpectralLine
+from sheap.DataClass.DataClass import SpectralLinev2,SpectralLine
 from sheap.RegionHandler.utils import fe_ties, group_lines_by_region, region_ties,group_lines
 
 # yaml_files =
 # Named constants for special components
 OUTFLOW_COMPONENT = 10
+WINDS_COMPONENT = 15
 FE_COMPONENT = 20
 NLR_COMPONENT = 30
 # hipper parameters should be
@@ -30,13 +31,16 @@ class RegionBuilder_2:
     
     
     """
+    lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
+    lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","HeIk","HeIId","Halpha","Hbeta","HeIe"]
+    
     def __init__(
         self,
         xmin: float,
         xmax: float,
         n_narrow: int = 1,
         n_broad: int = 1,
-        yaml_paths: Optional[List[Union[str, Path]]] = None,
+        template_paths: Optional[List[Union[str, Path]]] = None,
         
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
@@ -54,17 +58,227 @@ class RegionBuilder_2:
         #continuum_profile = "powerlaw",
         #no_fe = False
         ) -> None:
+        self.xmin = xmin
+        self.xmax = xmax
+        self.n_narrow = n_narrow
+        self.n_broad = n_broad
+        if not template_paths:
+            self.template_paths = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml"))
+        self.lines_template_available: Dict[str, Any] = {}
+        self._load_line_templates(self.template_paths) #this should be always here?
+        self.make_region()
+
+    def _load_line_templates(self, paths: Optional[List[Union[str, Path]]]) -> None:
+        """
+        Load YAML files with lines.
+        """
+        if not paths:
+            raise ValueError("No YAML paths provided for region templates.")
+
+        for p in paths:
+            path = Path(p)
+            if not path.is_file():
+                raise FileNotFoundError(f"Region YAML not found: {path}")
+            data = yaml.safe_load(path.read_text())
+            key = path.stem
+            if not isinstance(data, list) and not all(isinstance(item, dict) for item in data):
+                raise KeyError(f"Not all element in the YAML are list filled with dict: {path}")
+            self.lines_template_available[key] = data
+        self.templates_available = list(self.lines_template_available.keys())
         
-        if not yaml_paths:
-            self.yaml_paths = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml"))
+        
+    def make_region(
+        self,
+        xmin: Optional[float] = None,
+        xmax: Optional[float] = None,
+        n_broad: Optional[int] = None,
+        n_narrow: Optional[int] = None,):
+        
+        def get(val, fallback):
+            return val if val is not None else fallback
 
+        xmin = get(xmin, self.xmin)
+        xmax = get(xmax, self.xmax)
+        n_broad = get(n_broad, self.n_broad)
+        n_narrow = get(n_narrow, self.n_narrow)
+        self.complex_list = [] #place holder name  
+        for template_name,list_dict in self.lines_template_available.items():
+            comps = []
+            for raw_line in list_dict:
+                center = float(raw_line.get('center', -np.inf))
+                if not (xmin <= center <= xmax):
+                    continue
+                base = SpectralLinev2(**raw_line)
+                if template_name == "broad_and_narrow": #search of name
+                    comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad)
+                elif template_name == "narrows" and n_narrow>0:
+                    comps = self._handle_narrow_line(base, n_narrow)
+                elif template_name == "broads" and n_broad>0:
+                    comps = self._handle_broad_line(base, n_broad) 
+                
+                self.complex_list.extend(comps)
+    # if name in main_regions:
+    #                 comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR,add_outflow)
+    #             elif name in narrow_keys:
+    #                 comps = self._handle_narrow_line(base, n_narrow, add_outflow)
+    #             elif name == 'broad':
+    #                 comps = self._handle_broad_line(base, n_broad)
+    #             elif fe_mode == "sum" and name in fe_regions and not no_fe:
+    #                 comps = [self._handle_fe_line(base)]
+    #                 tie_fe = True
+    #             #'fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"
+    #             elif fe_mode == "model" and not no_fe :
+    #                 if  name in ["feii_model", "fe_uv"]:
+    #                     comps = [self._handle_fe_line(base, how="combine")]
+    #                 elif name in ["feii_coronal"]:
+    #                     comps = [self._handle_fe_line(base)]
+    #                 else:
+    #                     continue 
+                        
+    #             else:
+    #                 continue
+    #             self.complex_region.extend(comps)
+                
+    def _handle_broad_and_narrow_lines(
+        self, entry: SpectralLinev2, n_narrow: int, n_broad: int, add_winds=False) -> List[SpectralLinev2]:
+        comps: List[SpectralLinev2] = []
+        total = n_narrow + n_broad
+        for idx in range(total):
+            region = 'narrow' if idx < n_narrow else 'broad'
+            comp_num = idx + 1 if region == 'narrow' else idx - n_narrow + 1
+            amp = 1.0 if comp_num == 1 else 1.0/comp_num
+            new = SpectralLinev2(
+                center=entry.center,
+                line_name=entry.line_name,
+                region=region,
+                component=comp_num,
+                amplitude=amp,
+                element=entry.element,
+            )
+            comps.append(new)
+            if add_winds and idx == 0 and self.lines_prone_winds:
+                out = SpectralLinev2(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='winds',
+                    component = WINDS_COMPONENT,
+                    amplitude=0.5,
+                    element = entry.element,
+                )
+                comps.append(out)
+        return comps
+    
+    def _handle_narrow_line(
+        self, entry: SpectralLinev2, n_narrow: int, add_outflow: bool = False, add_uncommon = False) -> List[SpectralLinev2]:
+        comps: List[SpectralLinev2] = []
+        for idx in range(n_narrow):
+            amp = 1 if idx == 0 else 0.5
+            if entry.rarity=="uncommon" and not add_uncommon:
+                continue 
+            new = SpectralLinev2(
+                center=entry.center,
+                line_name=entry.line_name,
+                region ='narrow',
+                component = idx + 1,
+                amplitude =  amp,
+                element = entry.element,
+                rarity = entry.rarity
+            )
+            comps.append(new)
+            if add_outflow and idx == 0 and self.line_prone_outflow:
+                out = SpectralLinev2(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='outflow',
+                    component = OUTFLOW_COMPONENT,
+                    amplitude=0.5,
+                    element = entry.element,
+                    rarity = entry.rarity)
+                
+                comps.append(out)
+        return comps
 
+    def _handle_broad_line(self, entry: SpectralLinev2, n_broad: int,add_winds=False) -> List[SpectralLinev2]:
+        comps: List[SpectralLinev2] = []
+        #extra broad? 
+        #return comps
+        for idx in range(n_broad):
+            if idx>0:
+                continue 
+            amp = 1 if idx == 0 else 0.5
+            new = SpectralLinev2(
+                center=entry.center,
+                line_name=entry.line_name,
+                region='broad',
+                component=idx + 1,
+                amplitude=amp,
+                element=entry.element,
+            )
+            comps.append(new)
+            
+            if add_winds and idx == 0 and self.lines_prone_winds:
+                out = SpectralLinev2(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='winds',
+                    component = WINDS_COMPONENT,
+                    amplitude=0.5,
+                    element = entry.element,
+                )
+                comps.append(out)
+                
+        return comps
+ 
+    # for name, region in self.lines_regions_available.items():
+    #         for entry in region['region']:
+    #             center = float(entry.get('center', -np.inf))
+    #             if not (xmin <= center <= xmax):
+    #                 continue
+    #             base = SpectralLine(
+    #                 center=center,
+    #                 line_name=str(entry['line_name']),
+    #                 kind=str(entry.get('kind', '')),  # fallback to empty
+    #                 component=int(entry.get('component', 1)),
+    #                 amplitude=entry.get('amplitude', 1.0),
+    #                 profile=entry.get('profile'),
+    #                 how=entry.get('how'),
+    #                 region=entry.get('region', name),
+    #             )
+    #             if tied_broad_to is not None:
+    #                 if isinstance(tied_broad_to, str) and tied_broad_to == base.line_name:
+    #                     is_tied_broad = True
+    #                 elif isinstance(tied_broad_to, (list, Tuple)):
+    #                     is_tied_broad = True
+    #                     print("work in progress")
 
+    #             if tied_narrow_to is not None:
+    #                 if isinstance(tied_narrow_to, str) and tied_narrow_to == base.line_name:
+    #                     is_tied_narrow = True
+    #                 elif isinstance(tied_narrow_to, (list, Tuple)):
+    #                     is_tied_narrow = True
+    #                     print("work in progress")
 
-
-
-
-
+    #             if name in main_regions:
+    #                 comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR,add_outflow)
+    #             elif name in narrow_keys:
+    #                 comps = self._handle_narrow_line(base, n_narrow, add_outflow)
+    #             elif name == 'broad':
+    #                 comps = self._handle_broad_line(base, n_broad)
+    #             elif fe_mode == "sum" and name in fe_regions and not no_fe:
+    #                 comps = [self._handle_fe_line(base)]
+    #                 tie_fe = True
+    #             #'fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"
+    #             elif fe_mode == "model" and not no_fe :
+    #                 if  name in ["feii_model", "fe_uv"]:
+    #                     comps = [self._handle_fe_line(base, how="combine")]
+    #                 elif name in ["feii_coronal"]:
+    #                     comps = [self._handle_fe_line(base)]
+    #                 else:
+    #                     continue 
+                        
+    #             else:
+    #                 continue
+    #             self.complex_region.extend(comps)
 
 
 class RegionBuilder:
@@ -228,7 +442,7 @@ class RegionBuilder:
                 "inner_limits": [self.xmin + 50, self.xmax - 50],
                 "model_keywords": self.model_keywords,
             }
-        
+
 
     def make_region(
         self,

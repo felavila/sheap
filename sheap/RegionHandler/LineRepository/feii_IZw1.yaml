@@ -1,63 +1,63 @@
 #taked from https://github.com/yukawa1/fantasy/blob/main/fantasy_agn/input/feii_IZw1.csv
-
-region:
   - center: 4418.957
     line_name: FeIIa
+    element: FeII
+    region: fe
   - center: 4449.616
-    
-    
     line_name: FeIIb
+    region: fe
+    element: FeII
   - center: 4471.273
-    
-    
     line_name: FeIIc
+    region: fe
+    element: FeII
   - center: 4493.529
-    
-    
     line_name: FeIId
+    region: fe
+    element: FeII
   - center: 4614.551
-    
-    
     line_name: FeIIe
+    region: fe
+    element: FeII
   - center: 4625.481
-    
-    
     line_name: FeIIf
+    region: fe
+    element: FeII
   - center: 4628.786
-    
-    
     line_name: FeIIg
+    region: fe
+    element: FeII
   - center: 4631.873
-    
-    
     line_name: FeIIh
+    region: fe
+    element: FeII
   - center: 4660.593
-    
-    
     line_name: FeIIi
+    region: fe
+    element: FeII
   - center: 4668.923
-    
-    
     line_name: FeIIj
+    region: fe
+    element: FeII
   - center: 4740.828
-    
-    
     line_name: FeIIk
+    region: fe
+    element: FeII
   - center: 5131.210
-    
-    
     line_name: FeIIl
+    region: fe
+    element: FeII
   - center: 5369.190
-    
-    
     line_name: FeIIm
+    region: fe
+    element: FeII
   - center: 5396.232
-    
-    
     line_name: FeIIn
+    region: fe
+    element: FeII
   - center: 5427.826
-    
-    
     line_name: FeIIo
+    region: fe
+    element: FeII
 
 

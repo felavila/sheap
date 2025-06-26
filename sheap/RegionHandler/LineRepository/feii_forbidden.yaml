@@ -1,301 +1,229 @@
 #taked from https://github.com/yukawa1/fantasy/blob/main/fantasy_agn/input/feII_forbidden.csv
-region:
+
   # Group: FeII23F
-  - center: 4114.469029
-    
-    
-    line_name: FeII23Fa
-  - center: 4178.96
-    
-    
-    line_name: FeII23Fb
-  - center: 4251.44
-    
-    
-    line_name: FeII23Fc
+- center: 4114.469029
+  line_name: FeII23Fa
+  region: fe
+  element: FeII23
+- center: 4178.96
+  line_name: FeII23Fb
+  region: fe
+  element: FeII23
+- center: 4251.44
+  line_name: FeII23Fc
+  element: FeII23
+# Group: FeII21F
+- center: 4146.650594
+  element: FeII21
+  line_name: FeII21Fa
+- center: 4177.21
+  element: FeII21
+  line_name: FeII21Fb
+- center: 4231.56
+  element: FeII21
+  line_name: FeII21Fc
+- center: 4243.975051
+  element: FeII21
+  line_name: FeII21Fd
+- center: 4244.81483
+  element: FeII21
+  line_name: FeII21Fe
+- center: 4276.83
+  element: FeII21
+  line_name: FeII21Ff
+- center: 4305.89
+  element: FeII21
+  line_name: FeII21Fg
+- center: 4319.615163
+  element: FeII21
+  line_name: FeII21Fh
+- center: 4346.847995
+  element: FeII21
+  line_name: FeII21Fi
+- center: 4352.776435
+  element: FeII21
+  line_name: FeII21Fj
+- center: 4358.354966
+  element: FeII21
+  line_name: FeII21Fk
+- center: 4372.431259
+  element: FeII21
+  line_name: FeII21Fl
+# Group: FeII7F
+- center: 4287.393639
+  element: FeII7F
+  line_name: FeII7Fa
+- center: 4359.344705
+  element: FeII7F
+  line_name: FeII7Fb
+- center: 4413.780364
+  element: FeII7F
+  line_name: FeII7Fc
+- center: 4452.11
+  element: FeII7F
+  line_name: FeII7Fd
+- center: 4474.904244
+  element: FeII7F
+  line_name: FeII7Fe
 
-  # Group: FeII21F
-  - center: 4146.650594
-    
-    
-    line_name: FeII21Fa
-  - center: 4177.21
-    
-    
-    line_name: FeII21Fb
-  - center: 4231.56
-    
-    
-    line_name: FeII21Fc
-  - center: 4243.975051
-    
-    
-    line_name: FeII21Fd
-  - center: 4244.81483
-    
-    
-    line_name: FeII21Fe
-  - center: 4276.83
-    
-    
-    line_name: FeII21Ff
-  - center: 4305.89
-    
-    
-    line_name: FeII21Fg
-  - center: 4319.615163
-    
-    
-    line_name: FeII21Fh
-  - center: 4346.847995
-    
-    
-    line_name: FeII21Fi
-  - center: 4352.776435
-    
-    
-    line_name: FeII21Fj
-  - center: 4358.354966
-    
-    
-    line_name: FeII21Fk
-  - center: 4372.431259
-    
-    
-    line_name: FeII21Fl
+# Group: FeII6F
+- center: 4382.738544
+  element: FeII6F
+  line_name: FeII6Fa
+- center: 4416.269708
+  element: FeII6F
+  line_name: FeII6Fb
+- center: 4432.445443
+  element: FeII6F
+  line_name: FeII6Fc
+- center: 4457.94
+  element: FeII6F
+  line_name: FeII6Fd
+- center: 4488.75059
+  element: FeII6F
+  line_name: FeII6Fe
+- center: 4492.629566
+  element: FeII6F
+  line_name: FeII6Ff
+- center: 4528.380127
+  element: FeII6F
+  line_name: FeII6Fg
 
-  # Group: FeII7F
-  - center: 4287.393639
-    
-    
-    line_name: FeII7Fa
-  - center: 4359.344705
-    
-    
-    line_name: FeII7Fb
-  - center: 4413.780364
-    
-    
-    line_name: FeII7Fc
-  - center: 4452.11
-    
-    
-    line_name: FeII7Fd
-  - center: 4474.904244
-    
-    
-    line_name: FeII7Fe
+# Group: FeII4F
+- center: 4639.67071
+  element: FeII4F
+  line_name: FeII4Fa
+- center: 4664.444155
+  element: FeII4F
+  line_name: FeII4Fb
+- center: 4728.07
+  element: FeII4F
+  line_name: FeII4Fc
+- center: 4798.27
+  element: FeII4F
+  line_name: FeII4Fd
+- center: 4889.624468
+  element: FeII4F
+  line_name: FeII4Fe
+# Group: FeII20F
+- center: 4774.724946
+  element: FeII20F
+  line_name: FeII20Fa
+- center: 4814.534392
+  element: FeII20F
+  line_name: FeII20Fb
+- center: 4874.48
+  element: FeII20F
+  line_name: FeII20Fc
+- center: 4905.340296
+  element: FeII20F
+  line_name: FeII20Fd
+- center: 4947.37
+  element: FeII20F
+  line_name: FeII20Fe
+- center: 4950.74
+  element: FeII20F
+  line_name: FeII20Ff
+- center: 4973.392221
+  element: FeII20F
+  line_name: FeII20Fg
+- center: 5005.513684
+  element: FeII20F
+  line_name: FeII20Fh
+- center: 5020.229772
+  element: FeII20F
+  line_name: FeII20Fi
+- center: 5043.523578
+  element: FeII20F
+  line_name: FeII20Fj
 
-  # Group: FeII6F
-  - center: 4382.738544
-    
-    
-    line_name: FeII6Fa
-  - center: 4416.269708
-    
-    
-    line_name: FeII6Fb
-  - center: 4432.445443
-    
-    
-    line_name: FeII6Fc
-  - center: 4457.94
-    
-    
-    line_name: FeII6Fd
-  - center: 4488.75059
-    
-    
-    line_name: FeII6Fe
-  - center: 4492.629566
-    
-    
-    line_name: FeII6Ff
-  - center: 4528.380127
-    
-    
-    line_name: FeII6Fg
+# Group: FeII0 (no multiplet given)
+- center: 4898.612082
+  element: FeII0
+  line_name: FeII0a
+- center: 5060.079175
+  element: FeII0
+  line_name: FeII0b
+# Group: FeII19F
+- center: 5072.39
+  element: FeII19F
+  line_name: FeII19F
+- center: 5111.63
+  line_name: FeII19Fb
+- center: 5158.78
+  element: FeII19F
+  line_name: FeII19Fc
+- center: 5184.795981
+  element: FeII19F
+  line_name: FeII19Fd
+- center: 5220.056588
+  element: FeII19F
+  line_name: FeII19Fe
+- center: 5261.615514
+  element: FeII19F
+  line_name: FeII19Ff
+- center: 5296.826128
+  element: FeII19F
+  line_name: FeII19Fg
+- center: 5333.646309
+  element: FeII19F
+  line_name: FeII19Fh
+- center: 5376.45489
+  element: FeII19F
+  line_name: FeII19Fi
 
-  # Group: FeII4F
-  - center: 4639.67071
-    
-    
-    line_name: FeII4Fa
-  - center: 4664.444155
-    
-    
-    line_name: FeII4Fb
-  - center: 4728.07
-    
-    
-    line_name: FeII4Fc
-  - center: 4798.27
-    
-    
-    line_name: FeII4Fd
-  - center: 4889.624468
-    
-    
-    line_name: FeII4Fe
+# Group: FeII18F
+- center: 5107.936443
+  element: FeII18F
+  line_name: FeII18Fa
+- center: 5158.003116
+  element: FeII18F
+  line_name: FeII18Fb
+- center: 5181.94674
+  element: FeII18F
+  line_name: FeII18Fc
+- center: 5268.87
+  element: FeII18F
+  line_name: FeII18Fd
+- center: 5273.352386
+  element: FeII18F
+  line_name: FeII18Fe
+- center: 5347.65
+  element: FeII18F
+  line_name: FeII18Ff
+- center: 5433.13
+  element: FeII18F
+  line_name: FeII18Fg
+- center: 5556.29
+  element: FeII18F
+  line_name: FeII18Fh
 
-  # Group: FeII20F
-  - center: 4774.724946
-    
-    
-    line_name: FeII20Fa
-  - center: 4814.534392
-    
-    
-    line_name: FeII20Fb
-  - center: 4874.48
-    
-    
-    line_name: FeII20Fc
-  - center: 4905.340296
-    
-    
-    line_name: FeII20Fd
-  - center: 4947.37
-    
-    
-    line_name: FeII20Fe
-  - center: 4950.74
-    
-    
-    line_name: FeII20Ff
-  - center: 4973.392221
-    
-    
-    line_name: FeII20Fg
-  - center: 5005.513684
-    
-    
-    line_name: FeII20Fh
-  - center: 5020.229772
-    
-    
-    line_name: FeII20Fi
-  - center: 5043.523578
-    
-    
-    line_name: FeII20Fj
+# Group: FeII17F
+- center: 5412.65
+  element: FeII17F
+  line_name: FeII17Fa
+- center: 5495.82
+  element: FeII17F
+  line_name: FeII17Fb
+- center: 5527.34
+  element: FeII17F
+  line_name: FeII17Fc
 
-  # Group: FeII (no multiplet given)
-  - center: 4898.612082
-    
-    
-    line_name: FeII0a
-  - center: 5060.079175
-    
-    
-    line_name: FeII0b
+# Group: FeII34F
+- center: 5477.237988
+  element: FeII34F
+  line_name: FeII34Fa
+- center: 5527.61
+  element: FeII34F
+  line_name: FeII34Fb
+- center: 5746.97
+  element: FeII34F
+  line_name: FeII34Fc
 
-  # Group: FeII19F
-  - center: 5072.39
-    
-    
-    line_name: FeII19Fa
-  - center: 5111.63
-    
-    
-    line_name: FeII19Fb
-  - center: 5158.78
-    
-    
-    line_name: FeII19Fc
-  - center: 5184.795981
-    
-    
-    line_name: FeII19Fd
-  - center: 5220.056588
-    
-    
-    line_name: FeII19Fe
-  - center: 5261.615514
-    
-    
-    line_name: FeII19Ff
-  - center: 5296.826128
-    
-    
-    line_name: FeII19Fg
-  - center: 5333.646309
-    
-    
-    line_name: FeII19Fh
-  - center: 5376.45489
-    
-    
-    line_name: FeII19Fi
-
-  # Group: FeII18F
-  - center: 5107.936443
-    
-    
-    line_name: FeII18Fa
-  - center: 5158.003116
-    
-    
-    line_name: FeII18Fb
-  - center: 5181.94674
-    
-    
-    line_name: FeII18Fc
-  - center: 5268.87
-    
-    
-    line_name: FeII18Fd
-  - center: 5273.352386
-    
-    
-    line_name: FeII18Fe
-  - center: 5347.65
-    
-    
-    line_name: FeII18Ff
-  - center: 5433.13
-    
-    
-    line_name: FeII18Fg
-  - center: 5556.29
-    
-    
-    line_name: FeII18Fh
-
-  # Group: FeII17F
-  - center: 5412.65
-    
-    
-    line_name: FeII17Fa
-  - center: 5495.82
-    
-    
-    line_name: FeII17Fb
-  - center: 5527.34
-    
-    
-    line_name: FeII17Fc
-
-  # Group: FeII34F
-  - center: 5477.237988
-    
-    
-    line_name: FeII34Fa
-  - center: 5527.61
-    
-    
-    line_name: FeII34Fb
-  - center: 5746.97
-    
-    
-    line_name: FeII34Fc
-
-  # Group: FeII14F
-  - center: 7155.16
-    
-    
-    line_name: FeII14Fa
-  - center: 7172.00
-    
-    
-    line_name: FeII14Fb
+# Group: FeII14F
+- center: 7155.16
+  element: FeII14F
+  line_name: FeII14Fa
+- center: 7172.00
+  element: FeII14F
+  line_name: FeII14Fb

@@ -15,6 +15,46 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd 
 
+
+@dataclass
+class SpectralLinev2:
+    """
+    Represents a single spectral emission or absorption line component.
+
+    Attributes:
+        center (float or list of floats): Central wavelength(s) of the line in Angstroms.
+        line_name (str or list of str): Identifier(s) for the spectral line (e.g., 'Halpha') or the case of composite spectral line the name ofthe region + comp number.
+        region (str): spacial region of the line 'narrow', 'broad', 'outflow', or 'fe'.
+        component (int): Integer identifier for the component number within its kind.
+        amplitude (float or list of floats, default=1.0): Initial or fixed amplitude for the line.
+        how (Optional[str]): Method to handle the line (e.g., 'template', 'sum'). Usually used for Fe templates.
+        element (Optional[str]): quimical stuff of the line.
+        profile (Optional[str]): Profile function name (e.g., 'gaussian', 'lorentzian').
+        which_template (Optional[str]): Sub-template or subtype for complex profiles (e.g., 'OP' or 'UV' for FeII templates).
+        region_lines (Optional[List[str]]): Explicit list of line names used in a sum or composite region.
+        amplitude_relations (Optional[List[List]]): Parameter tying or scaling definitions, typically for ratios.
+        subprofile (str):  Sub-profile function to use within compound models like.
+        rarity the line is common? or uncommon 
+    """
+    #maybe subregion? xd 
+    center: Union[float, List[float]]
+    line_name: Union[str, List[str]]
+    region: Optional[str] = None
+    component: Optional[int] = None
+    amplitude: Union[float, List[float]] = None
+    how: Optional[str] = None
+    element: Optional[str] = None
+    profile: Optional[str] = None
+    which_template: Optional[str] = None
+    region_lines: Optional[List[str]] = None
+    amplitude_relations: Optional[List[List]] = None
+    subprofile: Optional[str] = None  
+    rarity: Union[str, List[str]] =  None
+    def to_dict(self) -> dict:
+        """Convert the SpectralLine to a dictionary."""
+        return asdict(self)
+
+
 @dataclass
 class SpectralLine:
     """

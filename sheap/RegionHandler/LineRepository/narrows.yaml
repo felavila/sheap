@@ -1,179 +1,226 @@
-common:
-  # Strong, frequently‐seen forbidden narrow lines
-  - center: 3726.032
-    line_name: OIIa
-    region: Oxygen
-  - center: 3728.815
-    line_name: OIIb
-    region: Oxygen
-  - center: 3868.760
-    line_name: NeIIIa
-    region: Neon
-  - center: 4958.896072
-    line_name: OIIIb
-    region: Oxygen
-  - center: 5006.803341
-    line_name: OIIIc
-    region: Oxygen
-  # - center: 6300.304
-  #   line_name: OIa
-  #   region: Oxygen
-  # - center: 6363.8
-  #   line_name: OIb
-  #   region: Oxygen
-  - center: 6548.05
-    line_name: NIIa
-    region: Nitrogen
-  - center: 6583.46
-    line_name: NIIb
-    region: Nitrogen
-  - center: 6716.44
-    line_name: SIIa
-    region: Sulfur
-  - center: 6730.81
-    line_name: SIIb
-    region: Sulfur
-  - center: 9068.6
-    line_name: SIIIb
-    region: Sulfur
-  - center: 9531.00
-    line_name: SIIIc
-    region: Sulfur
-
-less_common:
-  # Weak auroral lines, semi‐forbidden and rare metal transitions
-  - center: 4363.213686
-    line_name: OIIIa
-    region: Oxygen
-  - center: 7330.73
-    line_name: OIIc
-    region: Oxygen
-  - center: 1908.734
-    line_name: CIII]
-    region: Carbon
-  - center: 4003.328107
-    line_name: CrII194a
-    region: Chromium
-  - center: 4015.504925
-    line_name: NiII12a
-    region: Nickel
-  - center: 4053.814908
-    line_name: TiII87a
-    region: Titanium
-  - center: 4063.942258
-    line_name: CrII19a
-    region: Chromium
-  - center: 4068.621034
-    line_name: SII1Fa
-    region: Sulfur
-  - center: 4076.219045
-    line_name: SII1Fb
-    region: Sulfur
-  - center: 4097.33
-    line_name: NIIIa
-    region: Nitrogen
-  - center: 4103.43
-    line_name: NIIIb
-    region: Nitrogen
-  - center: 4163.63614
-    line_name: TiII105a
-    region: Titanium
-  - center: 4395.025307
-    line_name: TiII19a
-    region: Titanium
-  - center: 4414.899
-    line_name: OIIc
-    region: Oxygen
-  - center: 4421.948211
-    line_name: TiII93a
-    region: Titanium
-  - center: 4443.802449
-    line_name: TiII19b
-    region: Titanium
-  - center: 4450.490685
-    line_name: TiII19c
-    region: Titanium
-  - center: 4510.91
-    line_name: NIII1a
-    region: Nitrogen
-  - center: 4616.636803
-    line_name: CrII44a
-    region: Chromium
-  - center: 4640.64
-    line_name: NIIIc
-    region: Nitrogen
-  - center: 4643.09
-    line_name: NII5a
-    region: Nitrogen
-  - center: 4647.42
-    line_name: CIIIa
-    region: Carbon
-  - center: 4650.25
-    line_name: CIIIb
-    region: Carbon
-  - center: 4651.47
-    line_name: CIIIc
-    region: Carbon
-  - center: 4697.595379
-    line_name: CrIIa
-    region: Chromium
-  - center: 4824.131846
-    line_name: CrII30a
-    region: Chromium
-  - center: 4876.477958
-    line_name: CrII30b
-    region: Chromium
-  - center: 4911.19874
-    line_name: TiII114a
-    region: Titanium
-  - center: 5072.275931
-    line_name: TiII113a
-    region: Titanium
-  - center: 5200.261862
-    line_name: NIa
-    region: Nickel
-  - center: 5754.590
-    line_name: NIIpa
-    region: Nitrogen
-  - center: 5666.64
-    line_name: NIIpb
-    region: Nitrogen
-  - center: 5676.02
-    line_name: NIIpc
-    region: Nitrogen
-  - center: 5679.56
-    line_name: NIIpd
-    region: Nitrogen
-  - center: 5686.21
-    line_name: NIIpe
-    region: Nitrogen
-  - center: 5695.920
-    line_name: CIIId
-    region: Carbon
-  - center: 5957.56
-    line_name: SiIIa
-    region: Silicon
-  - center: 6046.440
-    line_name: OIba
-    region: Oxygen
-  - center: 6288.0859
-    line_name: SIIa
-    region: Sulfur
-  - center: 6312.06
-    line_name: SIIIa
-    region: Sulfur
-  - center: 6347.10
-    line_name: SiIIb
-    region: Silicon
-  - center: 6371.36
-    line_name: SiIIc
-    region: Silicon
-  - center: 7377.83
-    line_name: NiIIa
-    region: Nickel
-  - center: 7411.16
-    line_name: NiIIb
-    region: Nickel
-  - center: 7889.9
-    line_name: NiIIIa
-    region: Nickel
+# Strong, frequently‐seen forbidden narrow lines
+- center: 3726.032
+  line_name: OIIa
+  element: Oxygen
+  rarity: common
+- center: 3728.815
+  line_name: OIIb
+  element: Oxygen
+  rarity: common
+- center: 3868.760
+  line_name: NeIIIa
+  element: Neon
+  rarity: common
+- center: 4958.896072
+  line_name: OIIIb
+  element: Oxygen
+  rarity: common
+- center: 5006.803341
+  line_name: OIIIc
+  element: Oxygen
+  rarity: common
+- center: 6548.05
+  line_name: NIIa
+  element: Nitrogen
+  rarity: common
+- center: 6583.46
+  line_name: NIIb
+  element: Nitrogen
+  rarity: common
+- center: 6716.44
+  line_name: SIIa
+  element: Sulfur
+  rarity: common
+- center: 6730.81
+  line_name: SIIb
+  element: Sulfur
+  rarity: common
+- center: 9068.6
+  line_name: SIIIb
+  element: Sulfur
+  rarity: common
+- center: 9531.00
+  line_name: SIIIc
+  element: Sulfur
+  rarity: common
+# Weak auroral lines, semi‐forbidden and rare metal transitions
+- center: 4363.213686
+  line_name: OIIIa
+  element: Oxygen
+  rarity: uncommon
+- center: 7330.73
+  line_name: OIIc
+  element: Oxygen
+  rarity: uncommon
+- center: 1908.734
+  line_name: CIII]
+  element: Carbon
+  rarity: uncommon
+- center: 4003.328107
+  line_name: CrII194a
+  element: Chromium
+  rarity: uncommon
+- center: 4015.504925
+  line_name: NiII12a
+  element: Nickel
+  rarity: uncommon
+- center: 4053.814908
+  line_name: TiII87a
+  element: Titanium
+  rarity: uncommon
+- center: 4063.942258
+  line_name: CrII19a
+  element: Chromium
+  rarity: uncommon
+- center: 4068.621034
+  line_name: SII1Fa
+  element: Sulfur
+  rarity: uncommon
+- center: 4076.219045
+  line_name: SII1Fb
+  element: Sulfur
+  rarity: uncommon
+- center: 4097.33
+  line_name: NIIIa
+  element: Nitrogen
+  rarity: uncommon
+- center: 4103.43
+  line_name: NIIIb
+  element: Nitrogen
+  rarity: uncommon
+- center: 4163.63614
+  line_name: TiII105a
+  element: Titanium
+  rarity: uncommon
+- center: 4395.025307
+  line_name: TiII19a
+  element: Titanium
+  rarity: uncommon
+- center: 4414.899
+  line_name: OIIc
+  element: Oxygen
+  rarity: uncommon
+- center: 4421.948211
+  line_name: TiII93a
+  element: Titanium
+  rarity: uncommon
+- center: 4443.802449
+  line_name: TiII19b
+  element: Titanium
+  rarity: uncommon
+- center: 4450.490685
+  line_name: TiII19c
+  element: Titanium
+  rarity: uncommon
+- center: 4510.91
+  line_name: NIII1a
+  element: Nitrogen
+  rarity: uncommon
+- center: 4616.636803
+  line_name: CrII44a
+  element: Chromium
+  rarity: uncommon
+- center: 4640.64
+  line_name: NIIIc
+  element: Nitrogen
+  rarity: uncommon
+- center: 4643.09
+  line_name: NII5a
+  element: Nitrogen
+  rarity: uncommon
+- center: 4647.42
+  line_name: CIIIa
+  element: Carbon
+  rarity: uncommon
+- center: 4650.25
+  line_name: CIIIb
+  element: Carbon
+  rarity: uncommon
+- center: 4651.47
+  line_name: CIIIc
+  element: Carbon
+  rarity: uncommon
+- center: 4697.595379
+  line_name: CrIIa
+  element: Chromium
+  rarity: uncommon
+- center: 4824.131846
+  line_name: CrII30a
+  element: Chromium
+  rarity: uncommon
+- center: 4876.477958
+  line_name: CrII30b
+  element: Chromium
+  rarity: uncommon
+- center: 4911.19874
+  line_name: TiII114a
+  element: Titanium
+  rarity: uncommon
+- center: 5072.275931
+  line_name: TiII113a
+  element: Titanium
+  rarity: uncommon
+- center: 5200.261862
+  line_name: NIa
+  element: Nickel
+  rarity: uncommon
+- center: 5754.590
+  line_name: NIIpa
+  element: Nitrogen
+  rarity: uncommon
+- center: 5666.64
+  line_name: NIIpb
+  element: Nitrogen
+  rarity: uncommon
+- center: 5676.02
+  line_name: NIIpc
+  element: Nitrogen
+  rarity: uncommon
+- center: 5679.56
+  line_name: NIIpd
+  element: Nitrogen
+  rarity: uncommon
+- center: 5686.21
+  line_name: NIIpe
+  element: Nitrogen
+  rarity: uncommon
+- center: 5695.920
+  line_name: CIIId
+  element: Carbon
+  rarity: uncommon
+- center: 5957.56
+  line_name: SiIIa
+  element: Silicon
+  rarity: uncommon
+- center: 6046.440
+  line_name: OIba
+  element: Oxygen
+  rarity: uncommon
+- center: 6288.0859
+  line_name: SIIa
+  element: Sulfur
+  rarity: uncommon
+- center: 6312.06
+  line_name: SIIIa
+  element: Sulfur
+  rarity: uncommon
+- center: 6347.10
+  line_name: SiIIb
+  element: Silicon
+  rarity: uncommon
+- center: 6371.36
+  line_name: SiIIc
+  element: Silicon
+  rarity: uncommon
+- center: 7377.83
+  line_name: NiIIa
+  element: Nickel
+  rarity: uncommon
+- center: 7411.16
+  line_name: NiIIb
+  element: Nickel
+  rarity: uncommon
+- center: 7889.9
+  line_name: NiIIIa
+  element: Nickel
+  rarity: uncommon

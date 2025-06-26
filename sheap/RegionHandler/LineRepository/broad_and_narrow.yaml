@@ -1,105 +1,106 @@
+# yaml of lines that can show broad and narrow lines.
 - center: 1215.67
   line_name: Lyalpha
-  region: Hydrogen
+  element: Hydrogen
 - center: 1548.187
   line_name: CIVa
-  region: Carbon
+  element: Carbon
 - center: 1550.772
   line_name: CIVb
-  region: Carbon
+  element: Carbon
 - center: 1640.42
   line_name: HeIIa
-  region: Helium
+  element: Helium
 - center: 2733.29
   line_name: HeIIb
-  region: Helium
+  element: Helium
 - center: 2796.352
   line_name: MgIIa
 - center: 2803.531
   line_name: MgIIb
 - center: 2945.106
   line_name: HeIa
-  region: Helium
+  element: Helium
 - center: 3187.745
   line_name: HeIb
-  region: Helium
+  element: Helium
 - center: 3203.10
   line_name: HeIIc
-  region: Helium
+  element: Helium
 - center: 3970.079
   line_name: Heps
-  region: Hydrogen
+  element: Hydrogen
 - center: 4101.742
   line_name: Hd
-  region: Hydrogen
+  element: Hydrogen
 - center: 4143.761
   line_name: HeIc
-  region: Helium
+  element: Helium
 - center: 4340.471
   line_name: Hg
-  region: Hydrogen
+  element: Hydrogen
 - center: 4471.479
   line_name: HeId
-  region: Helium
+  element: Helium
 - center: 4685.710
   line_name: HeIId
-  region: Helium
+  element: Helium
 - center: 4861.333
   line_name: Hbeta
-  region: Hydrogen
+  element: Hydrogen
 - center: 5877.2539
   line_name: HeIe
-  region: Helium
+  element: Helium
 - center: 6562.82
   line_name: Halpha
-  region: Hydrogen
+  element: Hydrogen
 - center: 7065.196
   line_name: HeIf
-  region: Helium
+  element: Helium
 - center: 7281.349
   line_name: HeIg
-  region: Helium
+  element: Helium
 - center: 7816.136
   line_name: HeIh
-  region: Helium
+  element: Helium
 - center: 8236.79
   line_name: HeIIe
-  region: Helium
+  element: Helium
 - center: 8446.36
   line_name: OIe
 - center: 8598.392
   line_name: Pa14
-  region: Hydrogen
+  element: Hydrogen
 - center: 8665.019
   line_name: Pa13
-  region: Hydrogen
+  element: Hydrogen
 - center: 8750.472
   line_name: Pa12
-  region: Hydrogen
+  element: Hydrogen
 - center: 8862.782
   line_name: Pa11
-  region: Hydrogen
+  element: Hydrogen
 - center: 9014.909
   line_name: Pa10
-  region: Hydrogen
+  element: Hydrogen
 - center: 9229.014
   line_name: Pa9
-  region: Hydrogen
+  element: Hydrogen
 - center: 9545.969
   line_name: Pae
-  region: Hydrogen
+  element: Hydrogen
 - center: 10049.368
   line_name: Pad
-  region: Hydrogen
+  element: Hydrogen
 - center: 10027.73
   line_name: HeIi
-  region: Helium
+  element: Helium
 - center: 10031.16
   line_name: HeIj
-  region: Helium
+  element: Helium
 - center: 10830.34
   line_name: HeIk
-  region: Helium
+  element: Helium
 - center: 10938.086
   line_name: Pag
-  region: Hydrogen
+  element: Hydrogen

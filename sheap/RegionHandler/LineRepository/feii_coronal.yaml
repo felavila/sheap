@@ -1,177 +1,135 @@
 #taked from https://github.com/yukawa1/fantasy/blob/main/fantasy_agn/input/coronal.csv
-region:
-  - center: 3758.920
-    
-    
-    line_name: FeVIIa
-  - center: 3839.270
-    
-    
-    line_name: FeVa
-  - center: 3891.280
-    
-    
-    line_name: FeVb
-  - center: 3911.330
-    
-    
-    line_name: FeVc
-  - center: 4071.240
-    
-    
-    line_name: FeVd
-  - center: 4180.6
-    
-    
-    line_name: FeVe
-  - center: 4227.190
-    
-    
-    line_name: FeVf
-  - center: 4412.3
-    
-    
-    line_name: ArXIVa
-  - center: 4567.4697
-    
-    
-    line_name: FeXIa
-  - center: 4588.5537
-    
-    
-    line_name: FeIXa
-  - center: 4658.050
-    
-    
-    line_name: FeIIIa
-  - center: 4698.24
-    
-    
-    line_name: FeVIIb
-  - center: 4711.26
-    
-    
-    line_name: ArIVa
-  - center: 4740.12
-    
-    
-    line_name: ArIVb
-  - center: 4893.370
-    
-    
-    line_name: FeVIIc
-  - center: 4903.070
-    
-    
-    line_name: FeIVa
-  - center: 4942.48
-    
-    
-    line_name: FeVIId
-  - center: 5084.77
-    
-    
-    line_name: FeIIIb
-  - center: 5145.750
-    
-    
-    line_name: FeVIa
-  - center: 5158.89
-    
-    
-    line_name: FeVIIe
-  - center: 5176.04
-    
-    
-    line_name: FeVIb
-  - center: 5236.06
-    
-    
-    line_name: FeVg
-  - center: 5302.86
-    
-    
-    line_name: FeXIVa
-  - center: 5335.180
-    
-    
-    line_name: FeVIc
-  - center: 5424.22
-    
-    
-    line_name: FeVId
-  - center: 5535.5591
-    
-    
-    line_name: ArXa
-  - center: 5538.939
-    
-    
-    line_name: FeXa
-  - center: 5637.600
-    
-    
-    line_name: FeVIe
-  - center: 5677.000
-    
-    
-    line_name: FeVIf
-  - center: 5720.7
-    
-    
-    line_name: FeVIIf
-  - center: 5945.314
-    
-    
-    line_name: ArXVa
-  - center: 6087
-    
-    
-    line_name: FeVIIg
-  - center: 6374.51
-    
-    
-    line_name: FeXb
-  - center: 6435.1
-    
-    
-    line_name: ArVa
-  - center: 6918.021
-    
-    
-    line_name: ArXIa
-  - center: 7005.87
-    
-    
-    line_name: ArVb
-  - center: 7046.7324
-    
-    
-    line_name: FeXIXa
-  - center: 7062.147
-    
-    
-    line_name: FeXVa
-  - center: 7135.79
-    
-    
-    line_name: ArIIIa
-  - center: 7170.62
-    
-    
-    line_name: ArIVc
-  - center: 7237.26
-    
-    
-    line_name: ArIVd
-  - center: 7262.76
-    
-    
-    line_name: ArIVe
-  - center: 7751.060
-    
-    
-    line_name: ArIIIb
-  - center: 7891.8
-    
-    line_name: FeXIb
+
+- center: 3758.920
+  line_name: FeVIIa
+  element: coronal #mmmm
+  region: fe
+- center: 3839.270
+  line_name: FeVa
+  element: coronal #mmmm
+- center: 3891.280
+  element: coronal #mmmm
+  line_name: FeVb
+- center: 3911.330
+  element: coronal #mmmm
+  line_name: FeVc
+- center: 4071.240
+  element: coronal #mmmm
+  line_name: FeVd
+- center: 4180.6
+  element: coronal #mmmm
+  line_name: FeVe
+- center: 4227.190
+  element: coronal #mmmm
+  line_name: FeVf
+- center: 4412.3
+  element: coronal #mmmm
+  line_name: ArXIVa
+- center: 4567.4697
+  element: coronal #mmmm
+  line_name: FeXIa
+- center: 4588.5537
+  element: coronal #mmmm
+  line_name: FeIXa
+- center: 4658.050
+  element: coronal #mmmm
+  line_name: FeIIIa
+- center: 4698.24
+  element: coronal #mmmm
+  line_name: FeVIIb
+- center: 4711.26
+  element: coronal #mmmm
+  line_name: ArIVa
+- center: 4740.12
+  element: coronal #mmmm
+  line_name: ArIVb
+- center: 4893.370
+  element: coronal #mmmm
+  line_name: FeVIIc
+- center: 4903.070
+  element: coronal #mmmm
+  line_name: FeIVa
+- center: 4942.48
+  element: coronal #mmmm
+  line_name: FeVIId
+- center: 5084.77
+  element: coronal #mmmm
+  line_name: FeIIIb
+- center: 5145.750
+  element: coronal #mmmm
+  line_name: FeVIa
+- center: 5158.89
+  element: coronal #mmmm
+  line_name: FeVIIe
+- center: 5176.04
+  element: coronal #mmmm
+  line_name: FeVIb
+- center: 5236.06
+  element: coronal #mmmm
+  line_name: FeVg
+- center: 5302.86
+  element: coronal #mmmm
+  line_name: FeXIVa
+- center: 5335.180
+  element: coronal #mmmm
+  line_name: FeVIc
+- center: 5424.22
+  element: coronal #mmmm
+  line_name: FeVId
+- center: 5535.5591
+  element: coronal #mmmm
+  line_name: ArXa
+- center: 5538.939
+  element: coronal #mmmm
+  line_name: FeXa
+- center: 5637.600
+  element: coronal #mmmm
+  line_name: FeVIe
+- center: 5677.000
+  element: coronal #mmmm
+  line_name: FeVIf
+- center: 5720.7
+  element: coronal #mmmm
+  line_name: FeVIIf
+- center: 5945.314
+  element: coronal #mmmm
+  line_name: ArXVa
+- center: 6087
+  element: coronal #mmmm
+  line_name: FeVIIg
+- center: 6374.51
+  element: coronal #mmmm
+  line_name: FeXb
+- center: 6435.1
+  element: coronal #mmmm
+  line_name: ArVa
+- center: 6918.021
+  element: coronal #mmmm
+  line_name: ArXIa
+- center: 7005.87
+  element: coronal #mmmm
+  line_name: ArVb
+- center: 7046.7324
+  element: coronal #mmmm
+  line_name: FeXIXa
+- center: 7062.147
+  element: coronal #mmmm
+  line_name: FeXVa
+- center: 7135.79
+  element: coronal #mmmm
+  line_name: ArIIIa
+- center: 7170.62
+  element: coronal #mmmm
+  line_name: ArIVc
+- center: 7237.26
+  element: coronal #mmmm
+  line_name: ArIVd
+- center: 7262.76
+  element: coronal #mmmm
+  line_name: ArIVe
+- center: 7751.060
+  element: coronal #mmmm
+  line_name: ArIIIb
+- center: 7891.8
+  element: coronal #mmmm
+  line_name: FeXIb
