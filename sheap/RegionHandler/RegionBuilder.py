@@ -21,6 +21,51 @@ NLR_COMPONENT = 30
 # hipper parameters should be
 POWER_LAW_RANGE_THRESHOLD = 1000
 
+class RegionBuilder_2:
+    """
+    Builds spectral fitting regions given a xmin and xmax, from YAML templates, with narrow, broad,
+    outflow, and FeII components, plus parameter tying.
+    
+    
+    
+    
+    """
+    def __init__(
+        self,
+        xmin: float,
+        xmax: float,
+        n_narrow: int = 1,
+        n_broad: int = 1,
+        yaml_paths: Optional[List[Union[str, Path]]] = None,
+        
+        #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
+        #fe_mode="template",  # "sum,combined,template"
+        #grouped_method = False, #if this is true all the lines will be combine for kind, also is interesting see wich one could be the best one in this case 
+        #add_outflow: bool = False,
+        #add_narrow_plus: bool = False,
+        #by_region: bool = False,
+        
+        #add_balmer_continuum: bool = False,
+        
+        #add_NLR : bool = False,
+        #fe_tied_params=('center', 'fwhm'),
+        #continuum_profile = "powerlaw",
+        #no_fe = False
+        ) -> None:
+        
+        if not yaml_paths:
+            self.yaml_paths = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml"))
+
+
+
+
+
+
+
+
+
 
 class RegionBuilder:
     """
@@ -52,7 +97,7 @@ class RegionBuilder:
         n_narrow: int = 1,
         n_broad: int = 1,
         yaml_paths: Optional[List[Union[str, Path]]] = list(
-            Path(__file__).resolve().parent.glob("LineRepository/*.yaml")
+            Path(__file__).resolve().parent.glob("LineRepository_old/*.yaml")
         ),
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
