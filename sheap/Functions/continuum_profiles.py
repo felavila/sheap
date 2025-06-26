@@ -112,3 +112,63 @@ def balmerconti(x, pars):
     result = jnp.where(x > lambda_BE, 0.0, result) / 1e18  # factor the normalisacion
 
     return result
+#############################
+
+# import jax.numpy as jnp
+# from typing import Mapping, Callable
+# from sheap.Functions.profiles import with_param_names
+
+# Basic continuum models with normalized wavelength (x/1000) ---------------------------
+@with_param_names(["intercept", "slope"])
+def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """f(x) = intercept + slope * (x/1000)"""
+    x = xs / 1000.0
+    intercept, slope = params
+    return intercept + slope * x
+
+@with_param_names(["amplitude", "alpha"])
+def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """f(x) = amplitude * (x/1000)**alpha"""
+    x = xs / 1000.0
+    amplitude, alpha = params
+    return amplitude * x**alpha
+
+@with_param_names(["amplitude", "alpha1", "alpha2", "x_break"])
+def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """
+    f(x) = amplitude * (x/1000)**alpha1                              if x < x_break
+         = amplitude * x_break**(alpha1-alpha2) * (x/1000)**alpha2   otherwise
+    """
+    x = xs / 1000.0
+    amplitude, alpha1, alpha2, x_break = params
+    low  = amplitude * x**alpha1
+    high = amplitude * (x_break**(alpha1 - alpha2)) * x**alpha2
+    return jnp.where(x < x_break, low, high)
+
+# Additional curved/physical continua --------------------------------------------------
+@with_param_names(["amplitude", "alpha", "beta"])
+def logparabola(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """
+    f(x) = amplitude * (x/x0)**(-alpha - beta * log(x/x0)), with x0 = mean(x/1000)
+    """
+    x = xs / 1000.0
+    amplitude, alpha, beta = params
+    x0 = jnp.mean(x)
+    return amplitude * (x / x0) ** (-alpha - beta * jnp.log(x / x0))
+
+@with_param_names(["amplitude", "alpha", "x_cut"])
+def exp_cutoff(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """f(x) = amplitude * (x/1000)**(-alpha) * exp(-x / x_cut)"""
+    x = xs / 1000.0
+    amplitude, alpha, x_cut = params
+    return amplitude * x**(-alpha) * jnp.exp(-x / x_cut)
+
+@with_param_names(["amplitude", "c0", "c1", "c2", "c3"])
+def polynomial(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    """f(x) = amplitude * (c0 + c1 x + c2 x^2 + c3 x^3) with x normalized to 1000 Å"""
+    x = xs / 1000.0
+    amplitude, *coeffs = params
+    # coeffs corresponds to [c0, c1, c2, c3]
+    # polyval expects highest to lowest: [c3, c2, c1, c0]
+    poly_vals = jnp.polyval(jnp.flip(jnp.array(coeffs)), x)
+    return amplitude * poly_vals

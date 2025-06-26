@@ -318,10 +318,18 @@ def group_lines(
                 full_rules.append((i, 1.0, i))  # Free amplitude
         amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list]) # this only can work in 
         arg_max = np.argmax(amplitudes)
+        
         if kind=="fe" and region != "feii_coronal":
             full_rules = []
+            dependent_list = []
+            amplitudes = amplitudes
             for n,coef in enumerate(amplitudes):
-                full_rules.append((n,coef, int(arg_max)))
+                full_rules.append((n,float(coef), int(arg_max)))
+                if n != arg_max:
+                    dependent_list.append(n)
+        
+            amplitudes = np.array([float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list])
+                
         centers = [line.center for line in group]
         region_lines = [line.line_name for line in group]
         base_line = group[0]

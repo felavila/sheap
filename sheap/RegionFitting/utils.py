@@ -171,6 +171,9 @@ def make_constraints(
 
         amp_list = list(cfg.amplitude)
         amp_upper = [1.0] * len(amp_list)
+        if cfg.kind == "fe":
+            #print("xd")
+            amp_upper = [0.2] * len(amp_list)
         amp_lower = [0.0] * len(amp_list)
         shift_init = 0.0 if cfg.component == 1 else (-2.0) ** cfg.component
 

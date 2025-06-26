@@ -139,11 +139,11 @@ class RegionFitting:
         total_time = 0
         for i, (key, step) in enumerate(self.fitting_routine.items()):
             print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
+            step["non_optimize_in_axis"] = 4 #experimental
+            if len(params.shape)==1:
+                params = jnp.tile(params, (spectra.shape[0], 1))
             if isinstance(learning_rate,list):
                 step["learning_rate"] = learning_rate[i]
-                step["non_optimize_in_axis"] = 4 #experimental
-                if len(params.shape)==1:
-                    params = jnp.tile(params, (spectra.shape[0], 1))
                 #print(params.dtype,params.shape)
                 #break 
             start_time = time.time()  # 
@@ -154,7 +154,6 @@ class RegionFitting:
             print(f"Time for step '{key}': {elapsed:.2f} seconds")
             total_time += elapsed
         dependencies = parse_dependencies(self._build_tied(step["tied"]))
-        
         if sigma_params:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 

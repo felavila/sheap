@@ -72,10 +72,10 @@ class RegionBuilder:
         # model_fii = False
     ) -> None:
         if fe_mode not in ["sum", "model", "template"]:
-            print(f"fe_mode:{fe_mode} not recognized moving to template")
+            print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are sum, model, template")
             fe_mode = "template"
         if continuum_profile not in ['linear','powerlaw',"brokenpowerlaw"]:
-            print(f"continuum_profile:{continuum_profile} not recognized moving to powerlaw")
+            print(f"continuum_profile: {continuum_profile} not recognized moving to powerlaw the current available are linear,powerlaw,brokenpowerlaw")
             continuum_profile = "powerlaw"
         #basic ones
         self.xmin: float = xmin
@@ -151,6 +151,7 @@ class RegionBuilder:
 
             if add_step and len(num_steps_list) > 1:
                 # Generate tied params for reuse in all later steps
+                
                 tied_later = region_ties(
                     self.complex_region,
                     self.n_narrow,
@@ -160,6 +161,8 @@ class RegionBuilder:
                     known_tied_relations=self.known_tied_relations,
                     only_known=True,
                 )
+                if self.grouped_method:
+                   tied_later = [] 
                 #print(tied_later)
                 if self.fe_mode == "sum" and tied_fe:
                     tied_later.extend(fe_ties(self.complex_region))
@@ -283,8 +286,7 @@ class RegionBuilder:
                 # template_mode_Fe = False
         if self.xmin > 3640.0 and add_balmer_continuum:
             print(
-                "Warning: Balmer continiuum dosent have effect under 3640 A add_balmer_continuum change to False"
-            )
+                "Warning: Balmer continiuum dosent have effect under 3640 A add_balmer_continuum change to False")
             add_balmer_continuum = False
         is_tied_broad = False if tied_broad_to is not None else True
         is_tied_narrow = False if tied_narrow_to is not None else True
@@ -374,19 +376,20 @@ class RegionBuilder:
         if not no_fe and not grouped_method:
             self.tied_params.extend(
                     fe_ties(self.complex_region, by_region=by_region, tied_params=fe_tied_params))
-        
+            
         if fe_mode == "model" and not no_fe and not grouped_method:
             print("put to true this after")
             self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region") # in some place i have to add the restriction for feii_coronal
         
         if grouped_method:
             for k in Kinds:
-                if k=="fe":
+                if k=="fe" or k=="outflow":
                     continue
                 self.complex_region = group_lines(self.complex_region,kind = k,profile="SPAF",mode="kind", exception_region = [],known_tied_relations = self.known_tied_relations)
             if fe_mode == "model":
                 self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region",profile="SPAF")
-                self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]] #hard to see 
+                #self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]] #hard to see 
+            self.grouped_method = grouped_method    
         if not grouped_method:
             self.tied_params.extend(
                 region_ties(
@@ -499,7 +502,7 @@ class RegionBuilder:
     def _handle_broad_line(self, entry: SpectralLine, n_broad: int) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
         #extra broad? 
-        return comps
+        #return comps
         for idx in range(n_broad):
             if idx>0:
                 continue 

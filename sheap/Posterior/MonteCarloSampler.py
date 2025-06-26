@@ -89,7 +89,7 @@ class MonteCarloSampler:
         matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
-            dependencies = None 
+            dependencies = None
         iterator =tqdm(zip(names,params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
         for n, (name_i,params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
             free_params = params_i[jnp.array(idx_free_params)]                 

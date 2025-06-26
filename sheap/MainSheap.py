@@ -22,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 #WE CAN mode fast, we will stay in this 32 to go faster. 
-#
+
 class Sheapectral:
-    # the units of the flux are not important (I think) meanwhile all the wavelenght dependece are in A
+    # the units of the flux are not important (I think) meanwhile all the wavelength dependence are in A
     def __init__(
         self,
         spectra: Union[str, jnp.ndarray],
@@ -37,7 +37,6 @@ class Sheapectral:
         **kwargs,
     ):
         self.log = logging.getLogger(self.__class__.__name__)
-        # self.cfg = config or SheapConfig()
         self.extinction_correction = extinction_correction
         self.redshift_correction = redshift_correction
         self.wdisp = None
@@ -98,9 +97,6 @@ class Sheapectral:
             return spectra
         raise TypeError("spectra must be a path or ndarray")
 
-    
-    
-    
     def _prepare_z(
         self, z: Optional[Union[float, ArrayLike]], nobj: int
     ) -> Optional[jnp.ndarray]:
@@ -143,18 +139,11 @@ class Sheapectral:
         hostsubstraction._run_substraction(num_steps=50_000)
         return hostsubstraction
     
-    def build_region(
-        self,
-        xmin: float,
-        xmax: float,
-        n_narrow: int = 1,
-        n_broad: int = 1,
+    def build_region(self,xmin: float,xmax: float,n_narrow: int = 1,n_broad: int = 1,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        fe_mode="template",  # "sum,combined,template"
-        add_outflow: bool = False,
-        add_narrow_plus: bool = False,
+        fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],fe_mode="template",  # "sum,combined,template"
+        add_outflow: bool = False,add_narrow_plus: bool = False,
         by_region: bool = False,
         #force_linear: bool = False,
         add_balmer_continuum: bool = False,
@@ -165,25 +154,11 @@ class Sheapectral:
         no_fe = False
     ):
         #i dont like this name xd
-        self.builded_region = RegionBuilder(
-            xmin=xmin,
-            xmax=xmax,
-            n_narrow=n_narrow,
-            n_broad=n_broad,
-            tied_narrow_to=tied_narrow_to,
-            tied_broad_to=tied_broad_to,
-            fe_regions=fe_regions,
-            fe_mode=fe_mode,
-            add_outflow=add_outflow,
-            add_narrow_plus=add_narrow_plus,
-            by_region=by_region,
-            add_balmer_continuum=add_balmer_continuum,
-            fe_tied_params=fe_tied_params,
-            add_NLR = add_NLR,
-            no_fe = no_fe,
-            continuum_profile = continuum_profile,
-            grouped_method = grouped_method
-        )
+        self.builded_region = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,
+            tied_narrow_to=tied_narrow_to,tied_broad_to=tied_broad_to,fe_regions=fe_regions,
+            fe_mode=fe_mode, add_outflow=add_outflow, add_narrow_plus=add_narrow_plus,
+            by_region=by_region,add_balmer_continuum=add_balmer_continuum,fe_tied_params=fe_tied_params,add_NLR = add_NLR,
+            no_fe = no_fe,continuum_profile = continuum_profile,grouped_method = grouped_method)
         
         self.fitting_routine = self.builded_region()
         self.complex_region = self.builded_region.complex_region
@@ -204,14 +179,14 @@ class Sheapectral:
         
         # Store result using FitResult directly
         self.result = FitResult(
-            params=fit_output.params,
+            params=fit_output.params.astype(jnp.float64),
             uncertainty_params=fit_output.uncertainty_params,
             mask=fit_output.mask,
             profile_functions=fit_output.profile_functions,
             profile_names=fit_output.profile_names,
             #loss=fit_output.loss,
             profile_params_index_list=fit_output.profile_params_index_list,
-            initial_params=fit_output.initial_params,
+            initial_params=fit_output.initial_params.astype(jnp.float64),
             scale=fit_output.scale,
             params_dict=fit_output.params_dict,
             complex_region=fit_output.complex_region,
@@ -219,14 +194,12 @@ class Sheapectral:
             inner_limits=fit_output.inner_limits,
             model_keywords= fit_output.model_keywords,
             fitting_routine = fit_output.fitting_routine,
-            constraints = fit_output.constraints,
+            constraints = fit_output.constraints.astype(jnp.float64),
             source=fit_output.source,
             dependencies=fit_output.dependencies
         )
 
         self._plotter = SheapPlot(sheap=self)
-
-        
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:

@@ -89,13 +89,9 @@ def compute_fwhm_split(profile: str,
     return xR - xL
 
 def make_batch_fwhm_split(profile: str):
-    # bind away `profile`; single(amp, center, extras) -> scalar fwhm
+    
     single = partial(compute_fwhm_split, profile)
-
-    # 1⃣ map over the line‐index (axis=0 of amp: (6,), center: (6,), extras: (6,1))
     over_lines = vmap(single, in_axes=(0, 0, 0))
-
-    # 2⃣ map that over objects  (axis=0 of amps:  (2000,6), centers: (2000,6), extras: (2000,6,1))
     batcher    = vmap(over_lines, in_axes=(0, 0, 0))
 
     return batcher
@@ -141,33 +137,33 @@ def extract_basic_line_parameters(
                 profile_fn = PROFILE_FUNC_MAP[subprof]
                 batch_fwhm = make_batch_fwhm_split(subprof)  # jitted on first call
                 integrator = make_integrator(profile_fn, method="vmap")
-
                 for sp, param_idxs in zip(
                     prof_group.lines, prof_group.global_profile_params_index_list
                 ):
                     params      = full_samples[:, param_idxs]
                     names       = np.array(prof_group._master_param_names)[param_idxs]
+                    amplitude_relations = sp.amplitude_relations
                     amp_pos     = np.where(["amplitude" in n for n in names])[0]
+                    amplitude_index = [nx for nx,_ in  enumerate(names) if "amplitude" in _ ]
+                    ind_amplitude_index = {i[2] for i in amplitude_relations}
+                    dic_amp = {i:ii for i,ii in (zip(ind_amplitude_index,amplitude_index))}
                     shift_idx   = amp_pos.max() + 1
-
-                    # build per-line stacks
-                    stacks = []
-                    for _, factor, src_id in sp.amplitude_relations:
-                        amp   = params[:, amp_pos[np.where(
-                                     [src_id == rel[2] for rel in sp.amplitude_relations]
-                                 )[0][0]]] * factor
-                        cen   = sp.center + params[:, shift_idx]
-                        extra = params[:, shift_idx+1:]
-                        stacks.append(np.stack([amp, cen, *[extra]], axis=-1))
-
-                    full_params = jnp.stack(stacks, axis=1)
-                    flux        = integrator(wavelength_grid, full_params)
-                    fwhm        =  jnp.atleast_3d(extra[:,:,-1])
+                    full_params_by_line = []
+                    for i,(_,factor,ids) in enumerate(amplitude_relations):
+                        amplitude_line = (params[:,[dic_amp[ids]]]*factor)
+                        center_line = (sp.center[i]+params[:,[shift_idx]])
+                        extra_params_profile = (params[:,shift_idx+1:])
+                        full_params_by_line.append(np.column_stack([amplitude_line, center_line, extra_params_profile]))
+                    params_by_line = np.array(full_params_by_line) 
+                    params_by_line = np.moveaxis(params_by_line,0,1)
                     
-                    centers     = full_params[:, :, 1]
-                    amps        = full_params[:, :, 0]
-                    print(amps.shape,centers.shape,fwhm.shape)
-                    fwhm = batch_fwhm(amps, centers, fwhm)         # → (1000,20)
+                    flux        = integrator(wavelength_grid, params_by_line)
+                    fwhm        =  jnp.atleast_3d(params_by_line[:,:,-1])
+                    
+                    centers     = params_by_line[:, :, 1]
+                    amps        = params_by_line[:, :, 0]
+                    
+                    fwhm = batch_fwhm(amps, centers, fwhm)  
                     fwhm_kms    = jnp.abs(calc_fwhm_kms(fwhm, c, centers))
                     cont_vals   = vmap(cont_group.combined_profile, in_axes=(0,0))(
                                       centers, cont_params
@@ -238,6 +234,85 @@ def extract_basic_line_parameters(
 
     return basic_params
 
+def calculate_single_epoch_masses(
+    broad_params: Dict[str, Any],
+    L_w: Dict[str, np.ndarray],
+    L_bol: Dict[str, np.ndarray],
+    estimators: Dict[str, Dict[str, Any]],
+    c: float,
+    combine_mode = False
+) -> Dict[str, Dict[str, np.ndarray]]:
+    """
+    From a broad‐line params dict and precomputed L_w / L_bol,
+    compute single‐epoch M_BH, L_Edd, and ṁ for any matching lines.
+
+    broad_params must have:
+      - "fwhm_kms": array (N, n_lines)
+      - "lines":    list of length n_lines
+
+    Returns a dict mapping line_name → {
+      "Lwave", "Lbol", "fwhm_kms", "log10_smbh", "Ledd", "mdot_msun_per_year"
+    }
+    """
+    masses: Dict[str, Dict[str, np.ndarray]] = {}
+    fwhm_kms_all = broad_params.get("fwhm_kms")
+    line_list    = np.array(broad_params.get("lines", []))
+    if combine_mode:
+        #print("combine_mode")
+        line_list = np.array(list(broad_params.keys()))
+        fwhm_kms_all =  np.stack([broad_params[l]["fwhm_kms"] for l in line_list],axis=1)
+        #print(line_list,fwhm_kms_all.shape)
+    if fwhm_kms_all is None or line_list.size == 0:
+        #print("a")
+        return masses
+
+    N = fwhm_kms_all.shape[0]
+
+    for line_name, est in estimators.items():
+        lam  = est["wavelength"]
+        wstr = str(int(lam))
+
+        # only proceed if this line was fit and we have L_w/L_bol
+        if line_name not in line_list or wstr not in L_w:
+            continue
+
+        idxs    = np.where(line_list == line_name)[0]
+        fkm     = fwhm_kms_all[:, idxs].squeeze()   # (N,) or (N,1)
+
+        # fetch & align luminosities
+        Lmono   = L_w[wstr]                         # (N,)
+        Lbolval = L_bol[wstr]                       # (N,)
+
+        # broadcast to match fkm dims if needed
+        if fkm.ndim == 2:
+            Lmono   = Lmono[..., None]
+            Lbolval = Lbolval[..., None]
+
+        # single‐epoch mass
+        mbh_samp = calc_black_hole_mass(Lmono, fkm, est)
+
+        # Eddington luminosity
+        L_edd    = 1.26e38 * mbh_samp  # [erg/s]
+
+        # mass‐accretion rate (M⊙/yr)
+        eta      = 0.1
+        c_cm     = c * 1e5             # km/s → cm/s
+        M_sun_g  = 1.98847e33          # g
+        sec_yr   = 3.15576e7
+
+        mdot_gs  = Lbolval / (eta * c_cm**2)  
+        mdot_yr  = mdot_gs / M_sun_g * sec_yr
+
+        masses[line_name] = {
+            "Lwave":              Lmono,
+            "Lbol":               Lbolval,
+            "fwhm_kms":           fkm,
+            "log10_smbh":         np.log10(mbh_samp),
+            "Ledd":               L_edd,
+            "mdot_msun_per_year": mdot_yr,
+        }
+
+    return masses
 
 def posterior_physical_parameters(
     wl_i: np.ndarray,
@@ -251,7 +326,7 @@ def posterior_physical_parameters(
     SINGLE_EPOCH_ESTIMATORS: Dict[str, Dict[str, Any]] =SINGLE_EPOCH_ESTIMATORS ,
     c: float = c,
     summarize: bool = False,
-    LINES_TO_COMBINE = ["halpha", "hbeta"],
+    LINES_TO_COMBINE = ["Halpha", "Hbeta"],
     combine_components = True,
     limit_velocity = 150.0,
 ) -> Dict[str, Any]:
@@ -273,14 +348,14 @@ def posterior_physical_parameters(
     
     if combine_components and 'broad' in basic_params and 'narrow' in basic_params:
         combined = {}
+        Line = []
         for line in LINES_TO_COMBINE:
             # find all the broad‐component indices for this line
             broad_lines = basic_params["broad"]["lines"]
-            idx_broad   = [i for i, L in enumerate(broad_lines) if L.lower() == line]
+            idx_broad   = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
             # find the single narrow index (if any)
             narrow_lines = basic_params["narrow"]["lines"]
-            idx_narrow   = [i for i, L in enumerate(narrow_lines) if L.lower() == line]
-
+            idx_narrow   = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
             # only combine if we actually have ≥2 broad and exactly one narrow
             if len(idx_broad) >= 2 and len(idx_narrow) == 1:
                 N = full_samples.shape[0]
@@ -327,6 +402,7 @@ def posterior_physical_parameters(
                     "luminosity": np.array(L_line),   
                     "eqw":        np.array(eqw_c),    
                 }
+                Line.append(line)
     L_w, L_bol = {}, {}
     
 
@@ -339,52 +415,58 @@ def posterior_physical_parameters(
             L_w[wstr], L_bol[wstr] = np.array(Lmono), np.array(Lbolval)
 
     # 3) single‐epoch mass estimates (broad lines)
-    masses: Dict[str, Dict[str, np.ndarray]] = {}
+    #masses: Dict[str, Dict[str, np.ndarray]] = {}
     broad = basic_params.get("broad")
     if broad:
-        fwhm_kms_all = broad["fwhm_kms"]
-        line_list     = np.array(broad["lines"])
-        for line_name, est in SINGLE_EPOCH_ESTIMATORS.items():
-            lam = est["wavelength"]
-            wstr = str(int(lam))
-            if line_name in line_list and wstr in L_w:
-                idxs      = np.where(line_list == line_name)[0]
-                fkm       = fwhm_kms_all[:, idxs].squeeze()
-                Lmono     = L_w[wstr]
-                Lbolval   = L_bol[wstr]
-                # broadcast dims if needed
-                if fkm.ndim == 2:
-                    Lmono   = Lmono[..., None]
-                    Lbolval = Lbolval[..., None]
-
-                mbh_samp = calc_black_hole_mass(Lmono, fkm, est)
-                L_edd    = 1.26e38 * mbh_samp # erg/s this is assuming that the SMBH is in solar mass
-                eta      = 0.1
-                c_cm     = c * 1e5 # the code uses c in km/s we move it to cm
-                M_sun_g  = 1.98847e33 # Solar mass in grams
-                sec_yr   = 3.15576e7 # 
-                mdot_gs  = Lbolval / (eta * c_cm**2) #  # g/s
-                mdot_yr  = mdot_gs / M_sun_g * sec_yr
-
-                masses[line_name] = {
-                    "Lwave":             Lmono,
-                    "Lbol":              Lbolval,
-                    "fwhm_kms":          fkm,
-                    "log10_smbh":        np.log10(mbh_samp),
-                    "Ledd":              L_edd,
-                    "mdot_msun_per_year":mdot_yr,
-                }
-                        # add extra parameters to combined
-
+       extra_params = calculate_single_epoch_masses(broad,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c) #for broad
     result = {
         "basic_params": basic_params,
         "L_w":           L_w,
         "L_bol":         L_bol,
-        "extras":        masses,
+        "extras_params":        extra_params,
     }
     if len(combined.keys())>0:
+        #combined["lines"] = Line
+        combined["extras"] = calculate_single_epoch_masses(combined,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c,combine_mode=True) #for broad
         result["combined"] = combined
+
     if summarize:
-        result = summarize_nested_samples(result)
+        result = summarize_nested_samples(result)  
+        
+        # fwhm_kms_all = broad["fwhm_kms"]
+        # line_list     = np.array(broad["lines"])
+        # for line_name, est in SINGLE_EPOCH_ESTIMATORS.items():
+        #     lam = est["wavelength"]
+        #     wstr = str(int(lam))
+        #     if line_name in line_list and wstr in L_w:
+        #         idxs      = np.where(line_list == line_name)[0]
+        #         fkm       = fwhm_kms_all[:, idxs].squeeze()
+        #         Lmono     = L_w[wstr]
+        #         Lbolval   = L_bol[wstr]
+        #         # broadcast dims if needed
+        #         if fkm.ndim == 2:
+        #             Lmono   = Lmono[..., None]
+        #             Lbolval = Lbolval[..., None]
+
+        #         mbh_samp = calc_black_hole_mass(Lmono, fkm, est)
+        #         L_edd    = 1.26e38 * mbh_samp # erg/s this is assuming that the SMBH is in solar mass
+        #         eta      = 0.1
+        #         c_cm     = c * 1e5 # the code uses c in km/s we move it to cm
+        #         M_sun_g  = 1.98847e33 # Solar mass in grams
+        #         sec_yr   = 3.15576e7 # 
+        #         mdot_gs  = Lbolval / (eta * c_cm**2) #  # g/s
+        #         mdot_yr  = mdot_gs / M_sun_g * sec_yr
+
+        #         masses[line_name] = {
+        #             "Lwave":             Lmono,
+        #             "Lbol":              Lbolval,
+        #             "fwhm_kms":          fkm,
+        #             "log10_smbh":        np.log10(mbh_samp),
+        #             "Ledd":              L_edd,
+        #             "mdot_msun_per_year":mdot_yr,
+        #         }
+                        # add extra parameters to combined
+
+   
 
     return result
