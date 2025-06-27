@@ -37,15 +37,15 @@ class SpectralLine:
         subprofile (str):  Sub-profile function to use within compound models like.
         rarity the line is common? or uncommon 
     """
-    #maybe subregion? xd 
-    center: Union[float, List[float]]
     line_name: Union[str, List[str]]
+    center: Optional[Union[float, List[float]]] = None 
     region: Optional[str] = None
     component: Optional[int] = None
     subregion: Optional[str] = None
     amplitude: Union[float, List[float]] = None
-    how: Optional[str] = None #this maybe can be remove.
     element: Optional[str] = None
+    how: Optional[str] = None #this maybe can be remove.
+
     profile: Optional[str] = None
     which_template: Optional[str] = None
     region_lines: Optional[List[str]] = None

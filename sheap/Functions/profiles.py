@@ -1,7 +1,7 @@
 from typing import Callable, Dict, List, Tuple
 import jax.numpy as jnp
 
-from sheap.Functions.continuum_profiles import (linear, balmerconti, powerlaw, brokenpowerlaw)
+from sheap.Functions.continuum_profiles import (linear, balmercontinuum, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,polynomial)
 from sheap.Functions.lines_profiles import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo, Gsum_model,sum_gaussian_amplitude_free)
 from sheap.Functions.template_func import fitFeOP, fitFeUV
 from sheap.Functions.utils import param_count, with_param_names
@@ -18,7 +18,14 @@ PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {
     'emg_fwhm': emg_fwhm,
     'top_hat': top_hat
 }
-
+PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {
+    'linear': linear,
+    'powerlaw': powerlaw,
+    'brokenpowerlaw': brokenpowerlaw,
+    'logparabola': logparabola,
+    'exp_cutoff': exp_cutoff,
+    'polynomial': polynomial
+}
 
 def wrap_profile_with_center_override(profile_func: Callable) -> Callable:
     """
@@ -81,21 +88,13 @@ def SPAF(centers: List[float], amplitude_rules: List[Tuple[int, float, int]], pr
 
     return G
 
+
 # Full profile registry (for spectral modeling)
 PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {
-    'linear': linear,
-    'powerlaw': powerlaw,
-    'balmerconti': balmerconti,
-    'brokenpowerlaw': brokenpowerlaw,
-    'gaussian': gaussian_fwhm,
-    'lorentzian': lorentzian_fwhm,
-    'voigt_pseudo': voigt_pseudo,
-    'skewed_gaussian': skewed_gaussian,
-    'emg_fwhm': emg_fwhm,
-    'top_hat': top_hat,
-    'Gsum_model': Gsum_model,
-    'sum_gaussian_amplitude_free': sum_gaussian_amplitude_free,
+    'balmerconti': balmercontinuum,
     'fitFeOP': fitFeOP,
     'fitFeUV': fitFeUV,
-    'SPAF': SPAF
-}
+    'SPAF': SPAF}
+
+PROFILE_FUNC_MAP.update(PROFILE_LINE_FUNC_MAP)
+PROFILE_FUNC_MAP.update(PROFILE_CONTINUUM_FUNC_MAP)

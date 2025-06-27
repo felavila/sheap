@@ -59,10 +59,11 @@ class ComplexRegion:
                 "orig_idx":     self.original_idx[i],
                 "line_name":    ln.line_name,
                 "region":       ln.region,
-                "kind":         ln.kind,
+                "subregion":         ln.subregion,
+                "element":  ln.element,
                 "component":    ln.component,
                 "profile_name": prof_names[i],
-            })
+                })
         self._df = pd.DataFrame(rows)
 
         # 4) pre‐combine if profiles exist
@@ -230,16 +231,20 @@ class ComplexRegion:
         return sorted(pd.unique(self._df[field].dropna()).tolist())
 
     @property
-    def kinds(self) -> List[Any]:
-        return self.unique("kind")
-
+    def regions(self) -> List[Any]:
+        return self.unique("region")
     @property
     def components(self) -> List[Any]:
         return self.unique("component")
-
     @property
-    def regions(self) -> List[Any]:
-        return self.unique("region")
+    def subregions(self) -> List[Any]:
+        return self.unique("subregion")
+    @property
+    def elements(self) -> List[Any]:
+        return self.unique("element")
+    # @property
+    # def regions(self) -> List[Any]:
+    #     return self.unique("region")
 
     @property
     def profile_names_list(self) -> List[Any]:
@@ -247,8 +252,9 @@ class ComplexRegion:
 
     def characteristics(self) -> Dict[str, List[Any]]:
         return {
-            "kinds":         self.kinds,
             "components":    self.components,
             "regions":       self.regions,
             "profile_names": self.profile_names_list,
+            "elements": self.elements,
+            "subregions": self.subregions
         }

@@ -11,50 +11,44 @@ from sheap.Functions.utils import param_count,with_param_names
 
 
 
-@param_count(2)
-def linear(x, params):
-    return params[0] * (x / 1000.0) + params[1]
+# @param_count(2)
+# def linear(x, params):
+#     return params[0] * (x / 1000.0) + params[1]
 
 
-@param_count(4)
-def brokenpowerlaw(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-    """
-    Broken power law function in JAX.
+# @param_count(4)
+# def brokenpowerlaw(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+#     """
+#     Broken power law function in JAX.
 
-    Parameters
-    ----------
-    x : jnp.ndarray
-        Input wavelengths (Angstroms).
-    params : jnp.ndarray
-        Parameters array: [index1, index2, amplitude, refer]
-        - index1: slope for x <= refer
-        - index2: additional slope for x > refer
-        - amplitude: normalization at x = refer
-        - refer: reference wavelength (Angstroms)
+#     Parameters
+#     ----------
+#     x : jnp.ndarray
+#         Input wavelengths (Angstroms).
+#     params : jnp.ndarray
+#         Parameters array: [index1, index2, amplitude, refer]
+#         - index1: slope for x <= refer
+#         - index2: additional slope for x > refer
+#         - amplitude: normalization at x = refer
+#         - refer: reference wavelength (Angstroms)
 
-    Returns
-    -------
-    jnp.ndarray
-        Evaluated broken power law.
-    """
-    index1, index2, amplitude, refer = params
-    x = jnp.nan_to_num(x)
+#     Returns
+#     -------
+#     jnp.ndarray
+#         Evaluated broken power law.
+#     """
+#     index1, index2, amplitude, refer = params
+#     x = jnp.nan_to_num(x)
 
-    ratio = x / refer
-    # Create mask: x > refer gets index1 + index2; else gets index1
-    exponent = jnp.where(ratio > 1.0, index1 + index2, index1)
-    return amplitude * jnp.power(ratio, exponent)
+#     ratio = x / refer
+#     # Create mask: x > refer gets index1 + index2; else gets index1
+#     exponent = jnp.where(ratio > 1.0, index1 + index2, index1)
+#     return amplitude * jnp.power(ratio, exponent)
 
-@param_count(2)
-def powerlaw(x, params):
-    x = jnp.nan_to_num(x)
-    return params[1] * jax.lax.pow(x / 1000.0, params[0])  # + params[1]
-
-
-# @jit
-@param_count(2)
-def loglinear(x, params):
-    return params[0] * x + params[1]
+# @param_count(2)
+# def powerlaw(x, params):
+#     x = jnp.nan_to_num(x)
+#     return params[1] * jax.lax.pow(x / 1000.0, params[0])  # + params[1]
 
 
 # @jit
@@ -62,9 +56,9 @@ def linear_combination(eieigenvectors, params):
     return jnp.nansum(eieigenvectors.T * 100 * params, axis=1)
 
 
-# @jit
+# This requiere one more variable i guess.
 @param_count(3)
-def balmerconti(x, pars):
+def balmercontinuum(x, pars):
     """
     Compute the Balmer continuum (Dietrich+02) in pure JAX.
 
@@ -126,11 +120,11 @@ def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     intercept, slope = params
     return intercept + slope * x
 
-@with_param_names(["amplitude", "alpha"])
+@with_param_names(["alpha","amplitude"])
 def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """f(x) = amplitude * (x/1000)**alpha"""
     x = xs / 1000.0
-    amplitude, alpha = params
+    alpha, amplitude = params
     return amplitude * x**alpha
 
 @with_param_names(["amplitude", "alpha1", "alpha2", "x_break"])
@@ -145,7 +139,7 @@ def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     high = amplitude * (x_break**(alpha1 - alpha2)) * x**alpha2
     return jnp.where(x < x_break, low, high)
 
-# Additional curved/physical continua --------------------------------------------------
+
 @with_param_names(["amplitude", "alpha", "beta"])
 def logparabola(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """

@@ -11,6 +11,8 @@ import numpy as np
 import yaml
 
 from sheap.DataClass.DataClass import SpectralLine
+from sheap.DataClass.test_class import ComplexRegion
+
 from sheap.RegionHandler.utils import fe_ties, group_lines_by_region, region_ties,group_lines
 
 # yaml_files =
@@ -20,20 +22,19 @@ WINDS_COMPONENT = 15
 FE_COMPONENT = 20
 NLR_COMPONENT = 30
 # hipper parameters should be
-POWER_LAW_RANGE_THRESHOLD = 1000
+
 
 class RegionBuilder:
     """
     Builds spectral fitting regions given a xmin and xmax, from YAML templates, with narrow, broad,
     outflow, and FeII components, plus parameter tying.
-    
-    
-    
-    
     """
+    
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","HeIk","HeIId","Halpha","Hbeta","HeIe"]
     available_fe_modes = ["template","model","none"] # none is like No fe
+    available_continuum_profiles = ['linear', 'powerlaw','logparabola','exp_cutoff', 'polynomial']
+    LINEAR_RANGE_THRESHOLD = 1000
     
     def __init__(
         self,
@@ -42,7 +43,8 @@ class RegionBuilder:
         n_narrow: int = 1,
         n_broad: int = 1,
         line_repository_path: Optional[List[Union[str, Path]]] = None,
-        fe_mode = "template"
+        fe_mode = "template",
+        continuum_profile = "powerlaw"
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
@@ -67,8 +69,14 @@ class RegionBuilder:
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
+        self.continuum_profile = continuum_profile.lower()
+        if self.continuum_profile not in self.available_continuum_profiles:
+            print(f"continuum_profile: {self.continuum_profile} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
+            self.continuum_profile = "powerlaw"
+        
         if not line_repository_path:
             self.line_repository_path = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml"))
+        
         self.lines_available: Dict[str, Any] = {}
         self._load_lines(self.line_repository_path) #this should be always here?
         self.make_region()
@@ -98,7 +106,8 @@ class RegionBuilder:
         xmax: Optional[float] = None,
         n_broad: Optional[int] = None,
         n_narrow: Optional[int] = None,
-        fe_mode: Optional[str] = None,):
+        fe_mode: Optional[str] = None,
+        continuum_profile: Optional[str] = None):
         def get(val, fallback):
             return val if val is not None else fallback
         xmin = get(xmin, self.xmin)
@@ -106,9 +115,15 @@ class RegionBuilder:
         n_broad = get(n_broad, self.n_broad)
         n_narrow = get(n_narrow, self.n_narrow)
         fe_mode = get(fe_mode, self.fe_mode).lower()#right?
+        continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
         if fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             fe_mode = "template"
+        if continuum_profile not in self.available_continuum_profiles:
+            print(f"continuum_profile: {continuum_profile} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
+            continuum_profile = "powerlaw"
+        
+        
         self.complex_list = [] #place holder name  
         for pseudo_region_name,list_dict in self.lines_available.items():
             comps = []
@@ -126,30 +141,9 @@ class RegionBuilder:
                 #elif self.fe_mode == "model":   
                 self.complex_list.extend(comps)
         self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
-        continuum_profile = ""
-        self.complex_list.extend(self._continuum_handle(continuum_profile,xmax,xmin))
-    # if name in main_regions:
-    #                 comps = self._handle_main_line(base, n_narrow, n_broad,add_NLR,add_outflow)
-    #             elif name in narrow_keys:
-    #                 comps = self._handle_narrow_line(base, n_narrow, add_outflow)
-    #             elif name == 'broad':
-    #                 comps = self._handle_broad_line(base, n_broad)
-    #             elif fe_mode == "sum" and name in fe_regions and not no_fe:
-    #                 comps = [self._handle_fe_line(base)]
-    #                 tie_fe = True
-    #             #'fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"
-    #             elif fe_mode == "model" and not no_fe :
-    #                 if  name in ["feii_model", "fe_uv"]:
-    #                     comps = [self._handle_fe_line(base, how="combine")]
-    #                 elif name in ["feii_coronal"]:
-    #                     comps = [self._handle_fe_line(base)]
-    #                 else:
-    #                     continue 
-                        
-    #             else:
-    #                 continue
-    #             self.complex_region.extend(comps)
-                
+        self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=False))#here we already are able to create the complex_class
+        self.complex_class = ComplexRegion(self.complex_list)
+        
     def _handle_broad_and_narrow_lines(
         self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
@@ -268,8 +262,29 @@ class RegionBuilder:
                     base.subregion = pseudo_region_name
                     fe_comps.extend([base])
         return fe_comps
-    def _continuum_handle(self,continuum_profile,xmin,xmax):
-        return []
+    
+    def _continuum_handle(self,continuum_profile,xmin,xmax,add_balmer_continuum=False):
+        continuum_comps = []
+        if add_balmer_continuum or not xmax<3646:
+            continuum_comps.append(SpectralLine(center=None,line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
+        if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
+            print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
+            continuum_comps.append(SpectralLine(center=None,line_name="linear",region='continuum',component=0,profile="linear"))
+            return continuum_comps
+        continuum_comps.append(SpectralLine(line_name=continuum_profile,region='continuum',component=0,profile=continuum_profile))
+        return continuum_comps
+
+    def _apply_group_method(self):
+        return 
+            # for k in Kinds:
+            #     if k=="fe" or k=="outflow":
+            #         continue
+            #     self.complex_region = group_lines(self.complex_region,kind = k,profile="SPAF",mode="kind", exception_region = [],known_tied_relations = self.known_tied_relations)
+            # if fe_mode == "model":
+            #     self.complex_region = group_lines(self.complex_region,kind = "fe",mode="region",profile="SPAF")
+            #     #self.complex_region = [i for i in self.complex_region if i.region not in ["feii_coronal"]] #hard to see 
+            # self.grouped_method = grouped_method    
+
 class RegionBuilder_old:
     """
     Builds spectral fitting regions from YAML templates, with narrow, broad,
