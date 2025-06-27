@@ -2,134 +2,133 @@
 
 - center: 3758.920
   line_name: FeVIIa
-  element: coronal #mmmm
   region: fe
 - center: 3839.270
   line_name: FeVa
-  element: coronal #mmmm
+  region: fe
 - center: 3891.280
-  element: coronal #mmmm
   line_name: FeVb
+  region: fe
 - center: 3911.330
-  element: coronal #mmmm
   line_name: FeVc
+  region: fe
 - center: 4071.240
-  element: coronal #mmmm
   line_name: FeVd
+  region: fe
 - center: 4180.6
-  element: coronal #mmmm
   line_name: FeVe
+  region: fe
 - center: 4227.190
-  element: coronal #mmmm
   line_name: FeVf
+  region: fe
 - center: 4412.3
-  element: coronal #mmmm
   line_name: ArXIVa
+  region: fe
 - center: 4567.4697
-  element: coronal #mmmm
   line_name: FeXIa
+  region: fe
 - center: 4588.5537
-  element: coronal #mmmm
   line_name: FeIXa
+  region: fe
 - center: 4658.050
-  element: coronal #mmmm
   line_name: FeIIIa
+  region: fe
 - center: 4698.24
-  element: coronal #mmmm
   line_name: FeVIIb
+  region: fe
 - center: 4711.26
-  element: coronal #mmmm
   line_name: ArIVa
+  region: fe
 - center: 4740.12
-  element: coronal #mmmm
   line_name: ArIVb
+  region: fe
 - center: 4893.370
-  element: coronal #mmmm
   line_name: FeVIIc
+  region: fe
 - center: 4903.070
-  element: coronal #mmmm
   line_name: FeIVa
+  region: fe
 - center: 4942.48
-  element: coronal #mmmm
   line_name: FeVIId
+  region: fe
 - center: 5084.77
-  element: coronal #mmmm
   line_name: FeIIIb
+  region: fe
 - center: 5145.750
-  element: coronal #mmmm
   line_name: FeVIa
+  region: fe
 - center: 5158.89
-  element: coronal #mmmm
   line_name: FeVIIe
+  region: fe
 - center: 5176.04
-  element: coronal #mmmm
   line_name: FeVIb
+  region: fe
 - center: 5236.06
-  element: coronal #mmmm
   line_name: FeVg
+  region: fe
 - center: 5302.86
-  element: coronal #mmmm
   line_name: FeXIVa
+  region: fe
 - center: 5335.180
-  element: coronal #mmmm
   line_name: FeVIc
+  region: fe
 - center: 5424.22
-  element: coronal #mmmm
   line_name: FeVId
+  region: fe
 - center: 5535.5591
-  element: coronal #mmmm
   line_name: ArXa
+  region: fe
 - center: 5538.939
-  element: coronal #mmmm
   line_name: FeXa
+  region: fe
 - center: 5637.600
-  element: coronal #mmmm
   line_name: FeVIe
+  region: fe
 - center: 5677.000
-  element: coronal #mmmm
   line_name: FeVIf
+  region: fe
 - center: 5720.7
-  element: coronal #mmmm
   line_name: FeVIIf
+  region: fe
 - center: 5945.314
-  element: coronal #mmmm
   line_name: ArXVa
+  region: fe
 - center: 6087
-  element: coronal #mmmm
   line_name: FeVIIg
+  region: fe
 - center: 6374.51
-  element: coronal #mmmm
   line_name: FeXb
+  region: fe
 - center: 6435.1
-  element: coronal #mmmm
   line_name: ArVa
+  region: fe
 - center: 6918.021
-  element: coronal #mmmm
   line_name: ArXIa
+  region: fe
 - center: 7005.87
-  element: coronal #mmmm
   line_name: ArVb
+  region: fe
 - center: 7046.7324
-  element: coronal #mmmm
   line_name: FeXIXa
+  region: fe
 - center: 7062.147
-  element: coronal #mmmm
   line_name: FeXVa
+  region: fe
 - center: 7135.79
-  element: coronal #mmmm
   line_name: ArIIIa
+  region: fe
 - center: 7170.62
-  element: coronal #mmmm
   line_name: ArIVc
+  region: fe
 - center: 7237.26
-  element: coronal #mmmm
   line_name: ArIVd
+  region: fe
 - center: 7262.76
-  element: coronal #mmmm
   line_name: ArIVe
+  region: fe
 - center: 7751.060
-  element: coronal #mmmm
   line_name: ArIIIb
+  region: fe
 - center: 7891.8
-  element: coronal #mmmm
   line_name: FeXIb
+  region: fe

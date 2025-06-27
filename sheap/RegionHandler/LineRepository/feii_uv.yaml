@@ -1,225 +1,225 @@
-- center: 2907.853
+- amplitude: 0.009
+  center: 2907.853
+  element: uvfe60
   line_name: uvfe60
-  amplitude: 0.0009
-  element: uvfe60
   region: fe
-- center: 2916.148
+- amplitude: 0.006
+  center: 2916.148
+  element: uvfe60
   line_name: uvfe60a
-  amplitude: 0.0006000000000000001
-  element: uvfe60
   region: fe
-- center: 2926.585
+- amplitude: 1.0
+  center: 2926.585
+  element: uvfe60
   line_name: uvfe60b
-  amplitude: 0.1
-  element: uvfe60
   region: fe
-- center: 2939.507
+- amplitude: 0.016
+  center: 2939.507
+  element: uvfe60
   line_name: uvfe60c
-  amplitude: 0.0016
-  element: uvfe60
   region: fe
-- center: 2945.264
+- amplitude: 0.005
+  center: 2945.264
+  element: uvfe60
   line_name: uvfe60d
-  amplitude: 0.0005
-  element: uvfe60
   region: fe
-- center: 2953.774
+- amplitude: 0.849
+  center: 2953.774
+  element: uvfe60
   line_name: uvfe60e
-  amplitude: 0.0849
-  element: uvfe60
   region: fe
-- center: 2961.273
+- amplitude: 0.014000000000000002
+  center: 2961.273
+  element: uve6
   line_name: uvfe60f
-  amplitude: 0.0014000000000000002
-  element: uve6
   region: fe
-- center: 2964.659
+- amplitude: 0.013
+  center: 2964.659
+  element: uvfe60
   line_name: uvfe60g
-  amplitude: 0.0013
-  element: uvfe60
   region: fe
-- center: 2970.514
+- amplitude: 0.366
+  center: 2970.514
+  element: uvfe60
   line_name: uvfe60h
-  amplitude: 0.0366
-  element: uvfe60
   region: fe
-- center: 2975.933
+- amplitude: 0.027000000000000003
+  center: 2975.933
+  element: uvfe60
   line_name: uvfe60i
-  amplitude: 0.0027
-  element: uvfe60
   region: fe
-- center: 2979.353
+- amplitude: 0.19100000000000003
+  center: 2979.353
+  element: uvfe60
   line_name: uvfe60j
-  amplitude: 0.019100000000000002
-  element: uvfe60
   region: fe
-- center: 2833.369
+- amplitude: 0.01
+  center: 2833.369
+  element: uvfe61
   line_name: uvfe61
-  amplitude: 0.001
-  element: uvfe61
   region: fe
-- center: 2837.737
-  line_name: uvfe61a
-  amplitude: 0.0001
+- amplitude: 0.001
+  center: 2837.737
   element: uve6
+  line_name: uvfe61a
   region: fe
-- center: 2861.168
+- amplitude: 0.032
+  center: 2861.168
+  element: uvfe61
   line_name: uvfe61b
-  amplitude: 0.0032
-  element: uvfe61
   region: fe
-- center: 2868.875
+- amplitude: 0.22500000000000003
+  center: 2868.875
+  element: uvfe61
   line_name: uvfe61c
-  amplitude: 0.022500000000000003
-  element: uvfe61
   region: fe
-- center: 2874.854
+- amplitude: 0.032
+  center: 2874.854
+  element: uvfe61
   line_name: uvfe61d
-  amplitude: 0.0032
-  element: uvfe61
   region: fe
-- center: 2880.7563
+- amplitude: 1.0
+  center: 2880.7563
+  element: uvfe61
   line_name: uvfe61e
-  amplitude: 0.1
-  element: uvfe61
   region: fe
-- center: 2892.832
+- amplitude: 0.083
+  center: 2892.832
+  element: uvfe61
   line_name: uvfe61f
-  amplitude: 0.0083
-  element: uvfe61
   region: fe
-- center: 2917.462
+- amplitude: 0.07900000000000001
+  center: 2917.462
+  element: uvfe61
   line_name: uvfe61g
-  amplitude: 0.0079
-  element: uvfe61
   region: fe
-- center: 2944.395
+- amplitude: 0.128
+  center: 2944.395
+  element: uvfe78
   line_name: uvfe78
-  amplitude: 0.0128
-  element: uvfe78
   region: fe
-- center: 2947.655
+- amplitude: 0.20000000000000004
+  center: 2947.655
+  element: uvfe78
   line_name: uvfe78a
-  amplitude: 0.020000000000000004
-  element: uvfe78
   region: fe
-- center: 2964.624
+- amplitude: 0.04900000000000001
+  center: 2964.624
+  element: uvfe78
   line_name: uvfe78b
-  amplitude: 0.004900000000000001
-  element: uvfe78
   region: fe
-- center: 2965.032
+- amplitude: 0.14
+  center: 2965.032
+  element: uvfe78
   line_name: uvfe78c
-  amplitude: 0.014000000000000002
-  element: uvfe78
   region: fe
-- center: 2984.825
+- amplitude: 1.0
+  center: 2984.825
+  element: uvfe78
   line_name: uvfe78d
-  amplitude: 0.1
-  element: uvfe78
   region: fe
-- center: 2985.545
+- amplitude: 0.705
+  center: 2985.545
+  element: uvfe78
   line_name: uvfe78e
-  amplitude: 0.0705
-  element: uvfe78
   region: fe
-- center: 3002.644
+- amplitude: 0.62
+  center: 3002.644
+  element: uvfe78
   line_name: uvfe78f
-  amplitude: 0.062
-  element: uvfe78
   region: fe
-- center: 2715.0
+- amplitude: 0.35700000000000004
+  center: 2715.0
+  element: uvfezw
   line_name: uvfezw
-  amplitude: 0.0357
-  element: uvfezw
   region: fe
-- center: 2840.0
+- amplitude: 1.0
+  center: 2840.0
+  element: uvfezw
   line_name: uvfezwa
-  amplitude: 0.1
-  element: uvfezw
   region: fe
-- center: 2692.834
+- amplitude: 0.003
+  center: 2692.834
+  element: uvfe62
   line_name: uvfe62
-  amplitude: 0.00030000000000000003
-  element: uvfe62
   region: fe
-- center: 2724.884
+- amplitude: 0.019
+  center: 2724.884
+  element: uvfe62
   line_name: uvfe62a
-  amplitude: 0.0019
-  element: uvfe62
   region: fe
-- center: 2730.734
+- amplitude: 0.036
+  center: 2730.734
+  element: uvfe62
   line_name: uvfe62b
-  amplitude: 0.0036
-  element: uvfe62
   region: fe
-- center: 2743.197
+- amplitude: 0.515
+  center: 2743.197
+  element: uvfe62
   line_name: uvfe62c
-  amplitude: 0.051500000000000004
-  element: uvfe62
   region: fe
-- center: 2746.483
+- amplitude: 0.613
+  center: 2746.483
+  element: uvfe62
   line_name: uvfe62d
-  amplitude: 0.0613
-  element: uvfe62
   region: fe
-- center: 2749.321
+- amplitude: 0.801
+  center: 2749.321
+  element: uvfe62
   line_name: uvfe62e
-  amplitude: 0.0801
-  element: uvfe62
   region: fe
-- center: 2755.736
+- amplitude: 1.0
+  center: 2755.736
+  element: uvfe62
   line_name: uvfe62f
-  amplitude: 0.1
-  element: uvfe62
   region: fe
-- center: 2714.413
+- amplitude: 0.139
+  center: 2714.413
+  element: uvfe63
   line_name: uvfe63
-  amplitude: 0.013900000000000003
-  element: uvfe63
   region: fe
-- center: 2727.539
+- amplitude: 0.131
+  center: 2727.539
+  element: uvfe63
   line_name: uvfe63a
-  amplitude: 0.0131
-  element: uvfe63
   region: fe
-- center: 2736.966
+- amplitude: 0.063
+  center: 2736.966
+  element: uvfe63
   line_name: uvfe63b
-  amplitude: 0.0063
-  element: uvfe63
   region: fe
-- center: 2739.547
+- amplitude: 1.0
+  center: 2739.547
+  element: uvfe63
   line_name: uvfe63c
-  amplitude: 0.1
-  element: uvfe63
   region: fe
-- center: 2746.982
+- amplitude: 0.544
+  center: 2746.982
+  element: uvfe63
   line_name: uvfe63d
-  amplitude: 0.054400000000000004
-  element: uvfe63
   region: fe
-- center: 2749.181
+- amplitude: 0.251
+  center: 2749.181
+  element: uvfe63
   line_name: uvfe63e
-  amplitude: 0.0251
-  element: uvfe63
   region: fe
-- center: 2749.486
+- amplitude: 0.118
+  center: 2749.486
+  element: uvfe63
   line_name: uvfe63f
-  amplitude: 0.0118
-  element: uvfe63
   region: fe
-- center: 2761.813
+- amplitude: 0.058
+  center: 2761.813
+  element: uvfe63
   line_name: uvfe63g
-  amplitude: 0.0058000000000000005
-  element: uvfe63
   region: fe
-- center: 2768.934
+- amplitude: 0.023
+  center: 2768.934
+  element: uvfe63
   line_name: uvfe63h
-  amplitude: 0.0023
-  element: uvfe63
   region: fe
-- center: 2772.723
-  line_name: uvfe63i
-  amplitude: 0.0001
+- amplitude: 0.001
+  center: 2772.723
   element: uvfe63
+  line_name: uvfe63i
   region: fe
