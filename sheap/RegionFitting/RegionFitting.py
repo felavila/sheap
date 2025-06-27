@@ -29,13 +29,77 @@ from sheap.RegionFitting.uncertainty_functions import error_for_loop
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
-# Constant identifiers for special components
-OUTFLOW_COMPONENT = 10  # ID used for outflow line components
-FE_COMPONENT = 20  # ID used for Fe emission components
-CONT_COMPONENT = 0  # ID used for continuum component
-
+# # Constant identifiers for special components
+# OUTFLOW_COMPONENT = 10  # ID used for outflow line components
+# FE_COMPONENT = 20  # ID used for Fe emission components
+# CONT_COMPONENT = 0  # ID used for continuum component
 
 class RegionFitting:
+    """
+    Fits a spectral region containing multiple emission lines.
+
+    This class:
+      - Loads line definitions from YAML or provided dict/list.
+      - Normalizes and masks spectra.
+      - Builds parameter arrays with bounds.
+      - Runs JAX-based minimization (MasterMinimizer).
+      - Supports renormalization and parameter mapping.
+    """
+    available_profile = []
+    def __init__(self, profile = "gaussian"):
+        
+        print("xd")
+
+    def _load_fitting_routine(
+        self, template: Union[str, dict, List[dict]], yaml_dir: Optional[Union[str, Path]]
+    ) -> Dict[str, Any]:
+        """
+        Load line definitions from YAML, dict, or list of SpectralLine-compatible entries.
+
+        Returns:
+            Dict containing complex_region, fitting_routine, inner_limits, outer_limits
+        """
+        if isinstance(template, str):
+            path = Path(template)
+            if not path.exists() and yaml_dir:
+                path = Path(yaml_dir) / f"{template}.yaml"
+            if not path.exists():
+                logger.error("Region template not found: %s", template)
+                raise FileNotFoundError(f"Region template not found: {template}")
+            data = yaml.safe_load(path.read_text())
+        elif isinstance(template, dict):
+            data = template
+        elif isinstance(template, list):
+            # Assume this is a list of dicts defining SpectralLine entries
+            data = {
+                "complex_region": [SpectralLine(**entry) for entry in template],
+                "fitting_routine": {},
+                "inner_limits": None,
+                "outer_limits": None,
+            }
+            return data
+        else:
+            raise TypeError("Unsupported type for region_template")
+
+        raw = data.get("complex_region")
+        if raw is None or not isinstance(raw, list):
+            logger.error("complex_region definition missing or not a list")
+            raise ValueError("complex_region definition must contain a 'complex_region' list")
+
+        # Convert raw to SpectralLine objects if needed
+        region_lines = (
+            raw if is_list_of_SpectralLine(raw) else [SpectralLine(**entry) for entry in raw]
+        )
+
+        return {
+            "complex_region": region_lines,
+            "fitting_routine": data.get("fitting_routine", {}),
+            "inner_limits": data.get("inner_limits"),
+            "outer_limits": data.get("outer_limits"),
+        }
+
+
+class RegionFitting_old:
     """
     Fits a spectral region containing multiple emission lines.
 

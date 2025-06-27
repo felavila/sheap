@@ -15,7 +15,7 @@ from sheap.DataClass.DataClass import FitResult
 
 from sheap.Functions.utils import combine_auto
 #from sheap.Mappers.LineMapper import LineMapper
-from sheap.DataClass.test_class import ComplexRegion
+from sheap.DataClass.ComplexRegion import ComplexRegion
 from sheap.Mappers.helpers import mapping_params
 from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler

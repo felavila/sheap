@@ -1,3 +1,0 @@
-The [OI] doublets are fixed at theoretical flux ratio~3.
-
-The [OII] and [SII] doublets can be restricted to physical range of ratios.

@@ -7,97 +7,66 @@ import numpy as np
 from sheap.DataClass.DataClass import SpectralLine
 
 
-def group_lines_by_region(
-    lines: List[SpectralLine],
-    kind: str = "fe",
-    component: int = 20,
-    profile: str = "gaussian",
-    exception: List[str] = []
-) -> List[SpectralLine]:
-    grouped = defaultdict(list)
-
-    # Step 1: Filter and group by kind and region, skipping exceptions
-    for line in lines:
-        if line.kind == kind and line.region is not None and line.region not in exception:
-            grouped[line.region].append(line)
-
-    # Step 2: Collapse groups into single SpectralLine instances
-    collapsed_lines = []
-    for region, group in grouped.items():
-        centers = [line.center for line in group]
-        line_names = [f"{line.region}" for line in group][0]
-        region_lines = [line.line_name for line in group]
-        amplitudes = [line.amplitude for line in group]
-
-        base_line = group[0]
-        collapsed_lines.append(
-            SpectralLine(
-                center=centers,  # type: ignore
-                line_name=line_names,  # type: ignore
-                kind=kind,
-                component=component,
-                amplitude=amplitudes,  # type: ignore
-                how=base_line.how,
-                region=region,
-                profile=profile,
-                which=base_line.which,
-                region_lines=region_lines
-            )
-        )
-
-    # Step 3: Keep all lines not grouped or excluded by exception
-    new_lines = [
-        line for line in lines
-        if line.kind != kind or line.region in exception
-    ]
-    new_lines.extend(collapsed_lines)
-
-    return new_lines
-
-
-
 def fe_ties(
-    entries: List[SpectralLine], by_region=True, tied_params=('center', 'fwhm')
+    entries: List[SpectralLine], routine_fe_tied
 ) -> List[List[str]]:
-    regions, centers, kinds,_ = np.array([[e.region, e.center, e.kind,e.how] for e in entries if e.how !="combine"]).T
     
-    mask_fe = np.char.find(kinds.astype(str), "fe") >= 0
-    regions, centers, kinds, entries = (
-        regions[mask_fe],
+    tied_params = routine_fe_tied.get("tied_params", ('center', 'fwhm'))
+    by = routine_fe_tied.get("by", "element")
+    #fe_tied_params = {"by":"subregion","tied_params": ('center', 'fwhm')}
+    subregion, centers, element,_ = np.array([[e.subregion, e.center, e.element,e.region] for e in entries]).T
+    mask_fe = np.char.find(subregion.astype(str), "fe") >= 0
+    subregion, centers, element, entries = (
+        subregion[mask_fe],
         centers[mask_fe],
-        kinds[mask_fe],
-        [entries[i] for i in np.where(mask_fe)[0]],
-    )
+        element[mask_fe],
+        [entries[i] for i in np.where(mask_fe)[0]],)
 
     ties: List[List[str]] = []
 
-    if by_region:
-        for reg in np.unique(regions):
-            idx_region = np.where(regions == reg)[0]
+    if by == "element":
+        for reg in np.unique(element):
+            idx_region = np.where(element == reg)[0]
             entries_region = [entries[i] for i in idx_region]
             centers_region = np.array([e.center for e in entries_region])
             idx_center = int(np.argmin(np.abs(centers_region - np.median(centers_region))))
             for i, e in enumerate(entries_region):
-                if i == idx_center or 'fe' not in e.kind:
+                if i == idx_center or 'fe' not in e.region:
                     continue
                 for p in tied_params:  #
                     ties.append(
                         [
-                            f"{p}_{e.line_name}_{e.component}_{e.kind}",
-                            f"{p}_{entries_region[idx_center].line_name}_{entries_region[idx_center].component}_{entries_region[idx_center].kind}",
+                            f"{p}_{e.line_name}_{e.component}_{e.region}",
+                            f"{p}_{entries_region[idx_center].line_name}_{entries_region[idx_center].component}_{entries_region[idx_center].region}",
+                        ]
+                    )
+    elif by == "subregion":
+        for reg in np.unique(subregion):
+            idx_region = np.where(subregion == reg)[0]
+            entries_region = [entries[i] for i in idx_region]
+            centers_region = np.array([e.center for e in entries_region])
+            idx_center = int(np.argmin(np.abs(centers_region - np.median(centers_region))))
+            for i, e in enumerate(entries_region):
+                if i == idx_center or 'fe' not in e.region:
+                    continue
+                for p in tied_params:  #
+                    ties.append(
+                        [
+                            f"{p}_{e.line_name}_{e.component}_{e.region}",
+                            f"{p}_{entries_region[idx_center].line_name}_{entries_region[idx_center].component}_{entries_region[idx_center].region}",
                         ]
                     )
     else:
         centers = np.array([e.center for e in entries])
         idx_center = int(np.argmin(np.abs(centers - np.median(centers))))
         for i, e in enumerate(entries):
-            if i == idx_center or 'fe' not in e.kind:
+            if i == idx_center or 'fe' not in e.region:
                 continue
             for p in tied_params:
                 ties.append(
                     [
-                        f"{p}_{e.line_name}_{e.component}_{e.kind}",
-                        f"{p}_{entries[idx_center].line_name}_{entries[idx_center].component}_{entries[idx_center].kind}",
+                        f"{p}_{e.line_name}_{e.component}_{e.region}",
+                        f"{p}_{entries[idx_center].line_name}_{entries[idx_center].component}_{entries[idx_center].region}",
                     ]
                 )
 
@@ -105,9 +74,7 @@ def fe_ties(
 
 
 def region_ties(
-    local_region_list: List[SpectralLine],
-    n_narrow: int,
-    n_broad: int,
+    complex_class,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
     tied_broad_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
     known_tied_relations: Optional[List[Tuple[Tuple[str, ...], List[str]]]] = None,
@@ -127,24 +94,15 @@ def region_ties(
     Returns a list of [param1, param2] tie declarations.
     """
     # Determine mainline
-    mainline_candidates_broad = [
-        "Halpha",
-        "Hbeta",
-        "MgII",
-        "CIVb",
-        "Lyalpha",
-        "Pad",
-    ]  # this can be disscuss in the future
-    mainline_candidates_narrow = [
-        "OIIIc",
-        "Halpha",
-        "NIIb", #could mm
-        "MgII",
-        "CIII]",
-        "SIIb",
-        "OIIa",
-    ]  # this can be disscuss in the future
-
+    mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad",]  # this can be disscuss in the future
+    mainline_candidates_narrow = ["OIIIc","Halpha","NIIb","MgII","CIII]","SIIb","OIIa",]  # this can be disscuss in the future
+    
+    n_components_per_region = complex_class.characteristics()["n_components_per_region"]
+    n_broad = n_components_per_region["broad"]
+    n_narrow = n_components_per_region["narrow"]
+    dict_region = complex_class.group_by("region")
+    local_region_list = dict_region["broad"].lines + dict_region["narrow"].lines
+    
     if isinstance(mainline_candidates_broad, (list, tuple)):
         available = {e.line_name for e in local_region_list if isinstance(e.line_name, str)}
         mainline_broad = next(
@@ -185,7 +143,7 @@ def region_ties(
         }
 
     narrow_map = _to_map(tied_narrow_to, n_narrow)
-    broad_map = _to_map(tied_broad_to, n_broad)
+    broad_map = _to_map(tied_broad_to,n_broad)
 
     def add_tie_if_different(source, target):
         if source != target:
@@ -193,14 +151,14 @@ def region_ties(
 
     for e in local_region_list:
         comp = e.component
-        if e.kind == "narrow":
+        if e.region == "narrow":
             target = narrow_map[comp]
             suffix = "narrow"
-        elif e.kind == "broad":
+        elif e.region == "broad":
             target = broad_map[comp]
             suffix = "broad"
         else:
-            continue  # unknown kind
+            continue  # unknown region
 
         for p in ("center", "fwhm"):
             source_name = f"{p}_{e.line_name}_{comp}_{suffix}"
@@ -261,33 +219,39 @@ def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[in
 
 def group_lines(
     lines: List[SpectralLine],
-    kind: str = "fe",
+    region: str,
     profile: str = "gaussian",
-    exception_region: List[str] = [],
-    include_region: List[str] = [],
     mode: str = "region",
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [],
-    exception = []
-) -> Tuple[List[SpectralLine], List[Tuple[int, float, int]]]:
-    #main function builded to combine the functions 
+) -> List[SpectralLine]:
+    
+    
+    
     grouped = defaultdict(list)
     collapsed_lines = []
+    lines_to_remove = set()
 
-    # Group lines by (region/kind, component)
     for line in lines:
-        if line.kind == kind and line.region is not None and line.region not in exception_region: #sheapectral.complex_region
-            key_base = line.region if mode == "region" else line.kind
-            key = (key_base, line.component)  # enforce component consistency
-            grouped[key].append(line)
+        if line.region != region:
+            continue
 
-    for (region, comp), group in grouped.items():
-        #present_names = [line.line_name for line in group]
+        if mode == "region":
+            key_base = line.region
+        elif mode == "subregion":
+            key_base = line.subregion
+        elif mode == "element":
+            key_base = line.element
+        else:
+            continue
+
+        key = (key_base, line.component)
+        grouped[key].append(line)
+
+    for (region_key, comp), group in grouped.items():
         name_to_idx = {line.line_name: i for i, line in enumerate(group)}
         name_to_comp = {line.line_name: line.component for line in group}
-
         index_ties = []
 
-        # Parse known ties and apply only if components match
         for pair, factor in known_tied_relations:
             if all(name in name_to_idx for name in pair):
                 if len(factor) < 3:
@@ -296,63 +260,104 @@ def group_lines(
                 if "amplitude" in target_str:
                     target_name = target_str.split("_")[1]
                     source_name = source_str.split("_")[1]
-
                     if name_to_comp[target_name] != name_to_comp[source_name]:
-                        continue  # skip if components don't match
-
+                        continue
                     target_idx = name_to_idx[target_name]
                     source_idx = name_to_idx[source_name]
                     op, val = op_val[0], float(op_val[1:])
                     index_ties.append((target_idx, source_idx, op, val))
 
         resolved_map = flatten_index_ties(index_ties)
-        
         full_rules: List[Tuple[int, float, int]] = []
         dependent_list = []
+
         for i in range(len(group)):
             if i in resolved_map:
                 coef, idx = resolved_map[i]
-                dependent_list.append(idx)
-                full_rules.append((i, coef, idx))
+                dependent_list.append(i)
+                full_rules.append((i,float(coef) , idx))
             else:
-                full_rules.append((i, 1.0, i))  # Free amplitude
-        amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list]) # this only can work in 
+                full_rules.append((i, 1.0, i))
+
+        amplitudes = np.array([
+            line.amplitude for i, line in enumerate(group) if i not in dependent_list
+        ])
         arg_max = np.argmax(amplitudes)
-        
-        if kind=="fe" and region != "feii_coronal":
+
+        if region == "fe" and mode == "element":
             full_rules = []
             dependent_list = []
-            amplitudes = amplitudes
-            for n,coef in enumerate(amplitudes):
-                full_rules.append((n,float(coef), int(arg_max)))
+            for n, coef in enumerate(amplitudes):
+                full_rules.append((n, float(coef/ np.max(amplitudes)), int(arg_max)))
                 if n != arg_max:
                     dependent_list.append(n)
-        
-            amplitudes = np.array([float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list])
-                
+            amplitudes = np.array([
+                float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list
+            ])
+
         centers = [line.center for line in group]
         region_lines = [line.line_name for line in group]
-        base_line = group[0]
-        collapsed_lines.append(
-            SpectralLine(
-                center=centers,
-                line_name=region+str(comp), #maybe i should think about this a little more 
-                kind=kind,
-                component=comp,
-                amplitude=list(amplitudes), #maybe in a near future move this from amplitude to init_amplitude 
-                how=base_line.how,
-                region=region,
-                profile=profile,
-                which=base_line.which,
-                region_lines=region_lines,
-                amplitude_relations=full_rules #not necesary 
-            )
+        elements = [line.element for line in group]
+        subregions = [line.subregion for line in group]
+        collapsed = SpectralLine(
+            center=centers,
+            line_name=f"{region_key}{comp}",
+            region=region,
+            component=comp,
+            profile=profile,
+            region_lines=region_lines,
+            element=elements,
+            subregion = subregions,
+            amplitude=amplitudes.tolist(),
+            amplitude_relations=full_rules,
+           
         )
 
-    new_lines = [
-        line for line in lines
-        if line.kind != kind or line.region in exception_region
-    ]
+        collapsed_lines.append(collapsed)
+        lines_to_remove.update(id(line) for line in group)
+
+    new_lines = [line for line in lines if id(line) not in lines_to_remove]
     new_lines.extend(collapsed_lines)
 
     return new_lines
+
+
+
+def default_known_tied_relations(
+    include_balmer: bool = True,
+    include_forbidden: bool = True,
+) -> List[Tuple[Tuple[str, ...], List[str]]]:
+    ties: List[Tuple[Tuple[str, ...], List[str]]] = []
+
+     #check how this affect the combination e.g what happends when hbeta depends on halpha and hg and hd depends on hbeta
+    ties += [
+        (("OIIIb", "OIIIc"), ["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.33"]),
+        (("OIIIb", "OIIIc"), ["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),
+        (("NIIa", "NIIb"), ["amplitude_NIIa_component_narrow", "amplitude_NIIb_component_narrow", "*0.33"]),
+        (("NIIa", "NIIb"), ["center_NIIa_component_narrow", "center_NIIb_component_narrow"]),
+    ]
+
+    if include_forbidden:
+        ties += [
+            (("OIa", "OIb"), ["amplitude_OIa_component_narrow", "amplitude_OIb_component_narrow", "*3.0"]),
+            (("OIa", "OIb"), ["center_OIa_component_narrow", "center_OIb_component_narrow"]),
+            (("SIIIa", "SIIIb"), ["amplitude_SIIIa_component_narrow", "amplitude_SIIIb_component_narrow", "*0.4"]),
+            (("OIIa", "OIIb"), ["amplitude_OIIa_component_narrow", "amplitude_OIIb_component_narrow", "*0.77"]),
+            (("OIIa", "OIIb"), ["center_OIIa_component_narrow", "center_OIIb_component_narrow"]),
+        ]
+
+    if include_balmer:
+        ties += [
+            (("Hbeta", "Halpha"), ["amplitude_Hbeta_component_narrow", "amplitude_Halpha_component_narrow", "*0.35"]),
+            (("Hg", "Hbeta"), ["amplitude_Hgamma_component_narrow", "amplitude_Hbeta_component_narrow", "*0.47"]),
+            (("Hd", "Hbeta"), ["amplitude_Hdelta_component_narrow", "amplitude_Hbeta_component_narrow", "*0.26"]),
+        ]
+    
+    # if include_helium:
+    #     ties += [
+    #         (("HeId", "HeI5876"), ["amplitude_HeI4471_component_narrow", "amplitude_HeI5876_component_narrow", "*0.3"]),
+    #         (("HeI6678", "HeI5876"), ["amplitude_HeI6678_component_narrow", "amplitude_HeI5876_component_narrow", "*0.2"]),
+    #     ]
+    
+    return ties
+

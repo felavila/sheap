@@ -11,16 +11,15 @@ from sheap.Functions.utils import combine_auto
 
 @dataclass
 class ComplexRegion:
+    
     """
     Holds SpectralLines + (optionally) their profile functions & parameters.
     You can slice/filter/group arbitrarily, and still recover both the
     original (“global”) and per‐subset (“local”) parameter mappings.
     """
 
-    # --- required at init ---
     lines: List[SpectralLine]
 
-    # --- optional; supply via attach_profiles() ---
     profile_functions:         List[Callable]            = field(default_factory=list)
     profile_names:             List[str]                 = field(default_factory=list)
     params_dict:               Dict[str, int]            = field(default_factory=dict)
@@ -28,21 +27,20 @@ class ComplexRegion:
     params:                    Optional[np.ndarray]      = None
     uncertainty_params:        Optional[np.ndarray]      = None
 
-    # --- internals (auto‐built) ---
     original_idx:              List[int]                 = field(init=False)
     _df:                       pd.DataFrame              = field(init=False, repr=False)
     _combined_func:            Optional[Callable]        = field(init=False, repr=False)
 
-    # --- NEW: master list of all param‐names in global order ---
+
     _master_param_names:       List[str]                 = field(init=False, default_factory=list)
-    # --- track the *original* index‐lists, never overwritten by subsets ---
+    
     global_profile_params_index_list: List[List[int]]    = field(init=False, default_factory=list)
 
     def __post_init__(self):
-        # 1) record each line's original position
+       
         self.original_idx = list(range(len(self.lines)))
 
-        # 2) if we already have a params_dict, stash its keys in order
+        
         if self.params_dict:
             self._master_param_names = list(self.params_dict.keys())
             # and record the original full index‐lists
@@ -242,19 +240,20 @@ class ComplexRegion:
     @property
     def elements(self) -> List[Any]:
         return self.unique("element")
-    # @property
-    # def regions(self) -> List[Any]:
-    #     return self.unique("region")
 
-    @property
-    def profile_names_list(self) -> List[Any]:
-        return self.unique("profile_name")
+    def characteristics(self) -> Dict[str, Any]:
+        by_region_component = (
+            self._df.groupby("region")["component"]
+            .nunique()
+            .sort_index()
+            .to_dict()
+        )
 
-    def characteristics(self) -> Dict[str, List[Any]]:
         return {
-            "components":    self.components,
-            "regions":       self.regions,
-            "profile_names": self.profile_names_list,
+            "components": self.components,
+            "regions": self.regions,
+            #"profile_names": self.profile_names_list,
             "elements": self.elements,
-            "subregions": self.subregions
+            "subregions": self.subregions,
+            "n_components_per_region": by_region_component,
         }

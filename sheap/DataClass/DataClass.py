@@ -57,51 +57,8 @@ class SpectralLine:
         return asdict(self)
 
 
-# @dataclass
-# class SpectralLine:
-#     """
-#     Represents a single spectral emission or absorption line component.
 
-#     Attributes:
-#         center (float or list of floats): Central wavelength(s) of the line in Angstroms.
-#         line_name (str or list of str): Identifier(s) for the spectral line (e.g., 'Halpha').
-#         kind (str): Component type, such as 'narrow', 'broad', 'outflow', or 'fe'.
-#         component (int): Integer identifier for the component number within its kind.
-#         amplitude (float or list of floats, default=1.0): Initial or fixed amplitude for the line.
-#         how (Optional[str]): Method to handle the line (e.g., 'template', 'sum'). Usually used for Fe templates.
-#         region (Optional[str]): Region label from the YAML template file or source.
-#         profile (Optional[str]): Profile function name (e.g., 'gaussian', 'lorentzian').
-#         which (Optional[str]): Sub-template or subtype for complex profiles (e.g., 'OP' or 'UV' for FeII templates).
-#         region_lines (Optional[List[str]]): Explicit list of line names used in a sum or composite region.
-#         amplitude_relations (Optional[List[List]]): Parameter tying or scaling definitions, typically for ratios.
-#         subprofile (str):  Sub-profile function to use within compound models like.
-#     """
-
-#     center: Union[float, List[float]]
-#     line_name: Union[str, List[str]]
-#     kind: str
-#     component: int
-#     amplitude: Union[float, List[float]] = 1.0
-#     how: Optional[str] = None
-#     region: Optional[str] = None
-#     profile: Optional[str] = None
-#     which: Optional[str] = None
-#     region_lines: Optional[List[str]] = None
-#     amplitude_relations: Optional[List[List]] = None
-#     subprofile: None = None  # not currently used or typed
-
-#     def to_dict(self) -> dict:
-#         """Convert the SpectralLine to a dictionary."""
-#         return asdict(self)
-    
-#     complex_region: List[SpectralLine]
-#     profile_functions: List[Callable]
-#     params: np.ndarray
-#     uncertainty_params: np.ndarray
-#     profile_params_index_list: np.ndarray
-#     params_dict: Dict
-#     profile_names: List[str]
-
+#still useffull? 
 @dataclass
 class FitResult:
     """
@@ -151,27 +108,9 @@ class FitResult:
         return asdict(self)
 
  
-@dataclass
-class LineSelectionResult_stable:
-    idx: List[int]
-    line_name: np.ndarray
-    region: List[str]
-    center: List[float]
-    kind: List[str]
-    original_centers: np.ndarray
-    component: List[Union[int, str]]
-    lines: List[Any]
-    profile_functions: np.ndarray
-    profile_names: np.ndarray
-    profile_params_index_flat: np.ndarray
-    profile_params_index_list: np.ndarray
-    params_names: np.ndarray
-    params: np.ndarray
-    uncertainty_params: np.ndarray
-    profile_functions_combine: Callable[[np.ndarray, jnp.ndarray], jnp.ndarray]
-    filtered_dict: Dict
-    complex:np.ndarray
-    
+
+#This will go to the fitting part in particular to some helper.py stuff
+
 
 @dataclass
 class ConstraintSet:
