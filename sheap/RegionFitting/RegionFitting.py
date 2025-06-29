@@ -37,67 +37,386 @@ logger = logging.getLogger(__name__)
 class RegionFitting:
     """
     Fits a spectral region containing multiple emission lines.
-
-    This class:
-      - Loads line definitions from YAML or provided dict/list.
-      - Normalizes and masks spectra.
-      - Builds parameter arrays with bounds.
-      - Runs JAX-based minimization (MasterMinimizer).
-      - Supports renormalization and parameter mapping.
     """
-    available_profile = []
-    def __init__(self, profile = "gaussian"):
-        
-        print("xd")
 
-    def _load_fitting_routine(
-        self, template: Union[str, dict, List[dict]], yaml_dir: Optional[Union[str, Path]]
-    ) -> Dict[str, Any]:
+    def __init__(self, region_dict: dict, *, profile: str = "gaussian",limits_overrides: Optional[Dict[str, FittingLimits]] = None):
+        # save profile
+        self.profile = profile
+
+        # --- magic: turn every entry in region_dict into self.<key> ---
+        for key, val in region_dict.items():
+            setattr(self, key, val)
+        self.profile_functions = []
+        self.params_dict = []
+        self.profile_names = []
+        self.profile_params_index_list = []
+        self.limits_map: Dict[str, FittingLimits] = {}
+        for kind, cfg in DEFAULT_LIMITS.items():
+            default_lim = FittingLimits.from_dict(cfg)
+            # Use override if provided, else default
+            self.limits_map[kind] = (
+                limits_overrides[kind]
+                if limits_overrides and kind in limits_overrides
+                else default_lim
+            )
+        
+        self._build_fit_components(profile = profile)
+       
+        # now you have:
+        #   self.complex_region
+        #   self.fitting_routine
+        #   self.outer_limits
+        #   self.inner_limits
+        #   self.model_keywords
+        #
+        # and you can continue with whatever setup you need:
+        # e.g. self._build_fit_components(profile=self.profile)
+        # …
+    def __call__(
+        self,
+        spectra: Union[List[Any], jnp.ndarray],
+        force_cut: bool = False,
+        run_uncertainty_params=True,
+        
+        inner_limits: Optional[Tuple[float, float]] = None,
+        outer_limits: Optional[Tuple[float, float]] = None,
+        learning_rate=None
+        
+        ) -> None:
+        # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
+        print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
+        
+        _, mask, scale, norm_spec = self._prep_data(
+            spectra, inner_limits, outer_limits, force_cut)
+
+        inner_limits = self.inner_limits or inner_limits
+        outer_limits = self.outer_limits or outer_limits
+
+        if not (self.inner_limits and self.outer_limits):
+            raise ValueError("inner_limits and outer_limits must be specified")
+        if not isinstance(self.fitting_routine, dict):
+            raise TypeError("fitting_routine must be a dictionary.")
+        params = self.initial_params
+        total_time = 0
+        for i, (key, step) in enumerate(self.fitting_routine.items()):
+            print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
+            step["non_optimize_in_axis"] = 4 #experimental
+            if len(params.shape)==1:
+                params = jnp.tile(params, (spectra.shape[0], 1))
+            if isinstance(learning_rate,list):
+                step["learning_rate"] = learning_rate[i]
+                
+            start_time = time.time()  # 
+            params, loss = self._fit(norm_spec, self.model, params, **step)
+            uncertainty_params = jnp.zeros_like(params)
+            end_time = time.time()  # 
+            elapsed = end_time - start_time
+            print(f"Time for step '{key}': {elapsed:.2f} seconds")
+            total_time += elapsed
+        
+        dependencies = parse_dependencies(self._build_tied(step["tied"]))
+        if run_uncertainty_params:
+            print("\n==Running error_covariance_matrix==")
+            start_time = time.time()  # 
+            uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies)
+            end_time = time.time()  # 
+            elapsed = end_time - start_time
+            print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
+            total_time += elapsed
+        print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
+        self.dependencies = dependencies
+        self._postprocess(norm_spec, params, uncertainty_params, scale)
+        self.mask = mask
+        self.loss = loss
+        self.scale = scale
+        self.outer_limits = outer_limits
+        self.inner_limits = inner_limits
+        self.to_result()
+    
+    
+    def _fit(
+        self,
+        norm_spec: jnp.ndarray,
+        model,
+        initial_params,
+        tied: List[List[str]],
+        learning_rate=1e-1,
+        weighted: bool = True,
+        num_steps: int = 1000,
+        non_optimize_in_axis=3,
+        # optimizer?
+    ) -> Tuple[jnp.ndarray, list]:
         """
-        Load line definitions from YAML, dict, or list of SpectralLine-compatible entries.
+        Perform the JAX-based minimization using MasterMinimizer.
+        Returns optimized parameters and final loss.
+        """
+        print(
+            "learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
+        
+        list_dependencies = self._build_tied(tied)
+
+        minimizer = MasterMinimizer(
+            model,
+            non_optimize_in_axis=non_optimize_in_axis,
+            num_steps=num_steps,
+            list_dependencies=list_dependencies,
+            weighted=weighted,
+            learning_rate=learning_rate,
+        )
+        try:
+            params, loss = minimizer(
+                initial_params, *norm_spec.transpose(1, 0, 2), self.constraints
+            )
+        except Exception as e:
+            logger.exception("Fitting failed")
+            raise RuntimeError(f"Fitting error: {e}")
+        return params, loss
+
+
+    def _prep_data(
+        self,
+        spectra: Union[List[Any], jnp.ndarray],
+        inner_limits: Optional[Tuple[float, float]],
+        outer_limits: Optional[Tuple[float, float]],
+        force_cut: bool,
+        #exp_factor,
+    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        """
+        Preprocess spectra:
+          - Apply masks
+          - Optionally cut region
+          - Normalize flux by max per pixel
 
         Returns:
-            Dict containing complex_region, fitting_routine, inner_limits, outer_limits
+            spec, mask, scale, normalized spec
         """
-        if isinstance(template, str):
-            path = Path(template)
-            if not path.exists() and yaml_dir:
-                path = Path(yaml_dir) / f"{template}.yaml"
-            if not path.exists():
-                logger.error("Region template not found: %s", template)
-                raise FileNotFoundError(f"Region template not found: {template}")
-            data = yaml.safe_load(path.read_text())
-        elif isinstance(template, dict):
-            data = template
-        elif isinstance(template, list):
-            # Assume this is a list of dicts defining SpectralLine entries
-            data = {
-                "complex_region": [SpectralLine(**entry) for entry in template],
-                "fitting_routine": {},
-                "inner_limits": None,
-                "outer_limits": None,
-            }
-            return data
+        
+        self.inner_limits = inner_limits or self.inner_limits
+        self.outer_limits = outer_limits or self.outer_limits
+        
+        if not (self.inner_limits and self.outer_limits):
+            raise ValueError("inner_limits and outer_limits must be specified")
+        
+        try:
+            if isinstance(spectra, list):
+                spec, mask = prepare_spectra(spectra, outer_limits=self.outer_limits)
+            else:
+                spec, _, _, mask = mask_builder(spectra, outer_limits=self.outer_limits)
+                if force_cut:
+                    spec, mask = prepare_spectra(spec, outer_limits=self.outer_limits)
+        except Exception as e:
+            logger.exception("Failed to preprocess spectra")
+            raise ValueError(f"Preprocessing error: {e}")
+
+        try:
+            scale = jnp.nanmax(jnp.where(mask, 0, spec[:, 1, :]), axis=1) 
+            norm_spec = spec.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+            
+        except Exception as e:
+            logger.exception("Normalization error")
+            raise ValueError(f"Normalization error: {e}")
+
+        return spec, mask, scale, norm_spec
+    
+    def _postprocess(
+        self,
+        norm_spec: jnp.ndarray,
+        params: jnp.ndarray,
+        uncertainty_params: jnp.ndarray,
+        scale: jnp.ndarray,
+        ) -> None:
+        """
+        Scale parameters back to original flux units if requested.
+        Store final params and loss.
+        """
+        
+        try:
+            idxs = mapping_params(self.params_dict, [["amplitude"]]) #, ["scale"]
+            self.params = params.at[:, idxs].multiply(scale[:, None])
+            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
+            self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+            
+        except Exception as e:
+            logger.exception("Renormalization failed")
+            raise ValueError(f"Renormalization error: {e}")
+    def _build_fit_components(self, profile="gaussian", **kwargs):
+        """
+        Build the region constraints and ties for the spectral fitting.
+        Parameters:
+            as_array (bool): Whether to store the region constraints as a JAX array.
+            tied_params (list, optional): Overrides the instance tied_params if provided.
+            tie param_target to param_source
+            [param_target, param_source,operand,value]
+            limits_list (list, optional): Overrides the instance limits_list if provided.
+        """
+        init_list: List[float] = []
+        low_list: List[float] = []
+        high_list: List[float] = []
+        self.profile_functions.clear()
+        self.params_dict.clear()
+        self.profile_names.clear()
+        self.profile_params_index_list.clear()
+        add_linear = True
+        self.list = []
+        
+        idx = 0  # parameter_position
+        complex_region = []
+        #I have to decide between sp or cfg for the lines 
+        for sp in self.complex_class.lines:
+            holder_profile = getattr(sp, "profile", None) or profile
+            sp.profile = holder_profile
+            if "SPAF" in holder_profile:
+                if len(sp.profile.split("_")) == 2:
+                    sp.profile,sp.subprofile = sp.profile.split("_")
+                elif not sp.subprofile:
+                    sp.subprofile = profile
+            constraints = make_constraints(sp, self.limits_map.get(sp.region), profile=  sp.profile, subprofile= sp.subprofile)
+            sp.profile = constraints.profile  #re writte the complex line 
+            
+            complex_region.append(sp)
+            init_list.extend(constraints.init)
+            high_list.extend(constraints.upper)
+            low_list.extend(constraints.lower)
+            
+            if 'SPAF' in sp.profile:
+                sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,sp.subprofile)
+                self.profile_names.append(sp.profile)
+                self.profile_functions.append(sm)
+            else:
+                self.profile_functions.append(
+                    PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"]))
+                self.profile_names.append(constraints.profile)
+            if sp.profile in ["powerlaw","brokenpowerlaw",'linear']:
+                add_linear = False
+            #print(constraints.param_names)
+            for i, name in enumerate(constraints.param_names):
+                key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
+                self.params_dict[key] = idx + i
+            # self.profile_params_index.append([idx,idx + len(constraints.param_names)])
+            self.profile_params_index_list.append(
+                np.arange(idx, idx + len(constraints.param_names))
+            )
+            idx += len(constraints.param_names)
+            #profile="gaussian"
+
+        if add_linear:
+            print("Continuum profile not found a linear profile will be added")
+            init_,upper_,lower_,spl=self._add_linear(idx)
+            init_list.extend(init_)
+            high_list.extend(upper_)
+            low_list.extend(lower_)
+            
+            complex_region.append(spl)
+            
+        self.initial_params = jnp.array(init_list).astype(jnp.float32)
+        self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
+        self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
+        self.complex_region = complex_region #complex_region_list?
+        
+    def _build_tied(self, tied_params):
+        # for make this clear I guess could be usefull change the build_tied for other think dependencies
+        list_tied_params = []
+        if len(tied_params) > 0:
+            for tied in tied_params:
+                param1, param2 = tied[:2]
+                pos_param1, val_param1, param_1 = self.get_param_coord_value(
+                    *param1.split("_")
+                )
+                pos_param2, val_param2, param_2 = self.get_param_coord_value(
+                    *param2.split("_")
+                )
+                if len(tied) == 2:
+                    if param_1 == param_2 == "center" and len(tied):
+                        #print(param_1,param_2)
+                        delta = val_param1 - val_param2
+                        tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
+                        # if log_mode:
+                    elif param_1 == param_2:
+                        tied_val = "*1"
+                    else:
+                        print(f"Define constraints properly. {tied_params}")
+                else:
+                    tied_val = tied[-1]
+                if isinstance(tied_val, str):
+                    list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
+                else:
+                    print("Define constraints properly.")
         else:
-            raise TypeError("Unsupported type for region_template")
+            list_tied_params = []
+        return list_tied_params
+    
+    @staticmethod
+    def _stack_constraints(low: List[float], high: List[float]) -> jnp.ndarray:
+        """
+        Utility to stack lower and upper bounds into a (N,2) array.
+        """
+        return jnp.stack([jnp.array(low), jnp.array(high)], axis=1).astype(jnp.float32)
+    
+    def _add_linear(self,idx):
+        self.profile_names.append("linear")
+        self.profile_functions.append(PROFILE_FUNC_MAP["linear"])
+        for i, name in enumerate(["scale_b", "scale_m"]):
+            key = f"{name}_{'continuum'}_{0}_{'linear'}"
+            self.params_dict[key] = idx + i
+        self.profile_params_index_list.append(np.arange(idx, idx + 2))
+        return [0.1e-4, 0.5],[10.0, 10.0],[-10.0, -10.0],SpectralLine(center=None,line_name='linear',region='continuum',component=0,profile='linear')
+    
+    def to_result(self) -> FitResult:
+        self.fit_result= FitResult(
+            params=self.params,
+            uncertainty_params=self.uncertainty_params,
+            constraints=self.constraints,
+            mask=self.mask,
+            profile_functions=self.profile_functions,
+            profile_names=self.profile_names,
+            scale=self.scale,
+            params_dict=self.params_dict,
+            complex_region=self.complex_region,
+            loss = self.loss,
+            initial_params = self.initial_params,
+            profile_params_index_list = self.profile_params_index_list,
+            outer_limits = self.outer_limits,
+            inner_limits = self.inner_limits,
+            fitting_routine = self.fitting_routine,
+            dependencies = self.dependencies,
+            model_keywords= self.fitting_routine.get("model_keywords"))
+    
+   
+    @property
+    def pandas_params(self) -> pd.DataFrame:
+        """Return fit parameters as a pandas DataFrame."""
+        return pd.DataFrame(self.params, columns=list(self.params_dict.keys()))
 
-        raw = data.get("complex_region")
-        if raw is None or not isinstance(raw, list):
-            logger.error("complex_region definition missing or not a list")
-            raise ValueError("complex_region definition must contain a 'complex_region' list")
+    @property
+    def pandas_region(self) -> pd.DataFrame:
+        """Return region definitions as a pandas DataFrame."""
+        return pd.DataFrame([vars(sp) for sp in self.complex_region])
 
-        # Convert raw to SpectralLine objects if needed
-        region_lines = (
-            raw if is_list_of_SpectralLine(raw) else [SpectralLine(**entry) for entry in raw]
-        )
+   
+    
+    @classmethod
+    def from_builder(
+        cls,
+        builder: "RegionBuilder",
+        *,
+        profile: str = "gaussian",limits_overrides = None,
+        **builder_kwargs,
+    ) -> "RegionFitting":
+        """
+        Construct a RegionFitting right from a RegionBuilder.
 
-        return {
-            "complex_region": region_lines,
-            "fitting_routine": data.get("fitting_routine", {}),
-            "inner_limits": data.get("inner_limits"),
-            "outer_limits": data.get("outer_limits"),
-        }
+        Any kwargs you pass here go straight into builder(), e.g.
+          RegionBuilder(xmin=…,xmax=…).__call__(**builder_kwargs)
+        """
+    
+        region_dict = builder._make_fitting_routine(**builder_kwargs)
 
+        
+        return cls(region_dict, profile=profile,limits_overrides= limits_overrides)
+    
+    
+
+    
 
 class RegionFitting_old:
     """
@@ -147,8 +466,8 @@ class RegionFitting_old:
         )
         self.log_mode = log_mode
         self.limits_map: Dict[str, FittingLimits] = {}
-        for kind, cfg in DEFAULT_LIMITS.items():
-            default_lim = FittingLimits.from_dict(cfg)
+        for kind, sp in DEFAULT_LIMITS.items():
+            default_lim = FittingLimits.from_dict(sp)
             # Use override if provided, else default
             self.limits_map[kind] = (
                 limits_overrides[kind]

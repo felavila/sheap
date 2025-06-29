@@ -4,7 +4,7 @@ import jax.numpy as jnp
 
 from sheap.DataClass.DataClass import ConstraintSet, FittingLimits, SpectralLine
 from sheap.Tools.spectral_basic import kms_to_wl
-from sheap.Functions.profiles import PROFILE_FUNC_MAP 
+from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
 
 
@@ -14,8 +14,8 @@ CANONICAL_WAVELENGTHS = {
     'narrow': 5007.0,   # [OIII]
     'outflow': 5007.0,  # [OIII]
     'fe': 4570.0,       # Mean FeII blend
-    'nlr': 6583.0       # [NII]
-}
+    'nlr': 6583.0,       # [NII]
+    "winds": 5007.0} #why?
 
 
 DEFAULT_LIMITS = {
@@ -52,10 +52,15 @@ DEFAULT_LIMITS = {
         upper_fwhm=2355.0,   # NLR lines are narrow; similar to 'narrow' but possibly less broadened
         lower_fwhm=117.75,
         center_shift=1500.0,
-        max_amplitude=10.0,
+        max_amplitude=10.0,),
         # Ref: Bennert+2006, Hainline+2013
-    )
+    "winds": dict(upper_fwhm   = 15000.0,   # up to 15 000 km/s for very fast winds
+    lower_fwhm   = 5000.0,    # minimum ~ 5 000 km/s
+    center_shift = 8000.0,    # allow blueshifts up to ~8 000 km/s
+    max_amplitude= 10.0,      # same cap as your other lines
+        )
 }
+
 
 
 def make_constraints(
@@ -84,7 +89,7 @@ def make_constraints(
         )
 
     # ---- Template Fe profiles (logFWHM, shift, scale) ----
-    if cfg.kind.lower() == 'fe' and cfg.how == 'template':
+    if cfg.region.lower() == 'fe' and cfg.how == 'template':
         if not cfg.which:
             raise ValueError("Fe template must define 'which' (e.g., 'OP', 'UV')")
         return ConstraintSet(
@@ -138,13 +143,13 @@ def make_constraints(
     # ---- Standard Gaussian ----
     if selected_profile == "gaussian":
         center = cfg.center
-        shift = -5 if cfg.kind == "outflow" else 0
+        shift = -5 if cfg.region == "outflow" else 0
 
         center_upper = center + kms_to_wl(limits.center_shift, center)
         center_lower = center - kms_to_wl(limits.center_shift, center)
         fwhm_upper = kms_to_wl(limits.upper_fwhm, center)
         fwhm_lower = kms_to_wl(limits.lower_fwhm, center)
-        fwhm_init = fwhm_lower * (2.0 if cfg.kind == "outflow" else 1.0)
+        fwhm_init = fwhm_lower * (2.0 if cfg.region == "outflow" else 1.0)
 
         return ConstraintSet(
             init=[float(cfg.amplitude) / 10, float(center + shift), float(fwhm_init)],
@@ -161,17 +166,17 @@ def make_constraints(
             raise ValueError("SPAF profile requires a defined subprofile (e.g., 'gaussian').")
         if not isinstance(cfg.amplitude, list):
             raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
-        if cfg.kind not in CANONICAL_WAVELENGTHS:
-            raise KeyError(f"Missing canonical wavelength for kind='{cfg.kind}' in CANONICAL_WAVELENGTHS.")
+        if cfg.region not in CANONICAL_WAVELENGTHS:
+            raise KeyError(f"Missing canonical wavelength for region='{cfg.region}' in CANONICAL_WAVELENGTHS.")
 
-        lambda0 = CANONICAL_WAVELENGTHS[cfg.kind]
+        lambda0 = CANONICAL_WAVELENGTHS[cfg.region]
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
         fwhm_upper = kms_to_wl(limits.upper_fwhm, lambda0)
         fwhm_lower = kms_to_wl(limits.lower_fwhm, lambda0)
 
         amp_list = list(cfg.amplitude)
         amp_upper = [1.0] * len(amp_list)
-        if cfg.kind == "fe":
+        if cfg.region == "fe":
             #print("xd")
             amp_upper = [0.2] * len(amp_list)
         amp_lower = [0.0] * len(amp_list)
@@ -207,17 +212,17 @@ def make_get_param_coord_value(
         initial_params: Initial parameter array.
 
     Returns:
-        A function to get parameter info by name, line name, component, and kind.
+        A function to get parameter info by name, line name, component, and region.
     """
 
     def get_param_coord_value(
         param: str,
         line_name: str,
         component: Union[str, int],
-        kind: str,
+        region: str,
         verbose: bool = False,
     ) -> Tuple[int, float, str]:
-        key = f"{param}_{line_name}_{component}_{kind}"
+        key = f"{param}_{line_name}_{component}_{region}"
         pos = params_dict.get(key)
         if pos is None:
             raise KeyError(f"Key '{key}' not found in params_dict.")

@@ -49,7 +49,8 @@ class RegionBuilder:
         line_repository_path: Optional[List[Union[str, Path]]] = None,
         fe_mode = "template",
         continuum_profile = "powerlaw",
-        group_method = False
+        group_method = False,
+        add_outflow = False
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
@@ -72,6 +73,7 @@ class RegionBuilder:
         self.n_broad = n_broad
         self.group_method = group_method
         self.fe_mode = fe_mode.lower()
+        self.add_outflow = add_outflow
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
@@ -114,7 +116,8 @@ class RegionBuilder:
         n_narrow: Optional[int] = None,
         fe_mode: Optional[str] = None,
         continuum_profile: Optional[str] = None,
-        group_method: Optional[bool] = None):
+        group_method: Optional[bool] = None,
+        add_outflow= None):
         
         def get(val, fallback):
             return val if val is not None else fallback
@@ -124,6 +127,7 @@ class RegionBuilder:
         n_broad = get(n_broad, self.n_broad)
         n_narrow = get(n_narrow, self.n_narrow)
         fe_mode = get(fe_mode, self.fe_mode).lower()#right?
+        add_outflow = get(add_outflow, self.add_outflow)
         continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
         
         if fe_mode not in self.available_fe_modes:
@@ -329,7 +333,7 @@ class RegionBuilder:
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-1]):
         #?
         fitting_routine = {}
-        fitting_routine["step1"] = {"tied": self.tied_params,"non_optimize_in_axis": 3,"learning_rate": list_learning_rate[0],"num_steps": list_num_steps[0]}
+        fitting_routine["step1"] = {"tied": self.tied_relations,"non_optimize_in_axis": 3,"learning_rate": list_learning_rate[0],"num_steps": list_num_steps[0]}
         assert len(list_num_steps) == len(list_learning_rate), "len(list_num_steps) != len(list_learning_rate) "
         for i, steps in enumerate(list_num_steps[1:], start=2):
             if self.group_method:
@@ -337,4 +341,4 @@ class RegionBuilder:
             else:
                 print("add other tieds") 
             fitting_routine[f"step{i}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate":list_learning_rate[i-1],"num_steps": list_num_steps[i-1]}
-        return {"complex_class": self.complex_class,"outer_limits": [self.xmin, self.xmax], "inner_limits": [self.xmin + 50, self.xmax - 50]}
+        return {"complex_class": self.complex_class,"outer_limits": [self.xmin, self.xmax], "inner_limits": [self.xmin + 50, self.xmax - 50],"fitting_routine":fitting_routine}

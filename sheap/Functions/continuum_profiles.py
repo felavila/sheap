@@ -57,7 +57,7 @@ def linear_combination(eieigenvectors, params):
 
 
 # This requiere one more variable i guess.
-@param_count(3)
+@with_param_names(['amplitude', "T", 'τ0'])
 def balmercontinuum(x, pars):
     """
     Compute the Balmer continuum (Dietrich+02) in pure JAX.
@@ -113,11 +113,11 @@ def balmercontinuum(x, pars):
 # from sheap.Functions.profiles import with_param_names
 
 # Basic continuum models with normalized wavelength (x/1000) ---------------------------
-@with_param_names(["intercept", "slope"])
+@with_param_names(["amplitude_b", "amplitude_m"])
 def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """f(x) = intercept + slope * (x/1000)"""
     x = xs / 1000.0
-    intercept, slope = params
+    slope,intercept = params
     return intercept + slope * x
 
 @with_param_names(["alpha","amplitude"])

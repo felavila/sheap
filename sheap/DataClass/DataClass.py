@@ -111,7 +111,6 @@ class FitResult:
 
 #This will go to the fitting part in particular to some helper.py stuff
 
-
 @dataclass
 class ConstraintSet:
     init: List[float]
@@ -120,6 +119,18 @@ class ConstraintSet:
     profile: str
     param_names: List[str]
 
+    def __post_init__(self):
+        # Skip length check for SPAF profiles
+        if self.profile.startswith("SPAF"):
+            return
+
+        n = len(self.init)
+        if not (len(self.upper) == len(self.lower) == len(self.param_names) == n):
+            raise ValueError(
+                f"ConstraintSet mismatch: "
+                f"got init[{n}], upper[{len(self.upper)}], "
+                f"lower[{len(self.lower)}], param_names[{len(self.param_names)}]"
+            )
 
 #This have to be a more flexible 
 @dataclass

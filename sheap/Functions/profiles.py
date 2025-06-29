@@ -91,7 +91,7 @@ def SPAF(centers: List[float], amplitude_rules: List[Tuple[int, float, int]], pr
 
 # Full profile registry (for spectral modeling)
 PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {
-    'balmerconti': balmercontinuum,
+    'balmercontinuum': balmercontinuum,
     'fitFeOP': fitFeOP,
     'fitFeUV': fitFeUV,
     'SPAF': SPAF}
