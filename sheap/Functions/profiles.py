@@ -67,8 +67,9 @@ def SPAF(centers: List[float], amplitude_rules: List[Tuple[int, float, int]], pr
     wrapped_profile = wrap_profile_with_center_override(base_func)
     unique_amplitudes = sorted({rule[2] for rule in amplitude_rules})
     #print(unique_amplitudes)
+    #print(unique_amplitudes)
     n_free_amps = len(unique_amplitudes)
-
+    #print("n_free_amps",n_free_amps)
     # Collect parameter names
     param_names = [f"amplitude{n}" for n in range(n_free_amps)] + ["shift"] + base_func.param_names[2:]
 

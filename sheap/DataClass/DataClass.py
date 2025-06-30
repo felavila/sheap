@@ -100,9 +100,9 @@ class FitResult:
     model_keywords: Optional[dict] = None
     source:Optional[dict] = None
     dependencies:Optional[List] = None # list tuple in reality
-    kind_list: List[str] = field(init=False)
-    def __post_init__(self):
-        self.kind_list = list({line.kind for line in self.complex_region})
+    #kind_list: List[str] = field(init=False)
+    #def __post_init__(self):
+     #   self.kind_list = list({line.kind for line in self.complex_region})
 
     def to_dict(self) -> dict:
         return asdict(self)

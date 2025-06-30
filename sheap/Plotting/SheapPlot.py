@@ -108,7 +108,7 @@ class SheapPlot:
 
             if region.region == "continuum":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
-            elif "Fe" in profile_name or "fe" in region.region.lower() or region.kind == "fe":
+            elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
             else:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])

@@ -269,19 +269,19 @@ def group_lines(
 
         resolved_map = flatten_index_ties(index_ties)
         full_rules: List[Tuple[int, float, int]] = []
+        
         dependent_list = []
-
-        for i in range(len(group)):
-            if i in resolved_map:
-                coef, idx = resolved_map[i]
-                dependent_list.append(i)
-                full_rules.append((i,float(coef) , idx))
+        for dx in range(len(group)):
+            if dx in resolved_map:
+                coef, idx = resolved_map[dx]
+                if idx != dx:
+                    dependent_list.append(int(dx))
+                full_rules.append((dx, float(coef) , idx))
             else:
-                full_rules.append((i, 1.0, i))
-
-        amplitudes = np.array([
-            line.amplitude for i, line in enumerate(group) if i not in dependent_list
-        ])
+                full_rules.append((dx, 1.0, dx))
+        #print("dependent_list",dependent_list)
+        amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list])
+        
         arg_max = np.argmax(amplitudes)
 
         if region == "fe" and mode == "element":
@@ -292,8 +292,7 @@ def group_lines(
                 if n != arg_max:
                     dependent_list.append(n)
             amplitudes = np.array([
-                float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list
-            ])
+                float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list])
 
         centers = [line.center for line in group]
         region_lines = [line.line_name for line in group]

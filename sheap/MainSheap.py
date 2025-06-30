@@ -139,67 +139,47 @@ class Sheapectral:
         hostsubstraction._run_substraction(num_steps=50_000)
         return hostsubstraction
     
-    def build_region(self,xmin: float,xmax: float,n_narrow: int = 1,n_broad: int = 1,
-        tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],fe_mode="template",  # "sum,combined,template"
-        add_outflow: bool = False,add_narrow_plus: bool = False,
-        by_region: bool = False,
-        #force_linear: bool = False,
-        add_balmer_continuum: bool = False,
-        fe_tied_params = ('center', 'fwhm'),
-        add_NLR : bool = False,
-        continuum_profile = "powerlaw",
-        grouped_method = False,
-        no_fe = False
-    ):
-        #i dont like this name xd
-        self.builded_region = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,
-            tied_narrow_to=tied_narrow_to,tied_broad_to=tied_broad_to,fe_regions=fe_regions,
-            fe_mode=fe_mode, add_outflow=add_outflow, add_narrow_plus=add_narrow_plus,
-            by_region=by_region,add_balmer_continuum=add_balmer_continuum,fe_tied_params=fe_tied_params,add_NLR = add_NLR,
-            no_fe = no_fe,continuum_profile = continuum_profile,grouped_method = grouped_method)
-        
-        self.fitting_routine = self.builded_region()
-        self.complex_region = self.builded_region.complex_region
+    def build_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
+        self.builded_region = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
     
-    def fit_region(self, num_steps_list=[3000, 3000], add_step=True, tied_fe=False,sigma_params=True,profile ='gaussian',learning_rate = None):
+    def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2],run_fit=True):
         
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
 
-        fitting_routine = self.builded_region(add_step=add_step, tied_fe=tied_fe, num_steps_list=num_steps_list)
+        self.fitting_class = RegionFitting.from_builder(self.builded_region,limits_overrides=None,profile=profile,
+                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
         #this make more sence in the build region part and then we can add another "subfunction"
-        fitting_class = RegionFitting(fitting_routine,profile=profile)
+        #fitting_class = RegionFitting(fitting_routine,profile=profile)
         spectra = self.spectra.astype(jnp.float32)
-        fit_output = fitting_class(spectra, do_return=True,sigma_params=sigma_params,learning_rate=learning_rate)
+        if run_fit:    
+            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params)
+            fit_output = self.fitting_class.fit_result
+            #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
+            fit_output.source = "computed"
+            # Store result using FitResult directly
+            self.result = FitResult(
+                params=fit_output.params.astype(jnp.float64),
+                uncertainty_params=fit_output.uncertainty_params,
+                mask=fit_output.mask,
+                profile_functions=fit_output.profile_functions,
+                profile_names=fit_output.profile_names,
+                #loss=fit_output.loss,
+                profile_params_index_list=fit_output.profile_params_index_list,
+                initial_params=fit_output.initial_params.astype(jnp.float64),
+                scale=fit_output.scale,
+                params_dict=fit_output.params_dict,
+                complex_region=fit_output.complex_region,
+                outer_limits=fit_output.outer_limits,
+                inner_limits=fit_output.inner_limits,
+                model_keywords= fit_output.model_keywords,
+                fitting_routine = fit_output.fitting_routine,
+                constraints = fit_output.constraints.astype(jnp.float64),
+                source=fit_output.source,
+                dependencies=fit_output.dependencies
+            )
 
-        #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
-        fit_output.source = "computed"
-        
-        # Store result using FitResult directly
-        self.result = FitResult(
-            params=fit_output.params.astype(jnp.float64),
-            uncertainty_params=fit_output.uncertainty_params,
-            mask=fit_output.mask,
-            profile_functions=fit_output.profile_functions,
-            profile_names=fit_output.profile_names,
-            #loss=fit_output.loss,
-            profile_params_index_list=fit_output.profile_params_index_list,
-            initial_params=fit_output.initial_params.astype(jnp.float64),
-            scale=fit_output.scale,
-            params_dict=fit_output.params_dict,
-            complex_region=fit_output.complex_region,
-            outer_limits=fit_output.outer_limits,
-            inner_limits=fit_output.inner_limits,
-            model_keywords= fit_output.model_keywords,
-            fitting_routine = fit_output.fitting_routine,
-            constraints = fit_output.constraints.astype(jnp.float64),
-            source=fit_output.source,
-            dependencies=fit_output.dependencies
-        )
-
-        self._plotter = SheapPlot(sheap=self)
+            self._plotter = SheapPlot(sheap=self)
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
@@ -295,9 +275,7 @@ class Sheapectral:
         return self._plotter
     def result_dict(self, n: int) -> Dict[str, List[float]]:
         return {
-            key: [self.result.params[n][i], self.result.uncertainty_params[n][i]]
-            for key, i in self.result.params_dict.items()
-    }
+            key: [float(self.result.params[n][i]), float(self.result.uncertainty_params[n][i]),self.result.constraints[i]] for key, i in self.result.params_dict.items()}
     
     def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
         import matplotlib.pyplot as plt

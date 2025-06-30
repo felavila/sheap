@@ -113,7 +113,7 @@ def balmercontinuum(x, pars):
 # from sheap.Functions.profiles import with_param_names
 
 # Basic continuum models with normalized wavelength (x/1000) ---------------------------
-@with_param_names(["amplitude_b", "amplitude_m"])
+@with_param_names(["amplitude_slope", "amplitude_intercept"])
 def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """f(x) = intercept + slope * (x/1000)"""
     x = xs / 1000.0
