@@ -87,23 +87,60 @@ class RegionFitting:
 
         inner_limits = self.inner_limits or inner_limits
         outer_limits = self.outer_limits or outer_limits
+        params = jnp.tile(self.initial_params, (spectra.shape[0], 1))
+        
+        if "linear" in self.profile_names:
+            from jax import vmap 
+            def wls_one(xi, fi, ei):
+                """
+                Weighted least‐squares fit of y = m x + b to points (xi, fi),
+                using weights w_i = 1/ei^2 over all pixels.
+                Returns (slope, intercept).
+                """
+                # inverse‐variance weights for every pixel
+                w      = 1.0 / (ei**2)
 
+                # compute weighted sums
+                sum_wxx = jnp.sum(w * xi * xi)    # Σ w x²
+                sum_wx  = jnp.sum(w * xi)         # Σ w x
+                sum_wxy = jnp.sum(w * xi * fi)    # Σ w x y
+                sum_wy  = jnp.sum(w * fi)         # Σ w y
+                sum_w   = jnp.sum(w)              # Σ w
+
+                # normal equations: [[Σw x², Σw x], [Σw x, Σw]] · [m, b] = [Σw x y, Σw y]
+                M   = jnp.array([[sum_wxx, sum_wx],
+                                [sum_wx , sum_w ]])
+                rhs = jnp.array([sum_wxy, sum_wy])
+
+                # solve for [m, b]
+                slope, intercept = jnp.linalg.solve(M, rhs)
+                return slope, intercept
+
+            # prepare inputs:
+            x_batch   = (norm_spec[:, 0, :] / 1000.0)
+            f_batch   =  norm_spec[:, 1, :]
+            e_batch   =  norm_spec[:, 2, :]
+            ols_vmapped = vmap(wls_one, in_axes=(0, 0, 0))
+            slope_arr, intercept_arr = ols_vmapped(x_batch, f_batch,e_batch)
+            idx_slope     = self.params_dict["amplitude_slope_linear_0_continuum"]
+            idx_intercept = self.params_dict["amplitude_intercept_linear_0_continuum"]
+            #print(slope_arr[0], intercept_arr[0]) 
+            params = (params.at[:, idx_slope].set(slope_arr).at[:, idx_intercept].set(intercept_arr))
+              
+        #print(params[0])                    
         if not (self.inner_limits and self.outer_limits):
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
             raise TypeError("fitting_routine must be a dictionary.")
-        params = self.initial_params
         total_time = 0
         for i, (key, step) in enumerate(self.fitting_routine.items()):
             print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
-            step["non_optimize_in_axis"] = 4 #experimental
-            if len(params.shape)==1:
-                params = jnp.tile(params, (spectra.shape[0], 1))
+            step["non_optimize_in_axis"] = 4 #experimental  
             if isinstance(learning_rate,list):
                 step["learning_rate"] = learning_rate[i]
                 
             start_time = time.time()  # 
-            params, loss = self._fit(norm_spec, self.model, params, **step)
+            params, loss = self._fit(i,norm_spec, self.model, params, **step)
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time()  # 
             elapsed = end_time - start_time
@@ -133,6 +170,7 @@ class RegionFitting:
     
     def _fit(
         self,
+        iteration_number: int,
         norm_spec: jnp.ndarray,
         model,
         initial_params,
@@ -154,9 +192,11 @@ class RegionFitting:
 
         params_obj = Parameters()
         for name, idx in self.params_dict.items():
-            val = self.initial_params[idx]  # Use one object's value as a starting point
+            val = self.initial_params[idx]
             min,max = self.constraints[idx]
-            #print(min,max)
+            #if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==0:
+             #   params_obj.add(name, val, fixed=True)
+            #else:
             params_obj.add(name, val, min=min, max=max)
             
         raw_init = params_obj.phys_to_raw(initial_params)
@@ -243,7 +283,7 @@ class RegionFitting:
             #self.idxs =idxs #self.constraints = self.constraints.at[idxs,:].multiply(scale[:, None])
             self.params = params.at[:, idxs].multiply(scale[:, None])
             self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
-            self.constraints = self.constraints.at[idxs,:].multiply(scale[None,:])
+            #self.constraints = self.constraints.at[idxs,:].multiply(scale[None,:])
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
             
         except Exception as e:
