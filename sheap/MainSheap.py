@@ -164,7 +164,7 @@ class Sheapectral:
                 mask=fit_output.mask,
                 profile_functions=fit_output.profile_functions,
                 profile_names=fit_output.profile_names,
-                #loss=fit_output.loss,
+                loss=fit_output.loss,
                 profile_params_index_list=fit_output.profile_params_index_list,
                 initial_params=fit_output.initial_params.astype(jnp.float64),
                 scale=fit_output.scale,

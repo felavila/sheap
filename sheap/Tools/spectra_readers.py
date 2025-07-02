@@ -44,7 +44,7 @@ def fits_reader_sdss(file):
         data["flux"] * flux_scale,
         flux_scale / np.sqrt(data["ivar"]),data["wdisp"]])
     data_array[np.isinf(data_array)] = 1e20
-    header_array = np.array([hdul[0].header["PLUG_RA"], hdul[0].header["PLUG_DEC"]])
+    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])#PLUG_RA/PLUG_DEC
     return data_array, header_array
 
 def fits_reader_pyqso(file):

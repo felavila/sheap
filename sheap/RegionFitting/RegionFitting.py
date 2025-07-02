@@ -13,13 +13,14 @@ import yaml
 from jax import jit
 
 from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
+from sheap.DataClass.Parameters import Parameters
 from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Minimizer.utils import parse_dependencies
 from sheap.Minimizer.MasterMinimizer import MasterMinimizer
 
 # from sheap.Fitting.template_fe_func import
 from sheap.Functions.utils import combine_auto,make_fused_profiles,make_super_fused
-from sheap.RegionFitting.utils import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS,Parameters
+from sheap.RegionFitting.constrains import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
 from sheap.Mappers.helpers import mapping_params
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
 from sheap.DataClass.utils import is_list_of_SpectralLine

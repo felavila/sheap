@@ -200,52 +200,585 @@ def build_loss_function(
     param_converter: Optional["Parameters"] = None,
 ) -> Callable:
     """
-    Build a JIT-compiled loss function.
+    Build a JIT-compiled loss function using L2 (“p=2”) residuals.
 
     Args:
         func: The model function, called as func(xs, params)
+        weighted: If True, normalize residuals by yerr
+        penalty_function: Optional regularization function; called as penalty_function(xs, params)
+        penalty_weight: Multiplier for that regularization term
         param_converter: Optional Parameters() object to transform raw → phys
 
     Returns:
-        A loss function with signature (params, xs, y, yerr) -> scalar loss
+        A loss(params, xs, y, yerr) -> scalar loss
     """
-    def log_cosh(x):
-        return jnp.logaddexp(x, -x) - jnp.log(2.0)
-
     def wrapped(xs, raw_params):
         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
         return func(xs, phys_params)
 
     if weighted and penalty_function:
         def weighted_with_penalty(params, xs, y, yerr):
-            y_pred = wrapped(xs, params)
-            r = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            data_term = jnp.nanmean(log_cosh(r))
-            reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+            y_pred   = wrapped(xs, params)
+            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+            data_term = jnp.nanmean(jnp.abs(r)**2)                            # <-- L2 here
+            reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
             return data_term + reg_term
         return weighted_with_penalty
 
     elif weighted:
         def weighted_loss(params, xs, y, yerr):
             y_pred = wrapped(xs, params)
-            r = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            return jnp.nanmean(log_cosh(r))
+            r      = (y_pred - y) / jnp.clip(yerr, 1e-8)
+            return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
         return weighted_loss
 
     elif penalty_function:
         def unweighted_with_penalty(params, xs, y, yerr):
-            y_pred = wrapped(xs, params)
-            r = y_pred - y
-            data_term = jnp.nanmean(log_cosh(r))
-            reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+            y_pred    = wrapped(xs, params)
+            r         = y_pred - y
+            data_term = jnp.nanmean(jnp.abs(r)**2)                          # <-- L2 here
+            reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
             return data_term + reg_term
         return unweighted_with_penalty
 
     else:
         def unweighted_loss(params, xs, y, yerr):
             y_pred = wrapped(xs, params)
-            return jnp.nanmean(log_cosh(y_pred - y))
+            r      = y_pred - y
+            return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
         return unweighted_loss
+    
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     huber_delta: float = 30,         
+# ) -> Callable:
+#     """
+#     Build a JIT‐compiled loss function using a Huber (“rubber”) loss.
+
+#     Args:
+#         func: The model function, called as func(xs, params)
+#         weighted: whether to divide by yerr
+#         penalty_function: optional regularization term
+#         penalty_weight: its multiplier
+#         param_converter: optional raw → phys transform
+#         huber_delta: transition point between quadratic and linear
+
+#     Returns:
+#         A loss(params, xs, y, yerr) -> scalar
+#     """
+#     def huber(r):
+#         abs_r = jnp.abs(r)
+#         # quadratic for |r|<=δ, linear beyond
+#         return jnp.where(abs_r <= huber_delta,
+#                          0.5 * r**2,
+#                          huber_delta * (abs_r - 0.5 * huber_delta))
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(huber(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return weighted_with_penalty
+
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             return jnp.nanmean(huber(r))
+#         return weighted_loss
+
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = y_pred - y
+#             data_term = jnp.nanmean(huber(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return unweighted_with_penalty
+
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             return jnp.nanmean(huber(y_pred - y))
+#         return unweighted_loss
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     residual_power: float = 10.0,    # Emphasis on large residuals
+#     uncertainty_power: float = 1.0, # Emphasis on small uncertainties
+#     huber_delta: float = 30.0,      # Transition point for Huber loss
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function using Huber loss with hybrid adaptive weighting.
+
+#     Args:
+#         func: Model function, called as func(xs, params).
+#         weighted: Whether to normalize residuals by yerr.
+#         penalty_function: Optional regularization function.
+#         penalty_weight: Multiplier for the regularization term.
+#         param_converter: Optional raw → physical parameter converter.
+#         residual_power: Controls emphasis on large residuals.
+#         uncertainty_power: Controls emphasis on small uncertainties.
+#         huber_delta: Threshold δ between quadratic and linear Huber regions.
+
+#     Returns:
+#         A loss(params, xs, y, yerr) -> scalar loss
+#     """
+
+#     def huber(r):
+#         abs_r = jnp.abs(r)
+#         return jnp.where(
+#             abs_r <= huber_delta,
+#             0.5 * r**2,
+#             huber_delta * (abs_r - 0.5 * huber_delta)
+#         )
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     def make_reg_term(params, xs):
+#         # PPXF or any custom penalty can go here via penalty_function
+#         if penalty_function:
+#             return penalty_weight * penalty_function(xs, params) * 1e3
+#         else:
+#             return 0.0
+
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             rw = jnp.abs(residuals) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             w = rw * uw
+
+#             data_term = jnp.nansum(huber(residuals) * w) / (jnp.nansum(w) + 1e-8)
+#             return data_term + make_reg_term(params, xs)
+
+#         return weighted_with_penalty
+
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             rw = jnp.abs(residuals) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             w = rw * uw
+
+#             return jnp.nansum(huber(residuals) * w) / (jnp.nansum(w) + 1e-8)
+
+#         return weighted_loss
+
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = y_pred - y
+
+#             rw = jnp.abs(residuals) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             w = rw * uw
+
+#             data_term = jnp.nansum(huber(residuals) * w) / (jnp.nansum(w) + 1e-8)
+#             return data_term + make_reg_term(params, xs)
+
+#         return unweighted_with_penalty
+
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = y_pred - y
+
+#             rw = jnp.abs(residuals) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             w = rw * uw
+
+#             return jnp.nansum(huber(residuals) * w) / (jnp.nansum(w) + 1e-8)
+
+#         return unweighted_loss
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     residual_power: float = 2.0,      # emphasis on large residuals
+#     uncertainty_power: float = 1.0,   # emphasis on small yerr
+#     derivative_power: float = 2.0,    # emphasis on steep spectral gradients
+#     huber_delta: float = 1e3,        # Huber transition
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss that
+#       1) uses Huber for robust residuals,
+#       2) adapts weights by residual magnitude,
+#       3) adapts weights by 1/yerr,
+#       4) adapts weights by |d(obs)/dx|,
+#       5) optionally adds a penalty_function(xs, params).
+
+#     Args:
+#         func: model → flux, called func(xs, phys_params).
+#         weighted: if True, normalize residuals by yerr.
+#         penalty_function: extra reg term, signature (xs, params)->scalar.
+#         penalty_weight: multiplier for penalty_function.
+#         param_converter: raw→physical converter.
+#         residual_power: power on |residual|.
+#         uncertainty_power: power on 1/yerr.
+#         derivative_power: power on |d(obs)/dx|.
+#         huber_delta: δ for Huber loss.
+
+#     Returns:
+#         loss(params, xs, y, yerr) → scalar
+#     """
+
+#     def huber(r):
+#         a = jnp.abs(r)
+#         return jnp.where(a <= huber_delta,
+#                          0.5 * r**2,
+#                          huber_delta * (a - 0.5 * huber_delta))
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     def make_penalty(xs, params):
+#         if penalty_function:
+#             return penalty_weight * penalty_function(xs, params) * 1e3
+#         return 0.0
+
+#     def feature_weight(y, xs):
+#         # |d(obs)/dx|^derivative_power
+#         # xs: wavelengths, y: observed flux (same shape)
+#         grad = jnp.abs(jnp.gradient(y, xs))
+#         return grad ** derivative_power
+
+#     # four branches:
+#     if weighted:
+#         def loss_fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             rw = jnp.abs(r) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             dw = feature_weight(y, xs)
+
+#             w = rw * uw * (1.0 + dw)   # add 1 so flat regions still count
+
+#             data = jnp.nansum(huber(r) * w) / (jnp.nansum(w) + 1e-8)
+#             return data + make_penalty(xs, params)
+
+#     else:
+#         def loss_fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = y_pred - y
+
+#             rw = jnp.abs(r) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             dw = feature_weight(y, xs)
+
+#             w = rw * uw * (1.0 + dw)
+
+#             data = jnp.nansum(huber(r) * w) / (jnp.nansum(w) + 1e-8)
+#             return data + make_penalty(xs, params)
+
+#     return loss_fn
+
+# def ppxf_smoothness_penalty(params: jnp.ndarray, lambda_reg: float = 1.0) -> jnp.ndarray:
+#     """
+#     Compute a PPXF-like smoothness penalty on `params`:
+#       penalty = lambda_reg * sum( (params[i+2] - 2*params[i+1] + params[i])^2 ) over i
+#     """
+#     second_diff = jnp.diff(params, n=2)              # shape (N-2,)
+#     penalty    = jnp.sum(second_diff**2)             # scalar
+#     return lambda_reg * penalty
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,  # ignore for now
+#     penalty_weight: float = 0.01,   # multiplier for *that* penalty
+#     param_converter: Optional["Parameters"] = None,
+#     ppxf_lambda: float = 1.0,       # << new!
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss with optional PPXF smoothness penalty.
+#     """
+#     def log_cosh(x):
+#         return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     # choose where to inject the PPXF penalty:
+#     def make_reg_term(params):
+#         # original penalty_function is still available if you want to combine both:
+#         extra = 0.0
+#         if penalty_function:
+#             extra = penalty_weight * penalty_function(xs, params) * 1e3
+#         # now add the PPXF smoothness:
+#         smooth = ppxf_smoothness_penalty(params, lambda_reg=ppxf_lambda)
+#         return smooth + extra
+
+#     if weighted:
+#         def weighted_with_ppxf(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data = jnp.nanmean(log_cosh(r))
+#             return data + make_reg_term(params)
+#         return weighted_with_ppxf
+
+#     else:
+#         def unweighted_with_ppxf(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             data = jnp.nanmean(log_cosh(y_pred - y))
+#             return data + make_reg_term(params)
+#         return unweighted_with_ppxf
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function.
+
+#     Args:
+#         func: The model function, called as func(xs, params)
+#         param_converter: Optional Parameters() object to transform raw → phys
+
+#     Returns:
+#         A loss function with signature (params, xs, y, yerr) -> scalar loss
+#     """
+#     def log_cosh(x):
+#         return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+#     def wrapped(xs, raw_params):
+#         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys_params)
+
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(log_cosh(r))
+#             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return weighted_with_penalty
+
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             return jnp.nanmean(log_cosh(r))
+#         return weighted_loss
+
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = y_pred - y
+#             data_term = jnp.nanmean(log_cosh(r))
+#             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return unweighted_with_penalty
+
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             return jnp.nanmean(log_cosh(y_pred - y))
+#         return unweighted_loss
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     residual_power: float = 2.0,       # Emphasis on large residuals
+#     uncertainty_power: float = 1.0,    # Emphasis on small uncertainties
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function using hybrid adaptive weighting (residual + uncertainty).
+
+#     Args:
+#         func: Model function, called as func(xs, params).
+#         weighted: Whether to normalize residuals by uncertainties (yerr).
+#         penalty_function: Optional regularization function.
+#         penalty_weight: Multiplier for penalty term.
+#         param_converter: Optional object to transform raw → physical parameters.
+#         residual_power: Controls emphasis on large residuals (adaptive weighting).
+#         uncertainty_power: Controls emphasis on uncertainties.
+
+#     Returns:
+#         A loss(params, xs, y, yerr) -> scalar loss
+#     """
+
+#     def log_cosh(x):
+#         return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+#     def wrapped(xs, raw_params):
+#         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys_params)
+
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             residual_weights = jnp.abs(residuals) ** residual_power
+#             uncertainty_weights = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             combined_weights = residual_weights * uncertainty_weights
+
+#             data_term = jnp.nansum(log_cosh(residuals) * combined_weights) / (jnp.nansum(combined_weights) + 1e-8)
+
+#             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+
+#         return weighted_with_penalty
+
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             residual_weights = jnp.abs(residuals) ** residual_power
+#             uncertainty_weights = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             combined_weights = residual_weights * uncertainty_weights
+
+#             return jnp.nansum(log_cosh(residuals) * combined_weights) / (jnp.nansum(combined_weights) + 1e-8)
+
+#         return weighted_loss
+
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = y_pred - y
+
+#             residual_weights = jnp.abs(residuals) ** residual_power
+#             uncertainty_weights = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             combined_weights = residual_weights * uncertainty_weights
+
+#             data_term = jnp.nansum(log_cosh(residuals) * combined_weights) / (jnp.nansum(combined_weights) + 1e-8)
+
+#             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+
+#         return unweighted_with_penalty
+
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             residuals = y_pred - y
+
+#             residual_weights = jnp.abs(residuals) ** residual_power
+#             uncertainty_weights = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             combined_weights = residual_weights * uncertainty_weights
+
+#             return jnp.nansum(log_cosh(residuals) * combined_weights) / (jnp.nansum(combined_weights) + 1e-8)
+
+#         return unweighted_loss
+
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     residual_power: float = 2.0,      # emphasis on large residuals
+#     uncertainty_power: float = 1.0,   # emphasis on small yerr
+#     derivative_power: float = 1.0,    # emphasis on steep spectral gradients
+#     huber_delta: float = 15.0,        # Huber transition
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss that
+#       1) uses Huber for robust residuals,
+#       2) adapts weights by residual magnitude,
+#       3) adapts weights by 1/yerr,
+#       4) adapts weights by |d(obs)/dx|,
+#       5) optionally adds a penalty_function(xs, params).
+
+#     Args:
+#         func: model → flux, called func(xs, phys_params).
+#         weighted: if True, normalize residuals by yerr.
+#         penalty_function: extra reg term, signature (xs, params)->scalar.
+#         penalty_weight: multiplier for penalty_function.
+#         param_converter: raw→physical converter.
+#         residual_power: power on |residual|.
+#         uncertainty_power: power on 1/yerr.
+#         derivative_power: power on |d(obs)/dx|.
+#         huber_delta: δ for Huber loss.
+
+#     Returns:
+#         loss(params, xs, y, yerr) → scalar
+#     """
+
+#     def huber(r):
+#         a = jnp.abs(r)
+#         return jnp.where(a <= huber_delta,
+#                          0.5 * r**2,
+#                          huber_delta * (a - 0.5 * huber_delta))
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     def make_penalty(xs, params):
+#         if penalty_function:
+#             return penalty_weight * penalty_function(xs, params) * 1e3
+#         return 0.0
+
+#     def feature_weight(y, xs):
+#         # |d(obs)/dx|^derivative_power
+#         # xs: wavelengths, y: observed flux (same shape)
+#         grad = jnp.abs(jnp.gradient(y, xs))
+#         return grad ** derivative_power
+
+#     # four branches:
+#     if weighted:
+#         def loss_fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+#             rw = jnp.abs(r) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             dw = feature_weight(y, xs)
+
+#             w = rw * uw * (1.0 + dw)   # add 1 so flat regions still count
+
+#             data = jnp.nansum(huber(r) * w) / (jnp.nansum(w) + 1e-8)
+#             return data + make_penalty(xs, params)
+
+#     else:
+#         def loss_fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r = y_pred - y
+
+#             rw = jnp.abs(r) ** residual_power
+#             uw = (1.0 / jnp.clip(yerr, 1e-8)) ** uncertainty_power
+#             dw = feature_weight(y, xs)
+
+#             w = rw * uw * (1.0 + dw)
+
+#             data = jnp.nansum(huber(r) * w) / (jnp.nansum(w) + 1e-8)
+#             return data + make_penalty(xs, params)
+
+#     return loss_fn
 
 
 # def build_loss_function(
@@ -253,74 +786,52 @@ def build_loss_function(
 #     weighted: bool = True,
 #     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
 #     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
 # ) -> Callable:
 #     """
-#     Build a JIT-compiled loss function depending on weight and penalty usage.
+#     Build a JIT-compiled loss function.
 
 #     Args:
 #         func: The model function, called as func(xs, params)
-#         weighted: Whether to use inverse variance weighting.
-#         penalty_function: Optional penalty function (e.g., for constraints).
-#         penalty_weight: Scalar multiplier for penalty term.
+#         param_converter: Optional Parameters() object to transform raw → phys
 
 #     Returns:
-#         A loss function with signature (params, xs, y, y_uncertainties) -> scalar loss
+#         A loss function with signature (params, xs, y, yerr) -> scalar loss
 #     """
-
-#     # So penalty functions have to be funtions that take to params x and y but can only use x or params
-#     # penalty_function = penalty_function(func)
 #     def log_cosh(x):
-#         """Numerically stable log(cosh(x))."""
 #         return jnp.logaddexp(x, -x) - jnp.log(2.0)
 
+#     def wrapped(xs, raw_params):
+#         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys_params)
+
 #     if weighted and penalty_function:
-
 #         def weighted_with_penalty(params, xs, y, yerr):
-#             y_pred = func(xs, params)
+#             y_pred = wrapped(xs, params)
 #             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
-#             loss = log_cosh(r)
-#             # weights = 1.0 / jnp.clip(yerr, 1e-8)**2
-#             data_term = jnp.nanmean(loss)
+#             data_term = jnp.nanmean(log_cosh(r))
 #             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
-#             # wmse = jnp.nansum(weights * loss) / jnp.nansum(weights)
 #             return data_term + reg_term
-
-#         # wmse + penalty_weight * penalty_function(xs,params)
 #         return weighted_with_penalty
 
 #     elif weighted:
-
 #         def weighted_loss(params, xs, y, yerr):
-#             y_pred = func(xs, params)
+#             y_pred = wrapped(xs, params)
 #             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
-#             loss = log_cosh(r)
-#             data_term = jnp.nanmean(loss)
-#             # weights = 1.0 / jnp.clip(yerr, 1e-8)**2
-#             # loss = jnp.log(jnp.cosh(y_pred - y))
-#             return data_term  # jnp.nansum(weights * loss) / jnp.nansum(weights)
-
+#             return jnp.nanmean(log_cosh(r))
 #         return weighted_loss
 
 #     elif penalty_function:
-
 #         def unweighted_with_penalty(params, xs, y, yerr):
-#             y_pred = func(xs, params)
+#             y_pred = wrapped(xs, params)
 #             r = y_pred - y
-#             loss = log_cosh(r)
-#             data_term = jnp.nanmean(loss)
-#             reg_term = (
-#                 penalty_weight * penalty_function(xs, params) * 1e3
-#             )  # this value should be remove in comming iterations
+#             data_term = jnp.nanmean(log_cosh(r))
+#             reg_term = penalty_weight * penalty_function(xs, params) * 1e3
 #             return data_term + reg_term
-
 #         return unweighted_with_penalty
 
 #     else:
-
 #         def unweighted_loss(params, xs, y, yerr):
-#             y_pred = func(xs, params)
-#             r = y_pred - y
-#             loss = log_cosh(r)
-#             return jnp.nanmean(loss)
-
+#             y_pred = wrapped(xs, params)
+#             return jnp.nanmean(log_cosh(y_pred - y))
 #         return unweighted_loss
