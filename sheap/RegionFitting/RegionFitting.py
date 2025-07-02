@@ -90,6 +90,9 @@ class RegionFitting:
         outer_limits = self.outer_limits or outer_limits
         params = jnp.tile(self.initial_params, (spectra.shape[0], 1))
         
+        
+        
+        
         if "linear" in self.profile_names:
             from jax import vmap 
             def wls_one(xi, fi, ei):
@@ -122,11 +125,13 @@ class RegionFitting:
             f_batch   =  norm_spec[:, 1, :]
             e_batch   =  norm_spec[:, 2, :]
             ols_vmapped = vmap(wls_one, in_axes=(0, 0, 0))
-            slope_arr, intercept_arr = ols_vmapped(x_batch, f_batch,e_batch)
-            idx_slope     = self.params_dict["amplitude_slope_linear_0_continuum"]
-            idx_intercept = self.params_dict["amplitude_intercept_linear_0_continuum"]
+            _arr = ols_vmapped(x_batch, f_batch,e_batch)
+            for dx,param_name in enumerate(self.continuum_params_names):
+                idx_l     = self.params_dict[param_name]
+                params = (params.at[:, idx_l].set(_arr[dx])) #.at[:, idx_intercept].set(intercept_arr))
+            #idx_intercept = self.params_dict["amplitude_intercept_linear_0_continuum"]
             #print(slope_arr[0], intercept_arr[0]) 
-            params = (params.at[:, idx_slope].set(slope_arr).at[:, idx_intercept].set(intercept_arr))
+           
               
         #print(params[0])                    
         if not (self.inner_limits and self.outer_limits):
@@ -193,12 +198,15 @@ class RegionFitting:
 
         params_obj = Parameters()
         for name, idx in self.params_dict.items():
-            val = self.initial_params[idx]
-            min,max = self.constraints[idx]
-            #if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==0:
-             #   params_obj.add(name, val, fixed=True)
-            #else:
-            params_obj.add(name, val, min=min, max=max)
+            if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==0:
+                val = initial_params[:,idx]
+                #print(val.shape)
+                min,max = self.constraints[idx]
+                params_obj.add(name, val, fixed=True)
+            else:
+                val = self.initial_params[idx]
+                min,max = self.constraints[idx]
+                params_obj.add(name, val, min=min, max=max)
             
         raw_init = params_obj.phys_to_raw(initial_params)
         
@@ -312,8 +320,9 @@ class RegionFitting:
         
         idx = 0  # parameter_position
         complex_region = []
+        #self.continuum_profile = np.intersect1d(self.profile_names,list(PROFILE_CONTINUUM_FUNC_MAP.keys()))
         #I have to decide between sp or cfg for the lines 
-        for sp in self.complex_class.lines:
+        for _,sp in enumerate(self.complex_class.lines):
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
             
@@ -341,9 +350,15 @@ class RegionFitting:
                 self.profile_names.append(constraints.profile)
             if sp.profile in list(PROFILE_CONTINUUM_FUNC_MAP.keys()):
                 add_linear = False
-            for i, name in enumerate(constraints.param_names):
-                key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
-                self.params_dict[key] = idx + i
+                self.continuum_params_names = []
+                for i, name in enumerate(constraints.param_names):
+                    key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
+                    self.params_dict[key] = idx + i
+                    self.continuum_params_names.append(key) 
+            else:
+                for i, name in enumerate(constraints.param_names):
+                    key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
+                    self.params_dict[key] = idx + i
             # self.profile_params_index.append([idx,idx + len(constraints.param_names)])
             self.profile_params_index_list.append(
                 np.arange(idx, idx + len(constraints.param_names))

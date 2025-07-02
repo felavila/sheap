@@ -55,7 +55,7 @@ CANONICAL_WAVELENGTHS = {
 
 DEFAULT_LIMITS = {
     'broad': dict(
-        upper_fwhm=11775.0,  # FWHM ~ 1000–10000 km/s for broad lines
+        upper_fwhm=10_000.0,  # FWHM ~ 1000–10000 km/s for broad lines
         lower_fwhm=1000.875,
         center_shift=5000.0,
         max_amplitude=10.0,
@@ -136,8 +136,8 @@ def make_constraints(
             raise ValueError("Fe template must define 'which_template' (e.g., 'OP', 'UV')")
         
         return ConstraintSet(
-            init=[3.0, 0.0, 1.0],
-            upper=[3.8, 100.0, 100.0],
+            init=[3.0, 0.0, 0.001],
+            upper=[3.8, 100.0, 0.005],
             lower=[2.7, -100.0, 0.0],
             profile='fitFe' + sp.which_template,
             param_names=['logFWHM', 'shift', 'amplitude'],
@@ -265,15 +265,18 @@ def make_constraints(
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
-        fwhm_init = (fwhm_lo) * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        if sp.region in ["narrow"]:
+            fwhm_init = fwhm_up
+        else:
+            fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
 
         init, upper, lower = [], [], []
 
         for _,p in enumerate(names):
             #print(p)
             if "amplitude" in p:
-                init.append(5.0)
-                upper.append(20.0)
+                init.append(0.1)
+                upper.append(2.0)
                 lower.append(0.0)
 
             elif p == "shift":

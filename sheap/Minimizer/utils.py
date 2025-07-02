@@ -192,15 +192,99 @@ def project_params(
     return params
 
 
+
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     huber_k: float = 2.0,   # Δ = huber_k * scale_estimate(r)
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function using Adaptive Huber.
+#     The worst one 
+#     Args:
+#         func:             Model function, called as func(xs, phys_params).
+#         weighted:         If True, divide residuals by yerr.
+#         penalty_function: Optional extra penalty, called as penalty_function(xs, params).
+#         penalty_weight:   Multiplier for that penalty.
+#         param_converter:  Optional raw→physical parameter converter.
+#         huber_k:          Multiplier for adaptive Δ (default 1.0).
+
+#     Returns:
+#         A loss(params, xs, y, yerr) -> scalar
+#     """
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     def adaptive_huber(r: jnp.ndarray) -> jnp.ndarray:
+#         # 1) robust scale estimate via MAD
+#         med  = jnp.nanmedian(r)
+#         mad  = jnp.nanmedian(jnp.abs(r - med)) + 1e-8
+#         scale = 1.4826 * mad
+
+#         # 2) threshold Δ = k * scale
+#         Δ = huber_k * scale
+
+#         # 3) Huber formula
+#         abs_r = jnp.abs(r)
+#         return jnp.where(
+#             abs_r <= Δ,
+#             0.5 * r**2,
+#             Δ * (abs_r - 0.5 * Δ)
+#         )
+
+#     def make_reg(xs, params):
+#         if penalty_function:
+#             return penalty_weight * penalty_function(xs, params) * 1e3
+#         return 0.0
+
+#     # Four‐branch logic, identical shape to your original:
+#     if weighted and penalty_function:
+#         def fn(params, xs, y, yerr):
+#             y_pred   = wrapped(xs, params)
+#             r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data     = jnp.nanmean(adaptive_huber(r))
+#             return data + make_reg(xs, params)
+#         return fn
+
+#     elif weighted:
+#         def fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r      = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             return jnp.nanmean(adaptive_huber(r))
+#         return fn
+
+#     elif penalty_function:
+#         def fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r      = (y_pred - y)
+#             data   = jnp.nanmean(adaptive_huber(r))
+#             return data + make_reg(xs, params)
+#         return fn
+
+#     else:
+#         def fn(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r      = (y_pred - y)
+#             return jnp.nanmean(adaptive_huber(r))
+#         return fn
+
+
 def build_loss_function(
     func: Callable,
     weighted: bool = True,
     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
     penalty_weight: float = 0.01,
     param_converter: Optional["Parameters"] = None,
+    cauchy_scale: float = 100.0,  # heavier clipping for smaller scale
 ) -> Callable:
     """
-    Build a JIT-compiled loss function using L2 (“p=2”) residuals.
+    Build a JIT-compiled loss function using a Cauchy robust loss.
 
     Args:
         func: The model function, called as func(xs, params)
@@ -208,19 +292,24 @@ def build_loss_function(
         penalty_function: Optional regularization function; called as penalty_function(xs, params)
         penalty_weight: Multiplier for that regularization term
         param_converter: Optional Parameters() object to transform raw → phys
-
+        cauchy_scale: Scale parameter for the Cauchy loss:
+                      loss(r) = log(1 + (r / cauchy_scale)**2)
     Returns:
         A loss(params, xs, y, yerr) -> scalar loss
     """
+    def cauchy_loss(r):
+        # elementwise: log(1 + (r/scale)^2)
+        return jnp.log1p((r / cauchy_scale) ** 2)
+
     def wrapped(xs, raw_params):
-        phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
-        return func(xs, phys_params)
+        phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+        return func(xs, phys)
 
     if weighted and penalty_function:
         def weighted_with_penalty(params, xs, y, yerr):
             y_pred   = wrapped(xs, params)
             r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            data_term = jnp.nanmean(jnp.abs(r)**2)                            # <-- L2 here
+            data_term = jnp.nanmean(cauchy_loss(r))
             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
             return data_term + reg_term
         return weighted_with_penalty
@@ -229,14 +318,14 @@ def build_loss_function(
         def weighted_loss(params, xs, y, yerr):
             y_pred = wrapped(xs, params)
             r      = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
+            return jnp.nanmean(cauchy_loss(r))
         return weighted_loss
 
     elif penalty_function:
         def unweighted_with_penalty(params, xs, y, yerr):
             y_pred    = wrapped(xs, params)
             r         = y_pred - y
-            data_term = jnp.nanmean(jnp.abs(r)**2)                          # <-- L2 here
+            data_term = jnp.nanmean(cauchy_loss(r))
             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
             return data_term + reg_term
         return unweighted_with_penalty
@@ -245,8 +334,64 @@ def build_loss_function(
         def unweighted_loss(params, xs, y, yerr):
             y_pred = wrapped(xs, params)
             r      = y_pred - y
-            return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
+            return jnp.nanmean(cauchy_loss(r))
         return unweighted_loss
+
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function using L2 (“p=2”) residuals.
+
+#     Args:
+#         func: The model function, called as func(xs, params)
+#         weighted: If True, normalize residuals by yerr
+#         penalty_function: Optional regularization function; called as penalty_function(xs, params)
+#         penalty_weight: Multiplier for that regularization term
+#         param_converter: Optional Parameters() object to transform raw → phys
+
+#     Returns:
+#         A loss(params, xs, y, yerr) -> scalar loss
+#     """
+#     def wrapped(xs, raw_params):
+#         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys_params)
+
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred   = wrapped(xs, params)
+#             r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(jnp.abs(r)**2)                            # <-- L2 here
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return weighted_with_penalty
+
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r      = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
+#         return weighted_loss
+
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = y_pred - y
+#             data_term = jnp.nanmean(jnp.abs(r)**2)                          # <-- L2 here
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             return data_term + reg_term
+#         return unweighted_with_penalty
+
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred = wrapped(xs, params)
+#             r      = y_pred - y
+#             return jnp.nanmean(jnp.abs(r)**2)                                # <-- L2 here
+#         return unweighted_loss
     
 # def build_loss_function(
 #     func: Callable,
