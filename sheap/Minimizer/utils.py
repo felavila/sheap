@@ -193,6 +193,283 @@ def project_params(
 
 
 
+import jax.numpy as jnp
+from typing import Callable, Optional
+
+def build_loss_function(
+    func: Callable,
+    weighted: bool = True,
+    penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+    penalty_weight: float = 0.01,
+    param_converter: Optional["Parameters"] = None,
+    curvature_weight: float = 0.0,      # γ: second-derivative match
+    smoothness_weight: float = 0.0,     # δ: first-derivative smoothness
+    max_weight: float = .5,            # α: weight on worst‐pixel term
+) -> Callable:
+    """
+    Build a loss function with:
+      - log_cosh data term (mean + max)
+      - optional parameter penalty
+      - curvature matching (d²)
+      - smoothness regularization (d¹)
+    """
+    print("xdd")
+    def log_cosh(x):
+        # numerically stable log(cosh(x))
+        return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+    def wrapped(xs, raw_params):
+        phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+        return func(xs, phys)
+
+    def curvature_term(y_pred, y):
+        d2p = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
+        d2o = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
+        return jnp.nanmean((d2p - d2o)**2)
+
+    def smoothness_term(y_pred, y):
+        dr = y_pred - y
+        dp = jnp.gradient(dr, axis=-1)
+        return jnp.nanmean(dp**2)
+
+    # -------------------------------------------------------------------
+    # Weighted + penalty
+    if weighted and penalty_function:
+        def loss(params, xs, y, yerr):
+            y_pred   = wrapped(xs, params)
+            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+            # data term = mean + max
+            Lmean    = jnp.nanmean(log_cosh(r))
+            Lmax     = jnp.max   (log_cosh(r))
+            data_term = Lmean + max_weight * Lmax
+
+            # penalty on params
+            reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+
+            # curvature & smoothness
+            curv_term   = curvature_weight  * curvature_term(y_pred, y)
+            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+
+            return data_term + reg_term + curv_term + smooth_term
+
+        return loss
+
+    # -------------------------------------------------------------------
+    # Weighted only
+    elif weighted:
+        def loss(params, xs, y, yerr):
+            y_pred   = wrapped(xs, params)
+            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+
+            Lmean    = jnp.nanmean(log_cosh(r))
+            Lmax     = jnp.max   (log_cosh(r))
+            data_term = Lmean + max_weight * Lmax
+
+            curv_term   = curvature_weight  * curvature_term(y_pred, y)
+            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+
+            return data_term + curv_term + smooth_term
+
+        return loss
+
+    # -------------------------------------------------------------------
+    # Unweighted + penalty
+    elif penalty_function:
+        def loss(params, xs, y, yerr):
+            y_pred   = wrapped(xs, params)
+            r        = (y_pred - y)
+
+            Lmean    = jnp.nanmean(log_cosh(r))
+            Lmax     = jnp.max   (log_cosh(r))
+            data_term = Lmean + max_weight * Lmax
+
+            reg_term    = penalty_weight * penalty_function(xs, params) * 1e3
+            curv_term   = curvature_weight  * curvature_term(y_pred, y)
+            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+
+            return data_term + reg_term + curv_term + smooth_term
+
+        return loss
+
+    # -------------------------------------------------------------------
+    # Unweighted only
+    else:
+        def loss(params, xs, y, yerr):
+            y_pred   = wrapped(xs, params)
+            r        = (y_pred - y)
+
+            Lmean    = jnp.nanmean(log_cosh(r))
+            Lmax     = jnp.max   (log_cosh(r))
+            data_term = Lmean + max_weight * Lmax
+
+            curv_term   = curvature_weight  * curvature_term(y_pred, y)
+            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+
+            return data_term + curv_term + smooth_term
+
+        return loss
+
+# import jax
+# import jax.numpy as jnp
+# from typing import Callable, Optional
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     curvature_weight: float = 1e6,      # γ: second-derivative match
+#     smoothness_weight: float = 1e6,     # δ: first-derivative smoothness
+# ) -> Callable:
+#     """
+#     Build a loss function with:
+#       - log_cosh data term
+#       - optional parameter penalty
+#       - curvature matching (d²)
+#       - smoothness regularization (d¹)
+#     """
+#     print("loss smut curvature")
+#     def log_cosh(x):
+#         return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
+
+#     def curvature_term(y_pred, y):
+#         d2p = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
+#         d2o = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
+#         return jnp.nanmean((d2p - d2o)**2)
+
+#     def smoothness_term(y_pred, y):
+#         dr  = y_pred - y
+#         dp  = jnp.gradient(dr, axis=-1)
+#         return jnp.nanmean(dp**2)
+
+#     # Weighted + penalty
+#     if weighted and penalty_function:
+#         def loss(params, xs, y, yerr):
+#             y_pred     = wrapped(xs, params)
+#             r          = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term  = jnp.nanmean(log_cosh(r))
+#             reg_term   = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term  = curvature_weight  * curvature_term(y_pred, y)
+#             smooth_term= smoothness_weight * smoothness_term(y_pred, y)
+#             return data_term + reg_term + curv_term + smooth_term
+#         return loss
+
+#     # Weighted only
+#     elif weighted:
+#         def loss(params, xs, y, yerr):
+#             y_pred     = wrapped(xs, params)
+#             r          = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term  = jnp.nanmean(log_cosh(r))
+#             curv_term  = curvature_weight  * curvature_term(y_pred, y)
+#             smooth_term= smoothness_weight * smoothness_term(y_pred, y)
+#             return data_term + curv_term + smooth_term
+#         return loss
+
+#     # Unweighted + penalty
+#     elif penalty_function:
+#         def loss(params, xs, y, yerr):
+#             y_pred     = wrapped(xs, params)
+#             r          = (y_pred - y)
+#             data_term  = jnp.nanmean(log_cosh(r))
+#             reg_term   = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term  = curvature_weight  * curvature_term(y_pred, y)
+#             smooth_term= smoothness_weight * smoothness_term(y_pred, y)
+#             return data_term + reg_term + curv_term + smooth_term
+#         return loss
+
+#     # Unweighted only
+#     else:
+#         def loss(params, xs, y, yerr):
+#             y_pred     = wrapped(xs, params)
+#             data_term  = jnp.nanmean(log_cosh(y_pred - y))
+#             curv_term  = curvature_weight  * curvature_term(y_pred, y)
+#             smooth_term= smoothness_weight * smoothness_term(y_pred, y)
+#             return data_term + curv_term + smooth_term
+#         return loss
+    
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     curvature_weight: float = 1e6,      # new curvature weight γ
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function with optional curvature penalty.
+
+#     Args:
+#         func: The model function, called as func(xs, params)
+#         weighted: If True, normalize residuals by yerr
+#         penalty_function: Optional regularization function; called as penalty_function(xs, params)
+#         penalty_weight: Multiplier for that regularization term
+#         param_converter: Optional Parameters() object to transform raw → phys
+#         curvature_weight: Weight for the curvature-matching term
+
+#     Returns:
+#         A loss function with signature (params, xs, y, yerr) -> scalar loss
+#     """
+#     print("loss_with_curvature_penalty")
+#     def log_cosh(x):
+#         # log(cosh(x)) in a numerically stable way
+#         return jnp.logaddexp(x, -x) - jnp.log(2.0)
+
+#     def wrapped(xs, raw_params):
+#         phys_params = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys_params)
+
+#     def curvature_term(y_pred, y):
+#         # assumes last axis is the spectral pixel dimension
+#         d2_pred = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
+#         d2_obs  = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
+#         return jnp.nanmean((d2_pred - d2_obs) ** 2)
+
+#     # Weighted + penalty
+#     if weighted and penalty_function:
+#         def weighted_with_penalty(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(log_cosh(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + reg_term + curv_term
+#         return weighted_with_penalty
+
+#     # Weighted only
+#     elif weighted:
+#         def weighted_loss(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(log_cosh(r))
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + curv_term
+#         return weighted_loss
+
+#     # Unweighted + penalty
+#     elif penalty_function:
+#         def unweighted_with_penalty(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = y_pred - y
+#             data_term = jnp.nanmean(log_cosh(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + reg_term + curv_term
+#         return unweighted_with_penalty
+
+#     # Unweighted only
+#     else:
+#         def unweighted_loss(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             data_term = jnp.nanmean(log_cosh(y_pred - y))
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + curv_term
+#         return unweighted_loss
+
 
 # def build_loss_function(
 #     func: Callable,
@@ -274,83 +551,83 @@ def project_params(
 #             return jnp.nanmean(adaptive_huber(r))
 #         return fn
 
-def build_loss_function(
-    func: Callable,
-    weighted: bool = True,
-    penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
-    penalty_weight: float = 0.01,
-    param_converter: Optional["Parameters"] = None,
-    cauchy_scale: float = 5.0,
-    curvature_weight: float = 1e-2,    # new γ parameter
-) -> Callable:
-    """
-    Build a JIT-compiled loss function using a Cauchy robust loss plus
-    an optional curvature penalty (second-derivative match).
+# def build_loss_function(
+#     func: Callable,
+#     weighted: bool = True,
+#     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+#     penalty_weight: float = 0.01,
+#     param_converter: Optional["Parameters"] = None,
+#     cauchy_scale: float = 5.0,
+#     curvature_weight: float = 10,    # new γ parameter
+# ) -> Callable:
+#     """
+#     Build a JIT-compiled loss function using a Cauchy robust loss plus
+#     an optional curvature penalty (second-derivative match).
 
-    Args:
-        func: model function, called as func(xs, params)
-        weighted: normalize residuals by yerr if True
-        penalty_function: optional regularizer func(xs, params)
-        penalty_weight: multiplier for that regularizer
-        param_converter: optional raw→phys parameter transformer
-        cauchy_scale: scale for robust Cauchy loss
-        curvature_weight: weight for curvature term
-    Returns:
-        loss(params, xs, y, yerr) → scalar
-    """
+#     Args:
+#         func: model function, called as func(xs, params)
+#         weighted: normalize residuals by yerr if True
+#         penalty_function: optional regularizer func(xs, params)
+#         penalty_weight: multiplier for that regularizer
+#         param_converter: optional raw→phys parameter transformer
+#         cauchy_scale: scale for robust Cauchy loss
+#         curvature_weight: weight for curvature term
+#     Returns:
+#         loss(params, xs, y, yerr) → scalar
+#     """
 
-    def cauchy_loss(r):
-        return jnp.log1p((r / cauchy_scale) ** 2)
+#     def cauchy_loss(r):
+#         return jnp.log1p((r / cauchy_scale) ** 2)
 
-    def wrapped(xs, raw_params):
-        phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
-        return func(xs, phys)
+#     def wrapped(xs, raw_params):
+#         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
+#         return func(xs, phys)
 
-    def curvature_term(y_pred, y):
-        # assumes last axis is the spectral pixel dimension
-        d2_pred = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
-        d2_obs  = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
-        return jnp.nanmean((d2_pred - d2_obs) ** 2)
+#     def curvature_term(y_pred, y):
+#         # assumes last axis is the spectral pixel dimension
+#         d2_pred = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
+#         d2_obs  = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
+#         return jnp.nanmean((d2_pred - d2_obs) ** 2)
 
-    # Weighted + penalty
-    if weighted and penalty_function:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            data_term = jnp.nanmean(cauchy_loss(r))
-            reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
-            curv_term = curvature_weight * curvature_term(y_pred, y)
-            return data_term + reg_term + curv_term
+#     # Weighted + penalty
+#     if weighted and penalty_function:
+#         def loss(params, xs, y, yerr):
+#             y_pred   = wrapped(xs, params)
+#             r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(cauchy_loss(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + reg_term + curv_term
 
-    # Weighted only
-    elif weighted:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
-            data_term = jnp.nanmean(cauchy_loss(r))
-            curv_term = curvature_weight * curvature_term(y_pred, y)
-            return data_term + curv_term
+#     # Weighted only
+#     elif weighted:
+#         def loss(params, xs, y, yerr):
+#             y_pred   = wrapped(xs, params)
+#             r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+#             data_term = jnp.nanmean(cauchy_loss(r))
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + curv_term
 
-    # Unweighted + penalty
-    elif penalty_function:
-        def loss(params, xs, y, yerr):
-            y_pred    = wrapped(xs, params)
-            r         = (y_pred - y)
-            data_term = jnp.nanmean(cauchy_loss(r))
-            reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
-            curv_term = curvature_weight * curvature_term(y_pred, y)
-            return data_term + reg_term + curv_term
+#     # Unweighted + penalty
+#     elif penalty_function:
+#         def loss(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = (y_pred - y)
+#             data_term = jnp.nanmean(cauchy_loss(r))
+#             reg_term  = penalty_weight * penalty_function(xs, params) * 1e3
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + reg_term + curv_term
 
-    # Unweighted only
-    else:
-        def loss(params, xs, y, yerr):
-            y_pred    = wrapped(xs, params)
-            r         = (y_pred - y)
-            data_term = jnp.nanmean(cauchy_loss(r))
-            curv_term = curvature_weight * curvature_term(y_pred, y)
-            return data_term + curv_term
+#     # Unweighted only
+#     else:
+#         def loss(params, xs, y, yerr):
+#             y_pred    = wrapped(xs, params)
+#             r         = (y_pred - y)
+#             data_term = jnp.nanmean(cauchy_loss(r))
+#             curv_term = curvature_weight * curvature_term(y_pred, y)
+#             return data_term + curv_term
 
-    return loss
+#     return loss
 
 # def build_loss_function(
 #     func: Callable,

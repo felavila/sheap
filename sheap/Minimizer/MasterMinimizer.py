@@ -185,7 +185,7 @@ class MasterMinimizer:
         ) -> Tuple[jnp.ndarray, list]:
             # Initialize parameters and optimizer state
             params = initial_params
-            optimizer = optimizer or optax.adam(learning_rate)
+            optimizer = optimizer or optax.adabelief(learning_rate)
             opt_state = optimizer.init(params)
             loss_history = []
 
