@@ -12,19 +12,21 @@ from sheap.Tools.spectral_basic import kms_to_wl
 #TEMPLATE FAMILIES SHOULD BE ADDED 
 
 templates_path = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
-
+print(templates_path)
 
 fe_template_OP_file =   templates_path / 'fe2_Op.dat'
 
 fe_template_OP = jnp.array(
     np.loadtxt(fe_template_OP_file, comments='#').transpose()
 )  # y units?
-
+fe_template_OP = fe_template_OP.at[1].divide(jnp.max(fe_template_OP[1]))
+#fe_template_OP = fe_template_OP.at[]
 fe_template_UV_file = templates_path / 'fe2_UV02.dat'
 
 fe_template_UV = jnp.array(
     np.loadtxt(fe_template_UV_file, comments='#').transpose()
 ) 
+fe_template_UV = fe_template_UV.at[1].divide(jnp.max(fe_template_UV[1]))
 
 class FeIITemplateModel:
     def __init__(self, template: Tuple[jnp.ndarray, jnp.ndarray], central_wl: float,sigmatemplate: float):
@@ -35,7 +37,7 @@ class FeIITemplateModel:
     def __call__(self, x: jnp.ndarray, log_FWHM: float, shift_: float, scale: float):
         FWHM = 10 ** log_FWHM
         sigma_model = FWHM/ 2.355
-        shift = 10 * shift_
+        shift = shift_
 
         delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - self.sigmatemplate**2, 1e-12))
         dl = jnp.maximum(x[1] - x[0], 1e-6)

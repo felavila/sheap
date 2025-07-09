@@ -113,8 +113,23 @@ class SheapPlot:
             else:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
                 ax1.axvline(values[1], ls="--", linewidth=1, color="k")
-
-                if add_name and min(xlim) < values[1] < max(xlim):
+                if add_name and isinstance(region.region_lines,list):
+                    import numpy as np 
+                    centers = np.array(region.center) + params[1]#shift
+                    for ii,c in enumerate(centers):
+                        if min(xlim) < c < max(xlim):
+                            label = f"{region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " ")
+                            ypos = 0.25 if "broad" in label else 0.75
+                            ax1.text(
+                            c,
+                            ypos,
+                            label,
+                            transform=trans,
+                            rotation=90,
+                            fontsize=20,
+                            zorder=10,
+                        )
+                elif add_name and min(xlim) < values[1] < max(xlim):
                     label = f"{region.line_name}_{region.kind}_{region.component}".replace(
                         "_", " "
                     )
@@ -129,7 +144,7 @@ class SheapPlot:
                         zorder=10,
                     )
 
-        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, ls="--", color="red")
+        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red")#
         ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1)
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
         if line:
