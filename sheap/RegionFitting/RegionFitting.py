@@ -445,8 +445,6 @@ class RegionFitting:
             fitting_routine = self.fitting_routine,
             dependencies = self.dependencies,
             model_keywords= self.fitting_routine.get("model_keywords"))
-    
-   
     @property
     def pandas_params(self) -> pd.DataFrame:
         """Return fit parameters as a pandas DataFrame."""
@@ -456,9 +454,6 @@ class RegionFitting:
     def pandas_region(self) -> pd.DataFrame:
         """Return region definitions as a pandas DataFrame."""
         return pd.DataFrame([vars(sp) for sp in self.complex_region])
-
-   
-    
     @classmethod
     def from_builder(
         cls,

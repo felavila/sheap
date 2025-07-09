@@ -46,7 +46,7 @@ def make_get_param_coord_value(
 
 CANONICAL_WAVELENGTHS = {
     'broad': 4861.0,    # Hbeta
-    'narrow': 5007.0,   # [OIII]
+    'narrow': 4861.0,   # [OIII]
     'outflow': 5007.0,  # [OIII]
     'fe': 4570.0,       # Mean FeII blend
     'nlr': 6583.0,       # [NII]
@@ -136,9 +136,9 @@ def make_constraints(
             raise ValueError("Fe template must define 'which_template' (e.g., 'OP', 'UV')")
         
         return ConstraintSet(
-            init=[3.0, 0.0, 0.001],
-            upper=[3.8, 100.0, 0.005],
-            lower=[2.7, -100.0, 0.0],
+            init=[3.0, 0.0, 0.5],
+            upper=[3.8, 50.0,2.0],
+            lower=[2.7, -50.0, 0.0],
             profile='fitFe' + sp.which_template,
             param_names=['logFWHM', 'shift', 'amplitude'],
         )
@@ -265,24 +265,24 @@ def make_constraints(
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
-        if sp.region in ["narrow"]:
-            fwhm_init = fwhm_up
-        else:
-            fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        #if sp.region in ["narrow"]:
+         #   fwhm_init = fwhm_up
+        #else:
+        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
 
         init, upper, lower = [], [], []
 
         for _,p in enumerate(names):
             #print(p)
             if "amplitude" in p:
-                init.append(0.1)
+                init.append(0.2)
                 upper.append(2.0)
                 lower.append(0.0)
 
             elif p == "shift":
                 init.append(shift_init)
-                upper.append(shift_upper)
-                lower.append(-shift_upper)
+                upper.append(2*shift_upper)
+                lower.append(-2*shift_upper)
 
             elif p in ("fwhm", "width", "fwhm_g", "fwhm_l"):
                 # both Gaussian & Lorentzian widths share same kinematic bounds
