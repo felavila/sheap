@@ -198,7 +198,7 @@ class RegionFitting:
 
         params_obj = Parameters()
         for name, idx in self.params_dict.items():
-            if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==0:
+            if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
                 val = initial_params[:,idx]
                 #print(val.shape)
                 min,max = self.constraints[idx]
