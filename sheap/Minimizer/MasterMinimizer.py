@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import optax
 from jax import jit, vmap,lax
 #from jax import 
-from .utils import build_loss_function, parse_dependencies, project_params
+from .utils import build_loss_function,parse_dependencies, project_params
 
 
 class MasterMinimizer:
@@ -185,7 +185,7 @@ class MasterMinimizer:
         ) -> Tuple[jnp.ndarray, list]:
             # Initialize parameters and optimizer state
             params = initial_params
-            optimizer = optimizer or optax.adabelief(learning_rate)
+            optimizer = optimizer or optax.adam(learning_rate)
             opt_state = optimizer.init(params)
             loss_history = []
 

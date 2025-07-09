@@ -62,7 +62,7 @@ DEFAULT_LIMITS = {
         # Ref: Sulentic+2000, Shen+2011
     ),
     'narrow': dict(
-        upper_fwhm=1500.0,   # FWHM ~ 200–1000 km/s typical for NLR
+        upper_fwhm=2000.0,   # FWHM ~ 200–1000 km/s typical for NLR
         lower_fwhm=100.0,
         center_shift=2500.0,
         max_amplitude=10.0,
