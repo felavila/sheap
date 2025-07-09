@@ -312,7 +312,7 @@ class RegionBuilder:
         dict_regions = complex_class.group_by("region")
         new_complex_list = []
         for key,values in dict_regions.items():
-            if key in ["outflow","winds","continuum"]:
+            if key in ["winds","continuum"]:
                 new_complex_list.extend(values.lines)
             elif key == "fe":
                 #here much more can be done 

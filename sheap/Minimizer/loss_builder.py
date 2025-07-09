@@ -29,7 +29,7 @@ from jax import jit, vmap,lax
 #       - curvature matching (d²)
 #       - smoothness regularization (d¹)
 #     """
-#     print("xd")
+#     print("γ,δ,α,β")
 #     def wrapped(xs, raw_params):
 #         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
 #         return func(xs, phys)
@@ -136,7 +136,7 @@ def build_loss_function(
     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
     penalty_weight: float = 0.01,
     param_converter: Optional["Parameters"] = None,
-    curvature_weight: float = 0.0,      # γ: second-derivative match
+    curvature_weight: float = 1e5,      # γ: second-derivative match
     smoothness_weight: float = 0.0,     # δ: first-derivative smoothness
     max_weight: float = 0.1,            # α: weight on worst‐pixel term
 ) -> Callable:
@@ -147,7 +147,7 @@ def build_loss_function(
       - curvature matching (d²)
       - smoothness regularization (d¹)
     """
-    print("max_weight")
+    print("max_weight=",max_weight,"curvature_weight=",curvature_weight)
     def log_cosh(x):
         # numerically stable log(cosh(x))
         return jnp.logaddexp(x, -x) - jnp.log(2.0)

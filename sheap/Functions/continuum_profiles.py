@@ -135,6 +135,7 @@ def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """
     x = xs / 1000.0
     amplitude, alpha1, alpha2, x_break = params
+    x_break = x_break/1000
     low  = amplitude * x**alpha1
     high = amplitude * (x_break**(alpha1 - alpha2)) * x**alpha2
     return jnp.where(x < x_break, low, high)

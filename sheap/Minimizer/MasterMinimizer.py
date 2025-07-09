@@ -177,7 +177,7 @@ class MasterMinimizer:
             y: jnp.ndarray,
             y_uncertainties: jnp.ndarray,
             constraints: Optional[jnp.ndarray] = None,
-            parsed_dependencies=None,
+            parsed_dependencies = None,
             learning_rate: float = 1e-2,
             num_steps: int = 1000,
             optimizer=None,
@@ -469,171 +469,171 @@ class MasterMinimizer:
 #         return loss_function, optimize_model
 
 
-# class MasterMinimizer:
-#     """
-#     MasterMinimizer handles constrained optimization for a given function using JAX and Optax.
+class MasterMinimizer_try:
+    """
+    MasterMinimizer handles constrained optimization for a given function using JAX and Optax.
 
-#     Attributes:
-#         func (Callable): The model function to optimize.
-#         optimize_in_axis (int) :
-#             -3  will optimize assuming the same initial values for all and constraints
-#             -4  will optimize assuming the same constraints values for all the function
-#             -5  will optimize assuming different values of init and constraints
-#         penalty_weight (float): The weight for constraint penalties in the loss function.
-#         num_steps (int): The number of optimization steps.
-#         optimizer (optax.GradientTransformation): The optimizer to use for gradient-based optimization.
-#         loss_function (Callable): The JIT-compiled loss function.
-#         optimize_model (Callable): The optimization routine.
-#     """
+    Attributes:
+        func (Callable): The model function to optimize.
+        optimize_in_axis (int) :
+            -3  will optimize assuming the same initial values for all and constraints
+            -4  will optimize assuming the same constraints values for all the function
+            -5  will optimize assuming different values of init and constraints
+        penalty_weight (float): The weight for constraint penalties in the loss function.
+        num_steps (int): The number of optimization steps.
+        optimizer (optax.GradientTransformation): The optimizer to use for gradient-based optimization.
+        loss_function (Callable): The JIT-compiled loss function.
+        optimize_model (Callable): The optimization routine.
+    """
 
-#     def __init__(
-#         self,
-#         func: Callable,
-#         non_optimize_in_axis: int = 3,
-#         num_steps: int = 1000,
-#         learning_rate: Optional[float] = None,
-#         list_dependencies: Optional[List[str]] = None,
-#         weighted: bool = True,
-#         **kwargs,
-#     ):
-#         self.func = func
-#         self.non_optimize_in_axis = non_optimize_in_axis
-#         self.num_steps = num_steps
-#         self.learning_rate = learning_rate or 1e-3
-#         self.list_dependencies = list_dependencies or []
-#         self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
-#         # Default to Adam unless another optimizer is provided
-#         self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
+    def __init__(
+        self,
+        func: Callable,
+        non_optimize_in_axis: int = 3,
+        num_steps: int = 1000,
+        learning_rate: Optional[float] = None,
+        list_dependencies: Optional[List[str]] = None,
+        weighted: bool = True,
+        **kwargs,
+    ):
+        self.func = func
+        self.non_optimize_in_axis = non_optimize_in_axis
+        self.num_steps = num_steps
+        self.learning_rate = learning_rate or 1e-3
+        self.list_dependencies = list_dependencies or []
+        self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
+        # Default to Adam unless another optimizer is provided
+        self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
 
-#         # Build loss and optimizer function
-#         self.loss_function, self.optimize_model = MasterMinimizer.minimization_function(
-#             self.func,
-#             weighted=weighted,
-#             penalty_function=kwargs.get("penalty_function"),
-#             penalty_weight=kwargs.get("penalty_weight", 0.01),
-#         )
+        # Build loss and optimizer function
+        self.loss_function, self.optimize_model = MasterMinimizer.minimization_function(
+            self.func,
+            weighted=weighted,
+            penalty_function=kwargs.get("penalty_function"),
+            penalty_weight=kwargs.get("penalty_weight", 0.01),
+        )
 
-#     def __call__(
-#         self,
-#         initial_params: jnp.ndarray,
-#         y: jnp.ndarray,
-#         x: jnp.ndarray,
-#         yerror: jnp.ndarray,
-#         constraints: jnp.ndarray,
-#         learning_rate: Optional[float] = None,
-#         num_steps: Optional[int] = None,
-#         optimizer: Optional[optax.GradientTransformation] = None,
-#         non_optimize_in_axis: Optional[int] = None,
-#         list_dependencies: Optional[List[str]] = None,
-#     ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-#         # Update run-time settings
-#         self.learning_rate = learning_rate or self.learning_rate
-#         list_dependencies = list_dependencies or self.list_dependencies
-#         self.parsed_dependencies_tuple = parse_dependencies(list_dependencies)
-#         self.num_steps = num_steps or self.num_steps
-#         self.optimizer = optimizer or self.optimizer
-#         non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
+    def __call__(
+        self,
+        initial_params: jnp.ndarray,
+        y: jnp.ndarray,
+        x: jnp.ndarray,
+        yerror: jnp.ndarray,
+        constraints: jnp.ndarray,
+        learning_rate: Optional[float] = None,
+        num_steps: Optional[int] = None,
+        optimizer: Optional[optax.GradientTransformation] = None,
+        non_optimize_in_axis: Optional[int] = None,
+        list_dependencies: Optional[List[str]] = None,
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        # Update run-time settings
+        self.learning_rate = learning_rate or self.learning_rate
+        list_dependencies = list_dependencies or self.list_dependencies
+        self.parsed_dependencies_tuple = parse_dependencies(list_dependencies)
+        self.num_steps = num_steps or self.num_steps
+        self.optimizer = optimizer or self.optimizer
+        non_optimize_in_axis = non_optimize_in_axis or self.non_optimize_in_axis
 
-#         # Determine vmap axes for batched optimization
-#         if non_optimize_in_axis == 3:
-#             optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
-#         elif non_optimize_in_axis == 4:
-#             optimize_in_axis = (0, 0, 0, 0, None, None, None, None, None, None)
-#         else:
-#             # fall back to axis=3
-#             optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
+        # Determine vmap axes for batched optimization
+        if non_optimize_in_axis == 3:
+            optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
+        elif non_optimize_in_axis == 4:
+            optimize_in_axis = (0, 0, 0, 0, None, None, None, None, None, None)
+        else:
+            # fall back to axis=3
+            optimize_in_axis = (None, 0, 0, 0, None, None, None, None, None, None)
 
-#         # Vectorized optimization call
-#         vmap_opt = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
-#         return vmap_opt(
-#             initial_params,
-#             y,
-#             x,
-#             yerror,
-#             constraints,
-#             parse_dependencies(list_dependencies),
-#             self.learning_rate,
-#             self.num_steps,
-#             self.optimizer,
-#             False,
-#         )
+        # Vectorized optimization call
+        vmap_opt = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
+        return vmap_opt(
+            initial_params,
+            y,
+            x,
+            yerror,
+            constraints,
+            parse_dependencies(list_dependencies),
+            self.learning_rate,
+            self.num_steps,
+            self.optimizer,
+            False,
+        )
 
-#     @staticmethod
-#     def minimization_function(
-#         func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
-#         penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
-#         penalty_weight: float = 0.01,
-#         weighted: bool = True,
-#         param_converter: Optional[object] = None,
-#     ) -> Tuple[
-#         Callable[..., jnp.ndarray],
-#         Callable[..., Tuple[jnp.ndarray, jnp.ndarray]],
-#     ]:
-#         # Build and JIT the loss function
-#         loss_fn = build_loss_function(func, weighted, penalty_function, penalty_weight, param_converter)
-#         loss_fn = jit(loss_fn)
+    @staticmethod
+    def minimization_function(
+        func: Callable[[List[jnp.ndarray], jnp.ndarray], jnp.ndarray],
+        penalty_function: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+        penalty_weight: float = 0.01,
+        weighted: bool = True,
+        param_converter: Optional[object] = None,
+    ) -> Tuple[
+        Callable[..., jnp.ndarray],
+        Callable[..., Tuple[jnp.ndarray, jnp.ndarray]],
+    ]:
+        # Build and JIT the loss function
+        loss_fn = build_loss_function(func, weighted, penalty_function, penalty_weight, param_converter)
+        loss_fn = jit(loss_fn)
 
-#         def optimize_model(
-#             initial_params: jnp.ndarray,
-#             xs: List[jnp.ndarray],
-#             y: jnp.ndarray,
-#             y_unc: jnp.ndarray,
-#             constraints: Optional[jnp.ndarray] = None,
-#             parsed_deps=None,
-#             learning_rate: float = 1e-2,
-#             num_steps: int = 1000,
-#             optimizer: optax.GradientTransformation = None,
-#             verbose: bool = False,
-#         ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-#             params = initial_params
-#             optimizer = optimizer or optax.adabelief(learning_rate)
-#             opt_state = optimizer.init(params)
+        def optimize_model(
+            initial_params: jnp.ndarray,
+            xs: List[jnp.ndarray],
+            y: jnp.ndarray,
+            y_unc: jnp.ndarray,
+            constraints: Optional[jnp.ndarray] = None,
+            parsed_deps=None,
+            learning_rate: float = 1e-2,
+            num_steps: int = 1000,
+            optimizer: optax.GradientTransformation = None,
+            verbose: bool = False,
+        ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+            params = initial_params
+            optimizer = optimizer or optax.lbfgs(learning_rate)
+            opt_state = optimizer.init(params)
+            print("xd")
+            if constraints is None:
+                constraints = jnp.array([[-1e41, 1e41]] * params.shape[0])
 
-#             if constraints is None:
-#                 constraints = jnp.array([[-1e41, 1e41]] * params.shape[0])
+            # Check if this optimizer supports L-BFGS signature
+            import inspect
+            sig = inspect.signature(optimizer.update)
 
-#             # Check if this optimizer supports L-BFGS signature
-#             import inspect
-#             sig = inspect.signature(optimizer.update)
+            if "value_fn" in sig.parameters:
+                # L-BFGS style loop
+                val_and_grad = optax.value_and_grad_from_state(loss_fn)
 
-#             if "value_fn" in sig.parameters:
-#                 # L-BFGS style loop
-#                 val_and_grad = optax.value_and_grad_from_state(loss_fn)
+                def lbfgs_step(carry, _):
+                    p, st = carry
+                    val, grads = val_and_grad(p, state=st)
+                    updates, st = optimizer.update(
+                        grads,
+                        st,
+                        p,
+                        value=val,
+                        grad=grads,
+                        value_fn=lambda q: loss_fn(q, xs, y, y_unc),
+                    )
+                    p = optax.apply_updates(p, updates)
+                    return (p, st), val
 
-#                 def lbfgs_step(carry, _):
-#                     p, st = carry
-#                     val, grads = val_and_grad(p, state=st)
-#                     updates, st = optimizer.update(
-#                         grads,
-#                         st,
-#                         p,
-#                         value=val,
-#                         grad=grads,
-#                         value_fn=lambda q: loss_fn(q, xs, y, y_unc),
-#                     )
-#                     p = optax.apply_updates(p, updates)
-#                     return (p, st), val
+                (final_p, _), history = lax.scan(
+                    lbfgs_step, (params, opt_state), None, length=num_steps
+                )
+            else:
+                # First-order optimizer loop (Adam, AdaBelief, etc.)
+                def step_fn(carry, _):
+                    p, st = carry
+                    loss, grads = jax.value_and_grad(loss_fn)(p, xs, y, y_unc)
+                    updates, st = optimizer.update(grads, st, p)
+                    p = optax.apply_updates(p, updates)
+                    p = project_params(p, constraints, parsed_deps)
+                    return (p, st), loss
 
-#                 (final_p, _), history = lax.scan(
-#                     lbfgs_step, (params, opt_state), None, length=num_steps
-#                 )
-#             else:
-#                 # First-order optimizer loop (Adam, AdaBelief, etc.)
-#                 def step_fn(carry, _):
-#                     p, st = carry
-#                     loss, grads = jax.value_and_grad(loss_fn)(p, xs, y, y_unc)
-#                     updates, st = optimizer.update(grads, st, p)
-#                     p = optax.apply_updates(p, updates)
-#                     p = project_params(p, constraints, parsed_deps)
-#                     return (p, st), loss
+                (final_p, _), history = lax.scan(
+                    step_fn, (params, opt_state), None, length=num_steps
+                )
 
-#                 (final_p, _), history = lax.scan(
-#                     step_fn, (params, opt_state), None, length=num_steps
-#                 )
+            if verbose:
+                print("Final loss:", history[-1])
 
-#             if verbose:
-#                 print("Final loss:", history[-1])
+            return final_p, history
 
-#             return final_p, history
-
-#         return loss_fn, optimize_model
+        return loss_fn, optimize_model

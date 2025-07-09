@@ -130,7 +130,7 @@ class SheapPlot:
                             zorder=10,
                         )
                 elif add_name and min(xlim) < values[1] < max(xlim):
-                    label = f"{region.line_name}_{region.kind}_{region.component}".replace(
+                    label = f"{region.line_name}_{region.region}_{region.component}".replace(
                         "_", " "
                     )
                     ypos = 0.25 if "broad" in label else 0.75

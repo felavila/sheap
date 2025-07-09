@@ -62,7 +62,7 @@ DEFAULT_LIMITS = {
         # Ref: Sulentic+2000, Shen+2011
     ),
     'narrow': dict(
-        upper_fwhm=2000.0,   # FWHM ~ 200–1000 km/s typical for NLR
+        upper_fwhm=1000.0,   # FWHM ~ 200–1000 km/s typical for NLR
         lower_fwhm=100.0,
         center_shift=2500.0,
         max_amplitude=10.0,
@@ -261,7 +261,7 @@ def make_constraints(
         names = [f"amplitude{n}" for n in range(len(amp_list))] +["shift"]+ func.param_names[2:]
         # base kinematics
         lambda0 = CANONICAL_WAVELENGTHS[sp.region]
-        shift_init = 0.0 if sp.component == 1 else (-2.0) ** sp.component
+        shift_init = 0.0 if sp.component == 1 else (-5.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
