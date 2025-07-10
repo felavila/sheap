@@ -53,6 +53,7 @@ class RegionBuilder:
         add_outflow = False,
         add_winds = False,
         add_balmer_continuum = False,
+        add_uncommon_narrow = False
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
@@ -78,6 +79,7 @@ class RegionBuilder:
         self.fe_mode = fe_mode.lower()
         self.add_outflow = add_outflow
         self.add_winds = add_winds
+        self.add_uncommon_narrow = add_uncommon_narrow
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
@@ -123,7 +125,8 @@ class RegionBuilder:
         group_method: Optional[bool] = None,
         add_outflow= None,
         add_winds = None,
-        add_balmer_continuum = None):
+        add_balmer_continuum = None,
+        add_uncommon_narrow = None):
         
         def get(val, fallback):
             return val if val is not None else fallback
@@ -136,6 +139,7 @@ class RegionBuilder:
         add_outflow = get(add_outflow, self.add_outflow)
         add_balmer_continuum = get(add_balmer_continuum, self.add_balmer_continuum)
         add_winds = get(add_winds, self.add_winds)
+        add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
         continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
         
         if fe_mode not in self.available_fe_modes:
@@ -157,7 +161,7 @@ class RegionBuilder:
                 if pseudo_region_name == "broad_and_narrow": #search of name
                     comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds)
                 elif pseudo_region_name == "narrows" and n_narrow>0:
-                    comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow)
+                    comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds) 
                 #elif self.fe_mode == "model":   
@@ -206,11 +210,11 @@ class RegionBuilder:
         return comps
     
     def _handle_narrow_line(
-        self, entry: SpectralLine, n_narrow: int, add_outflow: bool = False, add_uncommon = False) -> List[SpectralLine]:
+        self, entry: SpectralLine, n_narrow: int, add_outflow: bool = False, add_uncommon_narrow = False) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
         for idx in range(n_narrow):
             amp = 1 if idx == 0 else 0.5
-            if entry.rarity=="uncommon" and not add_uncommon:
+            if entry.rarity=="uncommon" and not add_uncommon_narrow:
                 continue 
             new = SpectralLine(
                 center=entry.center,

@@ -7,6 +7,14 @@
   line_name: OIIb
   element: Oxygen
   rarity: common
+- center: 6300.304
+  line_name: OIa
+  element: Oxygen
+  rarity: common
+- center: 6363.776
+  line_name: OIb
+  element: Oxygen
+  rarity: common
 - center: 3868.760
   line_name: NeIIIa
   element: Neon

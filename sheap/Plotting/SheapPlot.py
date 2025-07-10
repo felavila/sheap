@@ -48,6 +48,7 @@ class SheapPlot:
         self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
+        
 
     def _from_fit_result(self, result, spectra):
         self.spec = spectra

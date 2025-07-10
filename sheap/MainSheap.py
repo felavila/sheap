@@ -176,10 +176,23 @@ class Sheapectral:
                 fitting_routine = fit_output.fitting_routine,
                 constraints = fit_output.constraints.astype(jnp.float64),
                 source=fit_output.source,
-                dependencies=fit_output.dependencies
-            )
+                dependencies=fit_output.dependencies,
+                residuals = fit_output.residuals,
+                free_params = fit_output.free_params,
+                chi2_red = fit_output.chi2_red)
 
             self._plotter = SheapPlot(sheap=self)
+    def posterior_params(self,run_montecarlo=False, num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True):
+        from sheap.Posterior.ParameterEstimation import ParameterEstimation
+        if not hasattr(self, "result"):
+             raise RuntimeError("self.result should exist to run this.")
+        PM = ParameterEstimation(sheap = self)
+        if run_montecarlo:
+            _,dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,get_full_posterior = get_full_posterior )     
+            self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
+                                      "summarize":summarize},dic_posterior_params]
+        else:
+            print("work in progress")
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
@@ -200,17 +213,13 @@ class Sheapectral:
         obj.complex_region = [SpectralLine(**i) for i in complex_region]
 
         profile_names = data.get("profile_names", [])
-        obj.profile_functions = [
-            PROFILE_FUNC_MAP.get(name, make_g(obj.complex_region[idx]) if name == "combine_gaussian" else None)
-            for idx, name in enumerate(profile_names)
-        ]
-
         obj.result = FitResult(
             params=jnp.array(data.get("params")),
             uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))),
             initial_params=jnp.array(data.get("initial_params")),
             mask=jnp.array(data.get("mask")),
-            profile_functions=obj.profile_functions,
+            profile_functions= obj.profile_functions_from_complex_region(),
+            #obj.profile_functions,
             profile_names=profile_names,
             loss=None,  # Not saved currently, could be added if needed
             profile_params_index_list=data.get("profile_params_index_list"),
@@ -220,15 +229,17 @@ class Sheapectral:
             outer_limits=data.get("outer_limits"),
             inner_limits=data.get("inner_limits"),
             model_keywords=data.get("model_keywords"),
+            dependencies = data.get("dependencies"),
             source=data.get("source", "pickle"),
             constraints = data.get('constraints'),
-            fitting_routine = data.get("fitting_routine")
+            fitting_routine = data.get("fitting_routine"),
+            posterior = data.get("posterior")
         )
         obj._plotter = SheapPlot(sheap=obj)
         return obj
     
     def _save(self):
-        _complex_region = [i.to_dict() for i in self.complex_region]
+        _complex_region = [i.to_dict() for i in self.result.complex_region]
 
         dic_ = {
             "names": self.names,
@@ -245,13 +256,18 @@ class Sheapectral:
             "complex_region": _complex_region,
             "profile_params_index_list": self.result.profile_params_index_list,
             "profile_names": self.result.profile_names,
-            "fitting_routine": self.fitting_routine["fitting_routine"],
+            "fitting_routine": self.result.fitting_routine,
             "outer_limits": self.result.outer_limits,
             "inner_limits": self.result.inner_limits,
             "model_keywords": self.result.model_keywords,
             "source": self.result.source,
             "scale":np.array(self.result.scale),
-            'constraints':np.array(self.result.constraints)
+            'constraints':np.array(self.result.constraints),
+            'dependencies': self.result.dependencies,
+            'residuals' : np.array(self.result.residuals),
+            'free_params' : self.result.free_params,
+            'chi2_red' : np.array(self.result.chi2_red)
+            "posterior" : np.array(self.result.posterior)
         }
 
         estimated_size = sys.getsizeof(pickle.dumps(dic_))
@@ -260,11 +276,29 @@ class Sheapectral:
         return dic_
 
     def save_to_pickle(self, filepath: Union[str, Path]):
-        ".pkl"
+        #".pkl"
         filepath = Path(filepath)
         with open(filepath, "wb") as f:
             pickle.dump(self._save(), f)
 
+    
+    def profile_functions_from_complex_region(self):
+        from sheap.Functions.profiles import PROFILE_FUNC_MAP
+        profile_functions = []
+        for _,sp in enumerate(self.complex_region):
+            #print(_)
+            holder_profile = getattr(sp, "profile") # cant be none 
+            if "SPAF" in holder_profile:
+                if len(sp.profile.split("_")) == 2:
+                    _, subprofile = sp.profile.split("_")
+                else:
+                    print("Warning this if u have an SPAF, you should have and subprofile otherwise it can be readed correctly")
+                sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,subprofile)
+                profile_functions.append(sm)
+            else:
+                profile_functions.append(PROFILE_FUNC_MAP.get(holder_profile))
+        return profile_functions
+    
     @property
     def modelplot(self):
         if not hasattr(self, "_plotter"):

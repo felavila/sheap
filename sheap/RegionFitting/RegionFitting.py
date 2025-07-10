@@ -9,8 +9,8 @@ import time
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import yaml
-from jax import jit
+#import yaml
+from jax import jit,vmap
 
 from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
 from sheap.DataClass.Parameters import Parameters
@@ -165,8 +165,8 @@ class RegionFitting:
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         
         self.dependencies = dependencies
-        self._postprocess(norm_spec, params, uncertainty_params, scale)
         self.mask = mask
+        self._postprocess(norm_spec, params, uncertainty_params, scale)
         self.loss = loss
         self.scale = scale
         self.outer_limits = outer_limits
@@ -294,6 +294,14 @@ class RegionFitting:
             self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
             #self.constraints = self.constraints.at[idxs,:].multiply(scale[None,:])
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+            y_model  = vmap(self.model, in_axes=(0,0))(self.spec[:,0,:],self.params)
+            y_data  = self.spec[:,1,:]
+            mask = self.mask
+            y_error = self.spec[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
+            self.residuals = (y_model-y_data)/y_error
+            self.free_params = np.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
+            
+            self.chi2_red = np.sum(self.residuals**2,axis=1)/self.free_params
             
         except Exception as e:
             logger.exception("Renormalization failed")
@@ -444,7 +452,12 @@ class RegionFitting:
             inner_limits = self.inner_limits,
             fitting_routine = self.fitting_routine,
             dependencies = self.dependencies,
-            model_keywords= self.fitting_routine.get("model_keywords"))
+            model_keywords= self.fitting_routine.get("model_keywords"),
+            residuals = self.residuals,
+            free_params = self.free_params,
+            chi2_red = self.chi2_red)
+        
+        
     @property
     def pandas_params(self) -> pd.DataFrame:
         """Return fit parameters as a pandas DataFrame."""

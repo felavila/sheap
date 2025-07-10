@@ -105,22 +105,22 @@ def extract_basic_line_parameters(
 ) -> Dict[str, Dict[str, np.ndarray]]:
     """
     Extract continuum‐corrected flux, FWHM, FWHM (km/s), center, amplitude,
-    equivalent width and luminosity for each emission line, grouped by 'kind'.
-
-    Returns a dict mapping each kind → dict with keys:
+    equivalent width and luminosity for each emission line, grouped by 'region'.
+    # We will keep kind for a while. 
+    Returns a dict mapping each region → dict with keys:
       'lines', 'component',
       'flux', 'fwhm', 'fwhm_kms',
       'center', 'amplitude',
       'eqw', 'luminosity'
     """
     # Precompute continuum params
-    cont_group = region_group.group_by("kind")["continuum"]
+    cont_group = region_group.group_by("region")["continuum"]
     cont_idx   = cont_group.flat_param_indices_global
     cont_params= full_samples[:, cont_idx]
 
     basic_params: Dict[str, Dict[str, np.ndarray]] = {}
 
-    for kind, kind_group in region_group.group_by("kind").items():
+    for kind, kind_group in region_group.group_by("region").items():
         if kind in ("fe", "continuum"):
             continue
 
@@ -341,7 +341,7 @@ def posterior_physical_parameters(
         distances=distances,
         c=c,
     )
-    cont_group = region_group.group_by("kind")["continuum"]
+    cont_group = region_group.group_by("region")["continuum"]
     cont_idx   = cont_group.flat_param_indices_global
     cont_params= full_samples[:, cont_idx]
     cont_fun   = cont_group.combined_profile

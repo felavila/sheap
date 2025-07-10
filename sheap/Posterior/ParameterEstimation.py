@@ -52,9 +52,9 @@ class ParameterEstimation:
         self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
         self.c = c
         #this should be called before i think
-        self.ComplexRegion_class = ComplexRegion(self.complex_region)
-        self.ComplexRegion_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
-                                    ,self.profile_params_index_list,self.params_dict)
+        #self.complex_class = ComplexRegion(self.complex_region)
+        #self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
+         #                           ,self.profile_params_index_list,self.params_dict)
 
         if self.z is None:
             print("None informed redshift, assuming zero.")
@@ -241,9 +241,10 @@ class ParameterEstimation:
         self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
-        self.kind_list = result.kind_list
         self.params_dict = result.params_dict
         self.dependencies = result.dependencies
+        self.complex_class = result.complex_class
+        
         
 
     def _from_fit_result(self, result, spectra, z):
@@ -260,8 +261,8 @@ class ParameterEstimation:
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = jit(combine_auto(self.profile_functions))
-        self.kind_list = result.kind_list
+        self.model = jit(combine_auto(self.profile_functions)) #mmm
+        #self.kind_list = result.kind_list
         self.params_dict = result.params_dict
         self.constraints = result.constraints
 

@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd 
 
 
+from .ComplexRegion import ComplexRegion
 @dataclass
 class SpectralLine:
     """
@@ -82,7 +83,7 @@ class FitResult:
         kind_list (List[str]): Unique types of spectral lines (computed post-init).
         constraints same as constrains from fit 
     """
-    complex_region: List[SpectralLine]
+    complex_region: List[SpectralLine] # can be mode to complex_class at the moment after reading.
     fitting_routine: Optional[dict] = None
     params: Optional[jnp.ndarray] = None
     uncertainty_params: Optional[jnp.ndarray] = None
@@ -99,10 +100,17 @@ class FitResult:
     inner_limits: Optional[List] = None
     model_keywords: Optional[dict] = None
     source:Optional[dict] = None
-    dependencies:Optional[List] = None # list tuple in reality
+    dependencies:Optional[List] = None 
+    free_params:Optional[jnp.ndarray] = None 
+    residuals:Optional[jnp.ndarray] = None 
+    chi2_red:Optional[jnp.ndarray] = None 
+    posterior:Optional[dict] = None 
+    # list tuple in reality
     #kind_list: List[str] = field(init=False)
-    #def __post_init__(self):
-     #   self.kind_list = list({line.kind for line in self.complex_region})
+    def __post_init__(self):
+        self.complex_class = ComplexRegion(self.complex_region)
+        self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
+                                    ,self.profile_params_index_list,self.params_dict)
 
     def to_dict(self) -> dict:
         return asdict(self)

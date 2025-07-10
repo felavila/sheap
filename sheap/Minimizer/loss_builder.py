@@ -147,7 +147,7 @@ def build_loss_function(
       - curvature matching (d²)
       - smoothness regularization (d¹)
     """
-    print("max_weight=",max_weight,"curvature_weight=",curvature_weight)
+    #print("max_weight=",max_weight,"curvature_weight=",curvature_weight)
     def log_cosh(x):
         # numerically stable log(cosh(x))
         return jnp.logaddexp(x, -x) - jnp.log(2.0)

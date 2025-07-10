@@ -64,7 +64,7 @@ class MonteCarloSampler:
         self.BOL_CORRECTIONS = estimator.BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
         self.names = estimator.names 
-        self.ComplexRegion_class = estimator.ComplexRegion_class
+        self.complex_class = estimator.complex_class
     
     def sample_params(self, N: int = 2000, key_seed: int = 0,summarize=True,get_full_posterior=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import (
@@ -119,7 +119,7 @@ class MonteCarloSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scale[n])
             if get_full_posterior:
-                dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.ComplexRegion_class
+                dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((N,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
