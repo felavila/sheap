@@ -185,7 +185,7 @@ def make_constraints(
          #should be testted
          return ConstraintSet(
              init=[1.0,1.5,5000.0],
-            upper=[10,3.0, 1.0, 1e5],
+            upper=[10.0,3.0, 1.0, 1e5],
             lower=[0.0,0.0, 0.0],
              profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)

@@ -266,8 +266,8 @@ class Sheapectral:
             'dependencies': self.result.dependencies,
             'residuals' : np.array(self.result.residuals),
             'free_params' : self.result.free_params,
-            'chi2_red' : np.array(self.result.chi2_red)
-            "posterior" : np.array(self.result.posterior)
+            'chi2_red' : np.array(self.result.chi2_red),
+            "posterior" : self.result.posterior
         }
 
         estimated_size = sys.getsizeof(pickle.dumps(dic_))
