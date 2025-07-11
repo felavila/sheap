@@ -329,106 +329,114 @@ def posterior_physical_parameters(
     LINES_TO_COMBINE = ["Halpha", "Hbeta"],
     combine_components = True,
     limit_velocity = 150.0,
+    extra_products = True
 ) -> Dict[str, Any]:
     """
     Master routine: from MCMC samples → basic line params, monochromatic & bolometric
     luminosities, single-epoch BH masses, Eddington L, and accretion rates.
     """
     
-    basic_params = extract_basic_line_parameters(
-        full_samples=full_samples,
-        region_group=region_group,
-        distances=distances,
-        c=c,
-    )
-    cont_group = region_group.group_by("region")["continuum"]
-    cont_idx   = cont_group.flat_param_indices_global
-    cont_params= full_samples[:, cont_idx]
-    cont_fun   = cont_group.combined_profile
+    #->region_group.dict_params - vmap_samples:concentrate
+    dict_params_values = {k:full_samples[i] for k,i in region_group.dict_params.items() }
+    if not extra_products:
+        result = {"dict_params_values":dict_params_values}
     
-    if combine_components and 'broad' in basic_params and 'narrow' in basic_params:
-        combined = {}
-        Line = []
-        for line in LINES_TO_COMBINE:
-            # find all the broad‐component indices for this line
-            broad_lines = basic_params["broad"]["lines"]
-            idx_broad   = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
-            # find the single narrow index (if any)
-            narrow_lines = basic_params["narrow"]["lines"]
-            idx_narrow   = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
-            # only combine if we actually have ≥2 broad and exactly one narrow
-            if len(idx_broad) >= 2 and len(idx_narrow) == 1:
-                N = full_samples.shape[0]
+    else:
+        basic_params = extract_basic_line_parameters(
+            full_samples=full_samples,
+            region_group=region_group,
+            distances=distances,
+            c=c,
+        )
+        cont_group = region_group.group_by("region")["continuum"]
+        cont_idx   = cont_group.flat_param_indices_global
+        cont_params= full_samples[:, cont_idx]
+        cont_fun   = cont_group.combined_profile
+        
+        if combine_components and 'broad' in basic_params and 'narrow' in basic_params:
+            combined = {}
+            Line = []
+            for line in LINES_TO_COMBINE:
+                # find all the broad‐component indices for this line
+                broad_lines = basic_params["broad"]["lines"]
+                idx_broad   = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
+                # find the single narrow index (if any)
+                narrow_lines = basic_params["narrow"]["lines"]
+                idx_narrow   = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
+                # only combine if we actually have ≥2 broad and exactly one narrow
+                if len(idx_broad) >= 2 and len(idx_narrow) == 1:
+                    N = full_samples.shape[0]
 
-                # pull out amps & centers
-                amps = basic_params["broad"]["amplitude"][:, idx_broad]   # (N, n_broad)
-                mus  = basic_params["broad"]["center"][:, idx_broad]      # (N, n_broad)
-                fwhms_kms = basic_params["broad"]["fwhm_kms"][:, idx_broad]  # (N, n_broad)
+                    # pull out amps & centers
+                    amps = basic_params["broad"]["amplitude"][:, idx_broad]   # (N, n_broad)
+                    mus  = basic_params["broad"]["center"][:, idx_broad]      # (N, n_broad)
+                    fwhms_kms = basic_params["broad"]["fwhm_kms"][:, idx_broad]  # (N, n_broad)
 
-                # stack into (N, 3*n_broad)
-                params_broad = jnp.stack([amps, mus, fwhms_kms], axis=-1).reshape(N, -1)
+                    # stack into (N, 3*n_broad)
+                    params_broad = jnp.stack([amps, mus, fwhms_kms], axis=-1).reshape(N, -1)
 
-                # narrow triplet (N,3)
-                amp_n     = basic_params["narrow"]["amplitude"][:, idx_narrow]
-                mu_n      = basic_params["narrow"]["center"][:, idx_narrow]
-                fwhm_nkms = basic_params["narrow"]["fwhm_kms"][:, idx_narrow]
-                params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_nkms], axis=1)
+                    # narrow triplet (N,3)
+                    amp_n     = basic_params["narrow"]["amplitude"][:, idx_narrow]
+                    mu_n      = basic_params["narrow"]["center"][:, idx_narrow]
+                    fwhm_nkms = basic_params["narrow"]["fwhm_kms"][:, idx_narrow]
+                    params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_nkms], axis=1)
 
-                fwhm_c, amp_c, mu_c = combine_fast(
-                    params_broad, params_narrow,
-                    limit_velocity=limit_velocity, c=c
-                )
+                    fwhm_c, amp_c, mu_c = combine_fast(
+                        params_broad, params_narrow,
+                        limit_velocity=limit_velocity, c=c
+                    )
 
-                fwhm_A = (fwhm_c / c) * mu_c 
+                    fwhm_A = (fwhm_c / c) * mu_c 
 
-                flux_c = calc_flux(np.array(amp_c), np.array(fwhm_A))
+                    flux_c = calc_flux(np.array(amp_c), np.array(fwhm_A))
 
-                fwhm_A = (fwhm_c / c) * mu_c       # shape (N,)
+                    fwhm_A = (fwhm_c / c) * mu_c       # shape (N,)
 
-                flux_c = calc_flux(np.array(amp_c), np.array(fwhm_A))  # (N,)
+                    flux_c = calc_flux(np.array(amp_c), np.array(fwhm_A))  # (N,)
 
-                cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)  # (N,)
+                    cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)  # (N,)
 
-                L_line = calc_luminosity(distances, flux_c, mu_c)  # (N,)
+                    L_line = calc_luminosity(distances, flux_c, mu_c)  # (N,)
 
-                eqw_c = flux_c / cont_c
+                    eqw_c = flux_c / cont_c
 
-                combined[line] = {
-                    "amplitude":  np.array(amp_c),    
-                    "center":     np.array(mu_c),     
-                    "fwhm_kms":   np.array(fwhm_c),   
-                    "fwhm":     np.array(fwhm_A),   
-                    "flux":       np.array(flux_c),   
-                    "luminosity": np.array(L_line),   
-                    "eqw":        np.array(eqw_c),    
-                }
-                Line.append(line)
-    L_w, L_bol = {}, {}
+                    combined[line] = {
+                        "amplitude":  np.array(amp_c),    
+                        "center":     np.array(mu_c),     
+                        "fwhm_kms":   np.array(fwhm_c),   
+                        "fwhm":     np.array(fwhm_A),   
+                        "flux":       np.array(flux_c),   
+                        "luminosity": np.array(L_line),   
+                        "eqw":        np.array(eqw_c),    
+                    }
+                    Line.append(line)
+        L_w, L_bol = {}, {}
+        
+
+        for wave in map(float, BOL_CORRECTIONS.keys()):
+            wstr = str(int(wave))
+            if (jnp.isclose(wl_i, wave, atol=1) & ~mask_i).any():
+                Fcont   = vmap(cont_fun, in_axes=(None, 0))(jnp.array([wave]), cont_params).squeeze()
+                Lmono   = calc_monochromatic_luminosity(distances, Fcont, wave)
+                Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
+                L_w[wstr], L_bol[wstr] = np.array(Lmono), np.array(Lbolval)
+
     
-
-    for wave in map(float, BOL_CORRECTIONS.keys()):
-        wstr = str(int(wave))
-        if (jnp.isclose(wl_i, wave, atol=1) & ~mask_i).any():
-            Fcont   = vmap(cont_fun, in_axes=(None, 0))(jnp.array([wave]), cont_params).squeeze()
-            Lmono   = calc_monochromatic_luminosity(distances, Fcont, wave)
-            Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
-            L_w[wstr], L_bol[wstr] = np.array(Lmono), np.array(Lbolval)
-
-    # 3) single‐epoch mass estimates (broad lines)
-    #masses: Dict[str, Dict[str, np.ndarray]] = {}
-    broad = basic_params.get("broad")
-    if broad:
-       extra_params = calculate_single_epoch_masses(broad,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c) #for broad
-    result = {
-        "basic_params": basic_params,
-        "L_w":           L_w,
-        "L_bol":         L_bol,
-        "extras_params":        extra_params,
-    }
-    if len(combined.keys())>0:
-        #combined["lines"] = Line
-        combined["extras"] = calculate_single_epoch_masses(combined,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c,combine_mode=True) #for broad
-        result["combined"] = combined
+        broad = basic_params.get("broad")
+        if broad:
+        extra_params = calculate_single_epoch_masses(broad,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c) #for broad
+        #names have to be improve 
+        result = {
+            "basic_params": basic_params,
+            "L_w":           L_w,
+            "L_bol":         L_bol,
+            "extras_params":        extra_params,
+            "dict_params_values":dict_params_values
+        }
+        if len(combined.keys())>0:
+            #combined["lines"] = Line
+            combined["extras"] = calculate_single_epoch_masses(combined,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c,combine_mode=True) #for broad
+            result["combined"] = combined
 
     if summarize:
         result = summarize_nested_samples(result)  

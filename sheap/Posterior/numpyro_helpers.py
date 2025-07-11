@@ -33,29 +33,7 @@ def params_to_dict_old(params,dependencies):
             init_value[f"theta_{idx}"] = val
     return init_value
 
-def make_numpyro_model(name_list,wl,flux,sigma,constraints,init_values,theta_to_sheap,fixed_params,dependencies,model_func):
-    def numpyro_model():
-        params = {}    
-        idx_targets = [i[1] for i in dependencies]
-        for i, (name, (low, high)) in enumerate(zip(name_list, constraints)):
-            sheap_name = theta_to_sheap[name]
-            if i in idx_targets:
-                #print(i,idx_targets,dependencies)
-                continue  # skip tied targets; they'll be calculated later
-            elif sheap_name in fixed_params.keys():
-                val = fixed_params[sheap_name]
-                if val is None:
-                    val = init_values.get(sheap_name)
-                    if val is None:
-                        raise ValueError(f"Fixed param '{sheap_name}' is None and not found in init_values.")
-            else:
-                val = numpyro.sample(name, dist.Uniform(low, high))
-            params[name] = val
-        params = apply_arithmetic_ties(params, dependencies)
-        theta = jnp.array([params[name] for name in name_list])
-        pred = model_func(wl, theta)
-        numpyro.sample("obs", dist.Normal(pred, sigma), obs=flux)
-    return numpyro_model  
+
 
 def params_to_dict(params, dependencies, constraints=None, eps=1e-2):
     """
@@ -71,6 +49,8 @@ def params_to_dict(params, dependencies, constraints=None, eps=1e-2):
     Returns:
         init_dict: dict of {param_name: jittered_value}
     """
+    if not dependencies:
+        dependencies = ()
     target_idx_list = [d[1] for d in dependencies]
     init_dict = {}
 
@@ -101,3 +81,35 @@ def params_to_dict(params, dependencies, constraints=None, eps=1e-2):
         init_dict[name] = val
 
     return init_dict
+
+def make_numpyro_model(name_list,wl,flux,sigma,constraints,params_i,theta_to_sheap,fixed_params,dependencies,model_func):
+    
+    init_values = {key: params_i[_] for _,key in enumerate(theta_to_sheap.values())}
+    init_value = params_to_dict(params_i,dependencies,constraints)
+    if not dependencies:
+        dependencies = ()
+    def numpyro_model():
+        params = {}    
+        idx_targets = [i[1] for i in dependencies]
+        for i, (name, (low, high)) in enumerate(zip(name_list, constraints)):
+            sheap_name = theta_to_sheap[name]
+            if i in idx_targets:
+                #print(i,idx_targets,dependencies)
+                continue  # skip tied targets; they'll be calculated later
+            elif sheap_name in fixed_params.keys():
+                val = fixed_params[sheap_name]
+                if val is None:
+                    val = init_values.get(sheap_name)
+                    if val is None:
+                        raise ValueError(f"Fixed param '{sheap_name}' is None and not found in init_values.")
+            else:
+                val = numpyro.sample(name, dist.Uniform(low, high))
+            params[name] = val
+        params = apply_arithmetic_ties(params, dependencies)
+        theta = jnp.array([params[name] for name in name_list])
+        pred = model_func(wl, theta)
+        numpyro.sample("obs", dist.Normal(pred, sigma), obs=flux)
+    
+    
+    return numpyro_model,init_value
+

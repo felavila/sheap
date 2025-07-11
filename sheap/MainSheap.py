@@ -182,17 +182,26 @@ class Sheapectral:
                 chi2_red = fit_output.chi2_red)
 
             self._plotter = SheapPlot(sheap=self)
-    def posterior_params(self,run_montecarlo=False, num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True):
+    def posterior_params(self,run="none", num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True,overwrite=False,num_warmup=500,n_random=1_000):
         from sheap.Posterior.ParameterEstimation import ParameterEstimation
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
         PM = ParameterEstimation(sheap = self)
-        if run_montecarlo:
-            _,dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,get_full_posterior = get_full_posterior )     
-            self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
-                                      "summarize":summarize},dic_posterior_params]
+        if run == "none":
+            #maybe in this case return the ParameterEstimation class is to check something?
+            print("Nothing will run if you dont choose between run=montecarlo or run=mcmc")
+            
+        if self.result.posterior and not overwrite:
+            print("Warning already run if you want to run again please put overwrite=True")
         else:
-            print("work in progress")
+            if run.lower()=="montecarlo":
+                _,dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,get_full_posterior = get_full_posterior )     
+                self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
+                                        "summarize":summarize},dic_posterior_params]
+            elif run.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
+                _,dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,get_full_posterior = get_full_posterior )
+                self.result.posterior = [{"method":run.lower(),"num_samples":num_samples,"n_random":n_random,
+                                        "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:

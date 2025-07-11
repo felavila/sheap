@@ -9,7 +9,7 @@ from tqdm import tqdm
 # from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
 # from sheap.Mappers.LineMapper import LineMapper 
 from sheap.Mappers.helpers import mapping_params
-from .parameter_from_sampler import full_params_sampled_to_posterior_params
+#from .parameter_from_sampler import full_params_sampled_to_posterior_params
 from .posterior_v2 import posterior_physical_parameters
 
 # this have to be move outside 
@@ -50,6 +50,7 @@ class MonteCarloSampler:
     BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS should came from ParameterEstimation
     """
     def __init__(self, estimator: "ParameterEstimation"):
+        
         self.estimator = estimator  # ParameterEstimation instance
         self.model = estimator.model
         self.c = estimator.c
@@ -66,7 +67,7 @@ class MonteCarloSampler:
         self.names = estimator.names 
         self.complex_class = estimator.complex_class
     
-    def sample_params(self, N: int = 2000, key_seed: int = 0,summarize=True,get_full_posterior=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,extra_products =True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import (
             apply_tied_and_fixed_params, make_residuals_free_fn, error_covariance_matrix
         )
@@ -86,7 +87,7 @@ class MonteCarloSampler:
         idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         key = random.PRNGKey(key_seed)
         dic_posterior_params = {}
-        matrix_sample_params = jnp.zeros((norm_spec.shape[0],N,params.shape[1])) 
+        #matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
             dependencies = None
@@ -110,7 +111,7 @@ class MonteCarloSampler:
             )
             
             L = jnp.linalg.cholesky(cov_matrix + 1e-6 * jnp.eye(cov_matrix.shape[0]))
-            z = random.normal(key, shape=(N, len(free_params)))
+            z = random.normal(key, shape=(num_samples, len(free_params)))
             samples_free = free_params + z @ L.T  # (N, n_free)
 
             def apply_one_sample(free_sample):
@@ -118,16 +119,15 @@ class MonteCarloSampler:
         
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scale[n])
-            if get_full_posterior:
-                dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
-                                                                                ,np.full((N,), self.d[n],dtype=np.float64),
+            dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
+                                                                                ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize)
+                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize,extra_products=extra_products)
             
-            matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
+            #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
         iterator.close()
-        return matrix_sample_params,dic_posterior_params
+        return dic_posterior_params
     
     
     # def posterior_physical_parameters(

@@ -105,7 +105,7 @@ exclude = [
 ### Dependency Constraints, aka Requirements ###
 [tool.poetry.dependencies]
 python = ">=3.12, <3.14"
-jax == "0.4.35"
+jax = "0.4.35"
 optax = ">0.2.3"
 sfdmap2 = "*"
 astropy = ">=7.0"

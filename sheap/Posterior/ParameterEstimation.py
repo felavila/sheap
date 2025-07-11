@@ -15,7 +15,7 @@ from sheap.DataClass.DataClass import FitResult
 
 from sheap.Functions.utils import combine_auto
 #from sheap.Mappers.LineMapper import LineMapper
-from sheap.DataClass.ComplexRegion import ComplexRegion
+#from sheap.DataClass.ComplexRegion import ComplexRegion
 from sheap.Mappers.helpers import mapping_params
 from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler
@@ -212,13 +212,13 @@ class ParameterEstimation:
         return sampler.sample_params(N=num_samples, key_seed=key_seed,summarize=summarize,get_full_posterior=get_full_posterior)
     
     
-    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000):
+    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, get_full_posterior=True):
         """
         Run mcmc using numpyro parameter sampling.
         Returns megafullsample, dic_posterior_params
         """
         sampler = McMcSampler(self)
-        return sampler.sample_params(n_random,num_warmup,num_samples)
+        return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,get_full_posterior=get_full_posterior)
 
     
     def _from_sheap(self, sheap):
@@ -240,7 +240,7 @@ class ParameterEstimation:
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = jit(combine_auto(self.profile_functions))
+        self.model = jit(combine_auto(self.profile_functions)) #
         self.params_dict = result.params_dict
         self.dependencies = result.dependencies
         self.complex_class = result.complex_class
