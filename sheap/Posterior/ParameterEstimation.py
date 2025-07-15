@@ -14,13 +14,11 @@ from sheap.MainSheap import Sheapectral
 from sheap.DataClass.DataClass import FitResult
 
 from sheap.Functions.utils import combine_auto
-#from sheap.Mappers.LineMapper import LineMapper
-#from sheap.DataClass.ComplexRegion import ComplexRegion
 from sheap.Mappers.helpers import mapping_params
 from .MonteCarloSampler import MonteCarloSampler
 from .McMcSampler import McMcSampler
 
-from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c
+from .tools.constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c
 
 cm_per_mpc = 3.08568e24
 
@@ -51,11 +49,6 @@ class ParameterEstimation:
         self.BOL_CORRECTIONS = BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
         self.c = c
-        #this should be called before i think
-        #self.complex_class = ComplexRegion(self.complex_region)
-        #self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
-         #                           ,self.profile_params_index_list,self.params_dict)
-
         if self.z is None:
             print("None informed redshift, assuming zero.")
             self.z = np.zeros(self.spec.shape[0])
@@ -69,11 +62,27 @@ class ParameterEstimation:
             self.fluxnorm = fluxnorm
 
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
-
-        #self.kinds_map = {}
-        #for k in self.kind_list:
-         #   self.kinds_map[k] = self.RegionMap._get(where="kind", what=k)
        
+    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
+        """
+        Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
+        Returns megafullsample, dic_posterior_params
+        """
+        sampler = MonteCarloSampler(self)
+        if summarize:
+            print("The samples will be summarize is you want to keep the samples summarize=False")
+        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
+    
+    
+    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, extra_products=True):
+        """
+        Run mcmc using numpyro parameter sampling.
+        Returns megafullsample, dic_posterior_params
+        """
+        sampler = McMcSampler(self)
+        return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
+
+    
     
     def compute_params_wu(self):
         """
@@ -201,26 +210,6 @@ class ParameterEstimation:
     #def 
     
     
-    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True):
-        """
-        Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
-        Returns megafullsample, dic_posterior_params
-        """
-        sampler = MonteCarloSampler(self)
-        if summarize:
-            print("The samples will be summarize is you want to keep the samples summarize=False")
-        return sampler.sample_params(N=num_samples, key_seed=key_seed,summarize=summarize,get_full_posterior=get_full_posterior)
-    
-    
-    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, get_full_posterior=True):
-        """
-        Run mcmc using numpyro parameter sampling.
-        Returns megafullsample, dic_posterior_params
-        """
-        sampler = McMcSampler(self)
-        return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,get_full_posterior=get_full_posterior)
-
-    
     def _from_sheap(self, sheap):
         self.spec = sheap.spectra
         self.z = sheap.z
@@ -262,136 +251,5 @@ class ParameterEstimation:
         self.model_keywords = result.model_keywords or {}
         self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions)) #mmm
-        #self.kind_list = result.kind_list
         self.params_dict = result.params_dict
         self.constraints = result.constraints
-
-    
-    # def sample_params_original(self,N = 2_000):
-    #     from sheap.RegionFitting.uncertainty_functions import apply_tied_and_fixed_params,make_residuals_free_fn,error_covariance_matrix
-    #     from jax import random
-    #     import jax 
-    #     print("the sampling will be N = ",N)
-    #     #we move all to the "sheap scale"
-    #     scaled = self.max_flux  # / (10**exp_factor)
-    #     #we re scale all to avoid numerical issues
-    #     norm_spec = self.spec.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scaled, (2, 1)), 0, 1)[:, :, None])
-    #     norm_spec = norm_spec.at[:,2,:].set(jnp.where(self.mask, 1e31,norm_spec[:,2,:]))
-    #     dependencies = self.dependencies 
-    #     idxs = mapping_params(
-    #         self.params_dict, [["amplitude"], ["scale"]])  # check later on cont how it works
-    #     print(idxs)
-    #     params = self.params.at[:, idxs].divide(scaled[:, None])
-    #     wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
-    #     model = self.model
-    #     idx_target = [i[1] for i in dependencies]
-    #     idx_free_params = list(set(range(len(params[0])))-set(idx_target))
-    #     key = random.PRNGKey(0) # i should look for this?
-    #     def apply_one_sample(free_sample):
-    #         return apply_tied_and_fixed_params(free_sample,params[0],dependencies)
-        
-    #     full_samples_n = jnp.zeros((params.shape[0],N,params.shape[1]))
-    #     #print(full_samples_n.shape)
-    #     map_cont = self.kinds_map['continuum']
-    #     idx_cont = jnp.array(list(map_cont.filtered_dict.values()))
-    #     #print(idx_cont)
-    #     profile_func = map_cont.profile_functions_combine
-    #     #maybe this also should be safe in some place? well 
-    #     bolometric_corrections = {
-    #         "1350": 3.81,
-    #         "1450": 3.81,
-    #         "3000": 5.15,
-    #         "5100": 9.26,
-    #         "6200": 9.26,
-    #     }
-    #     #1 at the moment  can be updated
-    #     estimators = {
-    #                 "Hbeta": {
-    #                     "wavelength": "5100",
-    #                     "a": 6.91,
-    #                     "b": 0.5,
-    #                     "f": 1,
-    #                 },  # Vestergaard & Peterson 2006
-    #                 "MgII": {"wavelength": "3000", "a": 6.86, "b": 0.5, "f": 1},  # Shen et al. 2011
-    #                 "CIV": {
-    #                     "wavelength": "1350",
-    #                     "a": 6.66,
-    #                     "b": 0.53,
-    #                     "f": 1,
-    #                 },  # Vestergaard & Peterson 2006
-    #                 "Halpha": {
-    #                     "wavelength": "6200",
-    #                     "a": 6.98,
-    #                     "b": 0.5,
-    #                     "f": 1,
-    #                 },  # Greene & Ho 2005
-    #                     }
-    #     for n, (params_i, wl_i, flux_i, yerr_i) in enumerate(zip(params, wl, flux, yerr)):
-    #         free_params = params_i[jnp.array(idx_free_params)]#we took only the free params
-    #         res_fn = make_residuals_free_fn(model_func=model,
-    #                                     xs=wl_i,y=flux_i,
-    #                                     yerr=yerr_i,
-    #                                     template_params=params_i,
-    #                                     dependencies=dependencies)
-    #         _, cov_matrix = error_covariance_matrix(residual_fn=res_fn,
-    #                                                         params_i=free_params,
-    #                                                         xs_i=wl_i,
-    #                                                         y_i=flux_i,
-    #                                                         yerr_i=yerr_i,
-    #                                                         free_params=len(free_params),
-    #                                                         return_full=True)
-    #         L = jnp.linalg.cholesky(cov_matrix + 1e-6 * jnp.eye(cov_matrix.shape[0]))
-    #         z = random.normal(key, shape=(N, len(free_params)))
-    #         samples_free = free_params + z @ L.T  # (N, n_free)
-    #         full_samples = jax.vmap(apply_one_sample)(samples_free)
-    #         #we take the params to the original units.
-    #         full_samples = full_samples.at[:,idxs].multiply(scaled[n])
-    #         dict_ = {}
-    #         for k, k_map in self.kinds_map.items():
-    #             if k not in ['fe','continuum']:
-    #                 idx_amplitude = mapping_params(k_map.filtered_dict, "amplitude")
-    #                 idx_fwhm = mapping_params(k_map.filtered_dict, "fwhm")
-    #                 idx_center = mapping_params(k_map.filtered_dict, "center")
-                    
-    #                 norm_amplitude = full_samples[:, idx_amplitude]
-    #                 fwhm  = full_samples[:, idx_fwhm]
-    #                 center  = full_samples[:, idx_center]
-    #                 flux = jnp.sqrt(2.0 * jnp.pi) * norm_amplitude * fwhm/(2.0 * np.sqrt(2.0 * jnp.log(2.0))) #approx we will move to integration soon
-    #                 fwhm_kms = (fwhm * self.c) / center
-    #                 L = 4.0 * np.pi * np.array(self.d[n] ** 2) * flux * center
-    #                 dict_[k] = {'lines': k_map.line_name, "component":np.array(k_map.component),'flux':flux,"fwhm":fwhm,"fwhm_kms":fwhm_kms,"L":L}
-    #         L_w = {}
-    #         L_bol = {}
-    #         wavelengths = [1350.0, 1450.0, 3000.0, 5100.0, 6200.0]
-    #         cont_params = full_samples[:, idx_cont]
-    #         for w in wavelengths:
-    #             #maybe just pass if not here but mmm
-    #             wave = str(int(w))
-    #             hits = jnp.isclose(norm_spec[n, 0, :], jnp.array([w]), atol=1)
-    #             valid = (hits & (~self.mask[n])).any()
-    #             corr = bolometric_corrections.get(wave, 0.0)
-    #             if valid:
-    #                 L_w[wave] = w * 4.0 * np.pi * np.array(self.d[n]**2) * vmap(profile_func, in_axes=(None, 0))(jnp.array([w]), cont_params).squeeze()
-    #                 L_bol[wave] = L_w[wave] * corr
-    #             else:
-    #                 L_w[wave] = jnp.zeros(full_samples.shape[0])
-    #                 L_bol[wave] = L_w[wave] * corr
-    #         dict_broad = dict_.get("broad")
-    #         fwhm_kms = dict_broad.get('fwhm_kms')
-    #         line_name_list = np.array(dict_broad["lines"])
-    #         masses = {}
-    #         for line_name, estimators_i in estimators.items():
-    #             wave = estimators_i["wavelength"]
-    #             if line_name not in line_name_list or wave not in L_w.keys():
-    #                 continue
-    #             else:
-    #                 idx_broad = np.where(line_name==line_name_list)[0]
-    #             a, b, f = estimators_i["a"], estimators_i["b"], estimators_i["f"]
-    #             log_L = jnp.log10(L_w[wave])  # continuum luminosity in erg/s
-    #             fwhm_kms_ = fwhm_kms[:,idx_broad].squeeze() # a matrix with all the values 
-    #             log_FWHM = jnp.log10(fwhm_kms_) - 3  # convert FWHM to 10^3 km/s
-    #             log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
-    #             M_BH = (10 ** log_M_BH) / f  # in Msun
-    #             masses[line_name] = M_BH.squeeze()
-                
-    #     return  L_w, L_bol,masses

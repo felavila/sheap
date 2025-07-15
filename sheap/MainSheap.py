@@ -16,7 +16,7 @@ from sheap.RegionFitting.RegionFitting import RegionFitting
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
 from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
-from sheap.Posterior.constants import c
+from sheap.Posterior.tools.constants import c
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 #WE CAN mode fast, we will stay in this 32 to go faster. 
 
 class Sheapectral:
-    # the units of the flux are not important (I think) meanwhile all the wavelength dependence are in A
+    "?"
     def __init__(
         self,
         spectra: Union[str, jnp.ndarray],
@@ -140,24 +140,25 @@ class Sheapectral:
         return hostsubstraction
     
     def build_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
+        "?"
         self.builded_region = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
     
+    
     def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2],run_fit=True):
-        
+        "?"
         if not hasattr(self, "builded_region"):
             raise RuntimeError("build_region() must be called before fit_region()")
 
         self.fitting_class = RegionFitting.from_builder(self.builded_region,limits_overrides=None,profile=profile,
                                                         list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
-        #this make more sence in the build region part and then we can add another "subfunction"
-        #fitting_class = RegionFitting(fitting_routine,profile=profile)
+
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
             self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params)
             fit_output = self.fitting_class.fit_result
-            #fit_output.initial_params = fitting_class.initial_params #This also have to be "re-scale"
             fit_output.source = "computed"
-            # Store result using FitResult directly
+            
+            
             self.result = FitResult(
                 params=fit_output.params.astype(jnp.float64),
                 uncertainty_params=fit_output.uncertainty_params,
@@ -182,7 +183,8 @@ class Sheapectral:
                 chi2_red = fit_output.chi2_red)
 
             self._plotter = SheapPlot(sheap=self)
-    def posterior_params(self,run="none", num_samples: int = 2000, key_seed: int = 0,summarize=True, get_full_posterior=True,overwrite=False,num_warmup=500,n_random=1_000):
+    def posterior_params(self,run="none", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,num_warmup=500,n_random=1_000,extra_products=True):
+        "?"
         from sheap.Posterior.ParameterEstimation import ParameterEstimation
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
@@ -195,16 +197,17 @@ class Sheapectral:
             print("Warning already run if you want to run again please put overwrite=True")
         else:
             if run.lower()=="montecarlo":
-                _,dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,get_full_posterior = get_full_posterior )     
+                dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
             elif run.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
-                _,dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,get_full_posterior = get_full_posterior )
+                dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,extra_products = extra_products)
                 self.result.posterior = [{"method":run.lower(),"num_samples":num_samples,"n_random":n_random,
                                         "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
+        "?"
         filepath = Path(filepath)
         with open(filepath, "rb") as f:
             data = pickle.load(f)
@@ -347,7 +350,7 @@ class Sheapectral:
         ax.text(
             0.0,
             1.05,
-            f"ID {self.names[idx]} ({idx})",
+            f"ID {self.names[idx]} ({idx}), z = {self.z[idx]} ",
             fontsize=10,
             transform=ax.transAxes,
             ha='left',

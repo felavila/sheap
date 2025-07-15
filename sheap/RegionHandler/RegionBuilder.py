@@ -49,11 +49,12 @@ class RegionBuilder:
         line_repository_path: Optional[List[Union[str, Path]]] = None,
         fe_mode = "template",
         continuum_profile = "powerlaw",
-        group_method = False,
+        group_method = True,
         add_outflow = False,
         add_winds = False,
         add_balmer_continuum = False,
-        add_uncommon_narrow = False
+        add_uncommon_narrow = False,
+        verbose=True,
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
@@ -80,6 +81,7 @@ class RegionBuilder:
         self.add_outflow = add_outflow
         self.add_winds = add_winds
         self.add_uncommon_narrow = add_uncommon_narrow
+        self.verbose = verbose
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
@@ -277,16 +279,18 @@ class RegionBuilder:
         elif fe_mode == "template":
             t_c = 0
             if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
-                print("added OP template")
+                if self.verbose:
+                    print("added OP template")
                 fe_comps.extend(
                     [SpectralLine(center=None,line_name="feop",region="fe",component=FE_COMPONENT,profile="fitFeOP",how="template",which_template="OP",element="OP")])
                 t_c += 1
             if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 1000:
-                print("added UV template")
+                if self.verbose:
+                    print("added UV template")
                 fe_comps.extend([SpectralLine(center=None,line_name="feuv",region="fe",component=FE_COMPONENT,profile="fitFeUV",how="template",which="UV",element="UV")])
                 t_c += 1
             if t_c == 0:
-                print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")
+                print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
                 fe_mode = "model"
         elif fe_mode == "model":      
             for pseudo_region_name,list_dict in self.lines_available.items():
@@ -316,14 +320,16 @@ class RegionBuilder:
         dict_regions = complex_class.group_by("region")
         new_complex_list = []
         for key,values in dict_regions.items():
-            if key in ["winds","continuum"]:
+            if key in ["continuum"]:
                 new_complex_list.extend(values.lines)
             elif key == "fe":
                 #here much more can be done 
                 if fe_mode=="model":
-                    new_complex_list.extend(group_lines(values.lines,"fe",mode="element",profile="SPAF"))
+                    new_complex_list.extend(group_lines(values.lines,key,mode="element",profile="SPAF"))
                 else:
                     new_complex_list.extend(values.lines)
+            elif key in ["outflow","winds"]:
+                new_complex_list.extend(group_lines(values.lines,key,mode="element",known_tied_relations=known_tied_relations,profile="SPAF"))
             else:
                 new_complex_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
         return ComplexRegion(new_complex_list)

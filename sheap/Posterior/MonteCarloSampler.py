@@ -5,24 +5,11 @@ from jax import vmap, random
 import numpy as np 
 from tqdm import tqdm
 
-# from .functions import calc_flux,calc_luminosity,calc_fwhm_kms,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
-# from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
-# from sheap.Mappers.LineMapper import LineMapper 
+
 from sheap.Mappers.helpers import mapping_params
-#from .parameter_from_sampler import full_params_sampled_to_posterior_params
-from .posterior_v2 import posterior_physical_parameters
-
-# this have to be move outside 
+from .parameter_from_sampler import posterior_physical_parameters
 
 
-#we have to add this. vmap and sum.
-
-# from scipy.stats import skew, kurtosis
-
-# sk = skew(emission_profiles, axis=1)
-# print("sk",sk)
-# kt = kurtosis(emission_profiles, axis=1, fisher=False)  
-# print("kt",kt)
 def safe_cholesky(
     cov: jnp.ndarray,
     initial_jitter: float = 1e-6,
@@ -86,11 +73,12 @@ class MonteCarloSampler:
         idx_target = [i[1] for i in dependencies]
         idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         key = random.PRNGKey(key_seed)
-        dic_posterior_params = {}
+        
         #matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
             dependencies = None
+        dic_posterior_params = {}    
         iterator =tqdm(zip(names,params, wl, flux, yerr,self.mask), total=len(params), desc="Sampling obj")
         for n, (name_i,params_i, wl_i, flux_i, yerr_i,mask_i) in enumerate(iterator):
             free_params = params_i[jnp.array(idx_free_params)]                 
@@ -123,7 +111,8 @@ class MonteCarloSampler:
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize,extra_products=extra_products)
+                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
+                                                                                summarize=summarize,extra_products=extra_products)
             
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
         iterator.close()

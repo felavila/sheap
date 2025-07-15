@@ -12,9 +12,9 @@ from tqdm import tqdm
 
 
 from sheap.Mappers.helpers import mapping_params
-from sheap.Posterior.numpyro_helpers import make_numpyro_model,params_to_dict
-from .posterior_v2 import posterior_physical_parameters
-#from .parameter_from_sampler import full_params_sampled_to_posterior_params
+from .tools.numpyro_helpers import make_numpyro_model,params_to_dict
+from .parameter_from_sampler import posterior_physical_parameters
+
 
 class McMcSampler:
     # TODO big how to combine distributions
@@ -36,31 +36,9 @@ class McMcSampler:
         self.names = estimator.names 
         self.complex_class = estimator.complex_class
         self.constraints = estimator.constraints 
-        #.at[self.idxs,:].divide(scale)
-        ####part of the re-scale###
-        #scale = self.scale
-        # norm_spec = self.spec.at[:, [1, 2], :].divide(
-        #     jnp.moveaxis(jnp.tile(self.scale, (2, 1)), 0, 1)[:, :, None]
-        # )
-        #self.norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
-        #self.idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        #self.matrix_params = self.params.at[:, self.idxs].divide(self.scale[:, None])
-        
-        #self.model_func = self.model #can  test if a model is already jited?
-        
-        #dependencies = self.dependencies
-        
-        
-        #self.idx_free_params = list(set(range(len(self.matrix_params[0]))) - set(idx_target))
-        #self.constraints = [tuple(x) for x in jnp.asarray(constraints)] # this is the way to let the contrains in a safe mode#
-        #self.theta_to_sheap = {f"theta_{i}":str(key) for i,key in enumerate(self.params_dict.keys())} #params that can be use in the mcmc because params_dict names is to large
-        #self.name_list =  list(self.theta_to_sheap.keys())
-        #self.tied_targets = {target_idx for (_, _, target_idx, _, _) in  self.dependencies}
-        #self.fixed_params = {}
-        #self.ties = None 
         
     def sample_params(self, num_samples: int = 2000, num_warmup:int = 500,summarize=True,get_full_posterior=True,n_random=1_000,
-                      list_of_objects=None,key_seed: int = 0) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+                      list_of_objects=None,key_seed: int = 0,extra_products=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from sheap.RegionFitting.uncertainty_functions import apply_tied_and_fixed_params
         scale = self.scale
         model = self.model
@@ -84,7 +62,7 @@ class McMcSampler:
             import numpy as np 
             print("The mcmc will be runend for all the sample")
             list_of_objects = np.arange(norm_spec.shape[0])
-        
+        dic_posterior_params = {}
         matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
@@ -107,13 +85,12 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = full_samples.at[:, idxs].multiply(scale[n])
             matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-            
-            if get_full_posterior:
-                dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
+            dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,summarize=summarize)
+                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
+                                                                                summarize=summarize,extra_products=extra_products)
             #iterator.close()
             return dic_posterior_params
        

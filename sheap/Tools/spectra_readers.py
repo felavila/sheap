@@ -65,7 +65,7 @@ READER_FUNCTIONS = {
 
 
 
-def parallel_reader_safe(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
+def paraller_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     """
     Safe parallel reading using multiprocessing.Pool.
     Accepts additional keyword arguments for the reader function.

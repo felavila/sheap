@@ -170,7 +170,7 @@ def make_constraints(
          return ConstraintSet(
              init=[0.1,-1.7, 0.0, 5500.0],
              upper=[10.0,0.0, 1.0, 7000.0],
-             lower=[0.0,-3.0, -1.0, 4000.0],
+             lower=[0.0,-3.0, -1.0, 3000.0],
              profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "logparabola":
@@ -192,9 +192,9 @@ def make_constraints(
     if selected_profile == "polynomial":
          #should be testted
          return ConstraintSet(
-             init=[1.0,1.0,1.0,1.0,1.0],
-            upper=[10.0,10.0,10.0,10.0,10.0],
-            lower=[0.0,0.0,0.0,0.0,0.0],
+             init=[0.1,0.0,0.0,0.0,0.0],
+            upper=[1.0,1.0,1.0,1.0,1.0],
+            lower=[0.0,-1.0,-1.0,-1.0,-1.0],
             profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
    
@@ -255,10 +255,8 @@ def make_constraints(
     if selected_profile == "SPAF":
         func = PROFILE_LINE_FUNC_MAP[subprofile]
         amp_list = sp.amplitude
-        #print(amp_list)
-        #print("n_free_amps",len(amp_list))
-        #amp_upper = [1.0] * len(amp_list)
-        names = [f"amplitude{n}" for n in range(len(amp_list))] +["shift"]+ func.param_names[2:]
+
+        names = [f"amplitude{n}" for n in range(len(amp_list))] + ["shift"] + func.param_names[2:]
         # base kinematics
         lambda0 = CANONICAL_WAVELENGTHS[sp.region]
         shift_init = 0.0 if sp.component == 1 else (-5.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
