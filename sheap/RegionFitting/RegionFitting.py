@@ -12,7 +12,7 @@ import pandas as pd
 #import yaml
 from jax import jit,vmap
 
-from sheap.DataClass.DataClass import FittingLimits, SpectralLine,FitResult
+from sheap.DataClass.core import FittingLimits, SpectralLine,FitResult
 from sheap.DataClass.Parameters import Parameters
 from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Minimizer.utils import parse_dependencies

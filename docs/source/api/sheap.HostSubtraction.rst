@@ -1,13 +1,18 @@
 sheap.HostSubtraction package
 =============================
 
+.. automodule:: sheap.HostSubtraction
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Subpackages
 -----------
 
 .. toctree::
    :maxdepth: 4
 
-   sheap.HostSubtraction.deprated
+   sheap.HostSubtraction.old_sf
 
 Submodules
 ----------
@@ -24,14 +29,6 @@ sheap.HostSubtraction.utils module
 ----------------------------------
 
 .. automodule:: sheap.HostSubtraction.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: sheap.HostSubtraction
    :members:
    :undoc-members:
    :show-inheritance:

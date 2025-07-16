@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from sheap.DataClass.DataClass import SpectralLine
+from sheap.DataClass import SpectralLine
 
 
 def fe_ties(

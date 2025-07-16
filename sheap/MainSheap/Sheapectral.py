@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.DataClass.DataClass import SpectralLine,FitResult
+from sheap.DataClass import SpectralLine,FitResult
 from sheap.HostSubtraction.HostSubtraction import HostSubtraction
 from sheap.RegionFitting.RegionFitting import RegionFitting
 from sheap.RegionHandler.RegionBuilder import RegionBuilder

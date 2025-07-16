@@ -1,15 +1,9 @@
-"""
-Classes in this module:
 
-- SpectralLine: Describes a spectral line with optional metadata.
-- FitResult: Stores results from spectral region fitting.
-- LineSelectionResult: Output of a spectral line filtering routine.
-- ConstraintSet: Encodes parameter constraints and profile metadata.
-- FittingLimits: Constraint configuration for component fitting.
-"""
+from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
 
 import jax.numpy as jnp
 import numpy as np
@@ -59,62 +53,6 @@ class SpectralLine:
         return asdict(self)
 
 
-
-#still useffull? 
-@dataclass
-class FitResult:
-    """
-    Data class to store results from spectral region fitting.
-
-    Attributes:
-        complex_region (List[SpectralLine]): List of spectral line configurations.
-        params (Optional[jnp.ndarray]): Optimized parameters from fitting.
-        uncertainty_params (Optional[jnp.ndarray]): Estimated uncertainties for each parameter.
-        mask (Optional[jnp.ndarray]): Mask used during the fitting process.
-        profile_functions (Optional[List[Callable]]): Functions describing each spectral profile.
-        profile_names (Optional[List[str]]): Names of spectral profiles used in fitting.
-        loss (Optional[List]): Values of the loss function during optimization.
-        profile_params_index_list (Optional[List]): Indices mapping profile parameters.
-        initial_params (Optional[jnp.ndarray]): Initial guess parameters before fitting.
-        scale (Optional[jnp.ndarray]): scale used for normalization.
-        params_dict (Optional[Dict[str, int]]): Mapping from parameter names to indices.
-        outer_limits (Optional[List]): Outer wavelength limits of the fitting region.
-        inner_limits (Optional[List]): Inner wavelength limits defining the region of interest.
-        model_keywords (Optional[dict]): Additional keywords for model configuration.
-        kind_list (List[str]): Unique types of spectral lines (computed post-init).
-        constraints same as constrains from fit 
-    """
-    complex_region: List[SpectralLine] # can be mode to complex_class at the moment after reading.
-    fitting_routine: Optional[dict] = None
-    params: Optional[jnp.ndarray] = None
-    uncertainty_params: Optional[jnp.ndarray] = None
-    mask: Optional[jnp.ndarray] = None
-    constraints: Optional[jnp.ndarray] = None
-    profile_functions: Optional[List[Callable]] = None
-    profile_names: Optional[List[str]] = None
-    loss: Optional[List] = None
-    profile_params_index_list: Optional[List] = None
-    initial_params: Optional[jnp.ndarray] = None
-    scale: Optional[jnp.ndarray] = None
-    params_dict: Optional[Dict[str, int]] = None
-    outer_limits: Optional[List] = None
-    inner_limits: Optional[List] = None
-    model_keywords: Optional[dict] = None
-    source:Optional[dict] = None
-    dependencies:Optional[List] = None 
-    free_params:Optional[jnp.ndarray] = None 
-    residuals:Optional[jnp.ndarray] = None 
-    chi2_red:Optional[jnp.ndarray] = None 
-    posterior:Optional[dict] = None 
-    # list tuple in reality
-    #kind_list: List[str] = field(init=False)
-    def __post_init__(self):
-        self.complex_class = ComplexRegion(self.complex_region)
-        self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
-                                    ,self.profile_params_index_list,self.params_dict)
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 @dataclass
@@ -365,6 +303,65 @@ class ComplexRegion:
             "subregions": self.subregions,
             "n_components_per_region": by_region_component,
         }
+        
+#still useffull? 
+@dataclass
+class FitResult:
+    """
+    Data class to store results from spectral region fitting.
+
+    Attributes:
+        complex_region (List[SpectralLine]): List of spectral line configurations.
+        params (Optional[jnp.ndarray]): Optimized parameters from fitting.
+        uncertainty_params (Optional[jnp.ndarray]): Estimated uncertainties for each parameter.
+        mask (Optional[jnp.ndarray]): Mask used during the fitting process.
+        profile_functions (Optional[List[Callable]]): Functions describing each spectral profile.
+        profile_names (Optional[List[str]]): Names of spectral profiles used in fitting.
+        loss (Optional[List]): Values of the loss function during optimization.
+        profile_params_index_list (Optional[List]): Indices mapping profile parameters.
+        initial_params (Optional[jnp.ndarray]): Initial guess parameters before fitting.
+        scale (Optional[jnp.ndarray]): scale used for normalization.
+        params_dict (Optional[Dict[str, int]]): Mapping from parameter names to indices.
+        outer_limits (Optional[List]): Outer wavelength limits of the fitting region.
+        inner_limits (Optional[List]): Inner wavelength limits defining the region of interest.
+        model_keywords (Optional[dict]): Additional keywords for model configuration.
+        kind_list (List[str]): Unique types of spectral lines (computed post-init).
+        constraints same as constrains from fit 
+    """
+    complex_region: List[SpectralLine] # can be mode to complex_class at the moment after reading.
+    fitting_routine: Optional[dict] = None
+    params: Optional[jnp.ndarray] = None
+    uncertainty_params: Optional[jnp.ndarray] = None
+    mask: Optional[jnp.ndarray] = None
+    constraints: Optional[jnp.ndarray] = None
+    profile_functions: Optional[List[Callable]] = None
+    profile_names: Optional[List[str]] = None
+    loss: Optional[List] = None
+    profile_params_index_list: Optional[List] = None
+    initial_params: Optional[jnp.ndarray] = None
+    scale: Optional[jnp.ndarray] = None
+    params_dict: Optional[Dict[str, int]] = None
+    outer_limits: Optional[List] = None
+    inner_limits: Optional[List] = None
+    model_keywords: Optional[dict] = None
+    source:Optional[dict] = None
+    dependencies:Optional[List] = None 
+    free_params:Optional[jnp.ndarray] = None 
+    residuals:Optional[jnp.ndarray] = None 
+    chi2_red:Optional[jnp.ndarray] = None 
+    posterior:Optional[dict] = None 
+    # list tuple in reality
+    #kind_list: List[str] = field(init=False)
+    def __post_init__(self):
+        self.complex_class = ComplexRegion(self.complex_region)
+        self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
+                                    ,self.profile_params_index_list,self.params_dict)
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+
 
 
 #This will go to the fitting part in particular to some helper.py stuff

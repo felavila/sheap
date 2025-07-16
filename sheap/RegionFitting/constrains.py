@@ -6,7 +6,7 @@ import jax
 import math
 
 
-from sheap.DataClass.DataClass import ConstraintSet, FittingLimits, SpectralLine
+from sheap.DataClass import ConstraintSet, FittingLimits, SpectralLine
 from sheap.Tools.spectral_basic import kms_to_wl
 from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
@@ -115,7 +115,6 @@ def make_constraints(
     Returns:
         ConstraintSet: Contains initial values, bounds, profile type, and parameter names.
     """
-   
     selected_profile = sp.profile
     if selected_profile not in PROFILE_FUNC_MAP:
         raise ValueError(
@@ -129,7 +128,6 @@ def make_constraints(
             raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
         if sp.region not in CANONICAL_WAVELENGTHS:
             raise KeyError(f"Missing canonical wavelength for region='{sp.region}' in CANONICAL_WAVELENGTHS.")
-   
     if sp.region.lower() == 'fe' and sp.how == 'template':
         if not sp.which_template:
             #here we can change the "must define for a waring"
@@ -152,52 +150,51 @@ def make_constraints(
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,)
 
     if selected_profile == 'powerlaw':
-         return ConstraintSet(
-             init=[-1.1, 0.0],
-             upper=[-1.0, 10.0],
-             lower=[-3.0, 0.0],
-             profile=selected_profile,
-             param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names)#['index', 'scale'],
+        return ConstraintSet(
+            init=[-1.1, 0.0],
+            upper=[-1.0, 10.0],
+            lower=[-3.0, 0.0],
+            profile=selected_profile,
+            param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names)#['index', 'scale'],
 
     if selected_profile == 'linear':
-         return ConstraintSet(
-             init=[-0.01, 0.2],
-             upper=[1.0, 1.0],
-             lower=[-1.0, -1.0],
-             profile=selected_profile,
+        return ConstraintSet(
+            init=[-0.01, 0.2],
+            upper=[1.0, 1.0],
+            lower=[-1.0, -1.0],
+            profile=selected_profile,
             param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "brokenpowerlaw":
-         return ConstraintSet(
-             init=[0.1,-1.7, 0.0, 5500.0],
-             upper=[10.0,0.0, 1.0, 7000.0],
-             lower=[0.0,-3.0, -1.0, 3000.0],
-             profile=selected_profile,
+        return ConstraintSet(
+            init=[0.1,-1.7, 0.0, 5500.0],
+            upper=[10.0,0.0, 1.0, 7000.0],
+            lower=[0.0,-3.0, -1.0, 3000.0],
+            profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "logparabola":
-         #should be testted
-         return ConstraintSet(
-             init=[ 1.0,1.5, 0.1],
+        #should be testted
+        return ConstraintSet(
+            init=[ 1.0,1.5, 0.1],
             upper=[10,3.0, 1.0, 10.0],
             lower=[0.0,0.0, 0.0],
-             profile=selected_profile,
+            profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "exp_cutoff":
-         #should be testted
-         return ConstraintSet(
-             init=[1.0,1.5,5000.0],
+        #should be testted
+        return ConstraintSet(
+            init=[1.0,1.5,5000.0],
             upper=[10.0,3.0, 1.0, 1e5],
             lower=[0.0,0.0, 0.0],
-             profile=selected_profile,
+            profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "polynomial":
-         #should be testted
-         return ConstraintSet(
-             init=[0.1,0.0,0.0,0.0,0.0],
+        #should be testted
+        return ConstraintSet(
+            init=[0.1,0.0,0.0,0.0,0.0],
             upper=[1.0,1.0,1.0,1.0,1.0],
             lower=[0.0,-1.0,-1.0,-1.0,-1.0],
             profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
-   
     if selected_profile in PROFILE_LINE_FUNC_MAP:
         func = PROFILE_LINE_FUNC_MAP[selected_profile]
         names = func.param_names 
@@ -264,7 +261,7 @@ def make_constraints(
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
         #if sp.region in ["narrow"]:
-         #   fwhm_init = fwhm_up
+        #   fwhm_init = fwhm_up
         #else:
         fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
 

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import yaml
 
-from sheap.DataClass.DataClass import SpectralLine,ComplexRegion
+from sheap.DataClass import SpectralLine,ComplexRegion
 #from sheap.DataClass.ComplexRegion import 
 from sheap.Functions.profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.RegionHandler.utils import fe_ties, region_ties, group_lines

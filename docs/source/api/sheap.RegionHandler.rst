@@ -1,6 +1,11 @@
 sheap.RegionHandler package
 ===========================
 
+.. automodule:: sheap.RegionHandler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Submodules
 ----------
 
@@ -16,14 +21,6 @@ sheap.RegionHandler.utils module
 --------------------------------
 
 .. automodule:: sheap.RegionHandler.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: sheap.RegionHandler
    :members:
    :undoc-members:
    :show-inheritance:

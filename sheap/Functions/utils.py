@@ -107,16 +107,16 @@ def make_integrator(profile_fn, method="broadcast"):
     """
     profile_fn : callable
         f(x, p) → y, where
-          x has shape (n_pixels,) or (n_pixels,1,1,…),
-          p has shape (..., n_params),
+        x has shape (n_pixels,) or (n_pixels,1,1,…),
+        p has shape (..., n_params),
         and y broadcasts to shape (n_pixels, ...).
     method : {"broadcast", "vmap"}
     Returns
     -------
     integrate(x, params) → integral over x of profile_fn(x,p)
-       x      shape (n_pixels,)
-       params shape (n_spectra, n_lines, n_params)
-       → returns array of shape (n_spectra, n_lines)
+    x      shape (n_pixels,)
+    params shape (n_spectra, n_lines, n_params)
+    → returns array of shape (n_spectra, n_lines)
     """
 
     if method == "broadcast":

@@ -2,9 +2,10 @@ from typing import Dict, Optional, Union, List, Tuple
 from pathlib import Path
 import jax.numpy as jnp
 import numpy as np
+
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.RegionFitting.RegionFitting import RegionFitting
-from sheap.DataClass.DataClass import FitResult
+from sheap.DataClass import FitResult
 from sheap.Tools.unred import unred
 from sheap.Tools.spectral_basic import _deredshift
 

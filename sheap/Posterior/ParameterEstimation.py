@@ -11,7 +11,7 @@ from jax import grad, jit,vmap
 
 
 from sheap.MainSheap import Sheapectral
-from sheap.DataClass.DataClass import FitResult
+from sheap.DataClass import FitResult
 
 from sheap.Functions.utils import combine_auto
 from sheap.Mappers.helpers import mapping_params

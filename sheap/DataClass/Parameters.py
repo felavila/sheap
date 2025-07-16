@@ -6,6 +6,15 @@ import jax
 import math
 
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import jax.numpy as jnp
+    default_inf = jnp.inf
+else:
+    default_inf = float("inf")
+
+
 class Parameter:
     """
     Represents a fit parameter with optional bounds or ties, plus a transform
@@ -16,8 +25,8 @@ class Parameter:
         name: str,
         value: Union[float, jnp.ndarray, List[float], Tuple[float, ...]],
         *,
-        min: float = -jnp.inf,
-        max: float = jnp.inf,
+        min: float = -default_inf,
+        max: float = default_inf,
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
     ):
