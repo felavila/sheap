@@ -11,17 +11,15 @@ import numpy as np
 import yaml
 
 from sheap.DataClass import SpectralLine,ComplexRegion
-#from sheap.DataClass.ComplexRegion import 
 from sheap.Functions.profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.RegionHandler.utils import fe_ties, region_ties, group_lines
 
-# yaml_files =
-# Named constants for special components
+
 OUTFLOW_COMPONENT = 10
 WINDS_COMPONENT = 15
 FE_COMPONENT = 20
 NLR_COMPONENT = 30
-# Now looks alot more clear this. 
+
 
 #TODO add the uncommon lines narrow?
 class RegionBuilder:
@@ -30,7 +28,7 @@ class RegionBuilder:
     outflow, and FeII components, plus parameter tying.
     """
     
-    lines_prone_outflow = ["OIIIc","OIIIb"]#,"NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
+    lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
     available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys())

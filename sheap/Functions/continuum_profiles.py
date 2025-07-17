@@ -112,58 +112,61 @@ def balmercontinuum(x, pars):
 # from typing import Mapping, Callable
 # from sheap.Functions.profiles import with_param_names
 
-# Basic continuum models with normalized wavelength (x/1000) ---------------------------
+λ0 = 5500.0  # Å myabe do this make it more problematic in some cases
+
 @with_param_names(["amplitude_slope", "amplitude_intercept"])
 def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-    """f(x) = intercept + slope * (x/1000)"""
-    x = xs / 1000.0
-    slope,intercept = params
+    """f(λ) = intercept + slope * (λ/λ0)"""
+    slope, intercept = params
+    x = xs / λ0
     return intercept + slope * x
+
 
 @with_param_names(["alpha","amplitude"])
 def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-    """f(x) = amplitude * (x/1000)**alpha"""
-    x = xs / 1000.0
-    alpha, amplitude = params
-    return amplitude * x**alpha
+    """f(λ) = amplitude * (λ/λ0)**alpha"""
+    α, A = params
+    x = xs / λ0
+    return A * x**α
+
 
 @with_param_names(["amplitude", "alpha1", "alpha2", "x_break"])
 def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """
-    f(x) = amplitude * (x/1000)**alpha1                              if x < x_break
-         = amplitude * x_break**(alpha1-alpha2) * (x/1000)**alpha2   otherwise
+    f(λ) = A⋅(λ/λ0)**α1                              if λ/λ0 < x_break
+         = A⋅x_break**(α1-α2)⋅(λ/λ0)**α2            otherwise
     """
-    x = xs / 1000.0
-    amplitude, alpha1, alpha2, x_break = params
-    x_break = x_break/1000
-    low  = amplitude * x**alpha1
-    high = amplitude * (x_break**(alpha1 - alpha2)) * x**alpha2
-    return jnp.where(x < x_break, low, high)
+    A, α1, α2, xbr = params
+    x = xs / λ0
+    xbr = xbr / λ0
+    low  = A * x**α1
+    high = A * (xbr**(α1 - α2)) * x**α2
+    return jnp.where(x < xbr, low, high)
 
 
 @with_param_names(["amplitude", "alpha", "beta"])
 def logparabola(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """
-    f(x) = amplitude * (x/x0)**(-alpha - beta * log(x/x0)), with x0 = mean(x/1000)
+    f(λ) = A * ( (λ/λ0) )**(-α - β*log(λ/λ0) )
     """
-    x = xs / 1000.0
-    amplitude, alpha, beta = params
-    x0 = jnp.mean(x)
-    return amplitude * (x / x0) ** (-alpha - beta * jnp.log(x / x0))
+    A, α, β = params
+    x = xs / λ0
+    return A * x**(-α - β * jnp.log(x))
+
 
 @with_param_names(["amplitude", "alpha", "x_cut"])
 def exp_cutoff(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-    """f(x) = amplitude * (x/1000)**(-alpha) * exp(-x / x_cut)"""
-    x = xs / 1000.0
-    amplitude, alpha, x_cut = params
-    return amplitude * x**(-alpha) * jnp.exp(-x / x_cut)
+    """f(λ) = A * (λ/λ0)**(-α) * exp(-λ/(x_cut))"""
+    A, α, xcut = params
+    x = xs / λ0
+    return A * x**(-α) * jnp.exp(-xs / xcut)
 
-@with_param_names(["amplitude", "c0", "c1", "c2", "c3"])
+
+@with_param_names(["amplitude", "c1", "c2", "c3"])
 def polynomial(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-    """f(x) = amplitude * (c0 + c1 x + c2 x^2 + c3 x^3) with x normalized to 1000 Å"""
-    x = xs / 1000.0
-    amplitude, *coeffs = params
-    # coeffs corresponds to [c0, c1, c2, c3]
-    # polyval expects highest to lowest: [c3, c2, c1, c0]
-    poly_vals = jnp.polyval(jnp.flip(jnp.array(coeffs)), x)
-    return amplitude * poly_vals
+    """
+    f(λ) = A * (1 + c1·(λ/λ0) + c2·(λ/λ0)^2 + c3·(λ/λ0)^3)
+    """
+    A, c1, c2, c3 = params
+    x = xs / λ0
+    return A * (1 + c1*x + c2*x**2 + c3*x**3)

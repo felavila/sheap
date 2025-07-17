@@ -18,12 +18,11 @@ from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Minimizer.utils import parse_dependencies
 from sheap.Minimizer.MasterMinimizer import MasterMinimizer
 
-# from sheap.Fitting.template_fe_func import
 from sheap.Functions.utils import make_fused_profiles
 from sheap.RegionFitting.constrains import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
 from sheap.Mappers.helpers import mapping_params
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
-#from sheap.DataClass.utils import is_list_of_SpectralLine
+
 
 from sheap.RegionFitting.uncertainty_functions import error_for_loop
 

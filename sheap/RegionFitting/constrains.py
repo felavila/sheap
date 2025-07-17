@@ -151,9 +151,9 @@ def make_constraints(
 
     if selected_profile == 'powerlaw':
         return ConstraintSet(
-            init=[-1.1, 0.0],
-            upper=[-1.0, 10.0],
-            lower=[-3.0, 0.0],
+            init=[-1.7, 0.0],
+            upper=[0.0, 10.0],
+            lower=[-5.0, 0.0],
             profile=selected_profile,
             param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names)#['index', 'scale'],
 
@@ -166,11 +166,12 @@ def make_constraints(
             param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile == "brokenpowerlaw":
         return ConstraintSet(
-            init=[0.1,-1.7, 0.0, 5500.0],
-            upper=[10.0,0.0, 1.0, 7000.0],
-            lower=[0.0,-3.0, -1.0, 3000.0],
+            init=[0.1,-1.5, -2.5, 5500.0],
+            upper=[10.0,0.0, 0.0, 8000.0],
+            lower=[0.0,-5.0, -5.0, 3000.0],
             profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
+    #UNTIL HERE THE CONSTRAINS ARE TESTED AFTER THAT I dont know?
     if selected_profile == "logparabola":
         #should be testted
         return ConstraintSet(
@@ -190,9 +191,9 @@ def make_constraints(
     if selected_profile == "polynomial":
         #should be testted
         return ConstraintSet(
-            init=[0.1,0.0,0.0,0.0,0.0],
-            upper=[1.0,1.0,1.0,1.0,1.0],
-            lower=[0.0,-1.0,-1.0,-1.0,-1.0],
+            init=[1.0,0.0,0.0,0.0],
+            upper=[10.0,10.0,10.0,10.0],
+            lower=[0.0,-10.0,-10.0,-10.0],
             profile=selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names)
     if selected_profile in PROFILE_LINE_FUNC_MAP:

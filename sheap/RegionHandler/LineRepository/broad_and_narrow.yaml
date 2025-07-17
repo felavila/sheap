@@ -27,6 +27,9 @@
 - center: 3203.10
   line_name: HeIIc
   element: Helium
+- center: 3889.05
+  line_name: HIH8
+  element: Hydrogen
 - center: 3970.079
   line_name: Heps
   element: Hydrogen
