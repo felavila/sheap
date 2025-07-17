@@ -114,7 +114,7 @@ class Sheapectral:
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
             l, b = self.coords.T  # type: ignore[union-attr]
-            sfd_path = Path(__file__).resolve().parent / "SuportData" / "sfddata/"
+            sfd_path = Path(__file__).resolve().parent.parent / "SuportData" / "sfddata/"
             ebv_func = sfdmap.SFDMap(sfd_path).ebv
             ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)

@@ -6,6 +6,19 @@ from functools import partial
 # Limit CPUs for safety
 n_cpu = min(4, os.cpu_count())  # Adjustable
 
+def fits_reader_desi(file):
+    "wdisp in pixels i guess"
+    
+    
+    hdul = fits.open(file)
+    flux_scale = float(hdul[1].header["TUNIT2"].split(" ")[0])
+    ivar_scale = float(hdul[1].header["TUNIT3"].split(" ")[0])
+    data = hdul[1].data
+    data_array = np.array([data["WAVELENGTH"],data["FLUX"] * flux_scale,1/np.sqrt(data["IVAR"]* ivar_scale)])
+    data_array[np.isinf(data_array)] = 1e20
+    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])#PLUG_RA/PLUG_DEC
+    return data_array, header_array
+
 def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=4):
     """
     Resize an array to the target shape, filling new entries with NaNs.
@@ -60,12 +73,13 @@ READER_FUNCTIONS = {
     "fits_reader_sdss": fits_reader_sdss,
     "fits_reader_simulation": fits_reader_simulation,
     "fits_reader_pyqso": fits_reader_pyqso,
+    "fits_reader_desi" :fits_reader_desi
 }
 
 
 
 
-def paraller_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
+def parallel_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     """
     Safe parallel reading using multiprocessing.Pool.
     Accepts additional keyword arguments for the reader function.
