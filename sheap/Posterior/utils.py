@@ -1,3 +1,7 @@
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import warnings
+import numpy as np 
+
 import jax.numpy as jnp
 from jax import vmap,grad,jit
 
@@ -9,6 +13,33 @@ from jax import vmap,grad,jit
 def trapz_jax(y: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
     dx = x[1:] - x[:-1]
     return jnp.sum((y[1:] + y[:-1]) * dx / 2)
+
+def integrate_function_error_single(function, x, p, sigma_p):
+    y_int = trapz_jax(function(x, p), x)
+    grad_f = grad(lambda pp: trapz_jax(function(x, pp), x))(p)
+    sigma_f = jnp.sqrt(jnp.sum((grad_f * sigma_p) ** 2))
+    return y_int, sigma_f
+
+# batched version via flatten–vmap–reshape
+def integrate_batch(function, x, p, sigma_p):
+    # p, sigma_p shape = (n, lines, params)  e.g. (2,19,3)
+    n, lines, params = p.shape
+    # 1) flatten
+    p_flat     = p.reshape((n * lines, params))
+    sigma_flat = sigma_p.reshape((n * lines, params))
+
+    # 2) one vmap over the flattened batch axis
+    batched_integrator = vmap(
+        lambda pp, sp: integrate_function_error_single(function, x, pp, sp),
+        in_axes=(0, 0),
+        out_axes=(0, 0),
+    )
+    y_flat, sigma_flat_out = batched_integrator(p_flat, sigma_flat)
+
+    # 3) reshape back to (n, lines)
+    y_batch     = y_flat.reshape((n, lines))
+    sigma_batch = sigma_flat_out.reshape((n, lines))
+    return y_batch, sigma_batch
 
 def integrate_function_error(function, x: jnp.ndarray, p: jnp.ndarray, sigma_p: jnp.ndarray = None):
     """
@@ -54,84 +85,6 @@ def integrate_function_error_single(function, x, p, sigma_p):
     sigma_f = jnp.sqrt(jnp.sum((grad_f * sigma_p) ** 2))
     return y_int, sigma_f
 
-
-# def compute_integrated_profiles(LineSelectionResult:LineSelectionResult, delta=1000, n_points=1000):
-#     """
-#     Compute integrated flux and propagated error for each broad component
-#     in a LineSelectionResult, using preallocated JAX arrays.
-
-#     Parameters
-#     ----------
-#     LineSelectionResult : LineSelectionResult
-#         An instance of LineSelectionResult filtered with kind="broad".
-#     delta : float
-#         Half-width of integration window around the center.
-#     n_points : int
-#         Number of integration points.
-
-#     Returns
-#     -------
-#     values_ : jnp.ndarray, shape (n_spectra, n_lines)
-#         Integrated fluxes.
-#     errors_ : jnp.ndarray, shape (n_spectra, n_lines)
-#         Propagated uncertainties.
-#     """
-#     original_centers = LineSelectionResult.original_centers
-#     n_lines = len(original_centers)
-#     n_spectra = LineSelectionResult.params.shape[0]
-
-#     values_ = jnp.zeros((n_spectra,n_lines))
-#     errors_ = jnp.zeros((n_spectra,n_lines))
-#     pos_idx = 0
-#     for i in range(len(original_centers)):
-#         L1=  LineSelectionResult.profile_params_index_list[i]
-#         f1 = LineSelectionResult.profile_functions[i]
-#         f1_params = LineSelectionResult.params[:,pos_idx:pos_idx+len(L1)]
-#         f1_uncertainty_params = LineSelectionResult.uncertainty_params[:,pos_idx:pos_idx+len(L1)]
-#         #print(pos_idx,LineSelectionResult.params_names[pos_idx:pos_idx+len(L1)])
-#         idx = next((i for i, name in enumerate(LineSelectionResult.params_names[pos_idx:pos_idx+len(L1)]) if "center" in name), None)
-#         if idx is not None:
-#             centers = f1_params[:, idx]
-#             x = jnp.stack([jnp.linspace(c - delta, c + delta, n_points)for c in centers])
-#         else:
-#             idx = next((i for i, name in enumerate(LineSelectionResult.params_names[pos_idx:pos_idx+len(L1)]) if "shift" in name), None)
-#             #if it is shift a it is ok because the thing what we wan it is stimate a "realistic" x 
-#             #f1_params = jnp.array(f1_params).at[:, idx].set(original_centers[i] - f1_params[:, idx])
-#             x = jnp.stack([jnp.linspace(c - delta, c + delta, n_points)for c in centers])
-#         vmapped_func = vmap(integrate_function_error_single, in_axes=(None, 0, 0, 0))
-#         values,errors = vmapped_func(f1,x,f1_params,f1_uncertainty_params)
-#         values_ = values_.at[:,i].set(values)
-#         errors_ = errors_.at[:,i].set(errors)
-#         pos_idx += len(L1)
-#     return values_,errors_
-
-
-# def effective_fwhm(params1, params2):
-#     """
-#     Estimate the FWHM of a combined two-Gaussian profile using moment analysis.
-#     Each param is a tuple/list/array of (amp, mu, sigma).
-#     """
-#     amp1, mu1, sigma1 = params1
-#     amp2, mu2, sigma2 = params2
-
-#     total_amp = amp1 + amp2
-#     mu_eff = (amp1 * mu1 + amp2 * mu2) / total_amp
-#     var_eff = (
-#         amp1 * (sigma1**2 + (mu1 - mu_eff) ** 2) + amp2 * (sigma2**2 + (mu2 - mu_eff) ** 2)
-#     ) / total_amp
-
-#     sigma_eff = jnp.sqrt(var_eff)
-#     fwhm = 2.35482 * sigma_eff
-#     return total_amp, mu_eff, sigma_eff, fwhm / mu_eff  # dimensionless
-
-
-# batched_fwhm = vmap(
-#     vmap(effective_fwhm, in_axes=(0, 0)), in_axes=(0, 0)  # over regions  # over samples
-# )
-
-
-# import jax.numpy as jnp
-# from jax import jit
 
 @jit
 def combine_fast(
@@ -198,3 +151,185 @@ def combine_fast(
 
     return fwhm_final, amp_final, mu_final
 
+def summarize_samples(samples) -> Dict[str, np.ndarray]:
+    """Compute 16/50/84 percentiles and return a summary dict using NumPy."""
+    if isinstance(samples, jnp.ndarray):
+        samples = np.asarray(samples)
+    samples = np.atleast_2d(samples).T
+    if np.isnan(samples).sum() / samples.size > 0.2:
+        warnings.warn("High fraction of NaNs; uncertainty estimates may be biased.")
+    if samples.shape[1]<=1:
+        q = np.nanpercentile(samples, [16, 50, 84], axis=0)
+    else:
+        q = np.nanpercentile(samples, [16, 50, 84], axis=1)
+    #else:
+    
+    return {
+        "median": q[1],
+        "err_minus": q[1] - q[0],
+        "err_plus": q[2] - q[1]
+    }
+    
+    
+def summarize_nested_samples(d: dict) -> dict:
+    """
+    Recursively walk through a dictionary and apply summarize_samples_numpy
+    to any array-like values.
+    """
+    summarized = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            summarized[k] = summarize_nested_samples(v)
+        elif isinstance(v, (np.ndarray, jnp.ndarray)) and np.ndim(v) >= 1 and k!='component':
+            summarized[k] = summarize_samples(v)
+        else:
+            summarized[k] = v
+    return summarized
+
+
+
+def evaluate_with_error(function, 
+                        x: jnp.ndarray, 
+                        p: jnp.ndarray, 
+                        sigma_p: jnp.ndarray = None
+                       ):
+    """
+    Evaluates `function(x, p)` and propagates the 1σ uncertainties in p
+    to give an error on the result.
+
+    Parameters
+    ----------
+    function : Callable
+        Must have signature function(x, p) -> scalar (or array with last axis scalar).
+    x : jnp.ndarray
+        The “independent variable” at which to evaluate.
+    p : jnp.ndarray, shape (..., P)
+        Parameter vectors.  The leading “...” axes are treated as batch dims.
+    sigma_p : jnp.ndarray, same shape as p, optional
+        1σ uncertainties on each parameter.  If None, assumed zero.
+
+    Returns
+    -------
+    f_val : jnp.ndarray, shape (...)
+        The function evaluated at each batch of parameters.
+    sigma_f : jnp.ndarray, shape (...)
+        The propagated 1σ uncertainty on f_val.
+    """
+    # ensure arrays
+    p = jnp.atleast_2d(p) if p.ndim == 1 else p
+    if sigma_p is None:
+        sigma_p = jnp.zeros_like(p)
+    else:
+        sigma_p = jnp.atleast_2d(sigma_p) if sigma_p.ndim == 1 else sigma_p
+
+    # make a scalar-to-scalar function of only the parameter vector
+    def f_of_p(params):
+        return function(x, params)
+
+    # vectorize over any leading batch dims
+    #   - grad_f(p) has the same leading shape, with last axis = P
+    grad_f = vmap(grad(f_of_p))(p)
+    f_val  = vmap(f_of_p)(p)
+
+    # error propagation: σ_f = sqrt( Σ_i (∂f/∂p_i · σ_{p_i})^2 )
+    sigma_f = jnp.sqrt(jnp.sum((grad_f * sigma_p) ** 2, axis=-1))
+
+    return f_val, sigma_f
+
+
+def batched_evaluate(function, x, p, sigma_p):
+    # p, sigma_p: shape (n, lines, P)
+    n, lines, P = p.shape
+
+    # 1) flatten the batch dims
+    p_flat     = p.reshape((n*lines, P))
+    sigma_flat = sigma_p.reshape((n*lines, P))
+
+    # 2) vectorize evaluate_with_error over that flat batch
+    single_eval = lambda pp, sp: evaluate_with_error(function, x, pp, sp)
+    f_flat, err_flat = vmap(single_eval, in_axes=(0,0), out_axes=(0,0))(p_flat, sigma_flat)
+
+    # 3) reshape back to (n, lines)
+    f_batch   = f_flat.reshape((n, lines))
+    err_batch = err_flat.reshape((n, lines))
+    return f_batch, err_batch
+
+
+
+def evaluate_with_error(function,
+                        x:         jnp.ndarray,       # shape = (n, lines)
+                        p:         jnp.ndarray,       # shape = (n, P)
+                        sigma1:    jnp.ndarray = None, # either x‐uncertainty or p‐uncertainty
+                        sigma2:    jnp.ndarray = None  # the other one
+                       ):
+    """
+    Evaluate f(x, p) and propagate 1σ errors in BOTH x and p.
+    The two optional sigmas can be passed in either order; we'll
+    auto–detect which is which by shape.
+
+    Parameters
+    ----------
+    function : Callable
+        f(x, p) → scalar per (x,p).
+    x : jnp.ndarray, shape (n, lines)
+    p : jnp.ndarray, shape (n, P)
+    sigma1, sigma2 : jnp.ndarray or None
+        Exactly one should match x.shape, the other should match p.shape.
+        If you pass only one sigma, it will be applied to whichever it matches;
+        the other is assumed zero.
+    Returns
+    -------
+    y : jnp.ndarray, shape (n, lines)
+    yerr : jnp.ndarray, shape (n, lines)
+    """
+
+    # figure out which sigma is for x and which for p
+    sx = None
+    sp = None
+    for arr in (sigma1, sigma2):
+        if arr is None:
+            continue
+        if arr.shape == x.shape:
+            sx = arr
+        elif arr.shape == p.shape:
+            sp = arr
+        else:
+            raise ValueError(f"Unexpected sigma shape {arr.shape}; must match x{ x.shape } or p{ p.shape }")
+
+    # default any missing one to zero
+    if sx is None:
+        sx = jnp.zeros_like(x)
+    if sp is None:
+        sp = jnp.zeros_like(p)
+
+    n, lines = x.shape
+    _, P      = p.shape
+
+    # broadcast p and its sigma along the 'lines' axis
+    p_exp   = jnp.broadcast_to(p[:, None, :],      (n, lines, P))
+    sp_exp  = jnp.broadcast_to(sp[:, None, :],     (n, lines, P))
+
+    # flatten everything to a single batch of size n*lines
+    flat_size = n * lines
+    x_flat   = x.reshape((flat_size,))
+    sx_flat  = sx.reshape((flat_size,))
+    p_flat   = p_exp.reshape((flat_size, P))
+    sp_flat  = sp_exp.reshape((flat_size, P))
+
+    # single‐point eval + error propagation
+    def single_eval(xv, pv, sxv, spv):
+        y   = function(xv, pv)
+        dyx = grad(function, argnums=0)(xv, pv)
+        dyp = grad(function, argnums=1)(xv, pv)
+        var = (dyx * sxv)**2 + jnp.sum((dyp * spv)**2)
+        return y, jnp.sqrt(var)
+
+    # one vmap over the flat batch
+    y_flat, err_flat = vmap(
+        single_eval, in_axes=(0,0,0,0), out_axes=(0,0)
+    )(x_flat, p_flat, sx_flat, sp_flat)
+
+    # reshape back to (n, lines)
+    y_batch   = y_flat.reshape((n, lines))
+    err_batch = err_flat.reshape((n, lines))
+    return y_batch, err_batch

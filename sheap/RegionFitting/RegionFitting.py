@@ -9,7 +9,6 @@ import time
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-#import yaml
 from jax import jit,vmap
 
 from sheap.DataClass.core import FittingLimits, SpectralLine,FitResult
@@ -18,8 +17,8 @@ from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Minimizer.utils import parse_dependencies
 from sheap.Minimizer.MasterMinimizer import MasterMinimizer
 
-from sheap.Functions.utils import make_fused_profiles
-from sheap.RegionFitting.constrains import make_constraints, make_get_param_coord_value,DEFAULT_LIMITS
+from sheap.Functions.utils import make_fused_profiles,build_grid_penalty
+from sheap.RegionFitting.profile_utils import make_get_param_coord_value,DEFAULT_LIMITS,profile_handler
 from sheap.Mappers.helpers import mapping_params
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
 
@@ -67,7 +66,7 @@ class RegionFitting:
         self.loss: Optional[float] = None
         self._build_fit_components(profile = profile)
         self.model = jit(make_fused_profiles(self.profile_functions))
-       
+        self.host_info = {}
     def __call__(
         self,
         spectra: Union[List[Any], jnp.ndarray],
@@ -76,7 +75,8 @@ class RegionFitting:
         
         inner_limits: Optional[Tuple[float, float]] = None,
         outer_limits: Optional[Tuple[float, float]] = None,
-        learning_rate=None
+        learning_rate=None,
+        add_penalty_function = False 
         
         ) -> None:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
@@ -88,51 +88,15 @@ class RegionFitting:
         inner_limits = self.inner_limits or inner_limits
         outer_limits = self.outer_limits or outer_limits
         params = jnp.tile(self.initial_params, (spectra.shape[0], 1))
-        
-        
-        
+        penalty_function = None 
+        if add_penalty_function and self.host_info:
+            print("Penalty function will be added.")
+            weights_idx = mapping_params(self.params_dict,"weight")
+            n_Z,n_age = (self.host_info[i] for i in ["n_Z","n_age"])
+            penalty_function = build_grid_penalty(weights_idx,n_Z,n_age)
         
         if "linear" in self.profile_names:
-            from jax import vmap 
-            def wls_one(xi, fi, ei):
-                """
-                Weighted least‐squares fit of y = m x + b to points (xi, fi),
-                using weights w_i = 1/ei^2 over all pixels.
-                Returns (slope, intercept).
-                """
-                # inverse‐variance weights for every pixel
-                w      = 1.0 / (ei**2)
-
-                # compute weighted sums
-                sum_wxx = jnp.sum(w * xi * xi)    # Σ w x²
-                sum_wx  = jnp.sum(w * xi)         # Σ w x
-                sum_wxy = jnp.sum(w * xi * fi)    # Σ w x y
-                sum_wy  = jnp.sum(w * fi)         # Σ w y
-                sum_w   = jnp.sum(w)              # Σ w
-
-                # normal equations: [[Σw x², Σw x], [Σw x, Σw]] · [m, b] = [Σw x y, Σw y]
-                M   = jnp.array([[sum_wxx, sum_wx],
-                                [sum_wx , sum_w ]])
-                rhs = jnp.array([sum_wxy, sum_wy])
-
-                # solve for [m, b]
-                slope, intercept = jnp.linalg.solve(M, rhs)
-                return slope, intercept
-
-            # prepare inputs:
-            x_batch   = (norm_spec[:, 0, :] / 1000.0)
-            f_batch   =  norm_spec[:, 1, :]
-            e_batch   =  norm_spec[:, 2, :]
-            ols_vmapped = vmap(wls_one, in_axes=(0, 0, 0))
-            _arr = ols_vmapped(x_batch, f_batch,e_batch)
-            for dx,param_name in enumerate(self.continuum_params_names):
-                idx_l     = self.params_dict[param_name]
-                params = (params.at[:, idx_l].set(_arr[dx])) #.at[:, idx_intercept].set(intercept_arr))
-            #idx_intercept = self.params_dict["amplitude_intercept_linear_0_continuum"]
-            #print(slope_arr[0], intercept_arr[0]) 
-           
-              
-        #print(params[0])                    
+            params = self.init_linear(norm_spec,params)            
         if not (self.inner_limits and self.outer_limits):
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
@@ -145,7 +109,7 @@ class RegionFitting:
                 step["learning_rate"] = learning_rate[i]
                 
             start_time = time.time()  # 
-            params, loss = self._fit(i,norm_spec, self.model, params, **step)
+            params, loss = self._fit(i,norm_spec, self.model, params, **step,penalty_function=penalty_function)
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time()  # 
             elapsed = end_time - start_time
@@ -184,7 +148,7 @@ class RegionFitting:
         weighted: bool = True,
         num_steps: int = 1000,
         non_optimize_in_axis=3,
-        # optimizer?
+        penalty_function = None
     ) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX-based minimization using MasterMinimizer.
@@ -217,7 +181,8 @@ class RegionFitting:
             list_dependencies=list_dependencies,
             weighted=weighted,
             learning_rate=learning_rate,
-            param_converter=params_obj
+            param_converter=params_obj,
+            penalty_function = penalty_function
         )
         try:
             raw_params, loss = minimizer(raw_init, *norm_spec.transpose(1, 0, 2), self.constraints)
@@ -288,10 +253,10 @@ class RegionFitting:
         
         try:
             idxs = mapping_params(self.params_dict, [["amplitude"]]) #, ["scale"]
-            #self.idxs =idxs #self.constraints = self.constraints.at[idxs,:].multiply(scale[:, None])
-            self.params = params.at[:, idxs].multiply(scale[:, None])
-            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
-            #self.constraints = self.constraints.at[idxs,:].multiply(scale[None,:])
+            idxs_log = mapping_params(self.params_dict, [["logamp"]])
+            #print(idxs_log)
+            self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
+            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])          
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
             y_model  = vmap(self.model, in_axes=(0,0))(self.spec[:,0,:],self.params)
             y_data  = self.spec[:,1,:]
@@ -305,6 +270,7 @@ class RegionFitting:
         except Exception as e:
             logger.exception("Renormalization failed")
             raise ValueError(f"Renormalization error: {e}")
+    
     def _build_fit_components(self, profile="gaussian", **kwargs):
         """
         Build the region constraints and ties for the spectral fitting.
@@ -322,46 +288,45 @@ class RegionFitting:
         self.params_dict.clear()
         self.profile_names.clear()
         self.profile_params_index_list.clear()
-        add_linear = True
         self.list = []
-        
+        add_linear = True
         idx = 0  # parameter_position
         complex_region = []
-        #self.continuum_profile = np.intersect1d(self.profile_names,list(PROFILE_CONTINUUM_FUNC_MAP.keys()))
-        #I have to decide between sp or cfg for the lines 
         for _,sp in enumerate(self.complex_class.lines):
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
-            
             if "SPAF" in holder_profile:
                 if len(sp.profile.split("_")) == 2:
                     sp.profile,sp.subprofile = sp.profile.split("_")
                 elif not sp.subprofile:
                     sp.subprofile = profile
-            constraints = make_constraints(sp, self.limits_map.get(sp.region), subprofile= sp.subprofile)
-            sp.profile = constraints.profile  #overwritte the complex line 
-            #print(sp.profile)
+                #print(sp.center,sp.amplitude_relations,sp.subprofile)
+                profile_fn = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,sp.subprofile)
+            elif sp.profile == "hostmiles":
+                host_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
+                profile_fn = host_dict["model"]
+                self.host_info = host_dict["host_info"] #host info different from fe_template info 
+                #print(local_model.param_names)
+            elif sp.profile == "fetemplate":
+                fe_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
+                profile_fn = fe_dict["model"]
+            else:
+                profile_fn =  PROFILE_FUNC_MAP.get(holder_profile, PROFILE_FUNC_MAP["gaussian"])#?
+            constraints = profile_handler(sp, self.limits_map.get(sp.region), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
+            sp.profile = constraints.profile
             complex_region.append(sp)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
-            
-            if 'SPAF' in sp.profile:
-                #print(sp.amplitude_relations)
-                sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,sp.subprofile)
-                self.profile_names.append(sp.profile)
-                self.profile_functions.append(sm)
-            else:
-                self.profile_functions.append(
-                    PROFILE_FUNC_MAP.get(constraints.profile, PROFILE_FUNC_MAP["gaussian"]))
-                self.profile_names.append(constraints.profile)
+            self.profile_functions.append(constraints.profile_fn)
+            self.profile_names.append(constraints.profile)
             if sp.profile in list(PROFILE_CONTINUUM_FUNC_MAP.keys()):
                 add_linear = False
                 self.continuum_params_names = []
                 for i, name in enumerate(constraints.param_names):
                     key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
                     self.params_dict[key] = idx + i
-                    self.continuum_params_names.append(key) 
+                    self.continuum_params_names.append(key)     
             else:
                 for i, name in enumerate(constraints.param_names):
                     key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
@@ -386,7 +351,8 @@ class RegionFitting:
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
         self.complex_region = complex_region #complex_region_list?
-        
+    
+
     def _build_tied(self, tied_params):
         # for make this clear I guess could be usefull change the build_tied for other think dependencies
         list_tied_params = []
@@ -486,8 +452,43 @@ class RegionFitting:
         
         return cls(region_dict, profile=profile,limits_overrides= limits_overrides)
     
-    
+    def init_linear(self,norm_spec,params):
+        "?"
+        def wls_one(xi, fi, ei):
+            """
+            Weighted least‐squares fit of y = m x + b to points (xi, fi),
+            using weights w_i = 1/ei^2 over all pixels.
+            Returns (slope, intercept).
+            """
+            # inverse‐variance weights for every pixel
+            w      = 1.0 / (ei**2)
 
+            # compute weighted sums
+            sum_wxx = jnp.sum(w * xi * xi)    # Σ w x²
+            sum_wx  = jnp.sum(w * xi)         # Σ w x
+            sum_wxy = jnp.sum(w * xi * fi)    # Σ w x y
+            sum_wy  = jnp.sum(w * fi)         # Σ w y
+            sum_w   = jnp.sum(w)              # Σ w
+
+            # normal equations: [[Σw x², Σw x], [Σw x, Σw]] · [m, b] = [Σw x y, Σw y]
+            M   = jnp.array([[sum_wxx, sum_wx],
+                            [sum_wx , sum_w ]])
+            rhs = jnp.array([sum_wxy, sum_wy])
+
+            # solve for [m, b]
+            slope, intercept = jnp.linalg.solve(M, rhs)
+            return slope, intercept
+
+        # prepare inputs:
+        x_batch   = (norm_spec[:, 0, :] / 5500.0)
+        f_batch   =  norm_spec[:, 1, :]
+        e_batch   =  norm_spec[:, 2, :]
+        ols_vmapped = vmap(wls_one, in_axes=(0, 0, 0))
+        _arr = ols_vmapped(x_batch, f_batch,e_batch)
+        for dx,param_name in enumerate(self.continuum_params_names):
+            idx_l     = self.params_dict[param_name]
+            params = (params.at[:, idx_l].set(_arr[dx])) #.at[:, idx_intercept].set(intercept_arr))
+        return params
     
 
 # class RegionFitting_old:

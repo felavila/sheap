@@ -6,53 +6,18 @@ import warnings
 from functools import partial
 
 from sheap.Functions.utils import make_integrator
-from .tools.functions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
+from .tools.functions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass,calc_black_hole_mass_gh2015
 from .tools.constants import BOL_CORRECTIONS,SINGLE_EPOCH_ESTIMATORS,c
 from .utils import combine_fast
 
 from sheap.Functions.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
-
-
-def summarize_samples(samples) -> Dict[str, np.ndarray]:
-    """Compute 16/50/84 percentiles and return a summary dict using NumPy."""
-    if isinstance(samples, jnp.ndarray):
-        samples = np.asarray(samples)
-    samples = np.atleast_2d(samples).T
-    if np.isnan(samples).sum() / samples.size > 0.2:
-        warnings.warn("High fraction of NaNs; uncertainty estimates may be biased.")
-    if samples.shape[1]<=1:
-        q = np.nanpercentile(samples, [16, 50, 84], axis=0)
-    else:
-        q = np.nanpercentile(samples, [16, 50, 84], axis=1)
-    #else:
-    
-    return {
-        "median": q[1],
-        "err_minus": q[1] - q[0],
-        "err_plus": q[2] - q[1]
-    }
-
-
-def summarize_nested_samples(d: dict) -> dict:
-    """
-    Recursively walk through a dictionary and apply summarize_samples_numpy
-    to any array-like values.
-    """
-    summarized = {}
-    for k, v in d.items():
-        if isinstance(v, dict):
-            summarized[k] = summarize_nested_samples(v)
-        elif isinstance(v, (np.ndarray, jnp.ndarray)) and np.ndim(v) >= 1 and k!='component':
-            summarized[k] = summarize_samples(v)
-        else:
-            summarized[k] = v
-    return summarized
-
+from sheap.Posterior.utils import summarize_nested_samples
 
 def compute_fwhm_split(profile: str,
                        amp:   jnp.ndarray,
                        center:jnp.ndarray,
                        extras:jnp.ndarray) -> jnp.ndarray:
+    #i guess here it is important to add a helper to move the profile to 
     func = PROFILE_LINE_FUNC_MAP[profile]
 
     # build the named‐param dict on‐the‐fly:
@@ -112,6 +77,7 @@ def extract_basic_line_parameters(
       'flux', 'fwhm', 'fwhm_kms',
       'center', 'amplitude',
       'eqw', 'luminosity'
+    outside this class all have to be already in flux units.
     """
     # Precompute continuum params
     cont_group = region_group.group_by("region")["continuum"]
@@ -143,32 +109,36 @@ def extract_basic_line_parameters(
                     params      = full_samples[:, param_idxs]
                     names       = np.array(prof_group._master_param_names)[param_idxs]
                     amplitude_relations = sp.amplitude_relations
-                    amp_pos     = np.where(["amplitude" in n for n in names])[0]
-                    amplitude_index = [nx for nx,_ in  enumerate(names) if "amplitude" in _ ]
+                    amp_pos     = np.where(["logamp" in n for n in names])[0]
+                    amplitude_index = [nx for nx,_ in  enumerate(names) if "logamp" in _ ]
                     ind_amplitude_index = {i[2] for i in amplitude_relations}
                     dic_amp = {i:ii for i,ii in (zip(ind_amplitude_index,amplitude_index))}
                     shift_idx   = amp_pos.max() + 1
                     full_params_by_line = []
                     for i,(_,factor,ids) in enumerate(amplitude_relations):
-                        amplitude_line = (params[:,[dic_amp[ids]]]*factor)
+                        amplitude_line = params[:,[dic_amp[ids]]] + np.log10(factor)
                         center_line = (sp.center[i]+params[:,[shift_idx]])
                         extra_params_profile = (params[:,shift_idx+1:])
                         full_params_by_line.append(np.column_stack([amplitude_line, center_line, extra_params_profile]))
+                    
                     params_by_line = np.array(full_params_by_line) 
                     params_by_line = np.moveaxis(params_by_line,0,1)
                     
                     flux        = integrator(wavelength_grid, params_by_line)
-                    fwhm        =  jnp.atleast_3d(params_by_line[:,:,-1])
-                    
+                    amps        = 10**params_by_line[:, :, 0]
                     centers     = params_by_line[:, :, 1]
-                    amps        = params_by_line[:, :, 0]
+                    
+                    fwhm        =  jnp.atleast_3d(params_by_line[:,:,2:])
+                    
+                    
+                   
                     
                     fwhm = batch_fwhm(amps, centers, fwhm)  
                     fwhm_kms    = jnp.abs(calc_fwhm_kms(fwhm, c, centers))
                     cont_vals   = vmap(cont_group.combined_profile, in_axes=(0,0))(
                                       centers, cont_params
                                   )
-                    lum_vals    = calc_luminosity(distances[:, None], flux, centers)
+                    lum_vals    = calc_luminosity(distances[:, None], flux)
                     eqw        = flux / cont_vals
 
                     nsub = flux.shape[1]
@@ -189,17 +159,12 @@ def extract_basic_line_parameters(
                 idxs       = prof_group.flat_param_indices_global
                 params     = full_samples[:, idxs]
                 names      = list(prof_group.params_dict.keys())
-
-                amp_idx = [i for i,n in enumerate(names) if "amplitude" in n]
-                cen_idx = [i for i,n in enumerate(names) if "center" in n]
-                other   = [i for i in range(params.shape[1]) 
-                           if i not in amp_idx + cen_idx]
-
-                reshaped = params.reshape(params.shape[0], -1, profile_fn.n_params)
-                flux     = integrator(wavelength_grid, reshaped)
-                fwhm     = jnp.atleast_3d(jnp.abs(params[:, other]))
-                centers  = params[:, cen_idx]
-                amps     = params[:, amp_idx]
+                ###########################
+                params_by_line = params.reshape(params.shape[0], -1, profile_fn.n_params)
+                flux     = integrator(wavelength_grid, params_by_line)
+                fwhm     = jnp.abs(params_by_line[:,:,2:])#check if this is correct)
+                centers  = params_by_line[:,:,1]
+                amps     = 10**params_by_line[:,:,0]
                 #print(amps.shape,centers.shape,fwhm.shape)
                 fwhm = batch_fwhm(amps, centers, fwhm)         # → (1000,20)
                 fwhm_kms = jnp.abs(calc_fwhm_kms(fwhm, c, centers))
@@ -207,7 +172,7 @@ def extract_basic_line_parameters(
                               centers, cont_params
                           )
                 #print(distances.shape,flux.shape,centers.shape)
-                lum_vals = calc_luminosity(distances[:, None], flux, centers)
+                lum_vals = calc_luminosity(distances[:, None], flux)
                 eqw      = flux / cont_vals
 
                 line_names.extend([l.line_name for l in prof_group.lines])
@@ -234,6 +199,7 @@ def extract_basic_line_parameters(
 
     return basic_params
 
+
 def calculate_single_epoch_masses(
     broad_params: Dict[str, Any],
     L_w: Dict[str, np.ndarray],
@@ -256,6 +222,7 @@ def calculate_single_epoch_masses(
     """
     masses: Dict[str, Dict[str, np.ndarray]] = {}
     fwhm_kms_all = broad_params.get("fwhm_kms")
+    lum_all = broad_params.get("luminosity")
     line_list    = np.array(broad_params.get("lines", []))
     if combine_mode:
         #print("combine_mode")
@@ -278,7 +245,6 @@ def calculate_single_epoch_masses(
 
         idxs    = np.where(line_list == line_name)[0]
         fkm     = fwhm_kms_all[:, idxs].squeeze()   # (N,) or (N,1)
-
         # fetch & align luminosities
         Lmono   = L_w[wstr]                         # (N,)
         Lbolval = L_bol[wstr]                       # (N,)
@@ -311,8 +277,13 @@ def calculate_single_epoch_masses(
             "Ledd":               L_edd,
             "mdot_msun_per_year": mdot_yr,
         }
-
+        if line_name=="Halpha":
+            #https://iopscience.iop.org/article/10.1088/0004-637X/813/2/82/pdf
+            Lhalpha     = lum_all[:, idxs].squeeze()   # (N,) or (N,1)
+            masses[line_name].update({"log10_smbh_halpha":calc_black_hole_mass_gh2015(Lhalpha,fkm)})
+    
     return masses
+
 
 def posterior_physical_parameters(
     wl_i: np.ndarray,
@@ -367,7 +338,7 @@ def posterior_physical_parameters(
                 if len(idx_broad) >= 2 and len(idx_narrow) == 1:
                     N = full_samples.shape[0]
 
-                    # pull out amps & centers
+
                     amps = basic_params["broad"]["amplitude"][:, idx_broad]   # (N, n_broad)
                     mus  = basic_params["broad"]["center"][:, idx_broad]      # (N, n_broad)
                     fwhms_kms = basic_params["broad"]["fwhm_kms"][:, idx_broad]  # (N, n_broad)
@@ -396,7 +367,7 @@ def posterior_physical_parameters(
 
                     cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)  # (N,)
 
-                    L_line = calc_luminosity(distances, flux_c, mu_c)  # (N,)
+                    L_line = calc_luminosity(distances, flux_c)  # (N,)
 
                     eqw_c = flux_c / cont_c
 
@@ -440,41 +411,4 @@ def posterior_physical_parameters(
 
     if summarize:
         result = summarize_nested_samples(result)  
-        
-        # fwhm_kms_all = broad["fwhm_kms"]
-        # line_list     = np.array(broad["lines"])
-        # for line_name, est in SINGLE_EPOCH_ESTIMATORS.items():
-        #     lam = est["wavelength"]
-        #     wstr = str(int(lam))
-        #     if line_name in line_list and wstr in L_w:
-        #         idxs      = np.where(line_list == line_name)[0]
-        #         fkm       = fwhm_kms_all[:, idxs].squeeze()
-        #         Lmono     = L_w[wstr]
-        #         Lbolval   = L_bol[wstr]
-        #         # broadcast dims if needed
-        #         if fkm.ndim == 2:
-        #             Lmono   = Lmono[..., None]
-        #             Lbolval = Lbolval[..., None]
-
-        #         mbh_samp = calc_black_hole_mass(Lmono, fkm, est)
-        #         L_edd    = 1.26e38 * mbh_samp # erg/s this is assuming that the SMBH is in solar mass
-        #         eta      = 0.1
-        #         c_cm     = c * 1e5 # the code uses c in km/s we move it to cm
-        #         M_sun_g  = 1.98847e33 # Solar mass in grams
-        #         sec_yr   = 3.15576e7 # 
-        #         mdot_gs  = Lbolval / (eta * c_cm**2) #  # g/s
-        #         mdot_yr  = mdot_gs / M_sun_g * sec_yr
-
-        #         masses[line_name] = {
-        #             "Lwave":             Lmono,
-        #             "Lbol":              Lbolval,
-        #             "fwhm_kms":          fkm,
-        #             "log10_smbh":        np.log10(mbh_samp),
-        #             "Ledd":              L_edd,
-        #             "mdot_msun_per_year":mdot_yr,
-        #         }
-                        # add extra parameters to combined
-
-   
-
     return result

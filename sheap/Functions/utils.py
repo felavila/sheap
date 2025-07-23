@@ -147,3 +147,33 @@ def make_integrator(profile_fn, method="broadcast"):
 
     else:
         raise ValueError(f"unknown method {method!r}")
+    
+    
+def build_grid_penalty(
+    weights_idx,
+    n_Z: int,
+    n_age: int,
+) -> Callable[[jnp.ndarray], float]:
+    """
+    Create a Laplacian penalty function for weights stored at arbitrary positions.
+
+    Parameters:
+    - weights_idx: indices into `params` for the host template weights
+    - n_Z: number of metallicity bins
+    - n_age: number of age bins
+
+    Returns:
+    - penalty(params): float Laplacian loss
+    """
+    if len(weights_idx) != n_Z * n_age:
+        raise ValueError(f"Expected {n_Z * n_age} weight indices, got {len(weights_idx)}")
+
+    def penalty(params: jnp.ndarray) -> float:
+        weights = params[jnp.array(weights_idx)]
+        weights_grid = weights.reshape(n_Z, n_age)
+
+        d2_age = weights_grid[:, :-2] - 2 * weights_grid[:, 1:-1] + weights_grid[:, 2:]
+        d2_Z   = weights_grid[:-2, :] - 2 * weights_grid[1:-1, :] + weights_grid[2:, :]
+        return jnp.sum(d2_age**2) + jnp.sum(d2_Z**2)
+
+    return penalty

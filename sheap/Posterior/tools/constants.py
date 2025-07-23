@@ -19,12 +19,12 @@ BOL_CORRECTIONS = {
 # Reference: see Vestergaard & Peterson 2006; Shen et al. 2011; Greene & Ho 2005 TODO:look for this references
 #This can be change for the users the "only" condition is the user use the same line_name convenction as sheap
 #and the requrided paramter a,b,f,wavelenght and also the bol correction should be also inside the wavelenth 
-
+#https://arxiv.org/pdf/1603.03437
 SINGLE_EPOCH_ESTIMATORS = {
     "Hbeta": {
         "wavelength": "5100",
-        "a": 6.91,
-        "b": 0.5,
+        "a": 6.864,
+        "b": 0.568,
         "f": 1.0,
     },
     "MgII": {
@@ -40,9 +40,9 @@ SINGLE_EPOCH_ESTIMATORS = {
         "f": 1.0,
     },
     "Halpha": {
-        "wavelength": "6200",
-        "a": 6.98,
-        "b": 0.5,
+        "wavelength": "5100",
+        "a": 6.958,
+        "b":  0.569,
         "f": 1.0,
     },
 }

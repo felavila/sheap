@@ -1,33 +1,32 @@
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-#import jax
 import jax.numpy as jnp
-#import jax.scipy as jsp
-#import numpy as np
 from jax import jit, vmap,lax 
 from jax.scipy.special import erfc
 from jax.scipy.stats import norm #maybe dosent exist xd
 
-from sheap.Functions.utils import param_count,with_param_names
+from sheap.Functions.utils import with_param_names
 
-###################profiles with_center###############
-@with_param_names(["amplitude", "center", "fwhm"])
+@with_param_names(["logamp", "center", "fwhm"])
 def gaussian_fwhm(x, params):
-    amplitude, center, fwhm = params
-    sigma = fwhm / 2.355
+    log_amp, center, fwhm = params
+    amplitude = 10**log_amp
+    sigma = fwhm / 2.355 #fwhm -> logfwhm
     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
-@with_param_names(["amplitude", "center", "fwhm"])
+@with_param_names(["logamp", "center", "fwhm"])
 def lorentzian_fwhm(x, params):
-    amplitude, center, fwhm = params
+    log_amp, center, fwhm = params
+    amplitude = 10**log_amp
     gamma = fwhm / 2.0
     return amplitude / (1.0 + ((x - center) / gamma) ** 2)
-#################### Exotic ##############
 
-@with_param_names(["amplitude", "center", "fwhm_g", "fwhm_l"])
+#################### Exotic ##############
+@with_param_names(["logamp", "center", "fwhm_g", "fwhm_l"])
 def voigt_pseudo(x, params):
-    amplitude, center, fwhm_g, fwhm_l = params
+    log_amp, center, fwhm_g, fwhm_l = params
+    amplitude = 10**log_amp
     sigma = fwhm_g / 2.355
     gamma = fwhm_l / 2.0
 
@@ -42,16 +41,17 @@ def voigt_pseudo(x, params):
     return amplitude * (eta * lorentz + (1.0 - eta) * gauss)
 
 
-@with_param_names(["amplitude", "center", "fwhm", "alpha"])
+@with_param_names(["logamp", "center", "fwhm", "alpha"])
 def skewed_gaussian(x, params):
-    amp, center, fwhm, alpha = params  # alpha = skewness
+    log_amp, center, fwhm, alpha = params  # alpha = skewness
+    amplitude = 10**log_amp
     sigma = fwhm / 2.355
     t = (x - center) / sigma
-    return 2 * amp * norm.pdf(t) * norm.cdf(alpha * t)
+    return 2 * amplitude * norm.pdf(t) * norm.cdf(alpha * t)
 
 
 
-@with_param_names(["amplitude", "center", "fwhm", "lambda"])
+@with_param_names(["logamp", "center", "fwhm", "lambda"])
 def emg_fwhm(x, params):
     """
     Exponentially Modified Gaussian profile.
@@ -62,14 +62,15 @@ def emg_fwhm(x, params):
         fwhm: Gaussian FWHM (converted to sigma)
         lambda_: exponential decay rate (1 / tau)
     """
-    amplitude, mu, fwhm, lambda_ = params
+    log_amp, mu, fwhm, lambda_ = params
+    amplitude = 10**log_amp
     sigma = fwhm / 2.355
     arg1 = 0.5 * lambda_ * (2 * mu + lambda_ * sigma**2 - 2 * x)
     arg2 = (mu + lambda_ * sigma**2 - x) / (jnp.sqrt(2) * sigma)
     return amplitude * 0.5 * lambda_ * jnp.exp(arg1) * erfc(arg2)
 
 
-@with_param_names(["amplitude", "center", "width"])
+@with_param_names(["logamp", "center", "width"])
 def top_hat(x, params):
     """
     Top-hat function: constant value over a fixed width.
@@ -79,65 +80,66 @@ def top_hat(x, params):
         center: midpoint of the top-hat
         width: full width of the top-hat
     """
-    amplitude, center, width = params
+    log_amp, center, width = params
+    amplitude = 10**log_amp
     half_width = width / 2.0
     return amplitude * ((x >= (center - half_width)) & (x <= (center + half_width))).astype(jnp.float32)
 
-####### actual combination##############################
-def sum_gaussian_amplitude_free(centers, amplitude_rules,n_params):
-    """
-    centers: list of Gaussian centers
-    amplitude_rules: list of (idx, coefficient, free_idx)
-        idx → which Gaussian
-        coefficient → scale relative to free param
-        free_idx → which parameter index it depends on
-    """
-    centers = jnp.array(centers)
-    #_param_count = max(r[2] for r in amplitude_rules) + 2  # free amps + delta + fwhm
+# ####### actual combination##############################
+# def sum_gaussian_amplitude_free(centers, amplitude_rules,n_params):
+#     """
+#     centers: list of Gaussian centers
+#     amplitude_rules: list of (idx, coefficient, free_idx)
+#         idx → which Gaussian
+#         coefficient → scale relative to free param
+#         free_idx → which parameter index it depends on
+#     """
+#     centers = jnp.array(centers)
+#     #_param_count = max(r[2] for r in amplitude_rules) + 2  # free amps + delta + fwhm
 
-    @param_count(n_params+2)
-    def G(x, params):
-        free = params[:-2]
-        delta = params[-2]
-        fwhm = params[-1]
-        sigma = fwhm / 2.355
+#     @param_count(n_params+2)
+#     def G(x, params):
+#         free = params[:-2]
+#         delta = params[-2]
+#         fwhm = params[-1]
+#         sigma = fwhm / 2.355
 
-        result = 0.0
-        for idx, coef, free_idx in amplitude_rules:
-            amp = coef * free[free_idx]
-            dx = x - (centers[idx] + delta)
-            result += amp * jnp.exp(-0.5 * (dx / sigma) ** 2)
-        return result
+#         result = 0.0
+#         for idx, coef, free_idx in amplitude_rules:
+#             amp = coef * free[free_idx]
+#             dx = x - (centers[idx] + delta)
+#             result += amp * jnp.exp(-0.5 * (dx / sigma) ** 2)
+#         return result
 
-    return G
+#     return G
 
 
-def Gsum_model(centers, amplitudes):
-    """
-    Returns a Gaussian sum model function with shared FWHM and shift.
+# def Gsum_model(centers, amplitudes):
+#     """
+#     Returns a Gaussian sum model function with shared FWHM and shift.
 
-    Args:
-        centers (array): Array of Gaussian centers.
-        amplitudes (array): Array of Gaussian amplitudes (same shape as centers).
+#     Args:
+#         centers (array): Array of Gaussian centers.
+#         amplitudes (array): Array of Gaussian amplitudes (same shape as centers).
 
-    Returns:
-        callable: Function G(x, params) with params = [amplitude, delta, fwhm].
-    """
-    centers = jnp.array(centers)
-    amplitudes = jnp.array(amplitudes)
-    @param_count(3)
-    def G(x, params):
-        amplitude = params[0]
-        delta = params[1]
-        fwhm = params[2]
-        sigma = fwhm / 2.355
+#     Returns:
+#         callable: Function G(x, params) with params = [amplitude, delta, fwhm].
+#     """
+#     centers = jnp.array(centers)
+#     amplitudes = jnp.array(amplitudes)
+#     @param_count(3)
+#     def G(x, params):
+#         amplitude = params[0]
+#         delta = params[1]
+#         fwhm = params[2]
+#         sigma = fwhm / 2.355
 
-        shifted_centers = centers + delta
-        dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
-        gaussians = amplitude * amplitudes[:, None] * jnp.exp(-0.5 * (dx / sigma) ** 2)
-        return jnp.sum(gaussians, axis=0)
+#         shifted_centers = centers + delta
+#         dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
+#         gaussians = amplitude * amplitudes[:, None] * jnp.exp(-0.5 * (dx / sigma) ** 2)
+#         return jnp.sum(gaussians, axis=0)
 
-    return G
+#     return G
 
 #################### Comming projects ##############
 

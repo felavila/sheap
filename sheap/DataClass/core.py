@@ -24,7 +24,6 @@ class SpectralLine:
         subregion (str): element and spacial region combination in general usefulll for fe. components in models 
         component (int): Integer identifier for the component number within its kind.
         amplitude (float or list of floats, default=1.0): Initial or fixed amplitude for the line.
-        how (Optional[str]): Method to handle the line (e.g., 'template', 'sum'). Usually used for Fe templates.
         element (Optional[str]): quimical stuff of the line.
         profile (Optional[str]): Profile function name (e.g., 'gaussian', 'lorentzian').
         which_template (Optional[str]): Sub-template or subtype for complex profiles (e.g., 'OP' or 'UV' for FeII templates).
@@ -40,14 +39,12 @@ class SpectralLine:
     subregion: Optional[str] = None
     amplitude: Optional[Union[float, List[float]]] = None
     element: Optional[str] = None
-    how: Optional[str] = None #this maybe can be remove.
-
     profile: Optional[str] = None
-    which_template: Optional[str] = None
     region_lines: Optional[List[str]] = None
     amplitude_relations: Optional[List[List]] = None
     subprofile: Optional[str] = None  
     rarity: Optional[Union[str, List[str]]] =  None
+    template_info: Optional[Dict] =  None
     def to_dict(self) -> dict:
         """Convert the SpectralLine to a dictionary."""
         return asdict(self)
@@ -373,6 +370,7 @@ class ConstraintSet:
     lower: List[float]
     profile: str
     param_names: List[str]
+    profile_fn: Optional[Callable] = None 
 
     def __post_init__(self):
         # Skip length check for SPAF profiles

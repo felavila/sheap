@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 
 
-from sheap.Mappers.helpers import mapping_params
+from sheap.Mappers.helpers import descale_amp,scale_amp
 from .tools.numpyro_helpers import make_numpyro_model,params_to_dict
 from .parameter_from_sampler import posterior_physical_parameters
 
@@ -49,8 +49,7 @@ class McMcSampler:
         norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
         norm_spec = norm_spec.astype(jnp.float64)
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
-        idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
+        params = descale_amp(self.params_dict,self.params,scale[:, None])
         #idx_target = [i[1] for i in self.dependencies] # already calculated
         #idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         constraints = [tuple(x) for x in jnp.asarray(constraints)] #constrains are ok they are still in space 0-2.
@@ -63,7 +62,7 @@ class McMcSampler:
             print("The mcmc will be runend for all the sample")
             list_of_objects = np.arange(norm_spec.shape[0])
         dic_posterior_params = {}
-        matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
+        #matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
             dependencies = None
@@ -83,8 +82,8 @@ class McMcSampler:
             def apply_one_sample(free_sample):
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
             full_samples = vmap(apply_one_sample)(samples_free)
-            full_samples = full_samples.at[:, idxs].multiply(scale[n])
-            matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
+            full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
+            #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
             dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,

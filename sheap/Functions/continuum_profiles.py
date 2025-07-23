@@ -3,55 +3,12 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax
 import jax.numpy as jnp
-#import jax.scipy as jsp
-#import numpy as np
 from jax import jit, vmap
 
 from sheap.Functions.utils import param_count,with_param_names
 
 
 
-# @param_count(2)
-# def linear(x, params):
-#     return params[0] * (x / 1000.0) + params[1]
-
-
-# @param_count(4)
-# def brokenpowerlaw(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-#     """
-#     Broken power law function in JAX.
-
-#     Parameters
-#     ----------
-#     x : jnp.ndarray
-#         Input wavelengths (Angstroms).
-#     params : jnp.ndarray
-#         Parameters array: [index1, index2, amplitude, refer]
-#         - index1: slope for x <= refer
-#         - index2: additional slope for x > refer
-#         - amplitude: normalization at x = refer
-#         - refer: reference wavelength (Angstroms)
-
-#     Returns
-#     -------
-#     jnp.ndarray
-#         Evaluated broken power law.
-#     """
-#     index1, index2, amplitude, refer = params
-#     x = jnp.nan_to_num(x)
-
-#     ratio = x / refer
-#     # Create mask: x > refer gets index1 + index2; else gets index1
-#     exponent = jnp.where(ratio > 1.0, index1 + index2, index1)
-#     return amplitude * jnp.power(ratio, exponent)
-
-# @param_count(2)
-# def powerlaw(x, params):
-#     x = jnp.nan_to_num(x)
-#     return params[1] * jax.lax.pow(x / 1000.0, params[0])  # + params[1]
-
-
-# @jit
 def linear_combination(eieigenvectors, params):
     return jnp.nansum(eieigenvectors.T * 100 * params, axis=1)
 
@@ -107,10 +64,6 @@ def balmercontinuum(x, pars):
 
     return result
 #############################
-
-# import jax.numpy as jnp
-# from typing import Mapping, Callable
-# from sheap.Functions.profiles import with_param_names
 
 λ0 = 5500.0  # Å myabe do this make it more problematic in some cases
 

@@ -46,7 +46,7 @@ class SheapPlot:
         self.mask = result.mask
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
-        self.fe_mode = self.model_keywords.get("fe_mode")
+        #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
         
 
@@ -63,7 +63,7 @@ class SheapPlot:
         self.mask = result.mask
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
-        self.fe_mode = self.model_keywords.get("fe_mode")
+        #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(combine_auto(self.profile_functions))
 
     def plot(self, n, save=None, add_name=False, residual=True,params=None,line=None, **kwargs):
@@ -95,15 +95,10 @@ class SheapPlot:
             fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(35, 15))
 
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
-
-        for i, (profile_name, profile_func, region, idxs) in enumerate(
-            zip(
-                self.profile_names,
-                self.profile_functions,
-                self.complex_region,
-                self.profile_params_index_list,
-            )
+        
+        for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)
         ):
+            #print(profile_name, profile_func, region, idxs)
             values = params[idxs]
             component_y = profile_func(x_axis, values)
 
@@ -111,6 +106,8 @@ class SheapPlot:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
+            elif "host" in region.region.lower():
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green")
             else:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
                 ax1.axvline(values[1], ls="--", linewidth=1, color="k")

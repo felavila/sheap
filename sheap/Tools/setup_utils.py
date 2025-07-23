@@ -37,7 +37,7 @@ def cut_spectra(spectra, xmin, xmax):
     return spectra
 
 
-@jit
+
 def mask_builder(
     sheap_array, inner_limits=[0, 0], outer_limits=None, instrumental_limit=10e50
 ):
@@ -82,7 +82,7 @@ def mask_builder(
     return copy_array, masked_uncertainties, sheap_array, mask
 
 
-@jit
+
 def prepare_uncertainties(
     y_uncertainties: Optional[jnp.ndarray], y_data: jnp.ndarray
 ) -> jnp.ndarray:

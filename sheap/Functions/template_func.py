@@ -6,173 +6,213 @@ import jax.numpy as jnp
 import jax.scipy as jsp
 import numpy as np
 
-from sheap.Functions.utils import param_count
-from sheap.Tools.spectral_basic import kms_to_wl
+from sheap.Functions.utils import with_param_names
 
-#TEMPLATE FAMILIES SHOULD BE ADDED 
 
-templates_path = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
-#print(templates_path)
+TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
 
-fe_template_OP_file =   templates_path / 'fe2_Op.dat'
 
-fe_template_OP = jnp.array(np.loadtxt(fe_template_OP_file, comments='#').transpose())  # y units?
-fe_template_OP = fe_template_OP.at[1].divide(jnp.max(fe_template_OP[1]))
-#fe_template_OP = fe_template_OP.at[]
+FEII_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    "feop": {
+        "file": TEMPLATES_PATH / "fe2_Op.dat",
+        "central_wl": 4650.0,
+        "sigmatemplate": 900.0 / 2.355,
+        "fixed_dispersion": None,
+    },
+    "feuv": {
+        "file": TEMPLATES_PATH / "fe2_UV02.dat",
+        "central_wl": 2795.0,
+        "sigmatemplate": 900.0 / 2.355,
+        "fixed_dispersion": 106.3, 
+    },
+}
 
-fe_template_UV_file = templates_path / 'fe2_UV02.dat'
 
-fe_template_UV = jnp.array(np.loadtxt(fe_template_UV_file, comments='#').transpose())
- 
-fe_template_UV = fe_template_UV.at[1].divide(jnp.max(fe_template_UV[1]))
+def make_feii_template_function(
+    name: str
+) -> Dict[str, Any]:
+    """
+    Factory for a FeII template model by name.
+    Looks up path, central_wl, sigmatemplate, and optional fixed_dispersion in FEII_TEMPLATES.
 
-class FeIITemplateModel:
-    def __init__(self, template: Tuple[jnp.ndarray, jnp.ndarray], central_wl: float,sigmatemplate: float):
-        self.wl, self.flux = template
-        self.central_wl = central_wl #Ang
-        self.sigmatemplate =sigmatemplate #km/s
-    
-    def __call__(self,
-                 x: jnp.ndarray,
-                 log_FWHM: float,
-                 shift: float,
-                 scale: float):
-        # 1) Compute extra σ in km/s
-        FWHM = 10 ** log_FWHM
+    Returns:
+      {
+        'model': Callable(x, params) -> flux,  # has .param_names, .n_params
+        'template_info': { file, central_wl, sigmatemplate,
+                           fixed_dispersion, unit_sum }
+      }
+    """
+    cfg = FEII_TEMPLATES.get(name)
+    if cfg is None:
+        raise KeyError(f"No such FeII template: {name}")
+
+    path          = cfg["file"]
+    central_wl    = cfg["central_wl"]
+    sigmatemplate = cfg["sigmatemplate"]
+    user_fd       = cfg.get("fixed_dispersion", None)
+
+    data = np.loadtxt(path, comments="#").T
+    wl   = np.array(data[0])
+    flux = np.array(data[1])
+    unit_flux = flux / np.clip(jnp.sum(flux), 1e-10, jnp.inf)
+
+    dl = float(wl[1] - wl[0])  # Å per pixel
+    if user_fd is None:
+        # km/s per pixel ≈ (dλ/λ) * c
+        fixed_dispersion = (dl / central_wl) * 3e5
+    else:
+        fixed_dispersion = user_fd
+
+    param_names = ["logamp","logFWHM","shift"]
+
+    @with_param_names(param_names)
+    def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+        logamp, logFWHM, shift = params
+        amp = 10** logamp
+        FWHM = 10 ** logFWHM
         sigma_model = FWHM / 2.355
-        delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - self.sigmatemplate**2, 1e-12))
+        delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
 
-        # 2) Convert that σ to Angstroms at central_wl
-        sigma_lambda = kms_to_wl(delta_sigma, self.central_wl)  # Å
+        # convert km/s → Å at central λ, then to pixel units
+        sigma_lambda = delta_sigma * central_wl / 3e5   # Å
+        sigma_pix    = sigma_lambda / dl                # pixels
 
-        # 3) Build the Gaussian transfer function in Fourier space
-        dl = jnp.maximum(x[1] - x[0], 1e-6)        # Å per pixel
-        n_pix = self.flux.shape[0]
-        freq = jnp.fft.fftfreq(n_pix, d=dl)       # cycles per Å
-        gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_lambda)**2)
+        n_pix = unit_flux.shape[0]
+        freq  = jnp.fft.fftfreq(n_pix, d=dl)
+        gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_pix)**2)
+        spec_fft = jnp.fft.fft(unit_flux)
+        broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
 
-        # 4) FFT‐convolve template
-        flux_fft = jnp.fft.fft(self.flux)
-        broadened = jnp.real(jnp.fft.ifft(flux_fft * gauss_tf))
+        # shift & scale
+        shifted_wl = wl + shift
+        interp = jnp.interp(x, shifted_wl, broadened, left=0.0, right=0.0)
+        return amp * interp
 
-        # 5) Apply additive shift (in Å), interpolate, and scale
-        shifted_wl = self.wl + shift
-        model = scale * jnp.interp(
-            x,
-            shifted_wl,
-            broadened,
-            left=0.0,
-            right=0.0
-        )
-        return model
-    # def __call__(self, x: jnp.ndarray, log_FWHM: float, shift_: float, scale: float):
-    #     FWHM = 10 ** log_FWHM
-    #     sigma_model = FWHM/ 2.355
-    #     shift = shift_
+    return {
+        "model": model,
+        "template_info": {
+            "name": name,
+            "central_wl": central_wl,
+            "sigmatemplate": sigmatemplate,
+            "fixed_dispersion": fixed_dispersion,
+        },
+    }
+    
+    
+    
+ 
+def make_host_function(
+    filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
+    z_include: Optional[Union[tuple[float, float], list[float]]] = [-0.7, 0.22],
+    age_include: Optional[Union[tuple[float, float], list[float]]] = [0.1, 10.0],
+    x_min: Optional[float] = None,  # in Angstroms (linear)
+    x_max: Optional[float] = None,
+    **kwargs,
+) -> dict:
+    """
+    Load host model from a .npz cube file and return a functional host model interface.
+    Allows sub-selection of Z, age, and wavelength (via x_min, x_max in Angstroms).
 
-    #     delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - self.sigmatemplate**2, 1e-12))
-    #     dl = jnp.maximum(x[1] - x[0], 1e-6)
-    #     sigma_wl = kms_to_wl(delta_sigma, self.central_wl) / dl
-        
-    #     max_radius = 1000
-    #     x_local = jnp.arange(-max_radius, max_radius + 1)
-    #     mask = jnp.where(jnp.abs(x_local) <= jnp.round(4 * sigma_wl), 1.0, 0.0)
-    #     kernel = jsp.stats.norm.pdf(x_local, scale=sigma_wl) * mask
-    #     kernel /= jnp.sum(kernel)
+    Returns:
+    {
+        'model': Callable[[x, params], flux], with attributes .param_names, .n_params
+        'host_info': dict[str, np.ndarray]
+    }
+    3 x 41 it can 
+    7 x 50, it cant
+    """
+    data = np.load(filename)
 
-    #     broadened = jsp.signal.convolve(self.flux, kernel, mode='same', method='fft')
-    #     shifted = self.wl + shift
-    #     return scale * jnp.interp(x, shifted, broadened, left=None, right=None)
+    cube = data["cube_log"]
+    wave = data["wave_log"]
+    all_ages = data["ages_sub"]
+    all_zs = data["zs_sub"]
+    sigmatemplate = float(data["sigmatemplate"])
+    fixed_dispersion = float(data["fixed_dispersion"])
 
-fitFeOP_model = FeIITemplateModel(template=fe_template_OP, central_wl=4650.0,sigmatemplate=900.0 / 2.355)
-fitFeUV_model = FeIITemplateModel(template=fe_template_UV, central_wl=2795.0,sigmatemplate=900.0 / 2.355)
+    #print(f"cube.sum(): {cube.sum()}, cube.shape:{cube.shape}")
+    if z_include is not None:
+        z_min, z_max = np.min(z_include), np.max(z_include)
+        z_mask = (all_zs >= z_min) & (all_zs <= z_max)
+        if not np.any(z_mask):
+            raise ValueError(f"No metallicities in range {z_min} to {z_max}")
+        zs = all_zs[z_mask]
+        cube = cube[z_mask, :, :]
+    else:
+        zs = all_zs
 
-@param_count(3)
-def fitFeOP(x, params): return fitFeOP_model(x, *params)
+    
+    if age_include is not None:
+        a_min, a_max = np.min(age_include), np.max(age_include)
+        a_mask = (all_ages >= a_min) & (all_ages <= a_max)
+        if not np.any(a_mask):
+            raise ValueError(f"No ages in range {a_min} to {a_max}")
+        ages = all_ages[a_mask]
+        cube = cube[:, a_mask, :]
+    else:
+        ages = all_ages
 
-@param_count(3)
-def fitFeUV(x, params): return fitFeUV_model(x, *params)
+    if x_min is not None or x_max is not None:
+        mask = np.ones_like(wave, dtype=bool)
+        #to avoid border issues ?
+        if x_min is not None:
+            mask &= wave >= max([x_min - 50, min(wave)])
+        if x_max is not None:
+            mask &= wave <= min([x_max + 50,max(wave)])
 
+        if not np.any(mask):
+            raise ValueError("No wavelength values left after applying x_min/x_max cut.")
 
+        wave = wave[mask]
+        cube = cube[:, :, mask].astype(np.float32)
+    
+    dx = wave[1] - wave[0]
+    n_Z, n_age, n_pix = cube.shape
+    print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
+    templates_flat = cube.reshape(-1, n_pix)
+    grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
 
+    param_names = ["logamp", "logFWHM", "shift"]
+    for Z, age in grid_metadata:
+        zstr = str(Z).replace(".", "p")
+        astr = str(age).replace(".", "p")
+        param_names.append(f"weight_Z{zstr}_age{astr}")
+    
+    templates_flat_jax = jnp.asarray(templates_flat)
+    templates_fft = jnp.fft.fft(templates_flat_jax, axis=1)
+    @with_param_names(param_names)
+    def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+        logamp = params[0]
+        amplitude = 10**logamp
+        logFWHM = params[1]
+        shift_A = params[2]
+        weights = params[3:]
 
-class FeIITemplateModelFixedDispersion:
-    def __init__(self,
-                 template: Tuple[jnp.ndarray, jnp.ndarray],
-                 fixed_dispersion: float = 106.3,        # km/s per pixel
-                 sigmatemplate: float = 900.0 / 2.355):  # template σ in km/s
-        """
-        template: (wl_array, flux_array) in Angstroms & arb. units
-        fixed_dispersion: km/s per pixel (e.g. 106.3 for BG92 FeII)
-        sigmatemplate: intrinsic σ of the template in km/s
-        """
-        self.wl, self.flux = template
-        self.fixed_dispersion = fixed_dispersion
-        self.sigmatemplate = sigmatemplate
+        FWHM = 10 ** logFWHM
+        sigma_model = FWHM / 2.355
+        delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
+        sigma_pix = delta_sigma / fixed_dispersion
+        sigma_lambda = sigma_pix * dx
 
-    def __call__(self,
-                 x: jnp.ndarray,
-                 log_FWHM: float,
-                 shift_frac: float,
-                 scale: float):
-        # --- 1) compute Δx (Angstrom per pixel) ---
-        dx = x[1] - x[0]
+        freq = jnp.fft.fftfreq(n_pix, d=dx)
+        gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_lambda) ** 2)
+        #templates_flat_jax = jnp.asarray(templates_flat)  # or do this earlier once
+        #templates_fft = jnp.fft.fft(templates_flat_jax, axis=1)
+        convolved = jnp.real(jnp.fft.ifft(templates_fft * gauss_tf, axis=1))
 
-        # --- 2) compute requested σ in pixel units ---
-        FWHM = 10 ** log_FWHM
-        sigma_model = FWHM / 2.355                    # km/s
-        delta_sigma = jnp.sqrt(jnp.maximum(
-            sigma_model**2 - self.sigmatemplate**2, 1e-12
-        ))                                            # km/s
-        sigma_pix = delta_sigma / self.fixed_dispersion
+        model_flux = jnp.sum(weights[:, None] * convolved, axis=0)
+        shifted = wave + shift_A
+        return amplitude * jnp.interp(x, shifted, model_flux, left=0.0, right=0.0)
 
-        # --- 3) convert that to Angstrom σ for the transfer function ---
-        sigma_lambda = sigma_pix * dx                # Angstrom
-
-        # --- 4) build Gaussian transfer function in Fourier space ---
-        n_pix = self.flux.shape[0]
-        freq = jnp.fft.fftfreq(n_pix, d=dx)           # cycles per Angstrom
-        gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_lambda)**2)
-
-        # --- 5) FFT‐convolution ---
-        flux_fft = jnp.fft.fft(self.flux)
-        broadened = jnp.real(jnp.fft.ifft(flux_fft * gauss_tf))
-
-        # --- 6) apply fractional shift + linear interp + scaling ---
-        shifted = self.wl + shift_frac
-        model = scale * jnp.interp(x,
-                                  shifted,
-                                  broadened,
-                                  left=0.0,
-                                  right=0.0)
-        return model
-
-
-# Example usage:
-# fitFeOP_model = FeIITemplateModelFixedDispersion(
-#     template=fe_template_OP,
-#     fixed_dispersion=106.3,
-#     sigmatemplate=900.0/2.355
-# )
-#
-# @param_count(3)
-# def fitFeOP(x, params):
-#     return fitFeOP_model(x, *params)
-
-
-fe_template_OP_file =   templates_path / 'fe_optical.txt'
-fe_op_qsofit = np.loadtxt(fe_template_OP_file, comments='#').transpose()
-
-fe_op_qsofit[0,:] = 10**(fe_op_qsofit[0,:])
-fe_op_qsofit[1,:] = fe_op_qsofit[1,:]/max(fe_op_qsofit[1,:])
-fe_op_qsofit = jnp.array(fe_op_qsofit)
-
-#fitFeOP_model = FeIITemplateModelFixedDispersion(template=fe_template_OP,fixed_dispersion=106.3,sigmatemplate=900.0/2.355)
-
-# @param_count(3)
-# def fitFeOP(x, params): return fitFeOP_model(x, *params)
-# Example instantiation:
-
-# And then wrap as before:
-# @param_count(3)
-# def fitFeOP(x, params): return fitFeOP_model(x, *params)
+    return {
+        "model": model,
+        "host_info": {
+            "z_include": zs,
+            "age_include": ages,
+            "n_Z": n_Z,
+            "n_age": n_age,
+            "x_min": x_min,
+            "x_max": x_max,
+        },
+    }
+   

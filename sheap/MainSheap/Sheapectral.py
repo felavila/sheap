@@ -11,12 +11,15 @@ import jax.numpy as jnp
 import numpy as np
 
 from sheap.DataClass import SpectralLine,FitResult
-from sheap.HostSubtraction.HostSubtraction import HostSubtraction
+from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
+
 from sheap.RegionFitting.RegionFitting import RegionFitting
 from sheap.RegionHandler.RegionBuilder import RegionBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
-from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
+ 
 from sheap.Posterior.tools.constants import c
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,81 @@ logger = logging.getLogger(__name__)
 #WE CAN mode fast, we will stay in this 32 to go faster. 
 
 class Sheapectral:
-    "?"
+    """
+    Main interface class for loading, correcting, fitting, and analyzing AGN spectra.
+
+    This class handles:
+    - Spectral I/O and validation
+    - Extinction and redshift correction
+    - Spectral region definition and model building
+    - JAX-based optimization and uncertainty estimation
+    - Posterior sampling using Monte Carlo or MCMC
+    - Saving/loading results from pickle
+    - Quick visualization and result summaries
+
+    Parameters
+    ----------
+    spectra : str or jnp.ndarray
+        Input spectra. If a string, it should be a path to a file readable by `np.loadtxt`.
+        Expected shape after parsing: (n_objects, 3[, or 4], n_pixels).
+    z : float or jnp.ndarray, optional
+        Redshift(s) for each spectrum. Scalar or 1D array of shape (n_objects,).
+    coords : jnp.ndarray, optional
+        Galactic coordinates (l, b) for extinction correction, shape (n_objects, 2).
+    ebv : jnp.ndarray, optional
+        E(B-V) values. If not provided, estimated from `coords` using the SFD map.
+    names : list of str, optional
+        Object names. Defaults to stringified index if not given.
+    extinction_correction : {'pending', 'done'}, optional
+        Whether to apply extinction correction during initialization.
+    redshift_correction : {'pending', 'done'}, optional
+        Whether to apply redshift correction during initialization.
+    **kwargs
+        Additional arguments passed to underlying utilities.
+
+    Attributes
+    ----------
+    spectra : jnp.ndarray
+        3D array with shape (n_objects, 3, n_pixels) [wavelength, flux, error].
+    wdisp : jnp.ndarray or None
+        Wavelength dispersion (if available) per pixel.
+    fwhm_lambda : jnp.ndarray
+        Instrumental resolution in Angstroms, if `wdisp` provided.
+    fwhm_kms : jnp.ndarray
+        Instrumental resolution in km/s.
+    result : FitResult
+        Output of the fitting routine, including parameters and metadata.
+    buildedregion : RegionBuilder
+        Configuration used to build the model region.
+    _plotter : SheapPlot
+        Plotting backend object.
+
+    Methods
+    -------
+    make_region(xmin, xmax, n_narrow=1, n_broad=1, **kwargs)
+        Create a model region from line and continuum definitions.
+    
+    fit_region(...)
+        Perform spectral model fitting using the configured region.
+    
+    posterior_params(...)
+        Estimate posterior distributions using MC or MCMC.
+
+    save_to_pickle(filepath)
+        Save object state to a pickle file.
+
+    from_pickle(filepath)
+        Load a `Sheapectral` instance from a saved pickle.
+
+    result_dict(n)
+        Return a Pandas DataFrame of the fit parameters for object `n`.
+
+    quicklook(idx, ax=None, xlim=None, ylim=None)
+        Plot flux + error for spectrum `idx`.
+
+    modelplot
+        Return or initialize plotting interface (SheapPlot).
+    """
     def __init__(
         self,
         spectra: Union[str, jnp.ndarray],
@@ -45,7 +122,7 @@ class Sheapectral:
             self.wdisp = spec_arr[:,3,:]
             spec_arr = spec_arr[:,[0,1,2],:]
         spec_arr = pad_error_channel(spec_arr)
-        self.spectra = spec_arr.astype(jnp.float64)
+        self.spectra = spec_arr#.astype(jnp.float32)#
         if self.wdisp is not None:
             #Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
             #This aprouch only is usseful for log sample spectra
@@ -56,7 +133,6 @@ class Sheapectral:
             self.fwhm_kms = self.fwhm_lambda / self.spectra[:,0,:] * c
             # in cases without wdisp 
             #     
-        # self.in_spectra = spec_arr
         self.coords = coords  # may be None – handle carefully downstream
         self.ebv = ebv
         self.z = self._prepare_z(z, self.spectra.shape[0])
@@ -81,9 +157,7 @@ class Sheapectral:
             self._apply_redshift()
             self.redshift_correction = "done"
 
-        # Stage bookkeeping
         self.sheap_set_up()
-        # self.host_subtraction = host_subtraction
 
     def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
         if isinstance(spectra, (str, Path)):
@@ -133,28 +207,26 @@ class Sheapectral:
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
 
-    def _apply_hostsubstraction(self,learning_rate=1e-1,n_galaxies=5,n_qso=10) -> None:
-        "Experimental feature"
-        hostsubstraction = HostSubtraction(self.spectra,learning_rate=learning_rate,n_galaxies=n_galaxies,n_qso=n_qso)    
-        hostsubstraction._run_substraction(num_steps=50_000)
-        return hostsubstraction
     
-    def build_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
+    def make_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
         "?"
-        self.builded_region = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
+        self.buildedregion = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
     
     
-    def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2],run_fit=True):
+    def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
+                   ,run_fit=True
+                   ,add_penalty_function=False):
         "?"
-        if not hasattr(self, "builded_region"):
-            raise RuntimeError("build_region() must be called before fit_region()")
+        if not hasattr(self, "buildedregion"):
+            raise RuntimeError("make_region() must be called before fit_region()")
 
-        self.fitting_class = RegionFitting.from_builder(self.builded_region,limits_overrides=None,profile=profile,
-                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
+        self.fitting_class = RegionFitting.from_builder(self.buildedregion,limits_overrides=None,profile=profile,
+                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate
+                                                        )
 
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
-            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params)
+            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function)
             fit_output = self.fitting_class.fit_result
             fit_output.source = "computed"
             
@@ -183,24 +255,32 @@ class Sheapectral:
                 chi2_red = fit_output.chi2_red)
 
             self._plotter = SheapPlot(sheap=self)
-    def posterior_params(self,run="none", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,num_warmup=500,n_random=1_000,extra_products=True):
+    def posterior_params(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
+                         num_warmup=500,n_random=1_000,extra_products=True):
         "?"
         from sheap.Posterior.ParameterEstimation import ParameterEstimation
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
         PM = ParameterEstimation(sheap = self)
-        if run == "none":
+       
+        if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?
-            print("Nothing will run if you dont choose between run=montecarlo or run=mcmc")
-            
+            print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=no_sampling")
+            return PM 
         if self.result.posterior and not overwrite:
             print("Warning already run if you want to run again please put overwrite=True")
         else:
-            if run.lower()=="montecarlo":
+            if sampling_method.lower()=="montecarlo":
                 dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
-            elif run.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
+            
+            elif  sampling_method.lower()=="no_sampling":
+                print("you choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
+                dic_posterior_params = PM.parameters_result(extra_products=extra_products)
+                self.result.posterior = [{"method":"no_sampling"},dic_posterior_params]
+            
+            elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
                 dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,extra_products = extra_products)
                 self.result.posterior = [{"method":run.lower(),"num_samples":num_samples,"n_random":n_random,
                                         "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
@@ -306,9 +386,13 @@ class Sheapectral:
                 else:
                     print("Warning this if u have an SPAF, you should have and subprofile otherwise it can be readed correctly")
                 sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,subprofile)
-                profile_functions.append(sm)
+            elif sp.profile == "hostmiles":
+                sm = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
+            elif sp.profile == "fetemplate":
+                sm =PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
             else:
-                profile_functions.append(PROFILE_FUNC_MAP.get(holder_profile))
+                sm = PROFILE_FUNC_MAP.get(holder_profile)
+            profile_functions.append(sm)
         return profile_functions
     
     @property
@@ -319,9 +403,31 @@ class Sheapectral:
             else:
                 raise RuntimeError("No fit result found. Run `fit_region()` first.")
         return self._plotter
-    def result_dict(self, n: int) -> Dict[str, List[float]]:
-        return {
-            key: [float(self.result.params[n][i]), float(self.result.uncertainty_params[n][i]),self.result.constraints[i]] for key, i in self.result.params_dict.items()}
+    def result_dict(self, n: int) -> pd.DataFrame:
+        import pandas as pd 
+        data = []
+        scale = self.result.scale[n]
+        for key, i in self.result.params_dict.items():
+            param = float(self.result.params[n][i])
+            uncertainty = float(self.result.uncertainty_params[n][i])
+            if "amplitude" in key:
+                param /= scale
+                uncertainty /= scale
+            elif "logamp" in key:
+                param -= np.log10(scale)
+                #uncertainty -= np.log10(scale)
+            constraints = self.result.constraints[i]
+            data.append([param, uncertainty, constraints[1], constraints[0]])  # max, min
+        
+        
+
+        df = pd.DataFrame(
+            data,
+            columns=["value", "error", "max_constraint", "min_constraint"],
+            index=self.result.params_dict.keys()
+        )
+
+        return df
     
     def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
         import matplotlib.pyplot as plt

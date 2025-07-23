@@ -6,29 +6,8 @@ import numpy as np
 from tqdm import tqdm
 
 
-from sheap.Mappers.helpers import mapping_params
+from sheap.Mappers.helpers import descale_amp,scale_amp
 from .parameter_from_sampler import posterior_physical_parameters
-
-
-def safe_cholesky(
-    cov: jnp.ndarray,
-    initial_jitter: float = 1e-6,
-    max_tries: int = 5
-) -> jnp.ndarray:
-    """
-    Robust Cholesky decomposition: adds increasing diagonal jitter until SPD.
-    """
-    # ensure jitter matches matrix dtype
-    dtype = cov.dtype
-    I = jnp.eye(cov.shape[-1], dtype=dtype)
-    jitter = jnp.array(initial_jitter, dtype=dtype)
-    for _ in range(max_tries):
-        try:
-            return jnp.linalg.cholesky(cov + jitter * I)
-        except Exception:
-            jitter = jitter * 10
-    raise RuntimeError(f"Cholesky failed after adding up to {float(jitter)} jitter.")
-
 
 
 class MonteCarloSampler:
@@ -64,8 +43,11 @@ class MonteCarloSampler:
         )
         norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
         norm_spec = norm_spec.astype(jnp.float64)
-        idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
+        params = descale_amp(self.params_dict,self.params,scale[:, None])
+        #idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
+        #params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
+        
+        
         names = self.names 
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
         model = self.model
@@ -106,7 +88,8 @@ class MonteCarloSampler:
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
         
             full_samples = vmap(apply_one_sample)(samples_free)
-            full_samples = full_samples.at[:, idxs].multiply(scale[n])
+            full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
+            #full_samples.at[:, idxs].multiply(scale[n])
             dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,

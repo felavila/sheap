@@ -1,9 +1,7 @@
-# Balmer continuum, Balmer High order emission lines
-# 3646.0 limit for balmer continuum after this we can move to another stuff
-# ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
+
 from __future__ import annotations
 
-# from dataclasses import dataclass
+
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -13,7 +11,7 @@ import yaml
 from sheap.DataClass import SpectralLine,ComplexRegion
 from sheap.Functions.profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.RegionHandler.utils import fe_ties, region_ties, group_lines
-
+from sheap.Functions.template_func import make_host_function
 
 OUTFLOW_COMPONENT = 10
 WINDS_COMPONENT = 15
@@ -21,7 +19,11 @@ FE_COMPONENT = 20
 NLR_COMPONENT = 30
 
 
-#TODO add the uncommon lines narrow?
+#TODO ADD the rutines of gaussians and tied methods in general. 
+# Balmer continuum, Balmer High order emission lines
+# 3646.0 limit for balmer continuum after this we can move to another stuff
+# ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
+
 class RegionBuilder:
     """
     Builds spectral fitting regions given a xmin and xmax, from YAML templates, with narrow, broad,
@@ -52,22 +54,19 @@ class RegionBuilder:
         add_winds = False,
         add_balmer_continuum = False,
         add_uncommon_narrow = False,
+        add_host_miles: Optional[Union[Dict,bool]] = None,
         verbose=True,
         #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        #fe_mode="template",  # "sum,combined,template"
-        #grouped_method = False, #if this is true all the lines will be combine for kind, also is interesting see wich one could be the best one in this case 
         #add_outflow: bool = False,
         #add_narrow_plus: bool = False,
         #by_region: bool = False,
         
         #add_balmer_continuum: bool = False,
-        
         #add_NLR : bool = False,
         #fe_tied_params=('center', 'fwhm'),
-        #continuum_profile = "powerlaw",
-        #no_fe = False
+        
         ) -> None:
         self.xmin = xmin
         self.xmax = xmax
@@ -80,6 +79,8 @@ class RegionBuilder:
         self.add_winds = add_winds
         self.add_uncommon_narrow = add_uncommon_narrow
         self.verbose = verbose
+        self.add_host_miles = add_host_miles
+        
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
@@ -126,7 +127,8 @@ class RegionBuilder:
         add_outflow= None,
         add_winds = None,
         add_balmer_continuum = None,
-        add_uncommon_narrow = None):
+        add_uncommon_narrow = None,
+        add_host_miles = None):
         
         def get(val, fallback):
             return val if val is not None else fallback
@@ -141,6 +143,7 @@ class RegionBuilder:
         add_winds = get(add_winds, self.add_winds)
         add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
         continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
+        add_host_miles = get(add_host_miles,self.add_host_miles)
         
         if fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
@@ -164,8 +167,9 @@ class RegionBuilder:
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds) 
-                #elif self.fe_mode == "model":   
-                self.complex_list.extend(comps)
+                self.complex_list.extend(comps)        
+        if add_host_miles:
+            self._handle_host(add_host_miles,xmin,xmax)
         self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
         self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum))#here we already are able to create the complex_class
         self.complex_class = ComplexRegion(self.complex_list)
@@ -179,7 +183,8 @@ class RegionBuilder:
             if fe_mode not in ["none","template"]:
                 routine_fe_tied = {"by":"subregion","tied_params": ('center', 'fwhm')}
                 self.tied_relations.extend(fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied))
-            
+        del self.complex_list
+        
     def _handle_broad_and_narrow_lines(
         self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False) -> List[SpectralLine]:
         comps: List[SpectralLine] = []
@@ -280,12 +285,13 @@ class RegionBuilder:
                 if self.verbose:
                     print("added OP template")
                 fe_comps.extend(
-                    [SpectralLine(center=None,line_name="feop",region="fe",component=FE_COMPONENT,profile="fitFeOP",how="template",which_template="OP",element="OP")])
+                    [SpectralLine(line_name="feop",region="fe",component=FE_COMPONENT,profile="fetemplate",template_info = {"name":"feop"})])
                 t_c += 1
-            if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 1000:
+            if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 500:
+                #maybe it is a good time to r
                 if self.verbose:
                     print("added UV template")
-                fe_comps.extend([SpectralLine(center=None,line_name="feuv",region="fe",component=FE_COMPONENT,profile="fitFeUV",how="template",which="UV",element="UV")])
+                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=FE_COMPONENT,profile="fetemplate",template_info = {"name":"feuv"})])
                 t_c += 1
             if t_c == 0:
                 print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
@@ -318,7 +324,7 @@ class RegionBuilder:
         dict_regions = complex_class.group_by("region")
         new_complex_list = []
         for key,values in dict_regions.items():
-            if key in ["continuum"]:
+            if key in ["continuum","host"]:
                 new_complex_list.extend(values.lines)
             elif key == "fe":
                 #here much more can be done 
@@ -332,6 +338,26 @@ class RegionBuilder:
                 new_complex_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
         return ComplexRegion(new_complex_list)
 
+    def _handle_host(self,add_host_miles,xmin,xmax):
+        pos_defaults = make_host_function.__defaults__ or ()  
+        #kw_defaults = make_host_function.__kwdefaults__ or {}  
+        argcount = make_host_function.__code__.co_argcount
+        all_args = make_host_function.__code__.co_varnames[:argcount]
+        names_for_pos = all_args[-len(pos_defaults):] if pos_defaults else []
+        defaults = {name: val for name, val in zip(names_for_pos, pos_defaults)}
+        defaults["x_max"] = xmax
+        defaults["x_min"] = xmin
+        if isinstance(add_host_miles,bool):
+            _host_model = make_host_function(**defaults)
+        elif isinstance(add_host_miles,Dict):
+            add_host_miles.update({"xmax":xmax,"xmin":xmax})
+            _host_model = make_host_function(**add_host_miles)
+        else:
+            Warning("Not accepted type of add_host_moles")
+            return self.complex_list
+        line = SpectralLine(line_name="host",region="host",component=40,template_info=_host_model["host_info"],profile="hostmiles")    
+        self.complex_list.extend([line])
+        
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-1]):
         #?
         fitting_routine = {}
