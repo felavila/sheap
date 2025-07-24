@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from jax import jit, vmap
 
-from sheap.Minimizer.MasterMinimizer import MasterMinimizer
+from sheap.Minimizer.Minimizer import Minimizer
 from sheap.Tools.spectral_basic import vac_to_air
 from sheap.Tools.setup_utils import mask_builder
 
@@ -156,7 +156,7 @@ class HostSubtraction:
                     boundaries=[1000]
                 )
         
-        minimizer = MasterMinimizer(
+        minimizer = Minimizer(
             linear_combination,
             optimize_in_axis=3,
             optimizer = optax.adamw(scheduler, weight_decay=1e-4),

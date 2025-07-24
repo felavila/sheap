@@ -10,11 +10,11 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.DataClass import SpectralLine,FitResult
-from sheap.Tools.setup_utils import pad_error_channel,ArrayLike
+from sheap.Assistants import SpectralLine,ComplexResult
+from sheap.MainSheap.utils import pad_error_channel,ArrayLike
 
-from sheap.RegionFitting.RegionFitting import RegionFitting
-from sheap.RegionHandler.RegionBuilder import RegionBuilder
+from sheap.ComplexFitting.ComplexFitting import ComplexFitting
+from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
  
 from sheap.Posterior.tools.constants import c
@@ -69,9 +69,9 @@ class Sheapectral:
         Instrumental resolution in Angstroms, if `wdisp` provided.
     fwhm_kms : jnp.ndarray
         Instrumental resolution in km/s.
-    result : FitResult
+    result : ComplexResult
         Output of the fitting routine, including parameters and metadata.
-    buildedregion : RegionBuilder
+    complexbuild : ComplexBuilder
         Configuration used to build the model region.
     _plotter : SheapPlot
         Plotting backend object.
@@ -93,7 +93,7 @@ class Sheapectral:
     from_pickle(filepath)
         Load a `Sheapectral` instance from a saved pickle.
 
-    result_dict(n)
+    result_panda(n)
         Return a Pandas DataFrame of the fit parameters for object `n`.
 
     quicklook(idx, ax=None, xlim=None, ylim=None)
@@ -111,8 +111,31 @@ class Sheapectral:
         names: Optional[list[str]] = None,
         extinction_correction: str = "pending",  # this only can be pending or done
         redshift_correction: str = "pending",  # this only can be pending or done
-        **kwargs,
-    ):
+        **kwargs,):
+        
+        """
+        Initialize Sheapectral object, load and optionally correct spectra.
+
+        Parameters
+        ----------
+        spectra : str or jnp.ndarray
+            Path to data file or array of raw spectra.
+        z : float or jnp.ndarray, optional
+            Redshift(s) to apply; repeated if scalar.
+        coords : ?
+            Coordinates for extinction map lookup.
+        ebv : ?
+            E(B-V) values, overrides coords-based estimation.
+        names : list of str, optional
+            Names for each spectrum.
+        extinction_correction : {'pending', 'done'}, optional
+            Control flag for extinction step.
+        redshift_correction : {'pending', 'done'}, optional
+            Control flag for redshift step.
+        **kwargs : ?
+            Additional parameters passed internally.
+        """
+        
         self.log = logging.getLogger(self.__class__.__name__)
         self.extinction_correction = extinction_correction
         self.redshift_correction = redshift_correction
@@ -137,13 +160,10 @@ class Sheapectral:
         self.ebv = ebv
         self.z = self._prepare_z(z, self.spectra.shape[0])
 
-        self.names = (
-            names if names is not None else np.arange(self.spectra.shape[0]).astype(str)
-        )
+        self.names = (names if names is not None else np.arange(self.spectra.shape[0]).astype(str))
 
-        if self.extinction_correction == "pending" and (
-            self.coords is not None or self.ebv is not None
-        ):
+        if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
+            
             print(
                 "extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step"
             )
@@ -160,6 +180,24 @@ class Sheapectral:
         self.sheap_set_up()
 
     def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
+        """
+        Load spectra from file or array.
+
+        Parameters
+        ----------
+        spectra : str, Path, np.ndarray, list, or jnp.ndarray
+            Input data source.
+
+        Returns
+        -------
+        jnp.ndarray
+            Array of shape (n_objects, channels, n_pixels).
+
+        Raises
+        ------
+        TypeError
+            If input type is unsupported.
+        """        
         if isinstance(spectra, (str, Path)):
             arr = np.loadtxt(spectra)
             return jnp.array(arr).T  # ensure (c, λ) then transpose later
@@ -174,6 +212,21 @@ class Sheapectral:
     def _prepare_z(
         self, z: Optional[Union[float, ArrayLike]], nobj: int
     ) -> Optional[jnp.ndarray]:
+        """
+        Normalize redshift input to array form.
+
+        Parameters
+        ----------
+        z : float, array-like, or None
+            Input redshift(s).
+        nobj : int
+            Number of spectra objects.
+
+        Returns
+        -------
+        jnp.ndarray or None
+            Array of length nobj or None if z was None.
+        """
         if z is None:
             return None
         if isinstance(z, (int, float)):
@@ -181,8 +234,20 @@ class Sheapectral:
         return jnp.array(z)
 
     def _apply_extinction(self) -> None:
-        """Cardelli 1989 – uses *sfdmap* if coords are available."""
-        from sfdmap2 import sfdmap  # lazy import to avoid heavy deps if unused
+        """
+        Apply Galactic extinction correction to the flux and error channels.
+
+        Uses Cardelli et al. (1989) law; if coords provided, uses SFD map.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
+        from sfdmap2 import sfdmap
         from sheap.Tools.unred import unred
         ebv = self.ebv
         if self.coords is not None:
@@ -198,10 +263,32 @@ class Sheapectral:
         self.spectra = self.spectra.at[:, 2, :].multiply(ratio)
 
     def _apply_redshift(self) -> None:
+        """
+        Apply redshift correction (deredshift) to wavelength axis.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         from sheap.Tools.spectral_basic import _deredshift
         self.spectra = _deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
+        """
+        Ensure spectra have leading object axis, record shape and NaN mask.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+        """
         if len(self.spectra.shape) <= 2:
             self.spectra = self.spectra[jnp.newaxis, :]
         self.spectra_shape = self.spectra.shape  # ?
@@ -209,29 +296,74 @@ class Sheapectral:
 
     
     def make_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
-        "?"
-        self.buildedregion = RegionBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
+        """
+        Initialize a ComplexBuilder for later fitting.
+
+        Parameters
+        ----------
+        xmin : float
+            Lower wavelength bound.
+        xmax : float
+            Upper wavelength bound.
+        n_narrow : int, optional
+            Number of narrow components per line.
+        n_broad : int, optional
+            Number of broad components per line.
+        **kwargs : ?
+            Additional ComplexBuilder options.
+
+        Returns
+        -------
+        None
+        """
+        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
     
     
     def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
                    ,run_fit=True
                    ,add_penalty_function=False):
-        "?"
-        if not hasattr(self, "buildedregion"):
+        """
+        Execute fitting of the prepared region on the spectra.
+
+        Parameters
+        ----------
+        list_num_steps : list of int, optional
+            Maximum optimization steps per routine stage.
+        run_uncertainty_params : bool, optional
+            Whether to compute parameter uncertainties.
+        profile : str, optional
+            Line profile type for fitting.
+        list_learning_rate : list of float, optional
+            Learning rates for each stage.
+        run_fit : bool, optional
+            If False, construct the ComplexFitting object without fitting.
+        add_penalty_function : bool, optional
+            If True, include host-model penalty.
+
+        Raises
+        ------
+        RuntimeError
+            If make_region() was not called first.
+
+        Returns
+        -------
+        None
+        """
+        if not hasattr(self, "complexbuild"):
             raise RuntimeError("make_region() must be called before fit_region()")
 
-        self.fitting_class = RegionFitting.from_builder(self.buildedregion,limits_overrides=None,profile=profile,
+        self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile,
                                                         list_num_steps = list_num_steps,list_learning_rate =list_learning_rate
                                                         )
 
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
             self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function)
-            fit_output = self.fitting_class.fit_result
+            fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
             
             
-            self.result = FitResult(
+            self.result = ComplexResult(
                 params=fit_output.params.astype(jnp.float64),
                 uncertainty_params=fit_output.uncertainty_params,
                 mask=fit_output.mask,
@@ -257,7 +389,38 @@ class Sheapectral:
             self._plotter = SheapPlot(sheap=self)
     def posterior_params(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                          num_warmup=500,n_random=1_000,extra_products=True):
-        "?"
+        """
+        Estimate or sample posterior distributions of fit parameters.
+
+        Parameters
+        ----------
+        sampling_method : {'montecarlo', 'mcmc', 'no_sampling'}
+            Sampling algorithm to use.
+        num_samples : int, optional
+            Number of samples to draw.
+        key_seed : int, optional
+            Random seed for reproducibility.
+        summarize : bool, optional
+            If True, compute summary statistics.
+        overwrite : bool, optional
+            If True, rerun even if posterior exists.
+        num_warmup : int, optional
+            Warm-up steps for MCMC.
+        n_random : int, optional
+            Number of initial random positions for MCMC.
+        extra_products : bool, optional
+            Return additional diagnostics.
+
+        Returns
+        -------
+        ParameterEstimation or dict
+            Posterior object or results dictionary.
+
+        Raises
+        ------
+        RuntimeError
+            If fit has not been run (`self.result` missing).
+        """
         from sheap.Posterior.ParameterEstimation import ParameterEstimation
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
@@ -287,7 +450,19 @@ class Sheapectral:
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
-        "?"
+        """
+        Load a saved Sheapectral instance from a pickle file.
+
+        Parameters
+        ----------
+        filepath : str or Path
+            Path to the pickle file created by save_to_pickle().
+
+        Returns
+        -------
+        Sheapectral
+            Restored object with loaded spectra and results.
+        """
         filepath = Path(filepath)
         with open(filepath, "rb") as f:
             data = pickle.load(f)
@@ -305,7 +480,7 @@ class Sheapectral:
         obj.complex_region = [SpectralLine(**i) for i in complex_region]
 
         profile_names = data.get("profile_names", [])
-        obj.result = FitResult(
+        obj.result = ComplexResult(
             params=jnp.array(data.get("params")),
             uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))),
             initial_params=jnp.array(data.get("initial_params")),
@@ -331,6 +506,14 @@ class Sheapectral:
         return obj
     
     def _save(self):
+        """
+        Internal: assemble a dict of object state for pickling.
+
+        Returns
+        -------
+        dict
+            Keys/values for spectra, results, and metadata.
+        """
         _complex_region = [i.to_dict() for i in self.result.complex_region]
 
         dic_ = {
@@ -368,13 +551,32 @@ class Sheapectral:
         return dic_
 
     def save_to_pickle(self, filepath: Union[str, Path]):
-        #".pkl"
+        """
+        Save the current object state to a pickle file (.pkl).
+
+        Parameters
+        ----------
+        filepath : str or Path
+            Destination path for the pickle.
+
+        Returns
+        -------
+        None
+        """
         filepath = Path(filepath)
         with open(filepath, "wb") as f:
             pickle.dump(self._save(), f)
 
     
     def profile_functions_from_complex_region(self):
+        """
+        Recreate profile functions for each region component.
+
+        Returns
+        -------
+        list of callables
+            Profile model functions.
+        """
         from sheap.Functions.profiles import PROFILE_FUNC_MAP
         profile_functions = []
         for _,sp in enumerate(self.complex_region):
@@ -397,13 +599,39 @@ class Sheapectral:
     
     @property
     def modelplot(self):
+        """
+        Get or initialize the SheapPlot plotting interface.
+
+        Returns
+        -------
+        SheapPlot
+            Plotting backend for spectra and fit results.
+
+        Raises
+        ------
+        RuntimeError
+            If no fit result exists.
+        """
         if not hasattr(self, "_plotter"):
             if hasattr(self, "result"):
                 self._plotter = SheapPlot(sheap=self)
             else:
                 raise RuntimeError("No fit result found. Run `fit_region()` first.")
         return self._plotter
-    def result_dict(self, n: int) -> pd.DataFrame:
+    def result_panda(self, n: int) -> pd.DataFrame:
+        """
+        Return a pandas DataFrame of fit parameters for a given spectrum.
+        (maybe add another rutine or methods to get all the values for a param?)
+        Parameters
+        ----------
+        n : int
+            Index of the spectrum object.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Columns: ['value', 'error', 'max_constraint', 'min_constraint'].
+        """
         import pandas as pd 
         data = []
         scale = self.result.scale[n]
@@ -430,6 +658,26 @@ class Sheapectral:
         return df
     
     def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
+        """
+        Produce a quick errorbar plot of flux vs. wavelength.
+
+        Parameters
+        ----------
+        idx : int
+            Spectrum index to plot.
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot into (creates new if None).
+        xlim : tuple, optional
+            X-axis limits as (xmin, xmax).
+        ylim : tuple, optional
+            Y-axis limits as (ymin, ymax).
+
+        Returns
+        -------
+        matplotlib.axes.Axes
+            The axes containing the plot.
+        """
+        
         import matplotlib.pyplot as plt
         from matplotlib.ticker import FixedLocator
 

@@ -5,7 +5,7 @@ import jax.numpy as jnp
 from jax import random,vmap
 
 
-#This requires major updates 
+#TODO This requires major updates 
 
 def residuals(
     func: Callable,

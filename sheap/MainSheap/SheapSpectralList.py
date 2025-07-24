@@ -3,24 +3,24 @@ from pathlib import Path
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.RegionHandler.RegionBuilder import RegionBuilder
-from sheap.RegionFitting.RegionFitting import RegionFitting
-from sheap.DataClass import FitResult
+from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
+from sheap.ComplexFitting.ComplexFitting import ComplexFitting
+#from sheap.Assistants import FitResult
 from sheap.Tools.unred import unred
 from sheap.Tools.spectral_basic import _deredshift
 
 
 class SheapSpectralList:
     """
-    Automatically manages RegionFitting instances for different spectral resolutions (npix).
+    Automatically manages ComplexFitting instances for different spectral resolutions (npix).
 
-    It uses a single RegionBuilder definition and caches RegionFitting objects keyed by npix.
+    It uses a single ComplexBuilder definition and caches ComplexFitting objects keyed by npix.
     This avoids repeated JIT compilation while respecting JAX's static shape requirements.
     """
 
     def __init__(
         self,
-        region_builder: RegionBuilder,
+        region_builder: ComplexBuilder,
         num_steps_list: List[int] = [1000, 1000],
         add_step: bool = True,
         tied_fe: bool = False,
@@ -39,8 +39,8 @@ class SheapSpectralList:
             )
     def get(self, npix: int):
         if npix not in self.cache:
-            self.cache[npix] = RegionFitting(self.rutine)
-            #RegionFitting(self.rutine)
+            self.cache[npix] = ComplexFitting(self.rutine)
+            #ComplexFitting(self.rutine)
         return self.cache[npix]
 
     def _apply_extinction(self, spectra: jnp.ndarray, coords: Optional[jnp.ndarray]) -> jnp.ndarray:
@@ -76,4 +76,4 @@ class SheapSpectralList:
                 return spectral_result
         return spectral_result
             #return spectral_result
-            #= RegionFitting(fitting_rutine)
+            #= ComplexFitting(fitting_rutine)

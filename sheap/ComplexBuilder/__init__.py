@@ -2,8 +2,8 @@
 Spectral Handling and Estimation of Agn Parameters (SHEAP).
 
 """
-from sheap.RegionHandler.RegionBuilder import RegionBuilder
+from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 
 __all__ = [
-    "RegionBuilder",
+    "ComplexBuilder",
 ]

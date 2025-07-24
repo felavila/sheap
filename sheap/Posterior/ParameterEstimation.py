@@ -11,7 +11,7 @@ from jax import grad, jit,vmap
 
 
 from sheap.MainSheap import Sheapectral
-from sheap.DataClass import FitResult
+from sheap.Assistants import ComplexResult
 
 from sheap.Functions.utils import combine_auto
 
@@ -28,26 +28,110 @@ cm_per_mpc = 3.08568e24
 class ParameterEstimation:
     """
     Computes best-fit physical parameters and uncertainties for spectral regions.
-    Monte Carlo sampling of distributions is provided via .sample_params() using ParameterSampler.
+    Provides Monte Carlo and MCMC posterior sampling.
+
+    Parameters
+    ----------
+    sheap : Sheapectral, optional
+        Configured Sheapectral instance with fit results.
+    complexresult : ComplexResult, optional
+        ComplexResult object containing parameters, uncertainties, and metadata.
+    spectra : jnp.ndarray, optional
+        Normalized spectra array, shape (n_objects, 3, n_pixels).
+    z : jnp.ndarray, optional
+        Redshift array for each object.
+    fluxnorm : array-like, optional
+        Flux normalization factors; defaults to ones.
+    cosmo : astropy.cosmology instance, optional
+        Cosmology for distance calculations; defaults to FlatLambdaCDM(H0=70, Om0=0.3).
+    BOL_CORRECTIONS : dict, optional
+        Bolometric correction factors; defaults from module constant.
+    SINGLE_EPOCH_ESTIMATORS : dict, optional
+        Single-epoch estimators; defaults from module constant.
+    c : float, optional
+        Speed of light constant; defaults from module constant.
+
+    Attributes
+    ----------
+    spec : jnp.ndarray
+        Spectra array used for estimation.
+    z : jnp.ndarray
+        Redshifts for each spectrum.
+    params : jnp.ndarray
+        Best-fit parameter values.
+    uncertainty_params : jnp.ndarray
+        Uncertainty estimates for parameters.
+    fluxnorm : array-like
+        Flux normalization factors.
+    cosmo : ?
+        Cosmology object for computing distances.
+    d : ?
+        Luminosity distances corresponding to `z` (in cm).
+    BOL_CORRECTIONS : dict
+        Bolometric correction lookup.
+    SINGLE_EPOCH_ESTIMATORS : dict
+        Single-epoch parameter estimators.
+    c : float
+        Speed of light.
+
+    Methods
+    -------
+    sample_montecarlo(num_samples=2000, key_seed=0, summarize=True, extra_products=True)
+        Run Monte Carlo sampling of physical parameters.
+
+    sample_mcmc(n_random=0, num_warmup=500, num_samples=1000, summarize=True, extra_products=True)
+        Run MCMC sampling via NumPyro.
+
+    parameters_result(extra_products=True)
+        Compute parameter estimates without posterior sampling.
+
+    _from_sheap(sheap)
+        Initialize internal state from a Sheapectral object.
+
+    _from_complexresult(result, spectra, z)
+        Initialize internal state from ComplexResult and spectra.
     """
     def __init__(
         self,
         sheap: Optional["Sheapectral"] = None,
-        fit_result: Optional["FitResult"] = None,
+        complexresult: Optional["ComplexResult"] = None,
         spectra: Optional[jnp.ndarray] = None,
         z: Optional[jnp.ndarray] = None,
         fluxnorm=None,
         cosmo=None,
         BOL_CORRECTIONS = BOL_CORRECTIONS,
         SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS,
-        c=c,
-    ):
+        c=c,):
+        """
+        Initialize ParameterEstimation context.
+
+        Parameters
+        ----------
+        sheap : Sheapectral, optional
+            Use attributes from this Spectral fitting interface.
+        complexresult : ComplexResult, optional
+            Use direct fit results if `sheap` not provided.
+        spectra : jnp.ndarray, optional
+            Spectra corresponding to `complexresult`.
+        z : jnp.ndarray, optional
+            Redshifts for each spectrum.
+        fluxnorm : array-like, optional
+            Flux normalization per object.
+        cosmo : ?
+            Cosmology for computing luminosity distances.
+        BOL_CORRECTIONS : dict, optional
+            Bolometric corrections mapping.
+        SINGLE_EPOCH_ESTIMATORS : dict, optional
+            Single-epoch estimators mapping.
+        c : float, optional
+            Speed of light constant.
+        """
         if sheap is not None:
             self._from_sheap(sheap)
-        elif fit_result is not None and spectra is not None:
-            self._from_fit_result(fit_result, spectra, z)
+        elif complexresult is not None and spectra is not None:
+            self._from_complexresult(complexresult, spectra, z)
         else:
-            raise ValueError("Provide either `sheap` or (`fit_result` + `spectra`).")
+            raise ValueError("Provide either `sheap` or (`complexresult` + `spectra`).")
         
         self.BOL_CORRECTIONS = BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
@@ -68,8 +152,23 @@ class ParameterEstimation:
        
     def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
         """
-        Run Monte Carlo parameter sampling (see MonteCarloSampler for details).
-        Returns megafullsample, dic_posterior_params
+        Run Monte Carlo parameter sampling.
+
+        Parameters
+        ----------
+        num_samples : int, optional
+            Number of samples to draw.
+        key_seed : int, optional
+            Seed for random number generator.
+        summarize : bool, optional
+            If True, summarize posterior distributions.
+        extra_products : bool, optional
+            Whether to return additional derived products.
+
+        Returns
+        -------
+        full_samples, summary_dict
+            Array of samples and dictionary of summarized statistics.
         """
         sampler = MonteCarloSampler(self)
         if summarize:
@@ -79,147 +178,56 @@ class ParameterEstimation:
     
     def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, extra_products=True):
         """
-        Run mcmc using numpyro parameter sampling.
-        Returns megafullsample, dic_posterior_params
+        Run MCMC sampling using NumPyro.
+
+        Parameters
+        ----------
+        n_random : int, optional
+            Number of random initial chains.
+        num_warmup : int, optional
+            Number of warmup steps.
+        num_samples : int, optional
+            Number of MCMC samples.
+        summarize : bool, optional
+            If True, summarize the chains.
+        extra_products : bool, optional
+            Include extra derived products.
+
+        Returns
+        -------
+        full_chain, summary_dict
+            Array of MCMC samples and dictionary of statistics.
         """
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
 
     def parameters_result(self,extra_products=True):
-        "class to calculate the same params but without the posteriors"
+        """
+        Compute parameter estimates and uncertainties without sampling.
+
+        Parameters
+        ----------
+        extra_products : bool, optional
+            Include additional derived products.
+
+        Returns
+        -------
+        summary_dict
+            Dictionary of parameter estimates and uncertainties.
+        """
         sampler = ParametersSingle(self)
         
         return sampler.posterior_physical_parameters(extra_products = extra_products)
         
-    
-    
-    # def compute_params_wu(self):
-    #     """
-    #     Compute line flux, FWHM, luminosity, and FWHM in km/s with uncertainties for each emission line kind.
-    #     Returns
-    #     -------
-    #     dict
-    #         Mapping of line kind to computed quantities (with uncertainties).
-    #     """
-    #     dict_ = {}
-    #     for k, k_map in self.kinds_map.items():
-    #         #print(k)
-    #         if k in ('fe', 'continuum'):
-    #             continue
-            
-    #         idx_amplitude = mapping_params(k_map.params_names, "amplitude")
-    #         idx_fwhm = mapping_params(k_map.params_names, "fwhm")
-    #         idx_center = mapping_params(k_map.params_names, "center")
-            
-    #         profile_vmap =  vmap(k_map.profile_functions_combine, in_axes=(0, 0))(self.spec[:,0,:], k_map.params)
-            
-    #         params = k_map.params
-    #         uncertainty_params = np.array(k_map.uncertainty_params)
-
-    #         norm_amplitude = params[:, idx_amplitude]
-    #         norm_amplitude_u = uncertainty_params[:, idx_amplitude]
-
-    #         fwhm = params[:, idx_fwhm]
-    #         fwhm_u = uncertainty_params[:, idx_fwhm]
-
-    #         center = params[:, idx_center]
-    #         center_u = uncertainty_params[:, idx_center]
-
-    #         norm_amplitude = (
-    #             Uncertainty(norm_amplitude, norm_amplitude_u) * self.fluxnorm[:, None]
-    #         )
-    #         fwhm = Uncertainty(fwhm, np.abs(fwhm_u))
-    #         center = Uncertainty(center, np.abs(center_u))
-
-    #         flux = np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-    #         L = 4.0 * np.pi * np.array(self.d[:, None] ** 2) * flux * center
-    #         fwhm_kms = (fwhm * self.c) / center
-
-    #         dict_[k] = {
-    #             'lines': k_map.line_name,
-    #             "component": np.array(k_map.component),
-    #             'L': {'value': L.value, 'error': L.error},
-    #             'flux': {'value': flux.value, 'error': flux.error},
-    #             'fwhm': {'value': fwhm.value, 'error': fwhm.error},
-    #             'fwhm_kms': {'value': fwhm_kms.value, 'error': fwhm_kms.error},
-    #             "profile" : profile_vmap
-    #         }
-    #     self.dict_params = dict_
-    #     return dict_
-
-    # def compute_Luminosity_w(self, wavelengths=[1350.0, 1450.0, 3000.0, 5100.0, 6200.0]):
-    #     """
-    #     Compute monochromatic luminosities (and uncertainties) at key wavelengths.
-    #     Returns a dict with wavelength (as str) to value/error arrays.
-    #     """
-    #     map_cont = self.kinds_map['continuum']
-    #     profile_func = map_cont.profile_functions_combine
-    #     params = map_cont.params.T
-    #     uncertainty_params = map_cont.uncertainty_params.T
-    #     L_w = {}
-    #     for w in wavelengths:
-    #         hits = jnp.isclose(self.spec[:, 0, :], w, atol=1)
-    #         valid = (hits & (~self.mask)).any(axis=1, keepdims=True)
-    #         grad_f = grad(lambda p: jnp.sum(profile_func(jnp.array([w]), p)))(params)
-    #         flux = jnp.where(valid.squeeze(), profile_func(jnp.array([w]), params), 0)
-    #         sigma_f = jnp.where(
-    #             valid.squeeze(),
-    #             jnp.sqrt(jnp.sum((grad_f * uncertainty_params) ** 2, axis=0)),
-    #             0,
-    #         )
-    #         flux = Uncertainty(np.array(flux), np.array(sigma_f))
-    #         l = (w * 4.0 * np.pi * np.array(self.d**2) * flux).ravel()
-    #         L_w[str(w)] = {'value': l.value, "error": l.error}
-    #     self.L_w = L_w
-    #     return L_w
-
-    # def compute_bolometric_luminosity(self, monochromatic_lums=None):
-    #     """
-    #     Estimate bolometric luminosity using empirical bolometric correction factors.
-    #     Returns a dict keyed by wavelength.
-    #     """
-    #     if monochromatic_lums is None:
-    #         monochromatic_lums = self.compute_Luminosity_w()
-    #     L_bol = {}
-    #     for wave, L in monochromatic_lums.items():
-    #         corr = BOL_CORRECTIONS.get(str(int(float(wave))), 0.0)
-    #         L_bol[wave] = {'value': L['value'] * corr, 'error': L['error'] * corr}
-    #     return L_bol
-
-    # def compute_black_hole_mass(self, f=1.0, non_combine=False):
-    #     """
-    #     Compute black hole mass estimates using single-epoch virial estimators.
-    #     Returns dict: line_name -> {'value': M_BH, 'error': sigma, 'component': comp_idx}
-    #     """
-    #     dict_broad = self.compute_params_wu().get("broad")
-    #     L_w = self.compute_Luminosity_w()
-    #     fwhm_kms = dict_broad.get('fwhm_kms')
-    #     line_name_list = np.array(dict_broad["lines"])
-    #     masses = {}
-
-    #     for line_name, params in SINGLE_EPOCH_ESTIMATORS.items():
-    #         wave = str(float(params["wavelength"]))
-    #         if line_name not in line_name_list or wave not in L_w.keys():
-    #             continue
-    #         else:
-    #             idx = np.where(line_name == line_name_list)[0]
-    #         a, b, f_vir = params["a"], params["b"], f
-    #         l_ = Uncertainty(L_w[wave].get("value"), L_w[wave].get("error"))
-    #         log_L = np.log10(l_).reshape(-1, 1)
-    #         fwhm_kms_ = Uncertainty(fwhm_kms.get("value")[:, idx], fwhm_kms.get("error")[:, idx])
-    #         log_FWHM = np.log10(fwhm_kms_) - 3
-    #         log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
-    #         M_BH = (10 ** log_M_BH) / f_vir
-    #         masses[line_name] = {
-    #             "value": M_BH.value.squeeze(),
-    #             "error": M_BH.error.squeeze(),
-    #             "component": dict_broad.get("component")[idx]
-    #         }
-    #     return masses
-    # #def 
-    
-    
     def _from_sheap(self, sheap):
+        """
+        Initialize internal state from a Sheapectral instance.
+
+        Parameters
+        ----------
+        sheap : Sheapectral
+            Source of fit results and spectra.
+        """
         self.spec = sheap.spectra
         self.z = sheap.z
         self.result = sheap.result
@@ -245,7 +253,19 @@ class ParameterEstimation:
         
         
 
-    def _from_fit_result(self, result, spectra, z):
+    def _from_complexresult(self, result, spectra, z):
+        """
+        Initialize internal state from ComplexResult and spectra.
+
+        Parameters
+        ----------
+        result : ComplexResult
+            ComplexResult containing parameters and metadata.
+        spectra : jnp.ndarray
+            Spectra array corresponding to `result`.
+        z : jnp.ndarray
+            Redshifts for each spectrum.
+        """
         self.spec = spectra
         self.z = z
         self.params = result.params

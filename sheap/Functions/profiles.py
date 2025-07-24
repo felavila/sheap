@@ -4,10 +4,9 @@ import jax.numpy as jnp
 from sheap.Functions.continuum_profiles import (linear, balmercontinuum, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,polynomial)
 from sheap.Functions.lines_profiles import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
 from sheap.Functions.template_func import make_feii_template_function,make_host_function
-from sheap.Functions.utils import with_param_names
+from sheap.Functions.utils import with_param_names,ProfileFunc
 
-# Signature: (x, params) -> profile output
-ProfileFunc = Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]
+
 
 # Low-level line profiles (require center+amplitude inside param vector)
 PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {
@@ -124,7 +123,6 @@ def SPAF(centers: List[float], amplitude_rules: List[Tuple[int, float, int]], pr
         return result
 
     return G
-
 
 # Full profile registry (for spectral modeling)
 PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {

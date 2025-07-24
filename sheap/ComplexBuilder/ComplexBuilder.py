@@ -8,9 +8,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import yaml
 
-from sheap.DataClass import SpectralLine,ComplexRegion
+from sheap.Assistants import SpectralLine,ComplexRegion
+from sheap.ComplexBuilder.utils import fe_ties, region_ties, group_lines # asistant material
+
 from sheap.Functions.profiles import PROFILE_CONTINUUM_FUNC_MAP
-from sheap.RegionHandler.utils import fe_ties, region_ties, group_lines
 from sheap.Functions.template_func import make_host_function
 
 OUTFLOW_COMPONENT = 10
@@ -18,16 +19,63 @@ WINDS_COMPONENT = 15
 FE_COMPONENT = 20
 NLR_COMPONENT = 30
 
-
 #TODO ADD the rutines of gaussians and tied methods in general. 
 # Balmer continuum, Balmer High order emission lines
 # 3646.0 limit for balmer continuum after this we can move to another stuff
 # ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
 
-class RegionBuilder:
+class ComplexBuilder:
     """
-    Builds spectral fitting regions given a xmin and xmax, from YAML templates, with narrow, broad,
-    outflow, and FeII components, plus parameter tying.
+    Builds spectral fitting regions given wavelength bounds and YAML templates,
+    including narrow, broad, outflow, and FeII components, plus parameter tying.
+
+    Parameters
+    ----------
+    xmin : float
+        Lower wavelength bound of the region (Å).
+    xmax : float
+        Upper wavelength bound of the region (Å).
+    n_narrow : int, optional
+        Number of narrow components per line, by default 1.
+    n_broad : int, optional
+        Number of broad components per line, by default 1.
+    line_repository_path : list of str or Path, optional
+        Paths to YAML files defining line templates. Defaults to all in `LineRepository/`.
+    fe_mode : {'template', 'model', 'none'}, optional
+        Mode for FeII components, by default "template".
+    continuum_profile : str, optional
+        Continuum profile name (must be in PROFILE_CONTINUUM_FUNC_MAP), by default "powerlaw".
+    group_method : bool, optional
+        Whether to apply automatic grouping and tying of parameters, by default True.
+    add_outflow : bool, optional
+        Include outflow components for narrow lines, by default False.
+    add_winds : bool, optional
+        Include wind components for broad lines, by default False.
+    add_balmer_continuum : bool, optional
+        Include Balmer continuum component, by default False.
+    add_uncommon_narrow : bool, optional
+        Include uncommon narrow lines, by default False.
+    add_host_miles : bool or dict, optional
+        Include host‐galaxy template from MILES; if dict, passes its keys to the builder.
+    verbose : bool, optional
+        Print informational messages during building, by default True.
+
+    Attributes
+    ----------
+    lines_available : dict[str, list of dict]
+        Loaded line definitions from YAML.
+    pseudo_region_available : list[str]
+        Keys of available pseudo‑regions from YAML.
+    complex_class : ComplexRegion
+        Container of all SpectralLine objects after building.
+    tied_relations : list
+        Parameter‐tying specifications used in fitting routine.
+
+    Examples
+    --------
+    >>> rb = ComplexBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
+    >>> rb.make_region()
+    >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
     
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
@@ -68,6 +116,40 @@ class RegionBuilder:
         #fe_tied_params=('center', 'fwhm'),
         
         ) -> None:
+        """
+        Initialize the ComplexBuilder with region bounds and options.
+
+        Parameters
+        ----------
+        xmin : float
+            Minimum wavelength (Å) for region.
+        xmax : float
+            Maximum wavelength (Å) for region.
+        n_narrow : int, optional
+            Number of narrow-line components per line.
+        n_broad : int, optional
+            Number of broad-line components per line.
+        line_repository_path : list of str or Path, optional
+            Filepaths to YAML templates for lines.
+        fe_mode : str, optional
+            FeII handling mode: 'template', 'model', or 'none'.
+        continuum_profile : str, optional
+            Continuum profile to use ('powerlaw', etc.).
+        group_method : bool, optional
+            Whether to group and tie parameters automatically.
+        add_outflow : bool, optional
+            Whether to include outflow components.
+        add_winds : bool, optional
+            Whether to include wind components.
+        add_balmer_continuum : bool, optional
+            Whether to include Balmer continuum.
+        add_uncommon_narrow : bool, optional
+            Whether to include uncommon narrow lines.
+        add_host_miles : bool or dict, optional
+            Host-galaxy template inclusion or options dict.
+        verbose : bool, optional
+            Print status messages.
+        """
         self.xmin = xmin
         self.xmax = xmax
         self.n_narrow = n_narrow
@@ -90,15 +172,29 @@ class RegionBuilder:
             self.continuum_profile = "powerlaw"
         
         if not line_repository_path:
-            self.line_repository_path = list(Path(__file__).resolve().parent.glob("LineRepository/*.yaml"))
-        
+            TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "LineRepository"
+            self.line_repository_path = list(TEMPLATES_PATH.glob("*.yaml"))
         self.lines_available: Dict[str, Any] = {}
         self._load_lines(self.line_repository_path) #this should be always here?
         self.make_region()
 
     def _load_lines(self, paths: Optional[List[Union[str, Path]]]) -> None:
         """
-        Load YAML files with lines.
+        Load YAML files defining spectral lines into `lines_available`.
+
+        Parameters
+        ----------
+        paths : list of str or Path, optional
+            Paths to YAML templates.
+
+        Raises
+        ------
+        ValueError
+            If no paths are provided.
+        FileNotFoundError
+            If any path does not point to an existing file.
+        KeyError
+            If YAML content is not a list of dicts per file.
         """
         if not paths:
             raise ValueError("No YAML paths provided for region templates.")
@@ -129,7 +225,36 @@ class RegionBuilder:
         add_balmer_continuum = None,
         add_uncommon_narrow = None,
         add_host_miles = None):
-        
+        """
+        Build a `ComplexRegion` of `SpectralLine` objects based on settings.
+
+        Parameters
+        ----------
+        xmin : float, optional
+            Override for lower wavelength bound.
+        xmax : float, optional
+            Override for upper wavelength bound.
+        n_broad : int, optional
+            Override for broad-line count.
+        n_narrow : int, optional
+            Override for narrow-line count.
+        fe_mode : str, optional
+            Override for FeII mode.
+        continuum_profile : str, optional
+            Override for continuum profile.
+        group_method : bool, optional
+            Override for grouping behavior.
+        add_outflow : bool, optional
+            Override for outflow inclusion.
+        add_winds : bool, optional
+            Override for wind inclusion.
+        add_balmer_continuum : bool, optional
+            Override for Balmer continuum.
+        add_uncommon_narrow : bool, optional
+            Override for uncommon narrow-line inclusion.
+        add_host_miles : bool or dict, optional
+            Override for host-galaxy options.
+        """
         def get(val, fallback):
             return val if val is not None else fallback
         
@@ -187,6 +312,25 @@ class RegionBuilder:
         
     def _handle_broad_and_narrow_lines(
         self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False) -> List[SpectralLine]:
+        """
+        Create narrow, broad, and optional wind components for a single line.
+
+        Parameters
+        ----------
+        entry : SpectralLine
+            Base line definition.
+        n_narrow : int
+            Number of narrow components.
+        n_broad : int
+            Number of broad components.
+        add_winds : bool, optional
+            Whether to append a wind component to first broad line.
+
+        Returns
+        -------
+        list of SpectralLine
+            Generated line components.
+        """
         comps: List[SpectralLine] = []
         total = n_narrow + n_broad
         for idx in range(total):
@@ -216,6 +360,25 @@ class RegionBuilder:
     
     def _handle_narrow_line(
         self, entry: SpectralLine, n_narrow: int, add_outflow: bool = False, add_uncommon_narrow = False) -> List[SpectralLine]:
+        """
+        Create narrow and optional outflow components for a single line.
+
+        Parameters
+        ----------
+        entry : SpectralLine
+            Base line definition.
+        n_narrow : int
+            Number of narrow components.
+        add_outflow : bool, optional
+            Include an outflow component for the first narrow line.
+        add_uncommon_narrow : bool, optional
+            Include lines marked as 'uncommon'.
+
+        Returns
+        -------
+        list of SpectralLine
+            Generated narrow (and outflow) components.
+        """
         comps: List[SpectralLine] = []
         for idx in range(n_narrow):
             amp = 1 if idx == 0 else 0.5
@@ -245,9 +408,26 @@ class RegionBuilder:
         return comps
 
     def _handle_broad_line(self, entry: SpectralLine, n_broad: int,add_winds=False) -> List[SpectralLine]:
-        comps: List[SpectralLine] = []
+        """
+        Create broad and optional wind components for a single line.
+
+        Parameters
+        ----------
+        entry : SpectralLine
+            Base line definition.
+        n_broad : int
+            Number of broad components.
+        add_winds : bool, optional
+            Include a wind component for the first broad line.
+
+        Returns
+        -------
+        list of SpectralLine
+            Generated broad (and wind) components.
+        """
         #extra broad? 
         #return comps
+        comps: List[SpectralLine] = []
         for idx in range(n_broad):
             if idx>0:
                 continue 
@@ -276,6 +456,28 @@ class RegionBuilder:
         return comps
  
     def _handle_fe(self,fe_mode,xmin,xmax):
+        """
+        Generate FeII components based on selected mode and wavelength range.
+
+        Parameters
+        ----------
+        fe_mode : {'template', 'model', 'none'}
+            FeII handling mode.
+        xmin : float
+            Lower bound of region.
+        xmax : float
+            Upper bound of region.
+
+        Returns
+        -------
+        list of SpectralLine
+            FeII line components (empty if mode 'none').
+
+        Notes
+        -----
+        - 'template' adds broad template components if range is sufficient.
+        - 'model' loads individual FeII lines from YAML.
+        """
         fe_comps = []
         if fe_mode == "none":
             return fe_comps
@@ -309,8 +511,27 @@ class RegionBuilder:
         return fe_comps
     
     def _continuum_handle(self,continuum_profile,xmin,xmax,add_balmer_continuum=False):
+        """
+        Create continuum components: linear, powerlaw, or Balmer.
+
+        Parameters
+        ----------
+        continuum_profile : str
+            Continuum profile to use.
+        xmin : float
+            Lower wavelength bound.
+        xmax : float
+            Upper wavelength bound.
+        add_balmer_continuum : bool, optional
+            Include a Balmer continuum component if True.
+
+        Returns
+        -------
+        list of SpectralLine
+            Continuum components.
+        """
         continuum_comps = []
-        if add_balmer_continuum and not xmax<3646:
+        if add_balmer_continuum and not xmax< 3646:
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
         if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
             print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
@@ -320,7 +541,24 @@ class RegionBuilder:
         return continuum_comps
 
     def _apply_group_method(self,complex_class,fe_mode,known_tied_relations):
-        #this can be a function outside.
+        """
+        Group lines by region, apply known ties, and return a new ComplexRegion.
+
+        -This function in particular could be useful to run it outside.
+        Parameters
+        ----------
+        complex_class : ComplexRegion
+            Ungrouped region object.
+        fe_mode : str
+            FeII mode for grouping logic.
+        known_tied_relations : list of tuple
+            Predefined tie relations for line ratios and centers.
+
+        Returns
+        -------
+        ComplexRegion
+            Grouped and tied region.
+        """
         dict_regions = complex_class.group_by("region")
         new_complex_list = []
         for key,values in dict_regions.items():
@@ -339,6 +577,22 @@ class RegionBuilder:
         return ComplexRegion(new_complex_list)
 
     def _handle_host(self,add_host_miles,xmin,xmax):
+        """
+        Add a host-galaxy template component using MILES SSP models.
+
+        Parameters
+        ----------
+        add_host_miles : dict or bool
+            Configuration for host model (kwargs for `make_host_function` or True for defaults).
+        xmin : float
+            Lower wavelength bound.
+        xmax : float
+            Upper wavelength bound.
+
+        Side Effects
+        ------------
+        Appends a `SpectralLine` of region 'host' to `self.complex_list`.
+        """
         pos_defaults = make_host_function.__defaults__ or ()  
         #kw_defaults = make_host_function.__kwdefaults__ or {}  
         argcount = make_host_function.__code__.co_argcount
@@ -359,7 +613,27 @@ class RegionBuilder:
         self.complex_list.extend([line])
         
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-1]):
-        #?
+        """
+        Assemble the fitting routine dictionary for `RegionFitting.from_builder`.
+
+        Parameters
+        ----------
+        list_num_steps : list of int, optional
+            Number of optimization steps for each stage.
+        list_learning_rate : list of float, optional
+            Learning rates for each stage.
+
+        Returns
+        -------
+        dict
+            Dictionary with keys 'complex_class', 'outer_limits', 'inner_limits',
+            and 'fitting_routine' ready for passing to RegionFitting.
+
+        Raises
+        ------
+        AssertionError
+            If lengths of `list_num_steps` and `list_learning_rate` differ.
+        """
         fitting_routine = {}
         fitting_routine["step1"] = {"tied": self.tied_relations,"non_optimize_in_axis": 3,"learning_rate": list_learning_rate[0],"num_steps": list_num_steps[0]}
         assert len(list_num_steps) == len(list_learning_rate), "len(list_num_steps) != len(list_learning_rate) "

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
  
-from sheap.Functions.utils import combine_auto
+from sheap.Functions.utils import make_fused_profiles
 
 
 
@@ -47,7 +47,7 @@ class SheapPlot:
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
         #self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = jit(combine_auto(self.profile_functions))
+        self.model = jit(make_fused_profiles(self.profile_functions))
         
 
     def _from_fit_result(self, result, spectra):
@@ -64,9 +64,9 @@ class SheapPlot:
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
         #self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = jit(combine_auto(self.profile_functions))
+        self.model = jit(make_fused_profiles(self.profile_functions))
 
-    def plot(self, n, save=None, add_name=False, residual=True,params=None,line=None, **kwargs):
+    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,line=None, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -111,7 +111,7 @@ class SheapPlot:
             else:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
                 ax1.axvline(values[1], ls="--", linewidth=1, color="k")
-                if add_name and isinstance(region.region_lines,list):
+                if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
                     centers = np.array(region.center) + params[1]#shift
                     for ii,c in enumerate(centers):
@@ -127,7 +127,7 @@ class SheapPlot:
                             fontsize=20,
                             zorder=10,
                         )
-                elif add_name and min(xlim) < values[1] < max(xlim):
+                elif add_lines_name and min(xlim) < values[1] < max(xlim):
                     label = f"{region.line_name}_{region.region}_{region.component}".replace(
                         "_", " "
                     )

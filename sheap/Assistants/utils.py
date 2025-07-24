@@ -1,4 +1,4 @@
-from sheap.DataClass.core import SpectralLine
+from sheap.Assistants.core import SpectralLine
 
 
 def is_list_of(my_list, expected_type):

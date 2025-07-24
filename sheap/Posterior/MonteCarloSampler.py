@@ -6,7 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 
-from sheap.Mappers.helpers import descale_amp,scale_amp
+from sheap.Assistants.helpers import descale_amp,scale_amp
 from .parameter_from_sampler import posterior_physical_parameters
 
 
@@ -34,7 +34,7 @@ class MonteCarloSampler:
         self.complex_class = estimator.complex_class
     
     def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,extra_products =True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
-        from sheap.RegionFitting.uncertainty_functions import (
+        from sheap.ComplexFitting.uncertainty_functions import (
             apply_tied_and_fixed_params, make_residuals_free_fn, error_covariance_matrix
         )
         scale = self.scale

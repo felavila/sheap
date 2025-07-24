@@ -9,28 +9,66 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd 
 
-from sheap.Functions.utils import combine_auto
+from sheap.Functions.utils import make_fused_profiles
 #from .ComplexRegion import ComplexRegion
-
+#TODO maybe combine ComplexRegion and FitResult make more sense / Constrains SET and Fitting limits have a similar issue. 
 @dataclass
 class SpectralLine:
     """
     Represents a single spectral emission or absorption line component.
 
-    Attributes:
-        center (float or list of floats): Central wavelength(s) of the line in Angstroms.
-        line_name (str or list of str): Identifier(s) for the spectral line (e.g., 'Halpha') or the case of composite spectral line the name ofthe region + comp number.
-        region (str): spacial region of the line 'narrow', 'broad', 'outflow', or 'fe'.
-        subregion (str): element and spacial region combination in general usefulll for fe. components in models 
-        component (int): Integer identifier for the component number within its kind.
-        amplitude (float or list of floats, default=1.0): Initial or fixed amplitude for the line.
-        element (Optional[str]): quimical stuff of the line.
-        profile (Optional[str]): Profile function name (e.g., 'gaussian', 'lorentzian').
-        which_template (Optional[str]): Sub-template or subtype for complex profiles (e.g., 'OP' or 'UV' for FeII templates).
-        region_lines (Optional[List[str]]): Explicit list of line names used in a sum or composite region.
-        amplitude_relations (Optional[List[List]]): Parameter tying or scaling definitions, typically for ratios.
-        subprofile (str):  Sub-profile function to use within compound models like.
-        rarity the line is common? or uncommon 
+    Parameters
+    ----------
+    line_name : str or list of str
+        Identifier(s) for the spectral line (e.g., 'Halpha'), or for a composite region
+        the region name plus component number.
+    center : float or list of float, optional
+        Central wavelength(s) of the line in Angstroms.
+    region : str, optional
+        Spatial region of the line, one of 'narrow', 'broad', 'outflow', or 'fe'.
+    component : int, optional
+        Integer identifier for this component within its region.
+    subregion : str, optional
+        Element + spatial subregion tag, useful for complex templates (e.g. FeII sub‐regions).
+    amplitude : float or list of float, optional
+        Initial or fixed amplitude(s) for the line(s).
+    element : str, optional
+        Chemical identifier of the line (e.g., 'H', 'FeII').
+    profile : str, optional
+        Name of the profile function to use ('gaussian', 'lorentzian', etc.).
+    region_lines : list of str, optional
+        Explicit list of line identifiers included in a composite region.
+    amplitude_relations : list of list, optional
+        Parameter‐tying definitions (e.g. fixed ratios) among amplitudes.
+    subprofile : str, optional
+        Sub‐profile name for compound models (e.g. a secondary kernel).
+    rarity : str or list of str, optional
+        Qualitative frequency label for the line (e.g. 'common', 'rare').
+    template_info : dict, optional
+        Additional template metadata (e.g. for 'hostmiles' or 'fetemplate' profiles).
+
+    Attributes
+    ----------
+    (all parameters become attributes of this dataclass)
+
+    Methods
+    -------
+    to_dict()
+        Convert the SpectralLine instance into a plain dictionary via `asdict`.
+
+    Examples
+    --------
+    >>> line = SpectralLine(
+    ...     line_name='Halpha',
+    ...     center=6563.0,
+    ...     region='narrow',
+    ...     component=0,
+    ...     profile='gaussian',
+    ...     amplitude=1.0
+    ... )
+    >>> d = line.to_dict()
+    >>> print(d['center'])
+    6563.0
     """
     line_name: Union[str, List[str]]
     center: Optional[Union[float, List[float]]] = None 
@@ -43,13 +81,19 @@ class SpectralLine:
     region_lines: Optional[List[str]] = None
     amplitude_relations: Optional[List[List]] = None
     subprofile: Optional[str] = None  
-    rarity: Optional[Union[str, List[str]]] =  None
-    template_info: Optional[Dict] =  None
+    rarity: Optional[Union[str, List[str]]] = None
+    template_info: Optional[Dict] = None
+
     def to_dict(self) -> dict:
-        """Convert the SpectralLine to a dictionary."""
+        """
+        Convert the SpectralLine to a dictionary.
+
+        Returns
+        -------
+        dict
+            A dict representation of all fields of the dataclass.
+        """
         return asdict(self)
-
-
 
 
 @dataclass
@@ -109,7 +153,7 @@ class ComplexRegion:
 
         # 4) pre‐combine if profiles exist
         self._combined_func = (
-            combine_auto(self.profile_functions)
+            make_fused_profiles(self.profile_functions)
             if self.profile_functions else None
         )
 
@@ -144,7 +188,7 @@ class ComplexRegion:
         self.global_profile_params_index_list = [lst.copy() for lst in profile_params_index_list]
 
         # rebuild combined profile
-        self._combined_func = combine_auto(self.profile_functions)
+        self._combined_func = make_fused_profiles(self.profile_functions)
 
         # update DF’s profile_name column
         self._df["profile_name"] = self.profile_names
@@ -241,7 +285,7 @@ class ComplexRegion:
         new.global_profile_params_index_list = glob_lists2
         new.original_idx                     = orig2
         new._df                              = df2
-        new._combined_func                   = combine_auto(funcs2)
+        new._combined_func                   = make_fused_profiles(funcs2)
         return new
 
     def __getitem__(self, key: Union[int, slice, np.ndarray, List[int]]) -> "ComplexRegion":
@@ -303,7 +347,7 @@ class ComplexRegion:
         
 #still useffull? 
 @dataclass
-class FitResult:
+class ComplexResult:
     """
     Data class to store results from spectral region fitting.
 
@@ -363,6 +407,8 @@ class FitResult:
 
 #This will go to the fitting part in particular to some helper.py stuff
 
+
+
 @dataclass
 class ConstraintSet:
     init: List[float]
@@ -389,19 +435,21 @@ class ConstraintSet:
 @dataclass
 class FittingLimits:
     """
-    Stores fwhm and shift limits for a line component kind.
+    Stores FWHM and shift limits for a line component kind.
 
     Attributes:
-        upper_fwhm (float): Maximum velocity fwhm (km/s).
-        lower_fwhm (float): Minimum velocity fwhm (km/s).
+        upper_fwhm (float): Maximum velocity FWHM (km/s).
+        lower_fwhm (float): Minimum velocity FWHM (km/s).
         center_shift (float): Maximum center shift (km/s).
+        v_shift (float): Maximum velocity shift (km/s).
         max_amplitude (float): Maximum allowed amplitude.
     """
 
     upper_fwhm: float
     lower_fwhm: float
     center_shift: float
-    max_amplitude: float
+    v_shift: Optional[float] = None
+    max_amplitude:  Optional[float] = None
 
     @classmethod
     def from_dict(cls, d: Dict[str, float]) -> "FittingLimits":
@@ -410,7 +458,7 @@ class FittingLimits:
 
         Args:
             d (Dict[str, float]): Dictionary with keys:
-                'upper_fwhm', 'lower_fwhm', 'center_shift', 'max_amplitude'.
+                'upper_fwhm', 'lower_fwhm', 'center_shift', 'v_shift', 'max_amplitude'.
 
         Returns:
             FittingLimits: Instance created from the dictionary.
@@ -418,7 +466,7 @@ class FittingLimits:
         Raises:
             ValueError: If any required key is missing from the dictionary.
         """
-        required_keys = {'upper_fwhm', 'lower_fwhm', 'center_shift', 'max_amplitude'}
+        required_keys = {'upper_fwhm', 'lower_fwhm', 'center_shift', 'v_shift', 'max_amplitude'}
         missing = required_keys - d.keys()
         if missing:
             raise ValueError(f"Missing keys for FittingLimits: {missing}")
@@ -427,5 +475,7 @@ class FittingLimits:
             upper_fwhm=d['upper_fwhm'],
             lower_fwhm=d['lower_fwhm'],
             center_shift=d['center_shift'],
+            v_shift=d['v_shift'],
             max_amplitude=d['max_amplitude'],
         )
+

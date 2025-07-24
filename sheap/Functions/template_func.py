@@ -11,7 +11,6 @@ from sheap.Functions.utils import with_param_names
 
 TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
 
-
 FEII_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "feop": {
         "file": TEMPLATES_PATH / "fe2_Op.dat",

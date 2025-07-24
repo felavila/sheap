@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import jax
 import numpy as np 
 
-from sheap.DataClass import ConstraintSet, FittingLimits, SpectralLine
+from sheap.Assistants import ConstraintSet, FittingLimits, SpectralLine
 from sheap.Tools.spectral_basic import kms_to_wl
 from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
@@ -52,57 +52,15 @@ CANONICAL_WAVELENGTHS = {
     "winds": 5007.0} #why?
 
 
+
 DEFAULT_LIMITS = {
-    'broad': dict(
-        upper_fwhm=10_000.0,  # FWHM ~ 1000–10000 km/s for broad lines
-        lower_fwhm=1000.875,
-        center_shift=5000.0,
-        max_amplitude=10.0,
-        # Ref: Sulentic+2000, Shen+2011
-    ),
-    'narrow': dict(
-        upper_fwhm=1000.0,   # FWHM ~ 200–1000 km/s typical for NLR
-        lower_fwhm=100.0,
-        center_shift=2500.0,
-        max_amplitude=10.0,
-        # Ref: Osterbrock & Ferland 2006, Véron-Cetty+2001
-    ),
-    #not sure about this 
-    'outflow': dict(
-        upper_fwhm=20_000.0,   # FWHM for blueshifted or broad outflowing components
-        lower_fwhm=5000.875,
-        center_shift=3000.0,
-        max_amplitude=10.0,
-        # Ref: Bischetti+2017, Perrotta+2019
-    ),
-    'fe': dict(
-        upper_fwhm=7065.0,   # Typical Fe II FWHM from 800 to 2500 km/s
-        lower_fwhm=117.75, #?
-        center_shift=4570.0,
-        max_amplitude=0.07,
-        # Ref: Kovačević+2010, Ilic+2022
-    ),
-    'nlr': dict(
-        upper_fwhm=2355.0,   # NLR lines are narrow; similar to 'narrow' but possibly less broadened
-        lower_fwhm=117.75,
-        center_shift=1500.0,
-        max_amplitude=10.0,),
-        # Ref: Bennert+2006, Hainline+2013
-    "winds": dict(upper_fwhm   = 15000.0,   # up to 15 000 km/s for very fast winds
-    lower_fwhm   = 5000.0,    # minimum ~ 5 000 km/s
-    center_shift = 8000.0,    # allow blueshifts up to ~8 000 km/s
-    max_amplitude= 10.0,      # same cap as your other lines
-    ),
-    
-    'host': dict(
-        upper_fwhm=0.0,  # FWHM ~ 1000–10000 km/s for broad lines
-        lower_fwhm=0.0,
-        center_shift=0.0,
-        max_amplitude=0.0,
-        # Ref: Sulentic+2000, Shen+2011
-    ),    
-        
-        
+    'broad':   {'upper_fwhm': 10000.0,  'lower_fwhm': 1000.875, 'center_shift': 5000.0,  'v_shift': 5000.0,  'max_amplitude': 10.0},
+    'narrow':  {'upper_fwhm': 1000.0,   'lower_fwhm': 100.0,     'center_shift': 2500.0,  'v_shift': 2500.0,  'max_amplitude': 10.0},
+    'outflow': {'upper_fwhm': 20000.0,  'lower_fwhm': 5000.875,  'center_shift': 3000.0,  'v_shift': 3000.0,  'max_amplitude': 10.0},
+    'fe':      {'upper_fwhm': 7065.0,   'lower_fwhm': 117.75,    'center_shift': 4570.0,  'v_shift': 4570.0,  'max_amplitude': 0.07},
+    'nlr':     {'upper_fwhm': 2355.0,   'lower_fwhm': 117.75,    'center_shift': 1500.0,  'v_shift': 1500.0,  'max_amplitude': 10.0},
+    'winds':   {'upper_fwhm': 15000.0,  'lower_fwhm': 5000.0,    'center_shift': 8000.0,  'v_shift': 8000.0,  'max_amplitude': 10.0},
+    'host':    {'upper_fwhm': 0.0,      'lower_fwhm': 0.0,       'center_shift': 0.0,     'v_shift': 0.0,     'max_amplitude': 0.0},
 }
 
         
@@ -267,8 +225,9 @@ def profile_handler(
         lambda0 = CANONICAL_WAVELENGTHS[sp.region]
         shift_init = 0.0 if sp.component == 1 else (-5.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
-        fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
+        fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
+        logamp = -0.25 if sp.region=="narrow" else -2.0
         #print(shift_upper,fwhm_lo,fwhm_up)
         #if sp.region in ["narrow"]:
         #   fwhm_init = fwhm_up
@@ -280,20 +239,30 @@ def profile_handler(
         for _,p in enumerate(params_names):
             #print(p)
             if "logamp" in p:
-                init.append(-5.0)
+                init.append(logamp)
                 upper.append(1.0)
                 lower.append(-15.0)
-
             elif p == "shift":
                 init.append(shift_init)
                 upper.append(shift_upper)
                 lower.append(-shift_upper)
+                
+            elif p == "v_shift":
+                init.append(0)
+                upper.append(limits.v_shift)
+                lower.append(-limits.v_shift)
 
             elif p in ("fwhm", "width", "fwhm_g", "fwhm_l"):
                 # both Gaussian & Lorentzian widths share same kinematic bounds
                 init.append(fwhm_init)
                 upper.append(fwhm_up)
                 lower.append(fwhm_lo)
+                   
+            elif p in ("logfwhm", "logwidth", "logfwhm_g", "logfwhm_l"):
+                # both Gaussian & Lorentzian widths share same kinematic bounds
+                init.append(np.log10(fwhm_init))
+                upper.append(np.log10(fwhm_up))
+                lower.append(np.log10(fwhm_lo))
 
             elif p == "alpha":
                 # skewness parameter: start symmetric, allow ±5
@@ -306,6 +275,16 @@ def profile_handler(
                 init.append(1.0)
                 upper.append(1e3)
                 lower.append(0.0)
+            
+            elif p == "p_shift":
+                init.append(0)
+                upper.append(1.)
+                lower.append(-1.)
+            #  elif p == "logshift":
+            #     init.append(0.0+(sp.component-1.0)*1e-3)
+            #     upper.append(np.log10( (lambda0 + 2*shift_upper) / lambda0 ))
+            #     lower.append(np.log10( (lambda0 - 2*shift_upper) / lambda0 ))
+                
         #print("n total params",len(init))
         if not (len(init) == len(upper) == len(lower) == len(params_names)):
             raise RuntimeError(f"Builder mismatch for '{selected_profile}_{subprofile}': {params_names}")
@@ -351,180 +330,3 @@ def profile_handler(
 
 
 
-
-
-
-
-
-
-
-
-
-# from typing import List, Optional, Tuple, Dict
-# import math
-# import jax
-# import jax.numpy as jnp
-
-# class Parameter:
-#     """
-#     Represents a fit parameter with optional bounds or ties, plus a transform
-#     determined by its min/max, or held fixed.
-#     """
-#     def __init__(
-#         self,
-#         name: str,
-#         value: float,
-#         *,
-#         min: float = -jnp.inf,
-#         max: float = jnp.inf,
-#         tie: Optional[Tuple[str, str, str, float]] = None,
-#         fixed: bool = False,
-#     ):
-#         self.name  = name
-#         self.value = float(value)
-#         self.min   = float(min)
-#         self.max   = float(max)
-#         self.tie   = tie   # (target, source, op, operand)
-#         self.fixed = fixed
-
-#         # Choose transform based on bounds (ignored if fixed=True)
-#         if math.isfinite(self.min) and math.isfinite(self.max):
-#             self.transform = 'logistic'
-#         elif math.isfinite(self.min):
-#             self.transform = 'lower_bound_square'
-#         elif math.isfinite(self.max):
-#             self.transform = 'upper_bound_square'
-#         else:
-#             self.transform = 'linear'
-
-
-# class Parameters:
-#     def __init__(self):
-#         self._list = []                 # all parameters
-#         self._jit_raw_to_phys = None
-#         self._jit_phys_to_raw = None
-
-#     def add(
-#         self,
-#         name: str,
-#         value: float,
-#         *,
-#         min: Optional[float] = None,
-#         max: Optional[float] = None,
-#         tie: Optional[Tuple[str, str, str, float]] = None,
-#         fixed: bool = False,
-#     ):
-#         lo = -jnp.inf if min is None else min
-#         hi =  jnp.inf if max is None else max
-#         self._list.append(Parameter(
-#             name=name, value=value, min=lo, max=hi,
-#             tie=tie, fixed=fixed
-#         ))
-#         # Invalidate compiled kernels
-#         self._jit_raw_to_phys = None
-#         self._jit_phys_to_raw = None
-
-#     @property
-#     def names(self) -> List[str]:
-#         return [p.name for p in self._list]
-
-#     def _finalize(self):
-#         # free (untied, unfixed) params go into the raw vector
-#         self._raw_list   = [p for p in self._list if p.tie is None   and not p.fixed]
-#         # tied params are computed from others
-#         self._tied_list  = [p for p in self._list if p.tie is not None and not p.fixed]
-#         # fixed params sit out of transforms entirely
-#         self._fixed_list = [p for p in self._list if p.fixed]
-
-#         # compile
-#         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
-#         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
-
-#     def raw_init(self) -> jnp.ndarray:
-#         if self._jit_phys_to_raw is None:
-#             self._finalize()
-#         init_phys = jnp.array([p.value for p in self._raw_list])
-#         return self._jit_phys_to_raw(init_phys)
-
-#     def raw_to_phys(self, raw_params: jnp.ndarray) -> jnp.ndarray:
-#         if self._jit_raw_to_phys is None:
-#             self._finalize()
-#         return self._jit_raw_to_phys(raw_params)
-
-#     def phys_to_raw(self, phys_params: jnp.ndarray) -> jnp.ndarray:
-#         if self._jit_phys_to_raw is None:
-#             self._finalize()
-#         return self._jit_phys_to_raw(phys_params)
-
-#     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
-#         def convert_one(r_vec):
-#             ctx: Dict[str, jnp.ndarray] = {}
-#             idx = 0
-
-#             # 1) free params from raw → phys
-#             for p in self._raw_list:
-#                 rv = r_vec[idx]
-#                 if p.transform == 'logistic':
-#                     val = p.min + (p.max - p.min) * jax.nn.sigmoid(rv)
-#                 elif p.transform == 'lower_bound_square':
-#                     val = p.min + rv**2
-#                 elif p.transform == 'upper_bound_square':
-#                     val = p.max - rv**2
-#                 else:
-#                     val = rv
-#                 ctx[p.name] = val
-#                 idx += 1
-
-#             # 2) tied params
-#             op_map = {'*': jnp.multiply, '+': jnp.add,
-#                       '-': jnp.subtract, '/': jnp.divide}
-#             for p in self._tied_list:
-#                 tgt, src, op, operand = p.tie
-#                 ctx[tgt] = op_map[op](ctx[src], operand)
-
-#             # 3) fixed params
-#             for p in self._fixed_list:
-#                 ctx[p.name] = p.value
-
-#             # stack in original order
-#             return jnp.stack([ctx[p.name] for p in self._list])
-
-#         if raw.ndim == 1:
-#             return convert_one(raw)
-#         else:
-#             return jax.vmap(convert_one)(raw)
-
-#     def _phys_to_raw_core(self, phys: jnp.ndarray) -> jnp.ndarray:
-#         def invert_one(v_vec):
-#             raws: List[jnp.ndarray] = []
-#             idx = 0
-
-#             # only invert free params
-#             for p in self._raw_list:
-#                 vv = v_vec[idx]
-#                 if p.transform == 'logistic':
-#                     frac = (vv - p.min) / (p.max - p.min)
-#                     frac = jnp.clip(frac, 1e-6, 1 - 1e-6)
-#                     raws.append(jnp.log(frac / (1 - frac)))
-#                 elif p.transform == 'lower_bound_square':
-#                     raws.append(jnp.sqrt(jnp.maximum(vv - p.min, 0)))
-#                 elif p.transform == 'upper_bound_square':
-#                     raws.append(jnp.sqrt(jnp.maximum(p.max - vv, 0)))
-#                 else:
-#                     raws.append(vv)
-#                 idx += 1
-
-#             return jnp.stack(raws)
-
-#         if phys.ndim == 1:
-#             return invert_one(phys)
-#         else:
-#             return jax.vmap(invert_one)(phys)
-
-#     @property
-#     def specs(self) -> List[Tuple[str, float, float, float, str, bool]]:
-#         # name, init, min, max, transform, fixed
-#         return [
-#             (p.name, p.value, p.min, p.max, p.transform, p.fixed)
-#             for p in self._list
-#         ]

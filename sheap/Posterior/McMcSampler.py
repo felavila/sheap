@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 
 
-from sheap.Mappers.helpers import descale_amp,scale_amp
+from sheap.Assistants.helpers import descale_amp,scale_amp
 from .tools.numpyro_helpers import make_numpyro_model,params_to_dict
 from .parameter_from_sampler import posterior_physical_parameters
 
@@ -39,7 +39,7 @@ class McMcSampler:
         
     def sample_params(self, num_samples: int = 2000, num_warmup:int = 500,summarize=True,get_full_posterior=True,n_random=1_000,
                       list_of_objects=None,key_seed: int = 0,extra_products=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
-        from sheap.RegionFitting.uncertainty_functions import apply_tied_and_fixed_params
+        from sheap.ComplexFitting.uncertainty_functions import apply_tied_and_fixed_params
         scale = self.scale
         model = self.model
         names = self.names

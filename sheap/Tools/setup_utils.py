@@ -1,22 +1,9 @@
 from typing import Callable, Dict, Optional, Tuple, Union
 
 import jax.numpy as jnp
-import numpy as np
-from jax import jit, lax, vmap
+
 
 from .spectra_readers import resize_and_fill_with_nans
-
-ArrayLike = Union[np.ndarray, jnp.ndarray]
-
-
-# TODO Add multiple models to the reading.
-def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
-    """Ensure *spectra* has a third channel (error) by padding with *frac* × signal."""
-    if spectra.shape[1] != 2:
-        return spectra  # already 3‑channel
-    signal = spectra[:, 1, :]
-    error = jnp.expand_dims(signal * frac, axis=1)
-    return jnp.concatenate((spectra, error), axis=1)
 
 
 
@@ -35,7 +22,6 @@ def cut_spectra(spectra, xmin, xmax):
     mask = (spectra[0, :] >= xmin) & (spectra[0, :] <= xmax)
     spectra = spectra[:, mask]
     return spectra
-
 
 
 def mask_builder(

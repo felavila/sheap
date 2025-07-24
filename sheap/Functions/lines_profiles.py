@@ -10,10 +10,22 @@ from sheap.Functions.utils import with_param_names
 
 @with_param_names(["logamp", "center", "fwhm"])
 def gaussian_fwhm(x, params):
-    log_amp, center, fwhm = params
-    amplitude = 10**log_amp
-    sigma = fwhm / 2.355 #fwhm -> logfwhm
-    return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
+     log_amp, center, fwhm = params
+     #center = 10**logcenter
+     amplitude = 10**log_amp
+     sigma = fwhm / 2.355 #fwhm -> logfwhm
+     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
+
+# @with_param_names(["logamp", "logcenter", "logfwhm"])
+# def gaussian_fwhm(x, params):
+#     log_amp, log_center, log_fwhm = params
+
+#     # convert back to linear:
+#     amplitude = 10 ** log_amp
+#     center    = 10 ** log_center
+#     sigma     = (10 ** log_fwhm) / 2.355
+
+#     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
 @with_param_names(["logamp", "center", "fwhm"])
 def lorentzian_fwhm(x, params):
@@ -84,65 +96,6 @@ def top_hat(x, params):
     amplitude = 10**log_amp
     half_width = width / 2.0
     return amplitude * ((x >= (center - half_width)) & (x <= (center + half_width))).astype(jnp.float32)
-
-# ####### actual combination##############################
-# def sum_gaussian_amplitude_free(centers, amplitude_rules,n_params):
-#     """
-#     centers: list of Gaussian centers
-#     amplitude_rules: list of (idx, coefficient, free_idx)
-#         idx → which Gaussian
-#         coefficient → scale relative to free param
-#         free_idx → which parameter index it depends on
-#     """
-#     centers = jnp.array(centers)
-#     #_param_count = max(r[2] for r in amplitude_rules) + 2  # free amps + delta + fwhm
-
-#     @param_count(n_params+2)
-#     def G(x, params):
-#         free = params[:-2]
-#         delta = params[-2]
-#         fwhm = params[-1]
-#         sigma = fwhm / 2.355
-
-#         result = 0.0
-#         for idx, coef, free_idx in amplitude_rules:
-#             amp = coef * free[free_idx]
-#             dx = x - (centers[idx] + delta)
-#             result += amp * jnp.exp(-0.5 * (dx / sigma) ** 2)
-#         return result
-
-#     return G
-
-
-# def Gsum_model(centers, amplitudes):
-#     """
-#     Returns a Gaussian sum model function with shared FWHM and shift.
-
-#     Args:
-#         centers (array): Array of Gaussian centers.
-#         amplitudes (array): Array of Gaussian amplitudes (same shape as centers).
-
-#     Returns:
-#         callable: Function G(x, params) with params = [amplitude, delta, fwhm].
-#     """
-#     centers = jnp.array(centers)
-#     amplitudes = jnp.array(amplitudes)
-#     @param_count(3)
-#     def G(x, params):
-#         amplitude = params[0]
-#         delta = params[1]
-#         fwhm = params[2]
-#         sigma = fwhm / 2.355
-
-#         shifted_centers = centers + delta
-#         dx = jnp.expand_dims(x, 0) - jnp.expand_dims(shifted_centers, 1)
-#         gaussians = amplitude * amplitudes[:, None] * jnp.exp(-0.5 * (dx / sigma) ** 2)
-#         return jnp.sum(gaussians, axis=0)
-
-#     return G
-
-#################### Comming projects ##############
-
 
 #@jit
 #util more than proffer function

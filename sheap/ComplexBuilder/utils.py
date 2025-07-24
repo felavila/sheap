@@ -1,10 +1,9 @@
 from collections import defaultdict
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from sheap.DataClass import SpectralLine
+from sheap.Assistants import SpectralLine
 
 
 def fe_ties(
