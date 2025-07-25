@@ -12,15 +12,13 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   sheap.DataClass
+   sheap.Assistants
+   sheap.ComplexBuilder
+   sheap.ComplexFitting
    sheap.Functions
-   sheap.HostSubtraction
    sheap.MainSheap
-   sheap.Mappers
    sheap.Minimizer
    sheap.Posterior
-   sheap.RegionFitting
-   sheap.RegionHandler
    sheap.SuportData
    sheap.Tools
 

@@ -9,10 +9,10 @@ sheap.Minimizer package
 Submodules
 ----------
 
-sheap.Minimizer.MasterMinimizer module
---------------------------------------
+sheap.Minimizer.Minimizer module
+--------------------------------
 
-.. automodule:: sheap.Minimizer.MasterMinimizer
+.. automodule:: sheap.Minimizer.Minimizer
    :members:
    :undoc-members:
    :show-inheritance:

@@ -40,7 +40,7 @@ Quickstart
 
    .. code-block:: python
 
-      spec.build_region(
+      spec.make_a_region(
           xmin=6300, xmax=6800,
           n_narrow=1, n_broad=1,
           add_outflow=True,
@@ -76,13 +76,13 @@ See the following modules for detailed API reference:
 
 - :py:mod:`sheap.MainSheap.Sheapectral`: core entry point, I/O, extinction & redshift correction  
 
-- :py:mod:`sheap.RegionHandler.RegionBuilder`: construct line‐fitting templates from YAML & rules  
+- :py:mod:`sheap.ComplexBuilder.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
 
-- :py:mod:`sheap.RegionFitting.RegionFitting`: perform JAX/Optax minimization with constraints  
+- :py:mod:`sheap.ComplexFitting.ComplexFitting`: perform JAX/Optax minimization with constraints  
 
-- :py:mod:`sheap.MasterMinimizer.MasterMinimizer`: low‐level optimizer wrapper  
+- :py:mod:`sheap.Minimizer.Minimizer`: low‐level optimizer wrapper  
 
-- :py:mod:`sheap.Posterior.ParameterEstimation`: Posterior sampling 
+- :py:mod:`sheap.Posterior.ParameterEstimation.ParameterEstimation`: Posterior sampling 
 - **utils**: parameter projection, loss building, dependency parsing  
 
 .. Installation

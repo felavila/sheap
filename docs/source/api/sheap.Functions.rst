@@ -17,10 +17,10 @@ sheap.Functions.continuum\_profiles module
    :undoc-members:
    :show-inheritance:
 
-sheap.Functions.line\_profile\_combination module
--------------------------------------------------
+sheap.Functions.host\_template\_func module
+-------------------------------------------
 
-.. automodule:: sheap.Functions.line_profile_combination
+.. automodule:: sheap.Functions.host_template_func
    :members:
    :undoc-members:
    :show-inheritance:

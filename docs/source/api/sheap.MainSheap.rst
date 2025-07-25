@@ -24,3 +24,11 @@ sheap.MainSheap.Sheapectral module
    :members:
    :undoc-members:
    :show-inheritance:
+
+sheap.MainSheap.utils module
+----------------------------
+
+.. automodule:: sheap.MainSheap.utils
+   :members:
+   :undoc-members:
+   :show-inheritance:

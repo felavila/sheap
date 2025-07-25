@@ -64,7 +64,7 @@ autodoc_typehints   = 'description'
 napoleon_google_docstring = True
 autodoc_class_content = "both"   # include both class‐ and __init__‐docstrings
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'api/sheap.DataClass.core.rst','**/DataClass/core.*',]
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'api/sheap.Assistants.core.rst','**/Assistants/core.*',]
 templates_path   = ['_templates']
 
 

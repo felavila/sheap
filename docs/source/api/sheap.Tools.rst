@@ -6,6 +6,14 @@ sheap.Tools package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   sheap.Tools.HostSubtraction
+
 Submodules
 ----------
 

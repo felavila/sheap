@@ -33,6 +33,14 @@ sheap.Posterior.ParameterEstimation module
    :undoc-members:
    :show-inheritance:
 
+sheap.Posterior.ParametersSingle module
+---------------------------------------
+
+.. automodule:: sheap.Posterior.ParametersSingle
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 sheap.Posterior.parameter\_from\_sampler module
 -----------------------------------------------
 
