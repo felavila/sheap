@@ -10,23 +10,22 @@ import jax.numpy as jnp
 import numpy as np
 from jax import jit,vmap
 
-from sheap.Assistants.core import FittingLimits, SpectralLine,ComplexResult
+from sheap.Core import FittingLimits, SpectralLine,ComplexResult
 
 from sheap.Assistants.Parameters import Parameters
-from sheap.Assistants.helpers import mapping_params
-from sheap.Minimizer.utils import parse_dependencies #asistans material
-from sheap.ComplexFitting.profile_utils import make_get_param_coord_value,DEFAULT_LIMITS,profile_handler #asistans material
+from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value
+
 
 from sheap.Minimizer.Minimizer import Minimizer
 
-from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
-from sheap.Functions.utils import make_fused_profiles,build_grid_penalty
-
+from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.utils import make_fused_profiles,build_grid_penalty
+from sheap.Profiles.profile_handler import DEFAULT_LIMITS,profile_handler #asistans material
 
 from sheap.Tools.setup_utils import mask_builder, prepare_spectra
 
 
-from sheap.ComplexFitting.uncertainty_functions import error_for_loop
+from sheap.Posterior.uncertainty_functions import error_for_loop
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)

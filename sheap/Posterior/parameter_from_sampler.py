@@ -5,13 +5,14 @@ from jax import vmap,jit
 import warnings
 from functools import partial
 
-from sheap.Functions.utils import make_integrator
+from sheap.Profiles.utils import make_integrator
 from .tools.functions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass,calc_black_hole_mass_gh2015
 from .tools.constants import BOL_CORRECTIONS,SINGLE_EPOCH_ESTIMATORS,c
 from .utils import combine_fast
 
-from sheap.Functions.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
+from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
 from sheap.Posterior.utils import summarize_nested_samples
+#TODO re organize all of this. 
 
 def compute_fwhm_split(profile: str,
                        amp:   jnp.ndarray,

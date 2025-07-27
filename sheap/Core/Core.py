@@ -9,9 +9,11 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd 
 
-from sheap.Functions.utils import make_fused_profiles
-#from .ComplexRegion import ComplexRegion
-#TODO maybe combine ComplexRegion and FitResult make more sense / Constrains SET and Fitting limits have a similar issue. 
+from sheap.Profiles.utils import make_fused_profiles
+
+
+#TODO Constrains SET and Fitting limits have a similar issue. constrains should be called profiletofit or something like that 
+
 @dataclass
 class SpectralLine:
     """

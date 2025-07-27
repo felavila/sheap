@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from sheap.Assistants import SpectralLine
+from sheap.Core import SpectralLine
 
 
 def fe_ties(

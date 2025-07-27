@@ -5,12 +5,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.Functions.utils import with_param_names
-
-
-
-def linear_combination(eieigenvectors, params):
-    return jnp.nansum(eieigenvectors.T * 100 * params, axis=1)
+from sheap.Profiles.utils import with_param_names
 
 
 # This requiere one more variable i guess.
@@ -123,3 +118,6 @@ def polynomial(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     A, c1, c2, c3 = params
     x = xs / λ0
     return A * (1 + c1*x + c2*x**2 + c3*x**3)
+####
+def linear_combination(eieigenvectors, params):
+    return jnp.nansum(eieigenvectors.T * 100 * params, axis=1)

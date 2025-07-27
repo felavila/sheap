@@ -7,45 +7,16 @@ import numpy as np
 import pandas as pd
 import yaml
 from auto_uncertainties import Uncertainty
-from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
 
-from sheap.Functions.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
-from sheap.Posterior.utils import integrate_function_error,integrate_batch,batched_evaluate,evaluate_with_error
+
+from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
+from sheap.Posterior.utils import integrate_function_error,integrate_batch,batched_evaluate,evaluate_with_error,pivot_and_split 
+
+#all of this have to go to profiles.
 #from .tools.functions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
 
 
 
-
-def pivot_and_split(obj_names, result):
-    """
-    Turn `result` (a nested dict of dicts whose leaves are either:
-       - VectorUncertainty of length N,
-       - indexable arrays/lists of length N, or
-       - scalars
-    ) into a dict keyed by each obj_name, where each leaf becomes either:
-       - {'value': ..., 'error': ...} for VectorUncertainty
-       - the single element node[obj_idx] for other indexables
-       - the original scalar for non-indexables
-    """
-    def _recurse(node, idx):
-        # 1) if it's a dict, recurse on each item
-        if isinstance(node, dict):
-            return {k: _recurse(v, idx) for k, v in node.items()}
-
-        # 2) if it's a VectorUncertainty, split into value & error
-        if isinstance(node, VectorUncertainty):
-            return {
-                'value': node.value[idx].squeeze(),
-                'error': node.error[idx].squeeze()
-            }
-        # 3) array/list/tuple → index
-        if isinstance(node, (np.ndarray, list, tuple)):
-            return node
-
-    return {
-        obj_name: _recurse(result, obj_idx)
-        for obj_idx, obj_name in enumerate(obj_names)
-    }
 
 
 class ParametersSingle:

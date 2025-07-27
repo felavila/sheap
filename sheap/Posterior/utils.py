@@ -1,7 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import warnings
 import numpy as np 
-
+from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
 import jax.numpy as jnp
 from jax import vmap,grad,jit
 
@@ -333,3 +333,36 @@ def evaluate_with_error(function,
     y_batch   = y_flat.reshape((n, lines))
     err_batch = err_flat.reshape((n, lines))
     return y_batch, err_batch
+
+
+
+def pivot_and_split(obj_names, result):
+    """
+    Turn `result` (a nested dict of dicts whose leaves are either:
+       - VectorUncertainty of length N,
+       - indexable arrays/lists of length N, or
+       - scalars
+    ) into a dict keyed by each obj_name, where each leaf becomes either:
+       - {'value': ..., 'error': ...} for VectorUncertainty
+       - the single element node[obj_idx] for other indexables
+       - the original scalar for non-indexables
+    """
+    def _recurse(node, idx):
+        # 1) if it's a dict, recurse on each item
+        if isinstance(node, dict):
+            return {k: _recurse(v, idx) for k, v in node.items()}
+
+        # 2) if it's a VectorUncertainty, split into value & error
+        if isinstance(node, VectorUncertainty):
+            return {
+                'value': node.value[idx].squeeze(),
+                'error': node.error[idx].squeeze()
+            }
+        # 3) array/list/tuple → index
+        if isinstance(node, (np.ndarray, list, tuple)):
+            return node
+
+    return {
+        obj_name: _recurse(result, obj_idx)
+        for obj_idx, obj_name in enumerate(obj_names)
+    }

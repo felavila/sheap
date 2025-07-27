@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
  
-from sheap.Functions.utils import make_fused_profiles
+from sheap.Profiles.utils import make_fused_profiles
 
 
 

@@ -5,42 +5,13 @@ import jax.numpy as jnp
 import jax
 import numpy as np 
 
-from sheap.Assistants import ConstraintSet, FittingLimits, SpectralLine
+from sheap.Core import ConstraintSet, FittingLimits, SpectralLine
 from sheap.Tools.spectral_basic import kms_to_wl
-from sheap.Functions.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
 
-#TODO change make _get_param_coord_value to some other place 
-def make_get_param_coord_value(
-    params_dict: Dict[str, int], initial_params: jnp.ndarray
-) -> Callable[[str, str, Union[str, int], str, bool], Tuple[int, float, str]]:
-    """
-    Returns a function to retrieve the index, value, and name of a parameter based on its key parts.
 
-    Args:
-        params_dict: Mapping of parameter keys to indices.
-        initial_params: Initial parameter array.
-
-    Returns:
-        A function to get parameter info by name, line name, component, and region.
-    """
-
-    def get_param_coord_value(
-        param: str,
-        line_name: str,
-        component: Union[str, int],
-        region: str,
-        verbose: bool = False,
-    ) -> Tuple[int, float, str]:
-        key = f"{param}_{line_name}_{component}_{region}"
-        pos = params_dict.get(key)
-        if pos is None:
-            raise KeyError(f"Key '{key}' not found in params_dict.")
-        if verbose:
-            print(f"{key}: value = {initial_params[pos]}")
-        return pos, float(initial_params[pos]), param
-
-    return get_param_coord_value
+#TODO move default and constant to a same place and add reference to all of them. 
 
 
 CANONICAL_WAVELENGTHS = {
@@ -64,6 +35,8 @@ DEFAULT_LIMITS = {
 }
 
         
+
+#TODO profile handler is a unclear name we have to change it.
 def profile_handler(
     sp: SpectralLine,
     limits: FittingLimits,
@@ -327,6 +300,3 @@ def profile_handler(
                 profile=selected_profile,
                 param_names=params_names,
                 profile_fn = local_profile)
-
-
-

@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.Assistants import SpectralLine,ComplexResult
+from sheap.Core import SpectralLine,ComplexResult
 from sheap.MainSheap.utils import pad_error_channel,ArrayLike
 
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
@@ -577,7 +577,7 @@ class Sheapectral:
         list of callables
             Profile model functions.
         """
-        from sheap.Functions.profiles import PROFILE_FUNC_MAP
+        from sheap.Profiles.profiles import PROFILE_FUNC_MAP
         profile_functions = []
         for _,sp in enumerate(self.complex_region):
             #print(_)

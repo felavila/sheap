@@ -8,11 +8,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import yaml
 
-from sheap.Assistants import SpectralLine,ComplexRegion
+from sheap.Core import SpectralLine,ComplexRegion
 from sheap.ComplexBuilder.utils import fe_ties, region_ties, group_lines # asistant material
 
-from sheap.Functions.profiles import PROFILE_CONTINUUM_FUNC_MAP
-from sheap.Functions.template_func import make_host_function
+from sheap.Profiles.profiles import PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.profiles_templates import make_host_function #?
 
 OUTFLOW_COMPONENT = 10
 WINDS_COMPONENT = 15

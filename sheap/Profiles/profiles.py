@@ -1,10 +1,10 @@
 from typing import Callable, Dict, List, Tuple
 import jax.numpy as jnp
 
-from sheap.Functions.continuum_profiles import (linear, balmercontinuum, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,polynomial)
-from sheap.Functions.lines_profiles import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
-from sheap.Functions.template_func import make_feii_template_function,make_host_function
-from sheap.Functions.utils import with_param_names,ProfileFunc
+from sheap.Profiles.profiles_continuum import (linear, balmercontinuum, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,polynomial)
+from sheap.Profiles.profile_lines import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
+from sheap.Profiles.profiles_templates import make_feii_template_function,make_host_function
+from sheap.Profiles.utils import with_param_names,ProfileFunc
 
 
 
