@@ -1,2 +1,15 @@
-#__version__ = '0.0.1'
-__all__ = [" BasicFunctions", "Constants", "SpectralReaders"]  # list of submodules or subpackages
+__version__ = '0.1.0'
+__all__ = [
+    "BasicCorrections",
+    "BasicFunctions",
+    "Constants",
+    "PathsFunctions",
+    "SpectralReaders",
+    "SpectralSetup",
+    "Utils",
+    "Vocalisations",
+]  # list of submodules or subpackages
+
+
+
+
