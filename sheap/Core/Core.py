@@ -1,5 +1,16 @@
 
+"""This module ."""
 from __future__ import annotations
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "ComplexRegion",
+    "ComplexResult",
+    "FittingLimits",
+    "ProfileConstraintSet",
+    "SpectralLine",
+]
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union

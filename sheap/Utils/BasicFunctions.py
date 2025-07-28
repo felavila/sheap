@@ -1,11 +1,19 @@
-import functools as ft
+"""This module handles basic functions."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "kms_to_wl",
+    "vac_to_air",
+    "wl_to_kms",
+]
+
+
 from typing import Callable, Dict, Optional, Tuple
 
 import jax.numpy as jnp
 import numpy as np
-from jax import jit, lax, vmap
 
-#BASICALLY HERE I CAN SAVE THE UNITS CHANGE 
 from sheap.Utils.Constants  import c
 
 def kms_to_wl(kms, line_center, c=c):

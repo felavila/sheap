@@ -1,3 +1,14 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "apply_arithmetic_ties",
+    "make_numpyro_model",
+    "params_to_dict",
+    "params_to_dict_old",
+]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import jax.numpy as jnp

@@ -1,3 +1,16 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+__all__ = [
+    "cut_spectra",
+    "mask_builder",
+    "pad_error_channel",
+    "prepare_spectra",
+    "prepare_uncertainties",
+    "resize_and_fill_with_nans",
+]
+
 from typing import Callable, Dict, Optional, Tuple, Union
 
 import jax.numpy as jnp

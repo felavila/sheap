@@ -1,3 +1,9 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+__all__ = ["unred","deredshift"]
+
 """Based in the implementation in numpy from
 https://github.com/sczesla/PyAstronomy/blob/93f6f0668d6b5aa77d281981e13ba1bf6ded38cd/src/pyasl/asl/unred.py#L4
 """
@@ -85,7 +91,7 @@ def unred(wave, flux, ebv, R_V=3.1, LMC2=False, AVGLMC=False):
 
 
 @ft.partial(vmap, in_axes=(0, 0), out_axes=0)
-def _deredshift(spectra, z):
+def deredshift(spectra, z):
     # PyQSO DR16 pass the results in redshift
     spectra = spectra.at[[1, 2], :].multiply(1 + z[jnp.newaxis, jnp.newaxis])
     spectra = spectra.at[0, :].divide(1 + z[jnp.newaxis])

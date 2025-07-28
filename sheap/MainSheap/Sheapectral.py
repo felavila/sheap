@@ -1,4 +1,13 @@
+"""This module ."""
 from __future__ import annotations
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+
+__all__ = [
+    "Sheapectral",
+    "logger",
+]
 
 import logging
 import pickle
@@ -248,7 +257,7 @@ class Sheapectral:
         None
         """
         from sfdmap2 import sfdmap
-        from sheap.Utils.unred import unred
+        from sheap.Utils.BasicCorrections import unred
         ebv = self.ebv
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
@@ -274,8 +283,8 @@ class Sheapectral:
         -------
         None
         """
-        from smbh_mass.sheap.sheap.Utils.BasicFunctions import _deredshift
-        self.spectra = _deredshift(self.spectra, self.z)
+        from sheap.Utils.BasicCorrections import deredshift
+        self.spectra = deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
         """
@@ -320,8 +329,8 @@ class Sheapectral:
     
     
     def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
-                   ,run_fit=True
-                   ,add_penalty_function=False):
+                   ,run_fit=True,add_penalty_function=False,method="adam",
+                   penalty_weight: float = 0.01,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,):
         """
         Execute fitting of the prepared region on the spectra.
 
@@ -353,12 +362,13 @@ class Sheapectral:
             raise RuntimeError("make_region() must be called before fit_region()")
 
         self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile,
-                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate
-                                                        )
+                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
 
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
-            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function)
+            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function,method=method,
+                                penalty_weight= penalty_weight, curvature_weight= curvature_weight,
+                                        smoothness_weight= smoothness_weight,max_weight= max_weight)
             fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
             

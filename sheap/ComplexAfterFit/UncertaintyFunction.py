@@ -1,3 +1,15 @@
+"""This module handles ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "Errorfromloop",
+    "error_covariance_matrix",
+    "error_for_loop_s",
+    "make_residuals_free_fn",
+    "residuals",
+]
+
 from typing import Callable, Tuple, Union
 
 import jax

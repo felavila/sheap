@@ -1,3 +1,17 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "flatten_mass_dict",
+    "flatten_mass_samples_to_df",
+    "flatten_param_dict",
+    "flatten_scalar_dict",
+    "pivot_and_split",
+    "summarize_nested_samples",
+    "summarize_samples",
+]
+
 from typing import Dict, Any
 import pandas as pd
 from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty

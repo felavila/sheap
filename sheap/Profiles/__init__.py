@@ -1,4 +1,5 @@
 __version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
 
 
 __all__ = [
@@ -9,6 +10,8 @@ __all__ = [
     "profiles_templates",
     "utils",
 ]
+
+
 
 
 

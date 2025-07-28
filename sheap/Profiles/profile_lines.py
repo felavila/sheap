@@ -1,3 +1,19 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "emg_fwhm",
+    "eval_hermite",
+    "gauss_hermite_losvd_jax",
+    "gaussian_fwhm",
+    "lorentzian_fwhm",
+    "skewed_gaussian",
+    "top_hat",
+    "trapz_jax",
+    "voigt_pseudo",
+]
+
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 

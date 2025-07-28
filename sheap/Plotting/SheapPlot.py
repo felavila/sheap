@@ -1,3 +1,6 @@
+"""This module handles ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
 from typing import Optional, List, Any
 from dataclasses import dataclass
 import jax.numpy as jnp
@@ -178,3 +181,9 @@ class SheapPlot:
             plt.close()
         else:
             plt.show()
+
+# Auto-generated __all__
+__all__ = [
+    "SheapPlot",
+]
+

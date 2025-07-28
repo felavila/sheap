@@ -1,3 +1,17 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "calc_black_hole_mass",
+    "calc_black_hole_mass_gh2015",
+    "calc_bolometric_luminosity",
+    "calc_flux",
+    "calc_fwhm_kms",
+    "calc_luminosity",
+    "calc_monochromatic_luminosity",
+]
+
 import jax.numpy as np
 from jax import vmap, random
 import numpy as np 

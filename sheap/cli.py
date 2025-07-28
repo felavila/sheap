@@ -1,3 +1,13 @@
+"""This module handles basic operations."""
+# Auto-generated __all__
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "main",
+    "this_file_location",
+    "version_msg",
+]
+
 """Main `sheap` CLI."""
 
 import os

@@ -1,3 +1,9 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+__all__ = ["ComplexAfterFit",]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 

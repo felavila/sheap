@@ -1,3 +1,13 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "FILE_TARGET_LOGS",
+    "console",
+    "formatter",
+]
+
 """Set up Application Logs
 
 This module defines how the emitted application logs are handled and where

@@ -1,6 +1,9 @@
-
+"""This module ."""
 from __future__ import annotations
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
 
+__all__ = ["ComplexBuilder"]
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -79,6 +82,7 @@ class ComplexBuilder:
     WINDS_COMPONENT = 15
     FE_COMPONENT = 20
     NLR_COMPONENT = 30
+    HOST_COMPONENT = 40 
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
@@ -352,7 +356,7 @@ class ComplexBuilder:
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='winds',
-                    component = WINDS_COMPONENT,
+                    component = self.WINDS_COMPONENT,
                     amplitude=0.5,
                     element = entry.element,
                 )
@@ -400,7 +404,7 @@ class ComplexBuilder:
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='outflow',
-                    component = OUTFLOW_COMPONENT,
+                    component = self.OUTFLOW_COMPONENT,
                     amplitude=0.5,
                     element = entry.element,
                     rarity = entry.rarity)
@@ -448,7 +452,7 @@ class ComplexBuilder:
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='winds',
-                    component = WINDS_COMPONENT,
+                    component = self.WINDS_COMPONENT,
                     amplitude=0.5,
                     element = entry.element,
                 )
@@ -488,13 +492,13 @@ class ComplexBuilder:
                 if self.verbose:
                     print("added OP template")
                 fe_comps.extend(
-                    [SpectralLine(line_name="feop",region="fe",component=FE_COMPONENT,profile="fetemplate",template_info = {"name":"feop"})])
+                    [SpectralLine(line_name="feop",region="fe",component=self.FE_COMPONENT,profile="fetemplate",template_info = {"name":"feop"})])
                 t_c += 1
             if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 500:
                 #maybe it is a good time to r
                 if self.verbose:
                     print("added UV template")
-                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=FE_COMPONENT,profile="fetemplate",template_info = {"name":"feuv"})])
+                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=self.FE_COMPONENT,profile="fetemplate",template_info = {"name":"feuv"})])
                 t_c += 1
             if t_c == 0:
                 print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
@@ -507,7 +511,7 @@ class ComplexBuilder:
                         continue
                     base = SpectralLine(**raw_line)
                     base.subregion = pseudo_region_name
-                    base.component = FE_COMPONENT
+                    base.component = self.FE_COMPONENT
                     fe_comps.extend([base])
         return fe_comps
     
@@ -610,7 +614,7 @@ class ComplexBuilder:
         else:
             Warning("Not accepted type of add_host_moles")
             return self.complex_list
-        line = SpectralLine(line_name="host",region="host",component=40,template_info=_host_model["host_info"],profile="hostmiles")    
+        line = SpectralLine(line_name="host",region="host",component=self.HOST_COMPONENT,template_info=_host_model["host_info"],profile="hostmiles")    
         self.complex_list.extend([line])
         
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-1]):

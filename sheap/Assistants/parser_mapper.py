@@ -1,3 +1,20 @@
+"""This module contains all the mapers and similars."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+__all__ = [
+    "apply_arithmetic_ties",
+    "apply_tied_and_fixed_params",
+    "descale_amp",
+    "make_get_param_coord_value",
+    "mapping_params",
+    "parse_dependencies",
+    "parse_dependency",
+    "project_params",
+    "project_params_clasic",
+    "scale_amp",
+]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from functools import partial
 

@@ -1,3 +1,11 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "MonteCarloSampler",
+]
+
 from typing import Tuple, Dict, List
 
 import jax.numpy as jnp

@@ -1,3 +1,18 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "batched_evaluate",
+    "evaluate_with_error",
+    "evaluate_with_error",
+    "integrate_batch",
+    "integrate_function_error",
+    "integrate_function_error_single",
+    "integrate_function_error_single",
+    "trapz_jax",
+]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import warnings
 import numpy as np 

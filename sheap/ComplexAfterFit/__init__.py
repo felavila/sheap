@@ -1,4 +1,5 @@
 __version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
 # from sheap.ComplexAfterFit.Samplers.McMcSampler          import McMcSampler
 # from sheap.ComplexAfterFit.Samplers.MonteCarloSampler   import MonteCarloSampler
 # from sheap.ComplexAfterFit.ComplexAfterFit import ParameterEstimation
@@ -9,6 +10,8 @@ __all__ = [
     "Samplers",
     "UncertaintyFunction",
 ]
+
+
 
 
 

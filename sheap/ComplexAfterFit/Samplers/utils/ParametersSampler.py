@@ -1,3 +1,16 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "calculate_single_epoch_masses",
+    "combine_fast",
+    "compute_fwhm_split",
+    "extract_basic_line_parameters",
+    "make_batch_fwhm_split",
+    "posterior_parameters",
+]
+
 from typing import Any, Dict, List, Union
 import numpy as np
 import jax.numpy as jnp

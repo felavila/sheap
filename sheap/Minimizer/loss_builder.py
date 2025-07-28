@@ -1,3 +1,11 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "build_loss_function",
+]
+
 from typing import Callable, Dict, List, Optional, Tuple
 
 import jax
@@ -136,8 +144,8 @@ def build_loss_function(
     penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
     penalty_weight: float = 0.01,
     param_converter: Optional["Parameters"] = None,
-    curvature_weight: float = 1e5,      # γ: second-derivative match
-    smoothness_weight: float = 0.0,     # δ: first-derivative smoothness
+    curvature_weight: float = 1e3,      # γ: second-derivative match 1e5
+    smoothness_weight: float = 1e5,     # δ: first-derivative smoothness 0.0
     max_weight: float = 0.1,            # α: weight on worst‐pixel term
 ) -> Callable:
     """
@@ -147,7 +155,7 @@ def build_loss_function(
       - curvature matching (d²)
       - smoothness regularization (d¹)
     """
-    #print("max_weight=",max_weight,"curvature_weight=",curvature_weight)
+    #print("smoothness_weight =",smoothness_weight,"penalty_weight =",penalty_weight,"max_weight=",max_weight,"curvature_weight=",curvature_weight)
     def log_cosh(x):
         # numerically stable log(cosh(x))
         return jnp.logaddexp(x, -x) - jnp.log(2.0)

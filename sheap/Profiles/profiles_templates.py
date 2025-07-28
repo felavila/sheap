@@ -1,3 +1,13 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "TEMPLATES_PATH",
+    "make_feii_template_function",
+    "make_host_function",
+]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 

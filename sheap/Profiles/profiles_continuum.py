@@ -1,3 +1,19 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "balmercontinuum",
+    "brokenpowerlaw",
+    "exp_cutoff",
+    "linear",
+    "linear_combination",
+    "logparabola",
+    "polynomial",
+    "powerlaw",
+    "λ0",
+]
+
 import os
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 

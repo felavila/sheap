@@ -1,3 +1,15 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "cubic_spline_coefficients",
+    "interpolate_nans",
+    "replaze_nan_interpolation",
+    "spline_eval",
+    "vmap_interp",
+]
+
 import warnings
 from copy import deepcopy
 

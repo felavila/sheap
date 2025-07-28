@@ -1,3 +1,11 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "SingleSampler",
+]
+
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
 

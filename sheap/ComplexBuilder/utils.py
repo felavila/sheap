@@ -1,3 +1,15 @@
+"""This module handles ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "default_known_tied_relations",
+    "fe_ties",
+    "flatten_index_ties",
+    "group_lines",
+    "region_ties",
+]
+
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 

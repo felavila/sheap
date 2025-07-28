@@ -1,13 +1,22 @@
+"""This module contains constant and stuff."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+
+
+__all__ = [
+    "BOL_CORRECTIONS",
+    "CANONICAL_WAVELENGTHS",
+    "DEFAULT_LIMITS",
+    "SINGLE_EPOCH_ESTIMATORS",
+    "c",
+    "cm_per_mpc",
+]
+
 
 
 
 c = 299792.458 #speed of light in km/s
 cm_per_mpc = 3.08568e24 #mpc to cm
-
-
-
-
-#TODO move default and constant to a same place and add reference to all of them. 
 
 
 CANONICAL_WAVELENGTHS = {

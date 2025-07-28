@@ -1,3 +1,11 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "SheapSpectralList",
+]
+
 from typing import Dict, Optional, Union, List, Tuple
 from pathlib import Path
 import jax.numpy as jnp
@@ -6,7 +14,7 @@ import numpy as np
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 #from sheap.Assistants import FitResult
-from sheap.Utils.BasicCorrections import unred,_deredshift
+from sheap.Utils.BasicCorrections import unred,deredshift
 
 
 class SheapSpectralList:

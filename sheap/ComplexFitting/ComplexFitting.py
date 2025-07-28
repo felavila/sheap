@@ -1,4 +1,14 @@
+"""This module ."""
 from __future__ import annotations
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "ComplexFitting",
+    "logger",
+]
+
+
 
 import logging
 #from dataclasses import dataclass
@@ -188,7 +198,12 @@ class ComplexFitting:
         inner_limits: Optional[Tuple[float, float]] = None,
         outer_limits: Optional[Tuple[float, float]] = None,
         learning_rate=None,
-        add_penalty_function = False 
+        add_penalty_function = False,
+        method = "adam",
+        penalty_weight: float = 0.01,
+        curvature_weight: float = 1e5,
+        smoothness_weight: float = 0.0,
+        max_weight: float = 0.1,
         
         ) -> None:
         """
@@ -248,7 +263,11 @@ class ComplexFitting:
                 step["learning_rate"] = learning_rate[i]
                 
             start_time = time.time()  # 
-            params, loss = self._fit(i,norm_spec, self.model, params, **step,penalty_function=penalty_function)
+            params, loss = self._fit(i,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
+                                     penalty_weight = penalty_weight,
+                                        curvature_weight = curvature_weight,
+                                        smoothness_weight = smoothness_weight,
+                                        max_weight = max_weight)
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time()  # 
             elapsed = end_time - start_time
@@ -287,7 +306,13 @@ class ComplexFitting:
         weighted: bool = True,
         num_steps: int = 1000,
         non_optimize_in_axis=3,
-        penalty_function = None
+        penalty_function = None,
+        method = None,
+        penalty_weight: float = 0.01,
+        curvature_weight: float = 1e5,
+        smoothness_weight: float = 0.0,
+        max_weight: float = 0.1,
+         
     ) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX‑based minimization using Minimizer.
@@ -348,8 +373,12 @@ class ComplexFitting:
             weighted=weighted,
             learning_rate=learning_rate,
             param_converter=params_obj,
-            penalty_function = penalty_function
-        )
+            penalty_function = penalty_function,
+        method=method,
+        penalty_weight= penalty_weight,
+                                        curvature_weight= curvature_weight,
+                                        smoothness_weight= smoothness_weight,
+                                        max_weight= max_weight)
         try:
             raw_params, loss = minimizer(raw_init, *norm_spec.transpose(1, 0, 2), self.constraints)
             params = params_obj.raw_to_phys(raw_params)

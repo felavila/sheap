@@ -1,3 +1,13 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "cross_pandas_spectra",
+    "cross_pandas_spectra_desi",
+    "cross_pandas_spectra_desi",
+]
+
 import glob
 import os
 import pandas as pd

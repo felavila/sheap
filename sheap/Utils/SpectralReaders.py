@@ -1,3 +1,19 @@
+"""This module handles basic operations."""
+__version__ = '0.1.0'
+__author__ = 'Unknown'
+# Auto-generated __all__
+__all__ = [
+    "READER_FUNCTIONS",
+    "batched_reader",
+    "fits_reader_desi",
+    "fits_reader_pyqso",
+    "fits_reader_sdss",
+    "fits_reader_simulation",
+    "n_cpu",
+    "parallel_reader",
+    "sequential_reader",
+]
+
 import os
 import numpy as np
 from multiprocessing import Pool, set_start_method

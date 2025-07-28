@@ -1,3 +1,12 @@
+"""This module ?."""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
+# Auto-generated __all__
+__all__ = [
+    "SPAF",
+    "wrap_profile_with_center_override",
+]
+
 from typing import Callable, Dict, List, Tuple
 import jax.numpy as jnp
 
