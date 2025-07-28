@@ -32,16 +32,6 @@ def gaussian_fwhm(x, params):
      sigma = fwhm / 2.355 #fwhm -> logfwhm
      return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
-# @with_param_names(["logamp", "logcenter", "logfwhm"])
-# def gaussian_fwhm(x, params):
-#     log_amp, log_center, log_fwhm = params
-
-#     # convert back to linear:
-#     amplitude = 10 ** log_amp
-#     center    = 10 ** log_center
-#     sigma     = (10 ** log_fwhm) / 2.355
-
-#     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
 @with_param_names(["logamp", "center", "fwhm"])
 def lorentzian_fwhm(x, params):

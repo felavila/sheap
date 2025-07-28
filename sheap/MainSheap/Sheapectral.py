@@ -22,8 +22,8 @@ import numpy as np
 from sheap.Core import SpectralLine,ComplexResult,ArrayLike
 
 from sheap.Utils.SpectralSetup import pad_error_channel
-from sheap.ComplexFitting.ComplexFitting import ComplexFitting
-from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
+from sheap.ComplexFitting import ComplexFitting
+from sheap.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
  
 from sheap.Utils.Constants  import c
