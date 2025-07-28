@@ -5,8 +5,7 @@ import jax.numpy as jnp
 from jax.scipy.integrate import trapezoid
 from jax import vmap, jit
 
-# Signature: (x, params) -> profile output
-ProfileFunc = Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]
+
 
 
 def make_fused_profiles(funcs):

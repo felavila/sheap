@@ -11,6 +11,7 @@ import pandas as pd
 # CIV 1100, 2000
 # La 1000,1500
 ####
+#Set of functions to handle different paths and cross match. 
 
 def cross_pandas_spectra_desi(path_dr16, path_data, name_csv):
     file_paths = glob.glob(f"{path_dr16}/{path_data}/*.fits")

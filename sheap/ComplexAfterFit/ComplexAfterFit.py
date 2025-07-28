@@ -15,17 +15,17 @@ from sheap.Core import ComplexResult
 
 from sheap.Profiles.utils import make_fused_profiles
 
-from .MonteCarloSampler import MonteCarloSampler
-from .McMcSampler import McMcSampler
-from .ParametersSingle import ParametersSingle
+from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
+from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
+from sheap.ComplexAfterFit.Samplers.SingleSampler import SingleSampler
 
-from .tools.constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c
+from sheap.Utils.Constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
 
-cm_per_mpc = 3.08568e24
+
 
 #TODO here we have to move the entire subrutines for montecarlosampler/mcmcsampler and ParametersSingle to his respective places bc in general they require different subfunctions. 
 
-class ParameterEstimation:
+class ComplexAfterFit:
     """
     Computes best-fit physical parameters and uncertainties for spectral regions.
     Provides Monte Carlo and MCMC posterior sampling.
@@ -82,7 +82,7 @@ class ParameterEstimation:
     sample_mcmc(n_random=0, num_warmup=500, num_samples=1000, summarize=True, extra_products=True)
         Run MCMC sampling via NumPyro.
 
-    parameters_result(extra_products=True)
+    sample_single(extra_products=True)
         Compute parameter estimates without posterior sampling.
 
     _from_sheap(sheap)
@@ -201,7 +201,7 @@ class ParameterEstimation:
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
 
-    def parameters_result(self,extra_products=True):
+    def sample_single(self,extra_products=True):
         """
         Compute parameter estimates and uncertainties without sampling.
 
@@ -215,7 +215,7 @@ class ParameterEstimation:
         summary_dict
             Dictionary of parameter estimates and uncertainties.
         """
-        sampler = ParametersSingle(self)
+        sampler = SingleSampler(self)
         
         return sampler.posterior_physical_parameters(extra_products = extra_products)
         

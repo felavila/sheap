@@ -10,14 +10,14 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.Core import SpectralLine,ComplexResult
-from sheap.MainSheap.utils import pad_error_channel,ArrayLike
+from sheap.Core import SpectralLine,ComplexResult,ArrayLike
 
+from sheap.Utils.SpectralSetup import pad_error_channel
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
  
-from sheap.Posterior.tools.constants import c
+from sheap.Utils.Constants  import c
 
 
 
@@ -248,7 +248,7 @@ class Sheapectral:
         None
         """
         from sfdmap2 import sfdmap
-        from sheap.Tools.unred import unred
+        from sheap.Utils.unred import unred
         ebv = self.ebv
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
@@ -274,7 +274,7 @@ class Sheapectral:
         -------
         None
         """
-        from sheap.Tools.spectral_basic import _deredshift
+        from smbh_mass.sheap.sheap.Utils.BasicFunctions import _deredshift
         self.spectra = _deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
@@ -421,7 +421,7 @@ class Sheapectral:
         RuntimeError
             If fit has not been run (`self.result` missing).
         """
-        from sheap.Posterior.ParameterEstimation import ParameterEstimation
+        from smbh_mass.sheap.sheap.ComplexAfterFit.ComplexAfterFit import ParameterEstimation
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
         PM = ParameterEstimation(sheap = self)

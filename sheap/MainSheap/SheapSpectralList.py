@@ -6,8 +6,7 @@ import numpy as np
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 #from sheap.Assistants import FitResult
-from sheap.Tools.unred import unred
-from sheap.Tools.spectral_basic import _deredshift
+from sheap.Utils.BasicCorrections import unred,_deredshift
 
 
 class SheapSpectralList:

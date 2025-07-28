@@ -9,15 +9,12 @@ from numpyro.infer import MCMC, NUTS
 from numpyro.infer.initialization import init_to_value
 #
 
-
-
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp
-from .tools.numpyro_helpers import make_numpyro_model,params_to_dict
-from .parameter_from_sampler import posterior_physical_parameters
+from .utils.numpyroutils import make_numpyro_model
+from .utils.ParametersSampler import posterior_parameters
 
 
 class McMcSampler:
-    # TODO big how to combine distributions
     def __init__(self, estimator: "ParameterEstimation"):
         
         self.estimator = estimator  # ParameterEstimation instance
@@ -39,7 +36,7 @@ class McMcSampler:
         
     def sample_params(self, num_samples: int = 2000, num_warmup:int = 500,summarize=True,get_full_posterior=True,n_random=1_000,
                       list_of_objects=None,key_seed: int = 0,extra_products=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
-        from sheap.Posterior.uncertainty_functions import apply_tied_and_fixed_params
+        from sheap.Assistants.parser_mapper import apply_tied_and_fixed_params
         
         scale = self.scale
         model = self.model
@@ -85,7 +82,7 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-            dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
+            dic_posterior_params[name_i] = posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,

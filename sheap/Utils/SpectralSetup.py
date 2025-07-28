@@ -1,10 +1,25 @@
 from typing import Callable, Dict, Optional, Tuple, Union
 
 import jax.numpy as jnp
+import numpy as np 
+
+from sheap.Core import ArrayLike
 
 
-from .spectra_readers import resize_and_fill_with_nans
 
+
+
+def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=4):
+    """
+    Resize an array to the target shape, filling new entries with NaNs.
+    """
+    new_array = np.full((number_columns, new_xaxis_length), np.nan, dtype=float)
+    slices = tuple(
+        slice(0, min(o, t))
+        for o, t in zip(original_array.shape, (number_columns, new_xaxis_length))
+    )
+    new_array[slices] = original_array[slices]
+    return new_array
 
 
 def prepare_spectra(spectra_list, outer_limits):
@@ -96,3 +111,11 @@ def prepare_uncertainties(
 
 
 
+# TODO Add multiple models to the reading.
+def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
+    """Ensure *spectra* has a third channel (error) by padding with *frac* × signal."""
+    if spectra.shape[1] != 2:
+        return spectra  # already 3‑channel
+    signal = spectra[:, 1, :]
+    error = jnp.expand_dims(signal * frac, axis=1)
+    return jnp.concatenate((spectra, error), axis=1)

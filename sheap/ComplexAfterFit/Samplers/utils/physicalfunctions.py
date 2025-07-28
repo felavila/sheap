@@ -2,15 +2,6 @@ import jax.numpy as np
 from jax import vmap, random
 import numpy as np 
 
-from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
-
-
-
-import jax.numpy as np
-from jax import vmap, random
-import numpy as npx  # standard NumPy if needed elsewhere
-
-from .constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS
 
 def calc_flux(norm_amplitude, fwhm):
     """

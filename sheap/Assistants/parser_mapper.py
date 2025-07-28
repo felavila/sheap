@@ -271,3 +271,40 @@ def make_get_param_coord_value(
         return pos, float(initial_params[pos]), param
 
     return get_param_coord_value
+
+
+
+
+def apply_arithmetic_ties(samples, ties):
+    #this is a general function that have to be move soon
+    #_, target, source, op, operand = dep
+    tag,target_idx,src_idx, op, val = ties
+    src = samples[src_idx]
+    #print(src,src_idx)
+    if op == '+':
+            result = src + val
+    elif op == '-':
+        result = src - val
+    elif op == '*':
+        result = src * val
+    elif op == '/':
+        result = src / val
+    else:
+        raise ValueError(f"Unsupported operation: {op}")
+    #print(op,val,result)
+        #params[f"theta_{target_idx}"] = result
+    return result
+
+
+def apply_tied_and_fixed_params(free_params,template_params,dependencies):
+    #this can be call just one time 
+    if not dependencies:
+        return free_params
+    idx_target = [i[1] for i in dependencies]
+    #idx_source = [i[2] for i in dependencies]
+    idx_free_params = list(set(range(len(template_params)))-set(idx_target))
+    #free_params = params[jnp.array(idx_free_params)]
+    #params_ = jnp.zeros_like(template_params)
+    template_params = template_params.at[jnp.array(idx_free_params)].set(free_params)
+    template_params = template_params.at[jnp.array(idx_target)].set([apply_arithmetic_ties(template_params,ties) for ties in dependencies])
+    return template_params

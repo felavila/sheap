@@ -1,7 +1,9 @@
 from typing import Dict, Any
-
-
 import pandas as pd
+from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
+import numpy as np 
+import jax.numpy as jnp
+#?
 
 def flatten_mass_samples_to_df(dict_samples: Dict[str, Dict[str, Any]]) -> pd.DataFrame:
     """
@@ -82,3 +84,72 @@ def flatten_mass_dict(masses):
                 "err_plus": stats["err_plus"].item()
             })
     return pd.DataFrame(rows)
+
+
+
+def pivot_and_split(obj_names, result):
+    """
+    Turn `result` (a nested dict of dicts whose leaves are either:
+       - VectorUncertainty of length N,
+       - indexable arrays/lists of length N, or
+       - scalars
+    ) into a dict keyed by each obj_name, where each leaf becomes either:
+       - {'value': ..., 'error': ...} for VectorUncertainty
+       - the single element node[obj_idx] for other indexables
+       - the original scalar for non-indexables
+    """
+    def _recurse(node, idx):
+        # 1) if it's a dict, recurse on each item
+        if isinstance(node, dict):
+            return {k: _recurse(v, idx) for k, v in node.items()}
+
+        # 2) if it's a VectorUncertainty, split into value & error
+        if isinstance(node, VectorUncertainty):
+            return {
+                'value': node.value[idx].squeeze(),
+                'error': node.error[idx].squeeze()
+            }
+        # 3) array/list/tuple → index
+        if isinstance(node, (np.ndarray, list, tuple)):
+            return node
+
+    return {
+        obj_name: _recurse(result, obj_idx)
+        for obj_idx, obj_name in enumerate(obj_names)
+    }
+
+
+def summarize_samples(samples) -> Dict[str, np.ndarray]:
+    """Compute 16/50/84 percentiles and return a summary dict using NumPy."""
+    if isinstance(samples, jnp.ndarray):
+        samples = np.asarray(samples)
+    samples = np.atleast_2d(samples).T
+    if np.isnan(samples).sum() / samples.size > 0.2:
+        warnings.warn("High fraction of NaNs; uncertainty estimates may be biased.")
+    if samples.shape[1]<=1:
+        q = np.nanpercentile(samples, [16, 50, 84], axis=0)
+    else:
+        q = np.nanpercentile(samples, [16, 50, 84], axis=1)
+    #else:
+    
+    return {
+        "median": q[1],
+        "err_minus": q[1] - q[0],
+        "err_plus": q[2] - q[1]
+    }
+    
+    
+def summarize_nested_samples(d: dict) -> dict:
+    """
+    Recursively walk through a dictionary and apply summarize_samples_numpy
+    to any array-like values.
+    """
+    summarized = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            summarized[k] = summarize_nested_samples(v)
+        elif isinstance(v, (np.ndarray, jnp.ndarray)) and np.ndim(v) >= 1 and k!='component':
+            summarized[k] = summarize_samples(v)
+        else:
+            summarized[k] = v
+    return summarized

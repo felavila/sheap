@@ -3,6 +3,8 @@ import numpy as np
 from multiprocessing import Pool, set_start_method
 from astropy.io import fits
 from functools import partial
+
+from sheap.Utils.SpectralSetup import resize_and_fill_with_nans
 # Limit CPUs for safety
 n_cpu = min(4, os.cpu_count())  # Adjustable
 
@@ -19,17 +21,6 @@ def fits_reader_desi(file):
     header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])#PLUG_RA/PLUG_DEC
     return data_array, header_array
 
-def resize_and_fill_with_nans(original_array, new_xaxis_length, number_columns=4):
-    """
-    Resize an array to the target shape, filling new entries with NaNs.
-    """
-    new_array = np.full((number_columns, new_xaxis_length), np.nan, dtype=float)
-    slices = tuple(
-        slice(0, min(o, t))
-        for o, t in zip(original_array.shape, (number_columns, new_xaxis_length))
-    )
-    new_array[slices] = original_array[slices]
-    return new_array
 
 #('WAVE', '>f4', (23198,)), ('FLUX', '>f4', (23198,)), ('ERR_FLUX', '>f4', (23198,)
 def fits_reader_simulation(file,chanel=1,template=False):

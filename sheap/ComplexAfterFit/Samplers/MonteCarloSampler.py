@@ -6,8 +6,8 @@ import numpy as np
 
 
 
-from sheap.Assistants.parser_mapper import descale_amp,scale_amp
-from .parameter_from_sampler import posterior_physical_parameters
+from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params
+from .utils.ParametersSampler import posterior_parameters
 
 
 class MonteCarloSampler:
@@ -36,9 +36,7 @@ class MonteCarloSampler:
     def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,extra_products =True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from tqdm import tqdm
         
-        from sheap.Posterior.uncertainty_functions import (
-            apply_tied_and_fixed_params, make_residuals_free_fn, error_covariance_matrix
-        )
+        from sheap.ComplexAfterFit.UncertaintyFunction import (make_residuals_free_fn, error_covariance_matrix)
         scale = self.scale
         norm_spec = self.spec.at[:, [1, 2], :].divide(
             jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None]
@@ -92,7 +90,7 @@ class MonteCarloSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #full_samples.at[:, idxs].multiply(scale[n])
-            dic_posterior_params[name_i] = posterior_physical_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
+            dic_posterior_params[name_i] = posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
                                                                                 ,np.full((num_samples,), self.d[n],dtype=np.float64),
                                                                                 c=self.c,
                                                                                 BOL_CORRECTIONS=self.BOL_CORRECTIONS,
@@ -104,7 +102,7 @@ class MonteCarloSampler:
         return dic_posterior_params
     
     
-    # def posterior_physical_parameters(
+    # def posterior_parameters(
     # wl_i: np.ndarray,
     # flux_i: np.ndarray,
     # yerr_i: np.ndarray,

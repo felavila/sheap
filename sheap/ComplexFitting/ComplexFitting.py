@@ -19,21 +19,18 @@ from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,mak
 from sheap.Minimizer.Minimizer import Minimizer
 
 from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.profile_handler import ProfileConstraintMaker 
 from sheap.Profiles.utils import make_fused_profiles,build_grid_penalty
-from sheap.Profiles.profile_handler import DEFAULT_LIMITS,profile_handler #asistans material
-
-from sheap.Tools.setup_utils import mask_builder, prepare_spectra
 
 
-from sheap.Posterior.uncertainty_functions import error_for_loop
+from sheap.Utils.SpectralSetup import mask_builder, prepare_spectra
+from sheap.Utils.Constants import DEFAULT_LIMITS
+
+from sheap.ComplexAfterFit.UncertaintyFunction import Errorfromloop
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
-# # Constant identifiers for special components
-# OUTFLOW_COMPONENT = 10  # ID used for outflow line components
-# FE_COMPONENT = 20  # ID used for Fe emission components
-# CONT_COMPONENT = 0  # ID used for continuum component
 
 class ComplexFitting:
     """
@@ -262,7 +259,7 @@ class ComplexFitting:
         if run_uncertainty_params:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 
-            uncertainty_params = error_for_loop(self.model,norm_spec,params,dependencies)
+            uncertainty_params = Errorfromloop(self.model,norm_spec,params,dependencies)
             end_time = time.time()  # 
             elapsed = end_time - start_time
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
@@ -511,7 +508,7 @@ class ComplexFitting:
                 profile_fn = fe_dict["model"]
             else:
                 profile_fn =  PROFILE_FUNC_MAP.get(holder_profile, PROFILE_FUNC_MAP["gaussian"])#?
-            constraints = profile_handler(sp, self.limits_map.get(sp.region), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
+            constraints = ProfileConstraintMaker(sp, self.limits_map.get(sp.region), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
             sp.profile = constraints.profile
             complex_region.append(sp)
             init_list.extend(constraints.init)

@@ -5,44 +5,21 @@ import jax.numpy as jnp
 import jax
 import numpy as np 
 
-from sheap.Core import ConstraintSet, FittingLimits, SpectralLine
-from sheap.Tools.spectral_basic import kms_to_wl
+from sheap.Core import ProfileConstraintSet, FittingLimits, SpectralLine
+from sheap.Utils.BasicFunctions import kms_to_wl
 from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
-
-
-#TODO move default and constant to a same place and add reference to all of them. 
-
-
-CANONICAL_WAVELENGTHS = {
-    'broad': 4861.0,    # Hbeta
-    'narrow': 4861.0,   # [OIII]
-    'outflow': 5007.0,  # [OIII]
-    'fe': 4570.0,       # Mean FeII blend
-    'nlr': 6583.0,       # [NII]
-    "winds": 5007.0} #why?
-
-
-
-DEFAULT_LIMITS = {
-    'broad':   {'upper_fwhm': 10000.0,  'lower_fwhm': 1000.875, 'center_shift': 5000.0,  'v_shift': 5000.0,  'max_amplitude': 10.0},
-    'narrow':  {'upper_fwhm': 1000.0,   'lower_fwhm': 100.0,     'center_shift': 2500.0,  'v_shift': 2500.0,  'max_amplitude': 10.0},
-    'outflow': {'upper_fwhm': 20000.0,  'lower_fwhm': 5000.875,  'center_shift': 3000.0,  'v_shift': 3000.0,  'max_amplitude': 10.0},
-    'fe':      {'upper_fwhm': 7065.0,   'lower_fwhm': 117.75,    'center_shift': 4570.0,  'v_shift': 4570.0,  'max_amplitude': 0.07},
-    'nlr':     {'upper_fwhm': 2355.0,   'lower_fwhm': 117.75,    'center_shift': 1500.0,  'v_shift': 1500.0,  'max_amplitude': 10.0},
-    'winds':   {'upper_fwhm': 15000.0,  'lower_fwhm': 5000.0,    'center_shift': 8000.0,  'v_shift': 8000.0,  'max_amplitude': 10.0},
-    'host':    {'upper_fwhm': 0.0,      'lower_fwhm': 0.0,       'center_shift': 0.0,     'v_shift': 0.0,     'max_amplitude': 0.0},
-}
+from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
 
         
 
 #TODO profile handler is a unclear name we have to change it.
-def profile_handler(
+def ProfileConstraintMaker(
     sp: SpectralLine,
     limits: FittingLimits,
     subprofile: Optional[str] = None,
     local_profile: Optional[callable] = None 
-    ) -> ConstraintSet:
+    ) ->ProfileConstraintSet:
     """
     Compute initial values and bounds for the profile parameters of a spectral line.
 
@@ -52,7 +29,7 @@ def profile_handler(
         profile: Default profile if cfg.profile is None.
         subprofile: Sub-profile function to use within compound models like SPAF.
     Returns:
-        ConstraintSet: Contains initial values, bounds, profile type, and parameter names.
+        ProfileConstraintSet: Contains initial values, bounds, profile type, and parameter names.
     """
     selected_profile = sp.profile
     if selected_profile not in PROFILE_FUNC_MAP:
@@ -69,7 +46,7 @@ def profile_handler(
             raise KeyError(f"Missing canonical wavelength for region='{sp.region}' in CANONICAL_WAVELENGTHS.")
         
     if selected_profile == "balmercontinuum":
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[1.0, 10000.0, 1.0],
             upper=[10.0, 50000.0, 2.0],
             lower=[0.0, 5000.0, 0.01],
@@ -78,7 +55,7 @@ def profile_handler(
             profile_fn = local_profile)
 
     if selected_profile == 'powerlaw':
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[-1.7, 0.0],
             upper=[0.0, 10.0],
             lower=[-5.0, 0.0],
@@ -87,7 +64,7 @@ def profile_handler(
             profile_fn = local_profile)#['index', 'scale'],
 
     if selected_profile == 'linear':
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[-0.01, 0.2],
             upper=[1.0, 1.0],
             lower=[-1.0, -1.0],
@@ -97,7 +74,7 @@ def profile_handler(
     
     
     if selected_profile == "brokenpowerlaw":
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[0.1,-1.5, -2.5, 5500.0],
             upper=[10.0,0.0, 0.0, 8000.0],
             lower=[0.0,-5.0, -5.0, 3000.0],
@@ -107,7 +84,7 @@ def profile_handler(
     #UNTIL HERE THE CONSTRAINS ARE TESTED AFTER THAT I dont know?
     if selected_profile == "logparabola":
         #should be testted
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[ 1.0,1.5, 0.1],
             upper=[10,3.0, 1.0, 10.0],
             lower=[0.0,0.0, 0.0],
@@ -116,7 +93,7 @@ def profile_handler(
             profile_fn = local_profile)
     if selected_profile == "exp_cutoff":
         #should be testted
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[1.0,1.5,5000.0],
             upper=[10.0,3.0, 1.0, 1e5],
             lower=[0.0,0.0, 0.0],
@@ -125,7 +102,7 @@ def profile_handler(
             profile_fn = local_profile)
     if selected_profile == "polynomial":
         #should be testted
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=[1.0,0.0,0.0,0.0],
             upper=[10.0,10.0,10.0,10.0],
             lower=[0.0,-10.0,-10.0,-10.0],
@@ -178,7 +155,7 @@ def profile_handler(
 
             else:
                 raise ValueError(f"Unknown profile parameter '{p}' for '{selected_profile}'")
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=init,
             upper=upper,
             lower=lower,
@@ -262,7 +239,7 @@ def profile_handler(
         if not (len(init) == len(upper) == len(lower) == len(params_names)):
             raise RuntimeError(f"Builder mismatch for '{selected_profile}_{subprofile}': {params_names}")
         
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init=init,
             upper=upper,
             lower=lower,
@@ -278,7 +255,7 @@ def profile_handler(
         upper = [10.0,3.8, 50.0] 
         lower = [-2.0,2.0, -50.0]  
         #print(params_names)
-        return ConstraintSet(
+        return ProfileConstraintSet(
             init= init,
             upper=upper,
             lower=lower,
@@ -293,7 +270,7 @@ def profile_handler(
         init = [5.0,3.0, 0.0] + [0.0] * len(params_names[3:])
         upper = [10.0,3.8, 50.0] + [1.0] * len(params_names[3:])
         lower = [-2.0,2.0, -50.0]  + [0.0] * len(params_names[3:])
-        return ConstraintSet(
+        return ProfileConstraintSet(
                 init=init,
                 upper=upper,
                 lower=lower,

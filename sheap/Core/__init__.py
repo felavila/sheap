@@ -1,3 +1,4 @@
-from sheap.Core.Core import SpectralLine, ComplexRegion, ComplexResult, ConstraintSet, FittingLimits
+from sheap.Core.Core import SpectralLine, ComplexRegion, ComplexResult, ProfileConstraintSet, FittingLimits
+from sheap.Core.Signatures import ArrayLike,ProfileFunc,SpectralLineList
 
-__all__ = ["SpectralLine", "ComplexRegion", "ComplexResult", "ConstraintSet", "FittingLimits"]
+__all__ = ["SpectralLine", "ComplexRegion", "ComplexResult", "ProfileConstraintSet", "FittingLimits","ArrayLike","ProfileFunc","SpectralLineList"]

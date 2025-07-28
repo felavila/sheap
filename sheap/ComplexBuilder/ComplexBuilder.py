@@ -14,10 +14,7 @@ from sheap.ComplexBuilder.utils import fe_ties, region_ties, group_lines # asist
 from sheap.Profiles.profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Profiles.profiles_templates import make_host_function #?
 
-OUTFLOW_COMPONENT = 10
-WINDS_COMPONENT = 15
-FE_COMPONENT = 20
-NLR_COMPONENT = 30
+
 
 #TODO ADD the rutines of gaussians and tied methods in general. 
 # Balmer continuum, Balmer High order emission lines
@@ -78,6 +75,10 @@ class ComplexBuilder:
     >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
     
+    OUTFLOW_COMPONENT = 10
+    WINDS_COMPONENT = 15
+    FE_COMPONENT = 20
+    NLR_COMPONENT = 30
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe

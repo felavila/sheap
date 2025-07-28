@@ -12,8 +12,6 @@ import pandas as pd
 from sheap.Profiles.utils import make_fused_profiles
 
 
-#TODO Constrains SET and Fitting limits have a similar issue. constrains should be called profiletofit or something like that 
-
 @dataclass
 class SpectralLine:
     """
@@ -406,13 +404,8 @@ class ComplexResult:
 
 
 
-
-#This will go to the fitting part in particular to some helper.py stuff
-
-
-
 @dataclass
-class ConstraintSet:
+class ProfileConstraintSet:
     init: List[float]
     upper: List[float]
     lower: List[float]

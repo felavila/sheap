@@ -10,16 +10,14 @@ from auto_uncertainties import Uncertainty
 
 
 from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
-from sheap.Posterior.utils import integrate_function_error,integrate_batch,batched_evaluate,evaluate_with_error,pivot_and_split 
+from sheap.ComplexAfterFit.Samplers.utils.afterfitprofilehelpers import integrate_batch,evaluate_with_error 
+from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split
 
 #all of this have to go to profiles.
 #from .tools.functions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass
 
 
-
-
-
-class ParametersSingle:
+class SingleSampler:
     # TODO big how to combine distributions
     def __init__(self, estimator: "ParameterEstimation"):
         

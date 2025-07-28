@@ -4,8 +4,10 @@ import numpy as np
 import glob
 from astropy.io import fits
 from pathlib import Path
+from scipy.fft import fft, ifft, fftfreq
 
-c = 299792.458  # speed of light in km/s
+
+from sheap.Utils.Constants import c
 
 def resample_to_log_lambda_npinterp(
     wave: np.ndarray,
@@ -62,11 +64,6 @@ def resample_to_log_lambda_npinterp(
 
 
 
-import numpy as np
-import glob
-from astropy.io import fits
-from scipy.fft import fft, ifft, fftfreq
-from typing import Tuple
 
 def build_cube_from_fits_header_comments(
     template_dir: str,

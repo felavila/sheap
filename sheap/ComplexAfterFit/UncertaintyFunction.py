@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 from jax import random,vmap
 
+from sheap.Assistants.parser_mapper import apply_tied_and_fixed_params
 
 #TODO This requires major updates 
 
@@ -16,41 +17,6 @@ def residuals(
 ) -> jnp.ndarray:
     predictions = func(xs, params)
     return (y - predictions) / y_uncertainties
-
-def apply_arithmetic_ties(samples, ties):
-    #this is a general function that have to be move soon
-    #_, target, source, op, operand = dep
-    tag,target_idx,src_idx, op, val = ties
-    src = samples[src_idx]
-    #print(src,src_idx)
-    if op == '+':
-            result = src + val
-    elif op == '-':
-        result = src - val
-    elif op == '*':
-        result = src * val
-    elif op == '/':
-        result = src / val
-    else:
-        raise ValueError(f"Unsupported operation: {op}")
-    #print(op,val,result)
-        #params[f"theta_{target_idx}"] = result
-    return result
-
-
-def apply_tied_and_fixed_params(free_params,template_params,dependencies):
-    #this can be call just one time 
-    if not dependencies:
-        return free_params
-    idx_target = [i[1] for i in dependencies]
-    #idx_source = [i[2] for i in dependencies]
-    idx_free_params = list(set(range(len(template_params)))-set(idx_target))
-    #free_params = params[jnp.array(idx_free_params)]
-    #params_ = jnp.zeros_like(template_params)
-    template_params = template_params.at[jnp.array(idx_free_params)].set(free_params)
-    template_params = template_params.at[jnp.array(idx_target)].set([apply_arithmetic_ties(template_params,ties) for ties in dependencies])
-    return template_params
-
 
 def make_residuals_free_fn(
     model_func: Callable,
@@ -110,32 +76,8 @@ def error_covariance_matrix(
     return (std_error, cov) if return_full else std_error
 
 
-def error_for_loop_s(model,spectra,params,dependencies):
-    "save the samples could increase the number of stuff."
-    wl, flux, yerr = jnp.moveaxis(spectra, 0, 1)
-    idx_target = [i[1] for i in dependencies]
-    idx_free_params = list(set(range(len(params[0])))-set(idx_target))
-    std = jnp.zeros_like(params).astype(jnp.float32)
-    for n, (params_i, wl_i, flux_i, yerr_i) in enumerate(zip(params, wl, flux, yerr)):
-        free_params = params_i[jnp.array(idx_free_params)]
-        res_fn = make_residuals_free_fn(model_func=model,
-                                        xs=wl_i,y=flux_i,
-                                        yerr=yerr_i,
-                                        template_params=params_i,
-                                        dependencies=dependencies)
-        
-        std_errs, _ = error_covariance_matrix(residual_fn=res_fn,
-                                                        params_i=free_params,
-                                                        xs_i=wl_i,
-                                                        y_i=flux_i,
-                                                        yerr_i=yerr_i,
-                                                        free_params=len(free_params),
-                                                        return_full=True)
-        std = std.at[n].set(apply_tied_and_fixed_params(std_errs,params[0],dependencies))
-    return std
 
-#@jax.jit
-def error_for_loop(model, spectra, params, dependencies):
+def Errorfromloop(model, spectra, params, dependencies):
     spectra = jnp.asarray(spectra, dtype=jnp.float64)
     params   = jnp.asarray(params,   dtype=jnp.float64)
 
@@ -186,3 +128,30 @@ def error_for_loop(model, spectra, params, dependencies):
         std       = std.at[n].set(tied_full)
 
     return std
+
+
+def error_for_loop_s(model,spectra,params,dependencies):
+    "save the samples could increase the number of stuff."
+    wl, flux, yerr = jnp.moveaxis(spectra, 0, 1)
+    idx_target = [i[1] for i in dependencies]
+    idx_free_params = list(set(range(len(params[0])))-set(idx_target))
+    std = jnp.zeros_like(params).astype(jnp.float32)
+    for n, (params_i, wl_i, flux_i, yerr_i) in enumerate(zip(params, wl, flux, yerr)):
+        free_params = params_i[jnp.array(idx_free_params)]
+        res_fn = make_residuals_free_fn(model_func=model,
+                                        xs=wl_i,y=flux_i,
+                                        yerr=yerr_i,
+                                        template_params=params_i,
+                                        dependencies=dependencies)
+        
+        std_errs, _ = error_covariance_matrix(residual_fn=res_fn,
+                                                        params_i=free_params,
+                                                        xs_i=wl_i,
+                                                        y_i=flux_i,
+                                                        yerr_i=yerr_i,
+                                                        free_params=len(free_params),
+                                                        return_full=True)
+        std = std.at[n].set(apply_tied_and_fixed_params(std_errs,params[0],dependencies))
+    return std
+
+#@jax.jit
