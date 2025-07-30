@@ -26,8 +26,28 @@ else:
 
 class Parameter:
     """
-    Represents a fit parameter with optional bounds or ties, plus a transform
-    determined by its min/max, or held fixed.
+    Represents a single fit parameter with optional bounds, ties, and fixed status.
+
+    This class encapsulates metadata about the parameter, including transformation
+    rules for optimization based on bounds or constraints.
+
+    Attributes
+    ----------
+    name : str
+        Name of the parameter (e.g., "amplitude_Halpha_1_broad").
+    value : float or jnp.ndarray
+        Initial value(s) for the parameter. Can be scalar or array.
+    min : float
+        Lower bound for the parameter.
+    max : float
+        Upper bound for the parameter.
+    tie : tuple, optional
+        A tuple specifying a tied relationship (target, source, operation, operand).
+    fixed : bool
+        If True, the parameter is excluded from optimization.
+    transform : str
+        Type of transformation used: 'logistic', 'lower_bound_square',
+        'upper_bound_square', or 'linear'.
     """
     def __init__(
         self,
@@ -62,8 +82,25 @@ class Parameter:
 
 
 class Parameters:
+    """
+    Container for managing a list of `Parameter` instances for fitting models.
+
+    This class handles the declaration, transformation, and synchronization
+    between raw and physical parameter spaces. It supports automatic handling
+    of fixed, tied, and bounded parameters, including vectorization with `vmap`.
+
+    Attributes
+    ----------
+    _list : list of Parameter
+        All declared parameters in order of definition.
+    _jit_raw_to_phys : callable
+        JIT-compiled function that maps raw parameters to physical space.
+    _jit_phys_to_raw : callable
+        JIT-compiled function that maps physical parameters to raw space.
+    """
+
     def __init__(self):
-        self._list = []                 # all parameters in declaration order
+        self._list = []
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
 
@@ -77,58 +114,122 @@ class Parameters:
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
     ):
+        """
+        Add a parameter to the collection.
+
+        Parameters
+        ----------
+        name : str
+            Name of the parameter.
+        value : float or array-like
+            Initial value.
+        min : float, optional
+            Lower bound; defaults to -inf if not set.
+        max : float, optional
+            Upper bound; defaults to +inf if not set.
+        tie : tuple, optional
+            Constraint as a tuple (target, source, op, operand).
+        fixed : bool, default=False
+            Whether the parameter is fixed during fitting.
+        """
         lo = -jnp.inf if min is None else min
-        hi =  jnp.inf if max is None else max
+        hi = jnp.inf if max is None else max
         self._list.append(Parameter(
             name=name, value=value, min=lo, max=hi,
             tie=tie, fixed=fixed
         ))
-        # Invalidate compiled kernels
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
 
     @property
     def names(self) -> List[str]:
+        """
+        Names of all parameters in declaration order.
+
+        Returns
+        -------
+        List[str]
+            Parameter names.
+        """
         return [p.name for p in self._list]
 
     def _finalize(self):
-        # free (untied, unfixed) params go into the raw vector
-        self._raw_list   = [p for p in self._list if p.tie is None   and not p.fixed]
-        # tied params are computed from others
-        self._tied_list  = [p for p in self._list if p.tie is not None and not p.fixed]
-        # fixed params sit out of transforms entirely (may be scalar or array)
+        self._raw_list = [p for p in self._list if p.tie is None and not p.fixed]
+        self._tied_list = [p for p in self._list if p.tie is not None and not p.fixed]
         self._fixed_list = [p for p in self._list if p.fixed]
-
-        # compile
         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
 
     def raw_init(self) -> jnp.ndarray:
+        """
+        Generate the initial raw parameter vector from physical values.
+
+        Returns
+        -------
+        jnp.ndarray
+            Raw parameter array suitable for optimization.
+        """
         if self._jit_phys_to_raw is None:
             self._finalize()
         init_phys = jnp.array([p.value for p in self._raw_list])
         return self._jit_phys_to_raw(init_phys)
 
     def raw_to_phys(self, raw_params: jnp.ndarray) -> jnp.ndarray:
+        """
+        Convert raw parameter vector(s) to physical space.
+
+        Parameters
+        ----------
+        raw_params : jnp.ndarray
+            Raw input array of shape (n_params,) or (n_samples, n_params).
+
+        Returns
+        -------
+        jnp.ndarray
+            Corresponding physical parameter array(s).
+        """
         if self._jit_raw_to_phys is None:
             self._finalize()
         return self._jit_raw_to_phys(raw_params)
 
     def phys_to_raw(self, phys_params: jnp.ndarray) -> jnp.ndarray:
+        """
+        Convert physical parameter vector(s) to raw space.
+
+        Parameters
+        ----------
+        phys_params : jnp.ndarray
+            Physical input array.
+
+        Returns
+        -------
+        jnp.ndarray
+            Raw parameter array suitable for optimization.
+        """
         if self._jit_phys_to_raw is None:
             self._finalize()
         return self._jit_phys_to_raw(phys_params)
 
     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
         """
-        Convert from raw vector (or batch) → full phys vector(s),
-        indexing array‐valued fixed params by spectrum index.
+        Convert from raw vector(s) to full physical parameter vector(s).
+
+        Handles transformation of free, tied, and fixed parameters and returns
+        them in the original declaration order.
+
+        Parameters
+        ----------
+        raw : jnp.ndarray
+            Raw parameter array(s), shape (n_free,) or (n_batch, n_free).
+
+        Returns
+        -------
+        jnp.ndarray
+            Physical parameters in full vector form, shape (n_total,) or (n_batch, n_total).
         """
         def convert_one(r_vec, spec_idx):
             ctx: Dict[str, jnp.ndarray] = {}
             idx = 0
-
-            # 1) free params: raw → phys
             for p in self._raw_list:
                 rv = r_vec[idx]
                 if p.transform == 'logistic':
@@ -141,45 +242,39 @@ class Parameters:
                     val = rv
                 ctx[p.name] = val
                 idx += 1
-
-            # 2) tied params
-            op_map = {'*': jnp.multiply, '+': jnp.add,
-                      '-': jnp.subtract, '/': jnp.divide}
+            op_map = {'*': jnp.multiply, '+': jnp.add, '-': jnp.subtract, '/': jnp.divide}
             for p in self._tied_list:
                 tgt, src, op, operand = p.tie
                 ctx[tgt] = op_map[op](ctx[src], operand)
-
-            # 3) fixed params — if array, take element [spec_idx], else use scalar
             for p in self._fixed_list:
                 v = p.value
-                if isinstance(v, jnp.ndarray):
-                    # pick the element corresponding to this spectrum
-                    ctx[p.name] = v[spec_idx]
-                else:
-                    ctx[p.name] = v
-
-            # 4) stack in the original declaration order
+                ctx[p.name] = v[spec_idx] if isinstance(v, jnp.ndarray) else v
             return jnp.stack([ctx[p.name] for p in self._list])
 
-        # handle either single‐spectrum (1D) or batch (2D) raw input
         if raw.ndim == 1:
             return convert_one(raw, 0)
         else:
-            # raw.shape == (N_spectra, n_free)
             N = raw.shape[0]
             idxs = jnp.arange(N)
             return jax.vmap(convert_one, in_axes=(0, 0))(raw, idxs)
 
     def _phys_to_raw_core(self, phys: jnp.ndarray) -> jnp.ndarray:
         """
-        Inverse mapping from phys → raw.  Does NOT handle array‐valued fixed
-        (they simply never appear in the raw vector).
+        Inverse mapping from physical to raw parameter space.
+
+        Parameters
+        ----------
+        phys : jnp.ndarray
+            Physical parameter array(s), shape (n_total,) or (n_batch, n_total).
+
+        Returns
+        -------
+        jnp.ndarray
+            Corresponding raw parameter array(s), shape (n_free,) or (n_batch, n_free).
         """
         def invert_one(v_vec):
             raws: List[jnp.ndarray] = []
             idx = 0
-
-            # only invert free params
             for p in self._raw_list:
                 vv = v_vec[idx]
                 if p.transform == 'logistic':
@@ -193,7 +288,6 @@ class Parameters:
                 else:
                     raws.append(vv)
                 idx += 1
-
             return jnp.stack(raws)
 
         if phys.ndim == 1:
@@ -203,7 +297,14 @@ class Parameters:
 
     @property
     def specs(self) -> List[Tuple[str, float, float, float, str, bool]]:
-        # name, init, min, max, transform, fixed
+        """
+        Get summary of each parameter's definition.
+
+        Returns
+        -------
+        List[Tuple[str, float, float, float, str, bool]]
+            Each entry contains (name, value, min, max, transform, fixed).
+        """
         return [
             (p.name, p.value, p.min, p.max, p.transform, p.fixed)
             for p in self._list

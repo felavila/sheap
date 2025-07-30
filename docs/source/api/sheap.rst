@@ -6,23 +6,23 @@ sheap package
    :undoc-members:
    :show-inheritance:
 
-Subpackages
 -----------
 
 .. toctree::
    :maxdepth: 4
 
    sheap.Assistants
+   sheap.ComplexAfterFit
    sheap.ComplexBuilder
    sheap.ComplexFitting
-   sheap.Functions
+   sheap.Core
    sheap.MainSheap
    sheap.Minimizer
-   sheap.Posterior
+   sheap.Plotting
+   sheap.Profiles
    sheap.SuportData
-   sheap.Tools
+   sheap.Utils
 
-Submodules
 ----------
 
 sheap.cli module

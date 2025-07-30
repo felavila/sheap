@@ -1,12 +1,13 @@
 """This module ?."""
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+
 __all__ = [
     "build_grid_penalty",
     "make_fused_profiles",
     "make_integrator",
     "with_param_names",
+    "trapz_jax",
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -118,6 +119,9 @@ def build_grid_penalty(
 
     return penalty
 
+def trapz_jax(y: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+    dx = x[1:] - x[:-1]
+    return jnp.sum((y[1:] + y[:-1]) * dx / 2)
 
 # def make_super_fused(funcs):
 #     # For clarity, give each function a label

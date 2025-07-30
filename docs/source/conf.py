@@ -50,8 +50,11 @@ myst_enable_extensions = [
 ]
 
 # Always run notebooks at build time
-nb_execution_mode = "force"
-nb_execution_timeout = 300
+#nb_execution_mode = "force"
+#nb_execution_timeout = 300
+nb_execution_mode = "off"  # <- Don't execute notebooks
+
+nbsphinx_execute = "never"  # <- Explicitly prevent nbsphinx from executing
 
 autodoc_mock_imports = [
     "jax", "jax.numpy", "optax", "numpyro",
@@ -64,7 +67,10 @@ autodoc_typehints   = 'description'
 napoleon_google_docstring = True
 autodoc_class_content = "both"   # include both class‐ and __init__‐docstrings
 
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'api/sheap.Assistants.core.rst','**/Assistants/core.*',]
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store','api/sheap.SuportData*', 'api/sheap.Core.Core.rst'
+                    ,'**/Core/Core.*'
+                    ,'api/sheap.SuportData.rst'
+                    ,'**/SuportData/*']
 templates_path   = ['_templates']
 
 

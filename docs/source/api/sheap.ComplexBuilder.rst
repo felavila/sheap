@@ -6,7 +6,6 @@ sheap.ComplexBuilder package
    :undoc-members:
    :show-inheritance:
 
-Submodules
 ----------
 
 sheap.ComplexBuilder.ComplexBuilder module

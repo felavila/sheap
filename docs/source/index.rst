@@ -27,8 +27,9 @@ sheap documentation
    :maxdepth: 2
    :caption: API Reference
 
-   api/modules
-   
+   api/sheap
+   supportdata
+
 Indices and tables
 ==================
 

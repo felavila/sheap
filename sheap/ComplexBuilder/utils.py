@@ -1,27 +1,38 @@
-"""This module handles ?."""
+"""This module contains the utilities use for ComplexBuilder."""
+
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+
 __all__ = [
     "default_known_tied_relations",
     "fe_ties",
     "flatten_index_ties",
     "group_lines",
-    "region_ties",
-]
+    "region_ties",]
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
-from sheap.Core import SpectralLine
+from sheap.Core import SpectralLine,SpectralLineList
 
+def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
+    """
+    Generate tied parameter expressions for Fe emission lines.
 
-def fe_ties(
-    entries: List[SpectralLine], routine_fe_tied
-) -> List[List[str]]:
-    
+    Parameters
+    ----------
+    entries : list of SpectralLine
+        Spectral line entries to be checked for Fe region membership.
+    routine_fe_tied : dict
+        Dictionary with tie rules, e.g. {'by': 'element', 'tied_params': ('center', 'fwhm')}.
+
+    Returns
+    -------
+    list of list of str
+        Each inner list is a pair of tied parameter names [dependent, reference].
+    """
     tied_params = routine_fe_tied.get("tied_params", ('center', 'fwhm'))
     by = routine_fe_tied.get("by", "element")
     #fe_tied_params = {"by":"subregion","tied_params": ('center', 'fwhm')}
@@ -83,7 +94,6 @@ def fe_ties(
 
     return ties
 
-
 def region_ties(
     complex_class,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
@@ -92,17 +102,25 @@ def region_ties(
     only_known: bool = False,
 ) -> List[List[str]]:
     """
-    Generate ties between narrow and broad components in a local region.
+    Generate parameter ties for narrow and broad components in a spectral region.
 
-    - local_region_list: list of SpectralLine objects to tie
-    - mainline_candidates: single line_name or list to select mainline from
-    - n_narrow: expected narrow component count
-    - n_broad: expected broad component count
-    - tied_narrow_to: mapping or base name for narrow ties
-    - tied_broad_to: mapping or base name for broad ties
-    - known_tied_relations: optional predefined relations
+    Parameters
+    ----------
+    complex_class : ComplexRegion
+        Region containing spectral line definitions.
+    tied_narrow_to : str or dict, optional
+        Line name or component mapping to tie narrow lines to.
+    tied_broad_to : str or dict, optional
+        Line name or component mapping to tie broad lines to.
+    known_tied_relations : list, optional
+        Predefined tie relations to enforce.
+    only_known : bool, optional
+        If True, return only known tied relations (ignore mainline ties).
 
-    Returns a list of [param1, param2] tie declarations.
+    Returns
+    -------
+    list of list of str
+        List of parameter name ties [dependent, reference].
     """
     # Determine mainline
     mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad",]  # this can be disscuss in the future
@@ -124,13 +142,11 @@ def region_ties(
         available = {e.line_name for e in local_region_list if isinstance(e.line_name, str)}
         mainline_narrow = next(
             (name for name in mainline_candidates_narrow if name in available),
-            mainline_candidates_narrow[0] if mainline_candidates_narrow else '',
-        )
+            mainline_candidates_narrow[0] if mainline_candidates_narrow else '',)
 
-    # print(mainline_broad,mainline_narrow)
     ties: List[List[str]] = []
 
-    # Validate optional mappings
+
     for name, mapping in (
         ('tied_narrow_to', tied_narrow_to),
         ('tied_broad_to', tied_broad_to),
@@ -141,7 +157,6 @@ def region_ties(
     tied_narrow_to = tied_narrow_to or mainline_narrow
     tied_broad_to = tied_broad_to or mainline_broad
 
-    # Helper to build mapping dict
     def _to_map(target, count):
         if isinstance(target, str):
             return {k: {"line_name": target, "component": k} for k in range(1, count + 1)}
@@ -194,12 +209,21 @@ def region_ties(
     return ties_
 
 
-# maybe a dataclass of fitting rutine?
 
 
 def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[int, Tuple[float, int]]:
     """
-    Flatten ties into mapping: target_index → (coefficient, free_param_index)
+    Resolve index-based tie dependencies into coefficient + free parameter mapping.
+
+    Parameters
+    ----------
+    index_ties : list of tuple
+        Each entry is (target_idx, source_idx, operation, value).
+
+    Returns
+    -------
+    dict
+        Mapping from target index to (coefficient, source index).
     """
     resolved: Dict[int, Tuple[float, int]] = {}
     free_indices = set()
@@ -229,15 +253,33 @@ def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[in
 
 #?
 def group_lines(
-    lines: List[SpectralLine],
+    lines: SpectralLineList,
     region: str,
     profile: str = "gaussian",
     mode: str = "region",
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [],
-) -> List[SpectralLine]:
-    
-    
-    
+) -> SpectralLineList:
+    """
+    Collapse multiple spectral lines into grouped pseudo-lines with SPAF profiles.
+
+    Parameters
+    ----------
+    lines : list of SpectralLine
+        Full list of lines in the region.
+    region : str
+        Region name to group (e.g., "fe", "narrow").
+    profile : str, default "gaussian"
+        Base profile to assign to grouped line.
+    mode : {"region", "subregion", "element"}
+        Grouping logic applied.
+    known_tied_relations : list, optional
+        Amplitude tie relations to apply.
+
+    Returns
+    -------
+    list of SpectralLine
+        Lines with some collapsed into SPAF composite profiles.
+    """
     grouped = defaultdict(list)
     collapsed_lines = []
     lines_to_remove = set()
@@ -320,7 +362,6 @@ def group_lines(
             subregion = subregions,
             amplitude=amplitudes.tolist(),
             amplitude_relations=full_rules,
-           
         )
 
         collapsed_lines.append(collapsed)
@@ -332,14 +373,28 @@ def group_lines(
     return new_lines
 
 
-
+#TODO check how this affect the combination e.g what happends when hbeta depends on halpha and hg and hd depends on hbeta
 def default_known_tied_relations(
     include_balmer: bool = True,
     include_forbidden: bool = True,
 ) -> List[Tuple[Tuple[str, ...], List[str]]]:
     ties: List[Tuple[Tuple[str, ...], List[str]]] = []
+    """
+    Return default tied relations for common line doublets and multiplets.
 
-     #check how this affect the combination e.g what happends when hbeta depends on halpha and hg and hd depends on hbeta
+    Parameters
+    ----------
+    include_balmer : bool
+        If True, include Balmer series constraints.
+    include_forbidden : bool
+        If True, include [O III], [N II], [S III], [O I], and [O II] constraints.
+
+    Returns
+    -------
+    list of tuple
+        Each tuple contains (line_name pair, constraint expression list).
+    """
+
     ties += [
         (("OIIIb", "OIIIc"), ["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.33"]),
         (("OIIIb", "OIIIc"), ["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),

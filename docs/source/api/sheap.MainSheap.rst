@@ -6,7 +6,6 @@ sheap.MainSheap package
    :undoc-members:
    :show-inheritance:
 
-Submodules
 ----------
 
 sheap.MainSheap.SheapSpectralList module
@@ -21,14 +20,6 @@ sheap.MainSheap.Sheapectral module
 ----------------------------------
 
 .. automodule:: sheap.MainSheap.Sheapectral
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-sheap.MainSheap.utils module
-----------------------------
-
-.. automodule:: sheap.MainSheap.utils
    :members:
    :undoc-members:
    :show-inheritance:

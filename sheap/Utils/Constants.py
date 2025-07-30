@@ -54,7 +54,7 @@ BOL_CORRECTIONS = {
 # Standard single-epoch virial estimators for common broad lines
 # Reference: see Vestergaard & Peterson 2006; Shen et al. 2011; Greene & Ho 2005 TODO:look for this references
 #This can be change for the users the "only" condition is the user use the same line_name convenction as sheap
-#and the requrided paramter a,b,f,wavelenght and also the bol correction should be also inside the wavelenth 
+#and the requrided paramter a,b,f,wavelength and also the bol correction should be also inside the wavelength 
 #https://arxiv.org/pdf/1603.03437
 SINGLE_EPOCH_ESTIMATORS = {
     "Hbeta": {

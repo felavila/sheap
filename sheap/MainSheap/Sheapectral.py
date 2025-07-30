@@ -82,7 +82,7 @@ class Sheapectral:
         Output of the fitting routine, including parameters and metadata.
     complexbuild : ComplexBuilder
         Configuration used to build the model region.
-    _plotter : SheapPlot
+    plotter : SheapPlot
         Plotting backend object.
 
     Methods
@@ -399,7 +399,7 @@ class Sheapectral:
                 free_params = fit_output.free_params,
                 chi2_red = fit_output.chi2_red)
 
-            self._plotter = SheapPlot(sheap=self)
+            self.plotter = SheapPlot(sheap=self)
     def afterfit(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                          num_warmup=500,n_random=1_000,extra_products=True):
         """
@@ -515,7 +515,7 @@ class Sheapectral:
             fitting_routine = data.get("fitting_routine"),
             posterior = data.get("posterior")
         )
-        obj._plotter = SheapPlot(sheap=obj)
+        obj.plotter = SheapPlot(sheap=obj)
         return obj
     
     def _save(self):
@@ -625,12 +625,13 @@ class Sheapectral:
         RuntimeError
             If no fit result exists.
         """
-        if not hasattr(self, "_plotter"):
+        if not hasattr(self, "plotter"):
             if hasattr(self, "result"):
-                self._plotter = SheapPlot(sheap=self)
+                self.plotter = SheapPlot(sheap=self)
             else:
                 raise RuntimeError("No fit result found. Run `fitcomplex()` first.")
-        return self._plotter
+        return self.plotter
+    
     def result_panda(self, n: int) -> pd.DataFrame:
         """
         Return a pandas DataFrame of fit parameters for a given spectrum.

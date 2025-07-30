@@ -29,44 +29,37 @@ Quickstart
 
       pip install sheap
 
-2. **Load a spectrum**  
+2. **Load a spectrum**
 
    .. code-block:: python
 
-      from sheap import Sheapectral
+      from sheap.MainSheap import Sheapectral
       spec = Sheapectral("my_spectrum.txt", z=0.5, ebv=0.02)
 
-3. **Build a fitting region**  
+3. **Build a fitting region**
 
    .. code-block:: python
 
-      spec.make_a_region(
-          xmin=6300, xmax=6800,
-          n_narrow=1, n_broad=1,
-          add_outflow=True,
-          fe_mode="template"
-      )
+      spec.makecomplex(xmin=4500, xmax=5500, n_narrow=1, n_broad=1, fe_mode="template")
 
-4. **Fit**  
+4. **Fit**
 
    .. code-block:: python
 
-      spec.fit_region(num_steps_list=[5000, 2000])
+      spec.fitcomplex()
 
-5. **Inspect results**  
-
-   .. code-block:: python
-
-      fig    = spec.modelplot.show()
-      params = spec.result_dict(0)
-
-6. **Sample the posterior**  
+5. **Inspect results**
 
    .. code-block:: python
 
-      from sheap import McMcSampler
-      sampler = McMcSampler(spec)
-      samples, post = sampler.sample_params(n_random=42, num_samples=1000)
+      fig    = spec.plotter.plot(0)
+      params = spec.result.params(0)
+
+6. **Obtain the extra parameters**
+
+   .. code-block:: python
+
+      spec.afterfit()
 
 
 Documentation
@@ -74,15 +67,16 @@ Documentation
 
 See the following modules for detailed API reference:
 
-- :py:mod:`sheap.MainSheap.Sheapectral`: core entry point, I/O, extinction & redshift correction  
+- :py:mod:`sheap.MainSheap`: core entry point, I/O, extinction & redshift correction  
 
-- :py:mod:`sheap.ComplexBuilder.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
+- :py:mod:`sheap.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
 
-- :py:mod:`sheap.ComplexFitting.ComplexFitting`: perform JAX/Optax minimization with constraints  
+- :py:mod:`sheap.ComplexFitting`: perform JAX/Optax minimization with constraints  
 
-- :py:mod:`sheap.Minimizer.Minimizer`: low‐level optimizer wrapper  
+- :py:mod:`sheap.Minimizer`: low‐level optimizer wrapper  
 
-- :py:mod:`sheap.Posterior.ParameterEstimation.ParameterEstimation`: Posterior sampling 
+- :py:mod:`sheap.ComplexAfterFit`: Posterior sampling 
+
 - **utils**: parameter projection, loss building, dependency parsing  
 
 .. Installation

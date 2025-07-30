@@ -20,7 +20,7 @@ This notebook describes the data classes used in SHEAP and their structure.
 📘 :doc:`example_2`
 
 
-Indices
-=======
+.. Indices
+.. =======
 
-* :ref:`genindex`
+.. * :ref:`genindex`

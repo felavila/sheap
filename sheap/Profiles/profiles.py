@@ -1,7 +1,7 @@
 """This module ?."""
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+
 __all__ = [
     "SPAF",
     "wrap_profile_with_center_override",
@@ -40,14 +40,33 @@ PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {
 
 def wrap_profile_with_center_override(profile_func: Callable) -> Callable:
     """
-    JIT-compatible wrapper that:
-      • Injects override_center into the correct position, and
-      • If the base profile expects a `logamp` as its first param,
-        converts the incoming linear amp to log10(amp) automatically.
+    Wrap a spectral profile function to allow external override of the center parameter.
 
-    The wrapped function signature is still:
+    This wrapper ensures compatibility with JIT and automatically handles conversion
+    from linear amplitude to logarithmic amplitude if the underlying profile expects
+    a `logamp` as its first parameter.
+
+    The wrapped function preserves the following signature:
         wrapped(x, params, override_center)
-    where `params[0]` is always treated as a *linear* amplitude.
+
+    Parameters
+    ----------
+    profile_func : Callable
+        A spectral line profile function that accepts a parameter vector, where
+        one of the parameters is named "center".
+
+    Returns
+    -------
+    Callable
+        A new profile function with the same input/output signature as `profile_func`,
+        but with:
+            - the ability to override the center value at call time, and
+            - automatic conversion from linear to log-amplitude if needed.
+
+    Raises
+    ------
+    ValueError
+        If the provided profile function does not include a 'center' parameter.
     """
     param_names = profile_func.param_names
     if "center" not in param_names:
@@ -78,19 +97,36 @@ def wrap_profile_with_center_override(profile_func: Callable) -> Callable:
 
 def SPAF(centers: List[float], amplitude_rules: List[Tuple[int, float, int]], profile_name: str) -> ProfileFunc:
     """
-    SPAF = Sum Profiles Amplitude Free with normalization of amplitude indices.
+    Create a SPAF (Sum Profiles Amplitude Free) profile composed of multiple shifted lines
+    with tied amplitude coefficients and shared shape parameters.
 
-    Args:
-        centers: Rest-frame line centers.
-        amplitude_rules: List of (line_idx, coefficient, free_amp_idx).
-                         free_amp_idx may be arbitrary ints; they will be remapped.
-        profile_name: Base profile to use (must exist in PROFILE_LINE_FUNC_MAP).
+    Each line in the composite is modeled with a base profile, shifted in center,
+    and scaled using a linear combination of free amplitude parameters.
 
-    Returns:
-        ProfileFunc: Callable G(x, params) with:
-            - free amplitudes [N]
-            - shared shift [1]
-            - shared profile params [M]
+    Parameters
+    ----------
+    centers : list of float
+        Rest-frame centers for each individual line in the group.
+    amplitude_rules : list of tuple
+        Each rule is (line_idx, coefficient, free_amp_idx), specifying how each line’s
+        amplitude is computed as `coefficient × free_amplitude[free_amp_idx]`.
+    profile_name : str
+        Name of the base profile to use for each line (e.g., "gaussian", "lorentzian").
+
+    Returns
+    -------
+    ProfileFunc
+        A callable G(x, params) that evaluates the composite profile.
+
+        The parameter vector `params` contains:
+            - log-amplitudes: log10 of free amplitudes [N]
+            - shift: a shared wavelength shift [1]
+            - extras: remaining shape parameters from the base profile
+
+    Raises
+    ------
+    ValueError
+        If the requested profile name is not found in the profile registry.
     """
     centers = jnp.array(centers)
 

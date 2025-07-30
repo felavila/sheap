@@ -1,4 +1,4 @@
-"""This module ?."""
+"""This module Contains the main minimization routines in sheap."""
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 # Auto-generated __all__

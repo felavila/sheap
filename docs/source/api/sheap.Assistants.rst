@@ -6,7 +6,6 @@ sheap.Assistants package
    :undoc-members:
    :show-inheritance:
 
-Submodules
 ----------
 
 sheap.Assistants.Parameters module
@@ -17,26 +16,10 @@ sheap.Assistants.Parameters module
    :undoc-members:
    :show-inheritance:
 
-sheap.Assistants.core module
-----------------------------
+sheap.Assistants.parser\_mapper module
+--------------------------------------
 
-.. automodule:: sheap.Assistants.core
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-sheap.Assistants.helpers module
--------------------------------
-
-.. automodule:: sheap.Assistants.helpers
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-sheap.Assistants.utils module
------------------------------
-
-.. automodule:: sheap.Assistants.utils
+.. automodule:: sheap.Assistants.parser_mapper
    :members:
    :undoc-members:
    :show-inheritance:
