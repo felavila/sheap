@@ -6,6 +6,7 @@ __all__ = [
     "ProfileConstraintMaker",
 ]
 
+#TODO rename this 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 
@@ -137,7 +138,11 @@ def ProfileConstraintMaker(
                 init.append(amp_init)
                 upper.append(np.log10(limits.max_amplitude))
                 lower.append(-10.0)
-
+            if p == "amp":
+                init.append(float(sp.amplitude) / 10.0)
+                upper.append(limits.max_amplitude)
+                lower.append(0.0)
+                
             elif p == "center":
                 init.append(center0 + shift0)
                 upper.append(cen_up)

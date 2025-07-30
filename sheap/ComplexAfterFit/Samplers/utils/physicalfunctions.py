@@ -26,7 +26,7 @@ def calc_flux(norm_amplitude, fwhm):
 
 def calc_luminosity(distance, flux):
     """
-    Line luminosity: L = 4π D^2 × F × λ_center
+    Line luminosity: L = 4π D^2 × F 
     """
     return 4.0 * np.pi * distance**2 * flux #* center
 

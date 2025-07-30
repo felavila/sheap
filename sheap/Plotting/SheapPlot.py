@@ -49,6 +49,7 @@ class SheapPlot:
         self.mask = result.mask
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
+        self.z = sheap.z
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
         
@@ -66,6 +67,7 @@ class SheapPlot:
         self.mask = result.mask
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
+        self.z = result.z
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
 
@@ -156,7 +158,7 @@ class SheapPlot:
         ax1.text(
             0.0,
             1.05,
-            f"ID {self.names[n]} ({n})",
+            f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
             fontsize=20,
             transform=ax1.transAxes,
             ha='left',

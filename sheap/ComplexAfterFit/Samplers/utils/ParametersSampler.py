@@ -312,6 +312,7 @@ def calculate_single_epoch_masses(
         #print("combine_mode")
         line_list = np.array(list(broad_params.keys()))
         fwhm_kms_all =  np.stack([broad_params[l]["fwhm_kms"] for l in line_list],axis=1)
+        lum_all =  np.stack([broad_params[l]["luminosity"] for l in line_list],axis=1)
         #print(line_list,fwhm_kms_all.shape)
     if fwhm_kms_all is None or line_list.size == 0:
         #print("a")
@@ -323,7 +324,6 @@ def calculate_single_epoch_masses(
         lam  = est["wavelength"]
         wstr = str(int(lam))
 
-        # only proceed if this line was fit and we have L_w/L_bol
         if line_name not in line_list or wstr not in L_w:
             continue
 
@@ -466,8 +466,6 @@ def posterior_parameters(
                     }
                     Line.append(line)
         L_w, L_bol = {}, {}
-        
-
         for wave in map(float, BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
             if (jnp.isclose(wl_i, wave, atol=1) & ~mask_i).any():

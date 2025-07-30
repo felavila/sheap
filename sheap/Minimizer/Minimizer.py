@@ -220,7 +220,7 @@ class Minimizer:
 
                 def cond_fn(carry):
                     (_, _), _, i = carry
-                    return i < lbfgs_options.get("maxiter", 100)
+                    return i < lbfgs_options.get("maxiter", 200)
 
                 def body_fn(carry):
                     (params, state), loss_hist, i = carry
@@ -229,7 +229,7 @@ class Minimizer:
                     return (params, state), loss_hist, i + 1
 
                 # Preallocate the history buffer
-                maxiter = lbfgs_options.get("maxiter", 100)
+                maxiter = lbfgs_options.get("maxiter", 200)
                 loss_hist_init = jnp.zeros((maxiter,), dtype=jnp.float64)
 
                 # Run loop

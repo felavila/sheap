@@ -71,7 +71,7 @@ def cross_pandas_spectra(path_dr16, path_data, name_csv):
     file_paths = glob.glob(f"{path_dr16}/{path_data}/*.fits")
     objs_panda = pd.read_csv(f"{path_dr16}/{name_csv}")
     objs_panda["dr_name"] = [
-        f"{PLATE:04d}-{MJD:05d}-{FIBERID:04d}"
+        f"{int(PLATE):04d}-{int(MJD):05d}-{int(FIBERID):04d}"
         for PLATE, MJD, FIBERID in objs_panda[["PLATE", "MJD", "FIBERID"]].values
     ]
     # return file_paths,objs_panda

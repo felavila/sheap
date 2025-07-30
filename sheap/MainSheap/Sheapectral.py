@@ -87,14 +87,14 @@ class Sheapectral:
 
     Methods
     -------
-    make_region(xmin, xmax, n_narrow=1, n_broad=1, **kwargs)
-        Create a model region from line and continuum definitions.
+    complexmaker(xmin, xmax, n_narrow=1, n_broad=1, **kwargs)
+        Create a model complex from line and continuum definitions.
     
-    fit_region(...)
-        Perform spectral model fitting using the configured region.
+    fitcomplex(...)
+        Perform spectral model fitting using the configured complex.
     
-    posterior_params(...)
-        Estimate posterior distributions using MC or MCMC.
+    afterfit(...)
+        Estimate posterior distributions using MC or MCMC or just give and estimation of the params.
 
     save_to_pickle(filepath)
         Save object state to a pickle file.
@@ -304,7 +304,7 @@ class Sheapectral:
         self.spectra_nans = jnp.isnan(self.spectra)
 
     
-    def make_region(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
+    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
         """
         Initialize a ComplexBuilder for later fitting.
 
@@ -328,9 +328,10 @@ class Sheapectral:
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
     
     
-    def fit_region(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
+    def fitcomplex(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
                    ,run_fit=True,add_penalty_function=False,method="adam",
-                   penalty_weight: float = 0.01,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,):
+                   penalty_weight: float = 0.01,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,
+                   run_montecarlo=False):
         """
         Execute fitting of the prepared region on the spectra.
 
@@ -359,7 +360,7 @@ class Sheapectral:
         None
         """
         if not hasattr(self, "complexbuild"):
-            raise RuntimeError("make_region() must be called before fit_region()")
+            raise RuntimeError("makecomplex() must be called before fitcomplex()")
 
         self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile,
                                                         list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
@@ -368,11 +369,13 @@ class Sheapectral:
         if run_fit:    
             self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function,method=method,
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,
-                                        smoothness_weight= smoothness_weight,max_weight= max_weight)
+                                        smoothness_weight= smoothness_weight,max_weight= max_weight,run_montecarlo=run_montecarlo)
+            self.fitting_configuration = {"spectra":spectra,"run_uncertainty_params":run_uncertainty_params,"add_penalty_function":add_penalty_function,"method":method,
+                                "penalty_weight":penalty_weight, "curvature_weight": curvature_weight,
+                                        "smoothness_weight":smoothness_weight,"max_weight": max_weight}
+            
             fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
-            
-            
             self.result = ComplexResult(
                 params=fit_output.params.astype(jnp.float64),
                 uncertainty_params=fit_output.uncertainty_params,
@@ -397,7 +400,7 @@ class Sheapectral:
                 chi2_red = fit_output.chi2_red)
 
             self._plotter = SheapPlot(sheap=self)
-    def posterior_params(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
+    def afterfit(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                          num_warmup=500,n_random=1_000,extra_products=True):
         """
         Estimate or sample posterior distributions of fit parameters.
@@ -431,10 +434,10 @@ class Sheapectral:
         RuntimeError
             If fit has not been run (`self.result` missing).
         """
-        from smbh_mass.sheap.sheap.ComplexAfterFit.ComplexAfterFit import ParameterEstimation
+        from sheap.ComplexAfterFit.ComplexAfterFit import ComplexAfterFit
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
-        PM = ParameterEstimation(sheap = self)
+        PM = ComplexAfterFit(sheap = self)
        
         if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?
@@ -450,7 +453,7 @@ class Sheapectral:
             
             elif  sampling_method.lower()=="no_sampling":
                 print("you choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
-                dic_posterior_params = PM.parameters_result(extra_products=extra_products)
+                dic_posterior_params = PM.sample_single(extra_products=extra_products)
                 self.result.posterior = [{"method":"no_sampling"},dic_posterior_params]
             
             elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
@@ -626,7 +629,7 @@ class Sheapectral:
             if hasattr(self, "result"):
                 self._plotter = SheapPlot(sheap=self)
             else:
-                raise RuntimeError("No fit result found. Run `fit_region()` first.")
+                raise RuntimeError("No fit result found. Run `fitcomplex()` first.")
         return self._plotter
     def result_panda(self, n: int) -> pd.DataFrame:
         """

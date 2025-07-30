@@ -21,9 +21,7 @@ from sheap.Core import ComplexResult
 
 from sheap.Profiles.utils import make_fused_profiles
 
-from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
-from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
-from sheap.ComplexAfterFit.Samplers.SingleSampler import SingleSampler
+
 
 from sheap.Utils.Constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
 
@@ -156,6 +154,10 @@ class ComplexAfterFit:
 
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
        
+    
+    
+
+
     def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
         """
         Run Monte Carlo parameter sampling.
@@ -176,6 +178,7 @@ class ComplexAfterFit:
         full_samples, summary_dict
             Array of samples and dictionary of summarized statistics.
         """
+        from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
         sampler = MonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
@@ -204,6 +207,7 @@ class ComplexAfterFit:
         full_chain, summary_dict
             Array of MCMC samples and dictionary of statistics.
         """
+        from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
 
@@ -221,6 +225,7 @@ class ComplexAfterFit:
         summary_dict
             Dictionary of parameter estimates and uncertainties.
         """
+        from sheap.ComplexAfterFit.Samplers.SingleSampler import SingleSampler
         sampler = SingleSampler(self)
         
         return sampler.posterior_physical_parameters(extra_products = extra_products)

@@ -166,20 +166,70 @@ class SingleSampler:
             }
         return basic_params
     
-    def posterior_physical_parameters(self,extra_products=True):
+    def posterior_physical_parameters(self,extra_products=True,combine_components=False):
         
         basic_params =  self.extract_basic_line_parameters()
         if not extra_products:
             result = {"basic_params":basic_params}
         else:
-            #TODO: add combination rutine 
-            region_group = self.complex_class.group_by("region")
-            cont_group = region_group["continuum"]
-            cont_idx   = cont_group.flat_param_indices_global
-            #
-            cont_params= self.params[:, cont_idx] #(n,n_params)
-            ucont_params= self.uncertainty_params[:, cont_idx] #(n,n_params)
-            #
+            if combine_components and "broad" in basic_params and "narrow" in basic_params:
+                combined = {}
+                lines_combined = []
+
+                for line in LINES_TO_COMBINE:
+                    broad_lines = basic_params["broad"]["lines"]
+                    narrow_lines = basic_params["narrow"]["lines"]
+
+                    idx_broad = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
+                    idx_narrow = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
+
+                    if len(idx_broad) >= 2 and len(idx_narrow) == 1:
+                        N = self.params.shape[0]
+
+                        # Broad
+                        amp_b = basic_params["broad"]["amplitude"][:, idx_broad].value
+                        mu_b = basic_params["broad"]["center"][:, idx_broad].value
+                        fwhm_kms_b = basic_params["broad"]["fwhm_kms"][:, idx_broad].value
+
+                        params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
+
+                        # Narrow
+                        amp_n = basic_params["narrow"]["amplitude"][:, idx_narrow].value
+                        mu_n = basic_params["narrow"]["center"][:, idx_narrow].value
+                        fwhm_kms_n = basic_params["narrow"]["fwhm_kms"][:, idx_narrow].value
+                        params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
+
+                        fwhm_c, amp_c, mu_c = combine_fast(
+                            params_broad, params_narrow,
+                            limit_velocity=limit_velocity, c=self.c
+                        )
+
+                        fwhm_A = (fwhm_c / self.c) * mu_c
+                        flux_c = calc_flux(np.array(amp_c), np.array(fwhm_A))
+                        cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
+
+                        L_line = calc_luminosity(np.array(self.d), flux_c, mu_c)
+                        eqw_c = flux_c / cont_c
+
+                        combined[line] = {
+                            "amplitude": amp_c,
+                            "center": mu_c,
+                            "fwhm_kms": fwhm_c,
+                            "fwhm": fwhm_A,
+                            "flux": flux_c,
+                            "luminosity": L_line,
+                            "eqw": eqw_c
+                        }
+
+                        lines_combined.append(line)
+
+                        region_group = self.complex_class.group_by("region")
+                        cont_group = region_group["continuum"]
+                        cont_idx   = cont_group.flat_param_indices_global
+                        #
+                        cont_params= self.params[:, cont_idx] #(n,n_params)
+                        ucont_params= self.uncertainty_params[:, cont_idx] #(n,n_params)
+                        #
             #cont_fun   = cont_group.combined_profile
             
             L_w, L_bol = {}, {}
@@ -199,6 +249,8 @@ class SingleSampler:
         
             broad_params = basic_params.get("broad")
             extras = {}
+            
+            
             if broad_params:
                 fwhm_kms_all = broad_params.get("fwhm_kms")
                 lum_all = broad_params.get("luminosity")

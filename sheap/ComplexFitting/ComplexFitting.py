@@ -204,7 +204,7 @@ class ComplexFitting:
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
-        
+        run_montecarlo = False #
         ) -> None:
         """
         Execute the full fitting routine on provided spectra.
@@ -255,6 +255,8 @@ class ComplexFitting:
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
             raise TypeError("fitting_routine must be a dictionary.")
+        # if isinstance(init_params, np.ndarray):
+        #     params = jnp.tile(init_params, (spectra.shape[0], 1))
         total_time = 0
         for i, (key, step) in enumerate(self.fitting_routine.items()):
             print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
@@ -280,11 +282,34 @@ class ComplexFitting:
             start_time = time.time()  # 
             uncertainty_params = Errorfromloop(self.model,norm_spec,params,dependencies)
             end_time = time.time()  # 
-            elapsed = end_time - start_time
+            
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
             total_time += elapsed
+        if run_montecarlo:
+            from tqdm import tqdm
+            print("Run montecarlo.")
+            n_samples = 10 
+            param_min = np.array(self.constraints)[:,0]
+            param_max = np.array(self.constraints)[:,1]
+            samples = np.random.uniform(param_min[:, None], param_max[:, None], (len(param_min), n_samples)).T
+            monte_params = []
+            start_time = time.time()  #
+            iterator =tqdm(samples, total=n_samples, desc="Sampling obj")
+            for p in iterator:
+                p = jnp.tile(p, (spectra.shape[0], 1))
+                params_m, loss = self._fit(i,norm_spec, self.model, p, **step,penalty_function=penalty_function,method=method,
+                                        penalty_weight = penalty_weight,
+                                            curvature_weight = curvature_weight,
+                                            smoothness_weight = smoothness_weight,
+                                            max_weight = max_weight,verbose=False)
+                monte_params.append(params_m)
+            end_time = time.time() 
+            elapsed = end_time - start_time
+            print(f"Time for montecarlo: {elapsed:.2f} seconds")
+            total_time += elapsed
+            self.monte_params = monte_params
+                
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
-        
         self.dependencies = dependencies
         self.mask = mask
         self._postprocess(norm_spec, params, uncertainty_params, scale)
@@ -312,7 +337,7 @@ class ComplexFitting:
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
-         
+        verbose = True
     ) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX‑based minimization using Minimizer.
@@ -345,8 +370,8 @@ class ComplexFitting:
         RuntimeError
             If minimizer encounters an error.
         """
-        print(
-            "learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
+        if verbose:
+            print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
         
         list_dependencies = self._build_tied(tied)
 
