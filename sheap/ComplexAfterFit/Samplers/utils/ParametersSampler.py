@@ -1,9 +1,8 @@
-"""This module handles basic operations."""
+"""I have to change the name of this function is not clear neither for me what is inside."""
 __version__ = '0.1.0'
 __author__ = 'Unknown'
 # Auto-generated __all__
 __all__ = [
-    "calculate_single_epoch_masses",
     "combine_fast",
     "compute_fwhm_split",
     "extract_basic_line_parameters",
@@ -23,127 +22,12 @@ from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
 
 from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import summarize_nested_samples
 
-from .physicalfunctions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_black_hole_mass,calc_black_hole_mass_gh2015
-
+from sheap.ComplexAfterFit.Samplers.utils.physicalfunctions import calc_flux,calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params
 
 from sheap.Utils.Constants  import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c
 
 
 
-
-@jit
-def combine_fast(
-    params_broad: jnp.ndarray,
-    params_narrow: jnp.ndarray,
-    limit_velocity: float = 150.0,
-    c: float = 299_792.0,
-) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    """
-    Combine any number of broad Gaussians + a narrow Gaussian per object,
-    returning only (fwhm_final, amp_final, mu_final).
-
-    Inputs
-    ------
-    params_broad : (N, 3*n_broad) array: [amp_i, mu_i, fwhm_i,...].
-    params_narrow: (N, 3) array: [amp_n, mu_n, fwhm_n] but only mu_n used.
-    limit_velocity : velocity threshold for virial filtering.
-    c              : speed of light (same units as velocities).
-
-    Returns
-    -------
-    fwhm_final : (N,) — chosen FWHM (in same units as input).
-    amp_final  : (N,) — chosen amplitude.
-    mu_final   : (N,) — chosen center.
-    """
-    N = params_broad.shape[0]
-    n_broad = params_broad.shape[1] // 3
-    broad = params_broad.reshape(N, n_broad, 3)
-    amp_b, mu_b, fwhm_b = broad[..., 0], broad[..., 1], broad[..., 2]
-
-    # 1) Weighted mean center & moment‐based FWHM
-    total_amp = jnp.sum(amp_b, axis=1)                      # (N,)
-    mu_eff    = jnp.sum(amp_b * mu_b, axis=1) / total_amp
-
-    invf = 1.0 / 2.35482
-    var_i   = (fwhm_b * invf) ** 2                          # variance per component
-    dif2    = (mu_b - mu_eff[:, None]) ** 2
-    var_eff = jnp.sum(amp_b * (var_i + dif2), axis=1) / total_amp
-    fwhm_eff= jnp.sqrt(var_eff) * 2.35482                   # (N,)
-
-    # 2) Closest‐to‐narrow component
-    mu_nar   = params_narrow[:, 1]
-    rel_vel  = jnp.abs((mu_b - mu_nar[:, None]) / mu_nar[:, None]) * c
-    idx_near = jnp.argmin(rel_vel, axis=1)
-
-    sel = lambda arr: arr[jnp.arange(N), idx_near]
-    fwhm_nb  = sel(fwhm_b)
-    amp_nb   = sel(amp_b)
-    mu_nb    = sel(mu_b)
-
-    # 3) Amplitude‐ratio mask
-    amp_ratio = jnp.min(amp_b, axis=1) / jnp.max(amp_b, axis=1)
-    mask_amp  = amp_ratio > 0.1
-
-    fwhm_choice = jnp.where(mask_amp, fwhm_eff, fwhm_nb)
-    amp_choice  = jnp.where(mask_amp, total_amp, amp_nb)
-    mu_choice   = jnp.where(mask_amp, mu_eff, mu_nb)
-
-    # 4) Virial filter
-    mask_vir = jnp.min(rel_vel, axis=1) >= limit_velocity
-    fwhm_final = jnp.where(mask_vir, fwhm_nb,    fwhm_choice)
-    amp_final  = jnp.where(mask_vir, amp_nb,     amp_choice)
-    mu_final   = jnp.where(mask_vir, mu_nb,      mu_choice)
-
-    return fwhm_final, amp_final, mu_final
-
-
-def compute_fwhm_split(profile: str,
-                       amp:   jnp.ndarray,
-                       center:jnp.ndarray,
-                       extras:jnp.ndarray) -> jnp.ndarray:
-    #i guess here it is important to add a helper to move the profile to 
-    func = PROFILE_LINE_FUNC_MAP[profile]
-
-    # build the named‐param dict on‐the‐fly:
-    # we know extras corresponds to param_names[2:]
-    names = func.param_names
-    p = { names[0]: amp,
-          names[1]: center }
-    for i,name in enumerate(names[2:]):
-        p[name] = extras[i]
-
-    # analytic cases:
-    if profile == "gaussian" or profile == "lorentzian":
-        return p["fwhm"]
-    if profile == "top_hat":
-        return p["width"]
-    if profile == "voigt_pseudo":
-        fg = p["fwhm_g"]; fl = p["fwhm_l"]
-        return 0.5346*fl + jnp.sqrt(0.2166*fl*fl + fg*fg)
-
-    # numeric‐fallback (e.g. skewed, EMG)
-    half = amp/2.0
-    def shape_fn(x):
-        return func(x, jnp.concatenate([jnp.array([amp,center]), extras]))
-    guess = p.get("fwhm", p.get("width",
-                jnp.maximum(p.get("fwhm_g",0), p.get("fwhm_l",0))))
-    lo,hi = center-5*guess, center+5*guess
-    xs = jnp.linspace(lo, hi, 2001)
-    ys = shape_fn(xs)
-
-    maskL = (xs<center)&(ys<=half)
-    maskR = (xs> center)&(ys<=half)
-    xL = jnp.max(jnp.where(maskL, xs, lo))
-    xR = jnp.min(jnp.where(maskR, xs, hi))
-    return xR - xL
-
-def make_batch_fwhm_split(profile: str):
-    
-    single = partial(compute_fwhm_split, profile)
-    over_lines = vmap(single, in_axes=(0, 0, 0))
-    batcher    = vmap(over_lines, in_axes=(0, 0, 0))
-
-    return batcher
 
 def extract_basic_line_parameters(
     full_samples: np.ndarray,
@@ -283,92 +167,6 @@ def extract_basic_line_parameters(
 
     return basic_params
 
-
-def calculate_single_epoch_masses(
-    broad_params: Dict[str, Any],
-    L_w: Dict[str, np.ndarray],
-    L_bol: Dict[str, np.ndarray],
-    estimators: Dict[str, Dict[str, Any]],
-    c: float,
-    combine_mode = False
-) -> Dict[str, Dict[str, np.ndarray]]:
-    """
-    From a broad‐line params dict and precomputed L_w / L_bol,
-    compute single‐epoch M_BH, L_Edd, and ṁ for any matching lines.
-
-    broad_params must have:
-      - "fwhm_kms": array (N, n_lines)
-      - "lines":    list of length n_lines
-
-    Returns a dict mapping line_name → {
-      "Lwave", "Lbol", "fwhm_kms", "log10_smbh", "Ledd", "mdot_msun_per_year"
-    }
-    """
-    masses: Dict[str, Dict[str, np.ndarray]] = {}
-    fwhm_kms_all = broad_params.get("fwhm_kms")
-    lum_all = broad_params.get("luminosity")
-    line_list    = np.array(broad_params.get("lines", []))
-    if combine_mode:
-        #print("combine_mode")
-        line_list = np.array(list(broad_params.keys()))
-        fwhm_kms_all =  np.stack([broad_params[l]["fwhm_kms"] for l in line_list],axis=1)
-        lum_all =  np.stack([broad_params[l]["luminosity"] for l in line_list],axis=1)
-        #print(line_list,fwhm_kms_all.shape)
-    if fwhm_kms_all is None or line_list.size == 0:
-        #print("a")
-        return masses
-
-    N = fwhm_kms_all.shape[0]
-
-    for line_name, est in estimators.items():
-        lam  = est["wavelength"]
-        wstr = str(int(lam))
-
-        if line_name not in line_list or wstr not in L_w:
-            continue
-
-        idxs    = np.where(line_list == line_name)[0]
-        fkm     = fwhm_kms_all[:, idxs].squeeze()   # (N,) or (N,1)
-        # fetch & align luminosities
-        Lmono   = L_w[wstr]                         # (N,)
-        Lbolval = L_bol[wstr]                       # (N,)
-
-        # broadcast to match fkm dims if needed
-        if fkm.ndim == 2:
-            Lmono   = Lmono[..., None]
-            Lbolval = Lbolval[..., None]
-
-        # single‐epoch mass
-        mbh_samp = calc_black_hole_mass(Lmono, fkm, est)
-
-        # Eddington luminosity
-        L_edd    = 1.26e38 * mbh_samp  # [erg/s]
-
-        # mass‐accretion rate (M⊙/yr)
-        eta      = 0.1
-        c_cm     = c * 1e5             # km/s → cm/s
-        M_sun_g  = 1.98847e33          # g
-        sec_yr   = 3.15576e7
-
-        mdot_gs  = Lbolval / (eta * c_cm**2)  
-        mdot_yr  = mdot_gs / M_sun_g * sec_yr
-
-        masses[line_name] = {
-            "Lwave":              Lmono,
-            "Lbol":               Lbolval,
-            "fwhm_kms":           fkm,
-            "log10_smbh":         np.log10(mbh_samp),
-            "Ledd":               L_edd,
-            "mdot_msun_per_year": mdot_yr,
-        }
-        if line_name=="Halpha":
-            #https://iopscience.iop.org/article/10.1088/0004-637X/813/2/82/pdf
-            Lhalpha     = lum_all[:, idxs].squeeze()   # (N,) or (N,1)
-            masses[line_name].update({"log10_smbh_halpha":calc_black_hole_mass_gh2015(Lhalpha,fkm)})
-    
-    return masses
-
-
 def posterior_parameters(
     wl_i: np.ndarray,
     flux_i: np.ndarray,
@@ -477,7 +275,7 @@ def posterior_parameters(
     
         broad = basic_params.get("broad")
         if broad:
-            extra_params = calculate_single_epoch_masses(broad,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c) #for broad
+            extra_params = extra_params(broad,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c) #for broad
         #names have to be improve 
         result = {
             "basic_params": basic_params,
@@ -488,7 +286,7 @@ def posterior_parameters(
         }
         if len(combined.keys())>0:
             #combined["lines"] = Line
-            combined["extras"] = calculate_single_epoch_masses(combined,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c,combine_mode=True) #for broad
+            combined["extras"] = extra_params(combined,L_w,L_bol,SINGLE_EPOCH_ESTIMATORS,c,combine_mode=True) #for broad
             result["combined"] = combined
 
     if summarize:

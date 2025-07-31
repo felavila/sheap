@@ -44,6 +44,7 @@ def with_param_names(param_names: list[str]):
 #     return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)
 #here add the function to reconstruct sum_gaussian_amplitude_free 
 
+
 def make_integrator(profile_fn, method="broadcast"):
     """
     profile_fn : callable

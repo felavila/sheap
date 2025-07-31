@@ -15,17 +15,20 @@ import numpy as np
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params
-from .utils.ParametersSampler import posterior_parameters
+from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
+#from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_fast
+#from .utils.ParametersSampler import posterior_parameters
 
-
-class MonteCarloSampler:
+class PseudoMonteCarloSampler:
     """
-    Monte Carlo sampler for spectral fit results and parameter uncertainties.
+    Approximate posterior sampling via local Gaussian (Laplace) expansion
     BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS should came from ParameterEstimation
     """
-    def __init__(self, estimator: "ParameterEstimation"):
+    
+    def __init__(self, estimator: "ComplexAfterFit"):
         
         self.estimator = estimator  # ParameterEstimation instance
+        self.afterfitparams = AfterFitParams(estimator)
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
@@ -40,7 +43,6 @@ class MonteCarloSampler:
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
         self.names = estimator.names 
         self.complex_class = estimator.complex_class
-    
     def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,extra_products =True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from tqdm import tqdm
         
@@ -54,8 +56,6 @@ class MonteCarloSampler:
         params = descale_amp(self.params_dict,self.params,scale[:, None])
         #idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
         #params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
-        
-        
         names = self.names 
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
         model = self.model
@@ -98,12 +98,14 @@ class MonteCarloSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #full_samples.at[:, idxs].multiply(scale[n])
-            dic_posterior_params[name_i] = posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
-                                                                                ,np.full((num_samples,), self.d[n],dtype=np.float64),
-                                                                                c=self.c,
-                                                                                BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
-                                                                                summarize=summarize,extra_products=extra_products)
+            dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(full_samples,n)
+            
+            #posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
+            #                                                                     ,np.full((num_samples,), self.d[n],dtype=np.float64),
+            #                                                                     c=self.c,
+            #                                                                     BOL_CORRECTIONS=self.BOL_CORRECTIONS,
+            #                                                                     SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
+            #                                                                     summarize=summarize,extra_products=extra_products)
             
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
         iterator.close()

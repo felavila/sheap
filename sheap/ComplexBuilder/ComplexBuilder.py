@@ -341,7 +341,7 @@ class ComplexBuilder:
         for idx in range(total):
             region = 'narrow' if idx < n_narrow else 'broad'
             comp_num = idx + 1 if region == 'narrow' else idx - n_narrow + 1
-            amp = 1.0 if comp_num == 1 else 1.0/comp_num
+            amp = 1.0 #if comp_num == 1 else 1.0/comp_num
             new = SpectralLine(
                 center=entry.center,
                 line_name=entry.line_name,
@@ -357,7 +357,7 @@ class ComplexBuilder:
                     line_name=entry.line_name,
                     region ='winds',
                     component = self.WINDS_COMPONENT,
-                    amplitude=0.5,
+                    amplitude=1.0,
                     element = entry.element,
                 )
                 comps.append(out)
@@ -386,7 +386,7 @@ class ComplexBuilder:
         """
         comps: List[SpectralLine] = []
         for idx in range(n_narrow):
-            amp = 1 if idx == 0 else 0.5
+            amp = 1.0
             if entry.rarity=="uncommon" and not add_uncommon_narrow:
                 continue 
             new = SpectralLine(
@@ -405,7 +405,7 @@ class ComplexBuilder:
                     line_name=entry.line_name,
                     region ='outflow',
                     component = self.OUTFLOW_COMPONENT,
-                    amplitude=0.5,
+                    amplitude=1.0,
                     element = entry.element,
                     rarity = entry.rarity)
                 
@@ -436,7 +436,7 @@ class ComplexBuilder:
         for idx in range(n_broad):
             if idx>0:
                 continue 
-            amp = 1 if idx == 0 else 0.5
+            amp = 1 #if idx == 0 else 0.5
             new = SpectralLine(
                 center=entry.center,
                 line_name=entry.line_name,
@@ -453,7 +453,7 @@ class ComplexBuilder:
                     line_name=entry.line_name,
                     region ='winds',
                     component = self.WINDS_COMPONENT,
-                    amplitude=0.5,
+                    amplitude=1.0,
                     element = entry.element,
                 )
                 comps.append(out)

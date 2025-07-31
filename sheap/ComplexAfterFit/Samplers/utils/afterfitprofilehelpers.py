@@ -21,8 +21,7 @@ import jax.numpy as jnp
 from jax import vmap,grad,jit
 
 
-#afterfitprofilehelpers This is the extended name of this.
-
+#afterfitprofilehelpers This is the extended name of this. This function exist in Profiles?
 def trapz_jax(y: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
     dx = x[1:] - x[:-1]
     return jnp.sum((y[1:] + y[:-1]) * dx / 2)

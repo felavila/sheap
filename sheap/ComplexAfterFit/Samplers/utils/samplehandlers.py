@@ -124,10 +124,13 @@ def pivot_and_split(obj_names, result):
                 'value': node.value[idx].squeeze(),
                 'error': node.error[idx].squeeze()
             }
+        if isinstance(node, np.ndarray) and node.shape[0] == len(obj_names):
+            return {'value': node[idx].squeeze(),'error':0}
         # 3) array/list/tuple → index
         if isinstance(node, (np.ndarray, list, tuple)):
             return node
-
+        
+        warnings.warn(f"Unhandled node type {type(node).__name__} for value: {node}")
     return {
         obj_name: _recurse(result, obj_idx)
         for obj_idx, obj_name in enumerate(obj_names)

@@ -400,7 +400,7 @@ class Sheapectral:
                 chi2_red = fit_output.chi2_red)
 
             self.plotter = SheapPlot(sheap=self)
-    def afterfit(self,sampling_method="no_sampling", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
+    def afterfit(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                          num_warmup=500,n_random=1_000,extra_products=True):
         """
         Estimate or sample posterior distributions of fit parameters.
@@ -446,13 +446,14 @@ class Sheapectral:
         if self.result.posterior and not overwrite:
             print("Warning already run if you want to run again please put overwrite=True")
         else:
-            if sampling_method.lower()=="montecarlo":
-                dic_posterior_params = PM.sample_montecarlo(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
+            #pseudomontecarlosampler this name is to large. xd
+            if sampling_method.lower()=="pseudomontecarlosampler":
+                dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
             
-            elif  sampling_method.lower()=="no_sampling":
-                print("you choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
+            elif  sampling_method.lower()=="single":
+                print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
                 dic_posterior_params = PM.sample_single(extra_products=extra_products)
                 self.result.posterior = [{"method":"no_sampling"},dic_posterior_params]
             
@@ -614,6 +615,7 @@ class Sheapectral:
     def modelplot(self):
         """
         Get or initialize the SheapPlot plotting interface.
+        TODO modelplot or plotter?
 
         Returns
         -------

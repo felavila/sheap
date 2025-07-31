@@ -158,9 +158,9 @@ class ComplexAfterFit:
     
 
 
-    def sample_montecarlo(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
+    def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
         """
-        Run Monte Carlo parameter sampling.
+        Run pseudomontecarlosamplerparameter sampling.
 
         Parameters
         ----------
@@ -178,8 +178,9 @@ class ComplexAfterFit:
         full_samples, summary_dict
             Array of samples and dictionary of summarized statistics.
         """
-        from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
-        sampler = MonteCarloSampler(self)
+        from sheap.ComplexAfterFit.Samplers.PseudoMonteCarloSampler import PseudoMonteCarloSampler
+        self.method = "pseudomontecarlosampler"
+        sampler = PseudoMonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
         return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
@@ -225,10 +226,11 @@ class ComplexAfterFit:
         summary_dict
             Dictionary of parameter estimates and uncertainties.
         """
-        from sheap.ComplexAfterFit.Samplers.SingleSampler import SingleSampler
-        sampler = SingleSampler(self)
+        from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
+        self.method = "single"
+        afterfitparams = AfterFitParams(self)
         
-        return sampler.posterior_physical_parameters(extra_products = extra_products)
+        return afterfitparams.extract_basic_params()
         
     def _from_sheap(self, sheap):
         """
