@@ -1,5 +1,5 @@
 """
-Core type aliases and callable signatures used across SHEAP.
+Core type aliases and callable signatures used across sheap.
 
 This module defines reusable typing primitives and function signatures
 to support consistent and type-safe modeling across the codebase.
