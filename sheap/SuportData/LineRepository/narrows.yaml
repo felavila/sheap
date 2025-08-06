@@ -1,4 +1,26 @@
 # Strong, frequently‐seen forbidden narrow lines
+- line_name: OI+SiII
+  center: 1304.35
+  element: OxygenSilicon
+  rarity: common
+- line_name: CII]a
+  center: 2325.0
+  element: Carbon
+  rarity: common
+- line_name: CII]b
+  center: 2326.0
+  element: Carbon
+  rarity: common
+- line_name: CII]c
+  center: 2327.0
+  element: Carbon
+  rarity: common
+- line_name: CII]d
+  center: 2328.0
+  element: Carbon
+- line_name: "[NeIV]"
+  center: 2423.83
+  element: Neon
 - center: 3726.032
   line_name: OIIa
   element: Oxygen

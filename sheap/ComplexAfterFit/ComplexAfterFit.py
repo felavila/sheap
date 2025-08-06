@@ -2,7 +2,10 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
-__all__ = ["ComplexAfterFit",]
+# Auto-generated __all__
+__all__ = [
+    "ComplexAfterFit",
+]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
@@ -10,17 +13,15 @@ from pathlib import Path
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
-import yaml
 from astropy.cosmology import FlatLambdaCDM
 from auto_uncertainties import Uncertainty
 from jax import grad, jit,vmap
 
 
-from sheap.MainSheap import Sheapectral
+from sheap.MainSheap.Sheapectral import Sheapectral
 from sheap.Core import ComplexResult
 
 from sheap.Profiles.utils import make_fused_profiles
-
 
 
 from sheap.Utils.Constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
@@ -154,9 +155,6 @@ class ComplexAfterFit:
 
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
        
-    
-    
-
 
     def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
         """
@@ -179,12 +177,38 @@ class ComplexAfterFit:
             Array of samples and dictionary of summarized statistics.
         """
         from sheap.ComplexAfterFit.Samplers.PseudoMonteCarloSampler import PseudoMonteCarloSampler
-        self.method = "pseudomontecarlosampler"
+        self.method = "pseudomontecarlos"
         sampler = PseudoMonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
         return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
     
+    def montecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
+        """
+        Run montecarlosampler sampling.
+
+        Parameters
+        ----------
+        num_samples : int, optional
+            Number of samples to draw.
+        key_seed : int, optional
+            Seed for random number generator.
+        summarize : bool, optional
+            If True, summarize posterior distributions.
+        extra_products : bool, optional
+            Whether to return additional derived products.
+
+        Returns
+        -------
+        full_samples, summary_dict
+            Array of samples and dictionary of summarized statistics.
+        """
+        from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
+        self.method = "montecarlo"
+        sampler = MonteCarloSampler(self)
+        if summarize:
+            print("The samples will be summarize is you want to keep the samples summarize=False")
+        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
     
     def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, extra_products=True):
         """
@@ -209,6 +233,7 @@ class ComplexAfterFit:
             Array of MCMC samples and dictionary of statistics.
         """
         from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
+        self.method = "mcmc"
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
 
@@ -263,7 +288,8 @@ class ComplexAfterFit:
         self.params_dict = result.params_dict
         self.dependencies = result.dependencies
         self.complex_class = result.complex_class
-        
+        self.fitkwargs = result.fitkwargs
+        self.initial_params = result.initial_params
         
 
     def _from_complexresult(self, result, spectra, z):
@@ -295,3 +321,5 @@ class ComplexAfterFit:
         self.model = jit(make_fused_profiles(self.profile_functions)) #mmm
         self.params_dict = result.params_dict
         self.constraints = result.constraints
+        self.fitkwargs = result.fitkwargs
+        self.initial_params = result.initial_params

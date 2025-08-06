@@ -1,9 +1,9 @@
 """This module handles basic operations."""
 __version__ = '0.1.0'
-__author__ = 'Unknown'
+__author__ = 'Felipe Avila-Vera'
 # Auto-generated __all__
 __all__ = [
-    "MonteCarloSampler",
+    "PseudoMonteCarloSampler",
 ]
 
 from typing import Tuple, Dict, List
@@ -99,28 +99,5 @@ class PseudoMonteCarloSampler:
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #full_samples.at[:, idxs].multiply(scale[n])
             dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(full_samples,n)
-            
-            #posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
-            #                                                                     ,np.full((num_samples,), self.d[n],dtype=np.float64),
-            #                                                                     c=self.c,
-            #                                                                     BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-            #                                                                     SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
-            #                                                                     summarize=summarize,extra_products=extra_products)
-            
-            #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
         iterator.close()
         return dic_posterior_params
-    
-    
-    # def posterior_parameters(
-    # wl_i: np.ndarray,
-    # flux_i: np.ndarray,
-    # yerr_i: np.ndarray,
-    # mask_i: np.ndarray,
-    # full_samples: np.ndarray,
-    # region_group: Any,
-    # distances: np.ndarray,
-    # BOL_CORRECTIONS: Dict[str, float],
-    # SINGLE_EPOCH_ESTIMATORS: Dict[str, Dict[str, Any]],
-    # c: float,
-    # summarize: bool = False,

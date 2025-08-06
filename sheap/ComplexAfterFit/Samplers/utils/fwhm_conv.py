@@ -1,4 +1,6 @@
 """Tools to move line profiles to fwhm. This should be moved to profiles"""
+__version__ = '0.1.0'
+__author__ = 'Felipe Avila-Vera'
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 

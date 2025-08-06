@@ -6,7 +6,7 @@ __all__ = [
     "batched_evaluate",
     "evaluate_with_error",
     "evaluate_with_error",
-    "integrate_batch",
+    "integrate_batch_with_error",
     "integrate_function_error",
     "integrate_function_error_single",
     "integrate_function_error_single",
@@ -33,7 +33,7 @@ def integrate_function_error_single(function, x, p, sigma_p):
     return y_int, sigma_f
 
 
-def integrate_batch(function, x, p, sigma_p):
+def integrate_batch_with_error(function, x, p, sigma_p):
     n, lines, params = p.shape
     p_flat     = p.reshape((n * lines, params))
     sigma_flat = sigma_p.reshape((n * lines, params))

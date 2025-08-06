@@ -18,14 +18,16 @@ from numpyro.infer.initialization import init_to_value
 #
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp
+from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
 from .utils.numpyroutils import make_numpyro_model
-from .utils.ParametersSampler import posterior_parameters
+#from .utils.ParametersSampler import posterior_parameters
 
 
 class McMcSampler:
-    def __init__(self, estimator: "ParameterEstimation"):
+    def __init__(self, estimator: "ComplexAfterFit"):
         
-        self.estimator = estimator  # ParameterEstimation instance
+        self.estimator = estimator  
+        self.afterfitparams = AfterFitParams(estimator)
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
@@ -65,7 +67,7 @@ class McMcSampler:
         fixed_params = {}
         if not list_of_objects:
             import numpy as np 
-            print("The mcmc will be runend for all the sample")
+            print("The mcmc will run for all the objects")
             list_of_objects = np.arange(norm_spec.shape[0])
         dic_posterior_params = {}
         #matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
@@ -90,12 +92,7 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-            dic_posterior_params[name_i] = posterior_parameters(wl_i, flux_i, yerr_i,mask_i,full_samples,self.complex_class
-                                                                                ,np.full((num_samples,), self.d[n],dtype=np.float64),
-                                                                                c=self.c,
-                                                                                BOL_CORRECTIONS=self.BOL_CORRECTIONS,
-                                                                                SINGLE_EPOCH_ESTIMATORS=self.SINGLE_EPOCH_ESTIMATORS,
-                                                                                summarize=summarize,extra_products=extra_products)
+            dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(full_samples,n)
             #iterator.close()
-            return dic_posterior_params
+        return dic_posterior_params
        

@@ -171,3 +171,30 @@ def summarize_nested_samples(d: dict) -> dict:
         else:
             summarized[k] = v
     return summarized
+
+
+
+#TODO the functions to handle the after sapling methods are still in developed process like take the best "parameters" and teh 1sigma plot 
+# import numpy as np 
+
+# fwhm_kms_all = broad_params.get("fwhm_kms")
+# lum_all = broad_params.get("luminosity")
+# line_list = np.array(broad_params.get("lines", []))
+# component_list = np.array(broad_params.get("component", []))
+
+# def ensure_column_matrix(x):
+#     #to utils.
+#     x = np.asarray(x)
+#     if x.ndim == 1:
+#         return x.reshape(-1, 1)  # Convert to (N, 1)
+#     return x
+
+
+# #print(estimators.keys())
+# for line_name  in ['Halpha']:
+   
+#     idxs = np.where(line_list == line_name)[0]
+
+#     compt = component_list[idxs]
+#     fkm = ensure_column_matrix(fwhm_kms_all)[:, idxs].squeeze()
+#     lum_custom = ensure_column_matrix(lum_all)[:, idxs].squeeze()

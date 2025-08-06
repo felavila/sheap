@@ -2,12 +2,13 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
+# Auto-generated __all__
 __all__ = [
     "build_grid_penalty",
     "make_fused_profiles",
     "make_integrator",
-    "with_param_names",
     "trapz_jax",
+    "with_param_names",
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union

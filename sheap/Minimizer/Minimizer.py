@@ -74,7 +74,7 @@ class Minimizer:
         self.lbfgs_options = lbfgs_options or {}
         #self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
         #print(method,penalty_weight,curvature_weight,smoothness_weight,max_weight)
-        self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
+        #self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
 
         self.loss_function, self.optimize_model = Minimizer.minimization_function(
             self.func,

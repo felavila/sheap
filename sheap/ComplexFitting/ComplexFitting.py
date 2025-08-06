@@ -2,11 +2,8 @@
 from __future__ import annotations
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
-__all__ = [
-    "ComplexFitting",
-    "logger",
-]
+
+__all__ = ["ComplexFitting","logger",]
 
 import logging
 #from dataclasses import dataclass
@@ -20,8 +17,8 @@ from jax import jit,vmap
 
 from sheap.Core import FittingLimits, SpectralLine,ComplexResult
 
-from sheap.Assistants.Parameters import Parameters
-from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value
+from sheap.Assistants.Parameters import _build_Parameters
+from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value,build_tied,flatten_tied_map,parse_dependencies
 
 
 from sheap.Minimizer.Minimizer import Minimizer
@@ -187,22 +184,22 @@ class ComplexFitting:
         self._build_fit_components(profile = profile)
         self.model = jit(make_fused_profiles(self.profile_functions))
         self.host_info = {}
+    
     def __call__(
         self,
         spectra: Union[List[Any], jnp.ndarray],
         force_cut: bool = False,
-        run_uncertainty_params=True,
-        
-        inner_limits: Optional[Tuple[float, float]] = None,
+        covariance_error = True,
+        list_num_steps = None,
+        list_learning_rate =None,
+        inner_limits: Optional[Tuple[float, float]] = None, 
         outer_limits: Optional[Tuple[float, float]] = None,
-        learning_rate=None,
         add_penalty_function = False,
         method = "adam",
         penalty_weight: float = 0.01,
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
-        run_montecarlo = False #
         ) -> None:
         """
         Execute the full fitting routine on provided spectra.
@@ -253,60 +250,48 @@ class ComplexFitting:
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
             raise TypeError("fitting_routine must be a dictionary.")
-        # if isinstance(init_params, np.ndarray):
-        #     params = jnp.tile(init_params, (spectra.shape[0], 1))
+        #list_num_steps =
+        #list_learning_rate = 
+        if list_num_steps and list_learning_rate:
+            assert len(list_num_steps) == len(list_learning_rate), "The  list_num_steps and list_learning_rate should be equal"
+            n_steps = len(list_learning_rate)
+        else:
+            n_steps = len(list(self.fitting_routine.keys()))
         total_time = 0
-        for i, (key, step) in enumerate(self.fitting_routine.items()):
-            print(f"\n{'='*40}\n{key.upper()} (step {i+1}) free params {self.initial_params.shape[0]-len(step['tied'])}")
-            step["non_optimize_in_axis"] = 4 #experimental  
-            if isinstance(learning_rate,list):
-                step["learning_rate"] = learning_rate[i]
-                
+        self._fitkwargs = []
+        for _step in range(n_steps):
+            key = f"step{_step+1}"
+            step = self.fitting_routine[key]
+            if isinstance(list_learning_rate,list):
+                step["learning_rate"] = list_learning_rate[_step]
+            if isinstance(list_num_steps,list):
+                step["num_steps"] = list_num_steps[_step]
+            print(f"\n{'='*40}\n{key.upper()} ({key}) free params {self.initial_params.shape[0]-len(step['tied'])}")
+            step["non_optimize_in_axis"] = 4 #experimental 
             start_time = time.time()  # 
-            params, loss = self._fit(i,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
+            params, loss = self._fit(_step,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
                                      penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight,
                                         smoothness_weight = smoothness_weight,
                                         max_weight = max_weight)
             uncertainty_params = jnp.zeros_like(params)
-            end_time = time.time()  # 
+            end_time = time.time() 
             elapsed = end_time - start_time
             print(f"Time for step '{key}': {elapsed:.2f} seconds")
             total_time += elapsed
-        
+            self._fitkwargs.append({**step,"method":method,"penalty_weight" : penalty_weight,
+                                            "curvature_weight" : curvature_weight,
+                                            "smoothness_weight" : smoothness_weight,
+                                            "max_weight" : max_weight})    
         dependencies = parse_dependencies(self._build_tied(step["tied"]))
-        if run_uncertainty_params:
+        if covariance_error:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 
             uncertainty_params = Errorfromloop(self.model,norm_spec,params,dependencies)
             end_time = time.time()  # 
             
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
-            total_time += elapsed
-        if run_montecarlo:
-            from tqdm import tqdm
-            print("Run montecarlo.")
-            n_samples = 10 
-            param_min = np.array(self.constraints)[:,0]
-            param_max = np.array(self.constraints)[:,1]
-            samples = np.random.uniform(param_min[:, None], param_max[:, None], (len(param_min), n_samples)).T
-            monte_params = []
-            start_time = time.time()  #
-            iterator =tqdm(samples, total=n_samples, desc="Sampling obj")
-            for p in iterator:
-                p = jnp.tile(p, (spectra.shape[0], 1))
-                params_m, loss = self._fit(i,norm_spec, self.model, p, **step,penalty_function=penalty_function,method=method,
-                                        penalty_weight = penalty_weight,
-                                            curvature_weight = curvature_weight,
-                                            smoothness_weight = smoothness_weight,
-                                            max_weight = max_weight,verbose=False)
-                monte_params.append(params_m)
-            end_time = time.time() 
-            elapsed = end_time - start_time
-            print(f"Time for montecarlo: {elapsed:.2f} seconds")
-            total_time += elapsed
-            self.monte_params = monte_params
-                
+            total_time += elapsed            
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         self.dependencies = dependencies
         self.mask = mask
@@ -370,21 +355,33 @@ class ComplexFitting:
         """
         if verbose:
             print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
+        list_dependencies = parse_dependencies(self._build_tied(tied))
+        tied_map = {T[1]: T[2:] for  T in list_dependencies}
+        tied_map = flatten_tied_map(tied_map)
         
-        list_dependencies = self._build_tied(tied)
-
-        params_obj = Parameters()
-        for name, idx in self.params_dict.items():
-            if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
-                val = initial_params[:,idx]
-                #print(val.shape)
-                min,max = self.constraints[idx]
-                params_obj.add(name, val, fixed=True)
-            else:
-                val = self.initial_params[idx]
-                min,max = self.constraints[idx]
-                params_obj.add(name, val, min=min, max=max)
+        params_obj = _build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
+        
+        # params_obj = Parameters()
+        # #(target, source, op, operand)
+        # for name, idx in self.params_dict.items():
+        #     #print(name, idx)
+        #     val = initial_params[:,idx]
+        #     min,max = self.constraints[idx]
+        #     if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
+        #         params_obj.add(name, val, fixed=True)
+        #     elif idx in tied_map.keys():
+        #         src_idx, op, operand = tied_map[idx]
+        #         #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
+        #         src_name = list(self.params_dict.keys())[src_idx]
+        #         tie = (name, src_name, op, operand)
+        #         print(tie)
+        #         params_obj.add(name, val, min=min, max=max, tie=tie)
             
+        #     else:
+        #         val = self.initial_params[idx]
+        #         min,max = self.constraints[idx]
+        #         params_obj.add(name, val, min=min, max=max)
+        # #print(params_obj.specs)
         raw_init = params_obj.phys_to_raw(initial_params)
         
         self.params_obj = params_obj
@@ -398,10 +395,7 @@ class ComplexFitting:
             param_converter=params_obj,
             penalty_function = penalty_function,
         method=method,
-        penalty_weight= penalty_weight,
-                                        curvature_weight= curvature_weight,
-                                        smoothness_weight= smoothness_weight,
-                                        max_weight= max_weight)
+        penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         try:
             raw_params, loss = minimizer(raw_init, *norm_spec.transpose(1, 0, 2), self.constraints)
             params = params_obj.raw_to_phys(raw_params)
@@ -615,34 +609,40 @@ class ComplexFitting:
         list[str]
             Dependency expressions for the minimizer.
         """
+        return build_tied(tied_params,self.get_param_coord_value)
         
-        list_tied_params = []
-        if len(tied_params) > 0:
-            for tied in tied_params:
-                param1, param2 = tied[:2]
-                pos_param1, val_param1, param_1 = self.get_param_coord_value(
-                    *param1.split("_")
-                )
-                pos_param2, val_param2, param_2 = self.get_param_coord_value(
-                    *param2.split("_")
-                )
-                if len(tied) == 2:
-                    if param_1 == param_2 == "center" and len(tied):
-                        delta = val_param1 - val_param2
-                        tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
-                    elif param_1 == param_2:
-                        tied_val = "*1"
-                    else:
-                        print(f"Define constraints properly. {tied_params}")
-                else:
-                    tied_val = tied[-1]
-                if isinstance(tied_val, str):
-                    list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
-                else:
-                    print("Define constraints properly.")
-        else:
-            list_tied_params = []
-        return list_tied_params
+        # list_tied_params = []
+        # if len(tied_params) > 0:
+        #     for tied in tied_params:
+        #         param1, param2 = tied[:2]
+        #         pos_param1, val_param1, param_1 = self.get_param_coord_value(
+        #             *param1.split("_"))
+                
+        #         pos_param2, val_param2, param_2 = self.get_param_coord_value(
+        #             *param2.split("_"))
+        #         if len(tied) == 2:
+        #             if param_1 == param_2 == "center" and len(tied):
+        #                 delta = val_param1 - val_param2
+        #                 tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
+        #             elif param_1 == param_2:
+        #                 tied_val = "*1"
+        #             #elif param_1 == param_2 == "logamp":
+                       
+        #             else:
+        #                 print(f"Define constraints properly. {tied_params}")
+        #         else:
+        #             tied_val = tied[-1]
+        #         if param_1 == param_2 == "logamp":
+        #             tied_val = f"{np.log10(extract_float(tied_val))}"
+        #             #print(tied_val)
+        #         if isinstance(tied_val, str):
+        #             list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
+        #         else:
+        #             print("Define constraints properly.")
+        # else:
+        #     list_tied_params = []
+        # print("Remember move this functions to Assistants and also change it in Montecarlo.")
+        # return list_tied_params
     
     @staticmethod
     def _stack_constraints(low: List[float], high: List[float]) -> jnp.ndarray:
@@ -716,7 +716,8 @@ class ComplexFitting:
             model_keywords= self.fitting_routine.get("model_keywords"),
             residuals = self.residuals,
             free_params = self.free_params,
-            chi2_red = self.chi2_red)
+            chi2_red = self.chi2_red,
+            fitkwargs = self._fitkwargs)
         
     @classmethod
     def from_builder(

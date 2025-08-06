@@ -2,9 +2,11 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
+
 __all__ = [
     "Parameter",
     "Parameters",
+    "_build_Parameters"
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -309,3 +311,24 @@ class Parameters:
             (p.name, p.value, p.min, p.max, p.transform, p.fixed)
             for p in self._list
         ]
+
+
+
+def _build_Parameters(tied_map,params_dict,initial_params,constraints):
+    """"TODO"""
+    params_obj = Parameters()
+    for name, idx in params_dict.items():
+        val = initial_params[:,idx]
+        min,max = constraints[idx]
+        #if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
+         #   params_obj.add(name, val, fixed=True)
+        if idx in tied_map.keys():
+            src_idx, op, operand = tied_map[idx]
+            src_name = list(params_dict.keys())[src_idx]
+            tie = (name, src_name, op, operand)
+            params_obj.add(name, val, min=min, max=max, tie=tie)
+        else:
+            val = initial_params[idx]
+            min,max = constraints[idx]
+            params_obj.add(name, val, min=min, max=max)
+    return params_obj

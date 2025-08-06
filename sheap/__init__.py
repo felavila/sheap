@@ -14,10 +14,12 @@ __all__ = [
     "ComplexFitting",
     "MainSheap",
     "Minimizer",
+    "Plotting",
     "Profiles",
     "Utils",
     "cli",
 ]
+
 
 
 

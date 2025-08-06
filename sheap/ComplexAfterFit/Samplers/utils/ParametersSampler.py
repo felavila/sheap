@@ -3,10 +3,7 @@ __version__ = '0.1.0'
 __author__ = 'Unknown'
 # Auto-generated __all__
 __all__ = [
-    "combine_fast",
-    "compute_fwhm_split",
     "extract_basic_line_parameters",
-    "make_batch_fwhm_split",
     "posterior_parameters",
 ]
 

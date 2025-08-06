@@ -1,9 +1,8 @@
-
-"""This module ."""
+"""This module handles ?."""
 from __future__ import annotations
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+
 __all__ = [
     "ComplexRegion",
     "ComplexResult",
@@ -402,6 +401,7 @@ class ComplexResult:
     residuals:Optional[jnp.ndarray] = None 
     chi2_red:Optional[jnp.ndarray] = None 
     posterior:Optional[dict] = None 
+    fitkwargs:Optional[List[Dict]] = None 
     # list tuple in reality
     #kind_list: List[str] = field(init=False)
     def __post_init__(self):

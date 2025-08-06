@@ -17,13 +17,25 @@ __all__ = [
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from functools import partial
+import re 
 
 import numpy as np 
 import jax.numpy as jnp
 from jax import jit
 
 
+#TODO this is full of repeated or functions that can be simplified.
 #_, target, source, op, operand = dep
+# (target, source, op, operand)
+
+
+def extract_float(s: str) -> float:
+            # Extract the first number in the string (supports +, -, and decimal points)
+            match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', s)
+            if match:
+                return float(match.group())
+            else:
+                raise ValueError(f"No numeric value found in: {s}")
 
 def mapping_params(params_dict, params, verbose=False):
     """
@@ -281,6 +293,8 @@ def make_get_param_coord_value(
         region: str,
         verbose: bool = False,
     ) -> Tuple[int, float, str]:
+        if param == "amplitude":
+            param = "logamp" #this is assuming all the profiles in sheap use logamp but what happen in the cases where this doesn't happen :c
         key = f"{param}_{line_name}_{component}_{region}"
         pos = params_dict.get(key)
         if pos is None:
@@ -353,4 +367,130 @@ def apply_tied_and_fixed_params(
         [apply_arithmetic_ties(template_params, tie) for tie in dependencies]
     )
     return template_params
+
+
+def build_tied(tied_params,get_param_coord_value):
+    list_tied_params = []
+    if len(tied_params) > 0:
+        for tied in tied_params:
+            param1, param2 = tied[:2]
+            pos_param1, val_param1, param_1 = get_param_coord_value(*param1.split("_"))    
+            pos_param2, val_param2, param_2 = get_param_coord_value(*param2.split("_"))
+            if len(tied) == 2:
+                if param_1 == param_2 == "center" and len(tied):
+                    delta = val_param1 - val_param2
+                    tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
+                elif param_1 == param_2:
+                    tied_val = "*1"
+                else:
+                    print(f"Define constraints properly. {tied_params}") #add how to writte the constrains properly 
+            else:
+                tied_val = tied[-1]
+                if param_1 == param_2 == "logamp":
+                    tied_val = f"{np.log10(extract_float(tied_val))}"
+                    #print(tied_val)
+                if isinstance(tied_val, str):
+                    list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
+                else:
+                    print("Define constraints properly.")
+        else:
+            list_tied_params = []
+    return list_tied_params
+        #print("Remember move this functions to Assistants and also change it in Montecarlo.")
+        
+def flatten_tied_map(tied_map: dict[int, tuple[int, str, float]]) -> dict[int, tuple[int, str, float]]:
+    """
+    Resolve all ties in `tied_map` to point only to free (non-tied) sources.
+    
+    Parameters
+    ----------
+    tied_map : dict
+        Maps target index -> (source index, operator, operand)
+
+    Returns
+    -------
+    dict
+        Flattened map: target index -> (free source index, operator, operand)
+    """
+    def resolve(idx, visited=None):
+        if visited is None:
+            visited = set()
+        if idx in visited:
+            raise ValueError(f"Circular dependency detected at index {idx}")
+        visited.add(idx)
+
+        src, op, operand = tied_map[idx]
+        if src not in tied_map:
+            return src, op, operand  # base case
+
+        # resolve further back
+        src2, op2, operand2 = resolve(src, visited)
+
+        # Combine ops
+        if op == '*' and op2 == '*':
+            combined_op, combined_operand = '*', operand * operand2
+        elif op == '*' and op2 == '+':
+            combined_op, combined_operand = '*', operand  # can't combine "* followed by +"
+        elif op == '+' and op2 == '+':
+            combined_op, combined_operand = '+', operand + operand2
+        elif op == '+' and op2 == '-':
+            combined_op, combined_operand = '+', operand - operand2
+        elif op == '-' and op2 == '+':
+            combined_op, combined_operand = '-', operand + operand2
+        elif op == '-' and op2 == '-':
+            combined_op, combined_operand = '-', operand - operand2
+        elif op == '*' and op2 == '-':
+            combined_op, combined_operand = '*', operand * -1 * operand2
+        else:
+            raise NotImplementedError(f"Cannot combine {op2} followed by {op}")
+
+        return src2, combined_op, combined_operand
+
+    result = {}
+    for tgt in tied_map:
+        result[tgt] = resolve(tgt)
+    return result
+#####################################
+
+#list_dependencies = parse_dependencies(self._build_tied(tied))
+
+#                 #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
+            
+#                 tie = (name, src_name, op, operand)
+#                 print(tie)
+#                 
+            
+#             else:
+#                 val = self.initial_params[idx]
+#                 min,max = self.constraints[idx]
+#                 params_obj.add(name, val, min=min, max=max)
+# from sheap.Assistants.parser_mapper import parse_dependencies
+        
+#         list_dependencies = parse_dependencies(self._build_tied(tied))
+#         tied_map = {T[1]: T[2:] for  T in list_dependencies}
+        
+#         #print(tied_map)
+#         tied_map = flatten_tied_map(tied_map)
+#         #print()
+#         params_obj = Parameters()
+#         #(target, source, op, operand)
+#         for name, idx in self.params_dict.items():
+#             #print(name, idx)
+#             val = initial_params[:,idx]
+#             min,max = self.constraints[idx]
+#             if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
+#                 params_obj.add(name, val, fixed=True)
+#             elif idx in tied_map.keys():
+#                 src_idx, op, operand = tied_map[idx]
+#                 #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
+#                 src_name = list(self.params_dict.keys())[src_idx]
+#                 tie = (name, src_name, op, operand)
+#                 print(tie)
+#                 params_obj.add(name, val, min=min, max=max, tie=tie)
+            
+#             else:
+#                 val = self.initial_params[idx]
+#                 min,max = self.constraints[idx]
+#                 params_obj.add(name, val, min=min, max=max)
+
 

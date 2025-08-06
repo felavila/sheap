@@ -3,12 +3,13 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
+# Auto-generated __all__
 __all__ = [
     "default_known_tied_relations",
     "fe_ties",
     "flatten_index_ties",
     "group_lines",
-    "region_ties",]
+]
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -16,6 +17,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from sheap.Core import SpectralLine,SpectralLineList
+
+#TODO check how the ties change now we have logamp and not amplitude. e.g reparametrize 
 
 def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
     """
@@ -94,7 +97,7 @@ def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
 
     return ties
 
-def region_ties(
+def _maketies(
     complex_class,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
     tied_broad_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
@@ -192,21 +195,21 @@ def region_ties(
             add_tie_if_different(source_name, target_name)
 
     if known_tied_relations:
-        local_ties = []
+        _known_ties = []
         present = {e.line_name for e in local_region_list if isinstance(e.line_name, str)}
         for pair, factor in known_tied_relations:
             if all(name in present for name in pair):
                 for k in range(1, n_narrow + 1):
-                    ties.append([f.replace("component", str(k)) for f in factor])
-                    local_ties.append([f.replace("component", str(k)) for f in factor])
-        if only_known:
-            return local_ties
-    ties_ = []
-    for t in ties:
-        if t not in ties_:
-            ties_.append(t)
+                    #_ties.append([f.replace("component", str(k)) for f in factor])
+                    _known_ties.append([f.replace("component", str(k)) for f in factor])
+    #     if only_known:
+    #         return local_ties
+    # ties_ = []
+    # for t in ties:
+    #     if t not in ties_:
+    #         ties_.append(t)
 
-    return ties_
+    return ties,_known_ties
 
 
 

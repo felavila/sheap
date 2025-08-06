@@ -1,13 +1,11 @@
 """This module ."""
 from __future__ import annotations
+
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
 
-__all__ = [
-    "Sheapectral",
-    "logger",
-]
+__all__ = ["Sheapectral","logger"]
 
 import logging
 import pickle
@@ -303,8 +301,14 @@ class Sheapectral:
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
 
-    
-    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,**kwargs):
+    # def sheaprutine(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
+    #                ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
+    #                ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,**kwargs)
+
+    #     self._makecomplex(xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=group_method,**kwargs)
+    #     self._fitcomplex()
+        
+    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,**kwargs):
         """
         Initialize a ComplexBuilder for later fitting.
 
@@ -325,13 +329,12 @@ class Sheapectral:
         -------
         None
         """
-        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,**kwargs)
+        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,**kwargs)
     
-    
-    def fitcomplex(self, list_num_steps=[3000, 3000],run_uncertainty_params=True,profile ='gaussian',list_learning_rate = [1e-1,1e-2]
-                   ,run_fit=True,add_penalty_function=False,method="adam",
-                   penalty_weight: float = 0.01,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,
-                   run_montecarlo=False):
+
+    def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
+                   ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
+                   ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1):
         """
         Execute fitting of the prepared region on the spectra.
 
@@ -362,17 +365,15 @@ class Sheapectral:
         if not hasattr(self, "complexbuild"):
             raise RuntimeError("makecomplex() must be called before fitcomplex()")
 
-        self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile,
-                                                        list_num_steps = list_num_steps,list_learning_rate =list_learning_rate)
+        self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile) #until here only uses the things that it knows from complexbuild
 
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
-            self.fitting_class(spectra,run_uncertainty_params=run_uncertainty_params,add_penalty_function=add_penalty_function,method=method,
+            self.fitting_class(spectra,list_num_steps = list_num_steps,list_learning_rate =list_learning_rate,
+                               covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,
-                                        smoothness_weight= smoothness_weight,max_weight= max_weight,run_montecarlo=run_montecarlo)
-            self.fitting_configuration = {"spectra":spectra,"run_uncertainty_params":run_uncertainty_params,"add_penalty_function":add_penalty_function,"method":method,
-                                "penalty_weight":penalty_weight, "curvature_weight": curvature_weight,
-                                        "smoothness_weight":smoothness_weight,"max_weight": max_weight}
+                                        smoothness_weight= smoothness_weight,max_weight= max_weight)
+
             
             fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
@@ -384,7 +385,7 @@ class Sheapectral:
                 profile_names=fit_output.profile_names,
                 loss=fit_output.loss,
                 profile_params_index_list=fit_output.profile_params_index_list,
-                initial_params=fit_output.initial_params.astype(jnp.float64),
+                initial_params=fit_output.initial_params.astype(jnp.float32),
                 scale=fit_output.scale,
                 params_dict=fit_output.params_dict,
                 complex_region=fit_output.complex_region,
@@ -397,9 +398,11 @@ class Sheapectral:
                 dependencies=fit_output.dependencies,
                 residuals = fit_output.residuals,
                 free_params = fit_output.free_params,
-                chi2_red = fit_output.chi2_red)
+                chi2_red = fit_output.chi2_red,
+                fitkwargs = fit_output.fitkwargs)
 
             self.plotter = SheapPlot(sheap=self)
+    
     def afterfit(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                          num_warmup=500,n_random=1_000,extra_products=True):
         """
@@ -407,7 +410,7 @@ class Sheapectral:
 
         Parameters
         ----------
-        sampling_method : {'montecarlo', 'mcmc', 'no_sampling'}
+        sampling_method : {'single', 'pseudomontecarlo', 'mcmc'}
             Sampling algorithm to use.
         num_samples : int, optional
             Number of samples to draw.
@@ -437,8 +440,8 @@ class Sheapectral:
         from sheap.ComplexAfterFit.ComplexAfterFit import ComplexAfterFit
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
+        
         PM = ComplexAfterFit(sheap = self)
-       
         if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?
             print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=no_sampling")
@@ -446,20 +449,25 @@ class Sheapectral:
         if self.result.posterior and not overwrite:
             print("Warning already run if you want to run again please put overwrite=True")
         else:
-            #pseudomontecarlosampler this name is to large. xd
-            if sampling_method.lower()=="pseudomontecarlosampler":
+            # After this point a function inside ComplexAfterFit should be able to call the different sampling methods. 
+            if  sampling_method.lower()=="single":
+                print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
+                dic_posterior_params = PM.sample_single(extra_products=extra_products)
+                self.result.posterior = [{"method":sampling_method.lower()},dic_posterior_params]
+                
+            elif sampling_method.lower()=="pseudomontecarlo":
                 dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
+                self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"key_seed":key_seed,
+                                        "summarize":summarize},dic_posterior_params]
+            
+            elif sampling_method.lower() == "montecarlo":
+                dic_posterior_params = PM.montecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
             
-            elif  sampling_method.lower()=="single":
-                print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
-                dic_posterior_params = PM.sample_single(extra_products=extra_products)
-                self.result.posterior = [{"method":"no_sampling"},dic_posterior_params]
-            
             elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
                 dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,extra_products = extra_products)
-                self.result.posterior = [{"method":run.lower(),"num_samples":num_samples,"n_random":n_random,
+                self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"n_random":n_random,
                                         "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
     
     @classmethod

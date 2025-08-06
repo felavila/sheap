@@ -2,16 +2,17 @@
 __version__ = "0.1.0"
 __author__ = "Felipe Avila-Vera"
 
+# Auto-generated __all__
 __all__ = [
     "balmercontinuum",
     "brokenpowerlaw",
+    "delta0",
     "exp_cutoff",
     "linear",
     "linear_combination",
     "logparabola",
     "polynomial",
     "powerlaw",
-    "delta0",
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union

@@ -2,6 +2,24 @@
 - center: 1215.67
   line_name: Lyalpha
   element: Hydrogen
+- line_name: NVa
+  center: 1238.821
+  element: Nitrogen
+- line_name: NVb
+  center: 1242.804
+  element: Nitrogen
+- center: 1908.73
+  line_name: CIII]
+  element: Carbon
+- center: 1892
+  line_name: SiIII]
+  element: Silicon
+- line_name: SiIV+OIV]a
+  center: 1393.755
+  element: SiliconOxygen
+- line_name: SiIV+OIV]b
+  center: 1402.770
+  element: SiliconOxygen
 - center: 1548.187
   line_name: CIVa
   element: Carbon

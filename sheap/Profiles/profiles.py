@@ -2,10 +2,7 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
-__all__ = [
-    "SPAF",
-    "wrap_profile_with_center_override",
-]
+__all__ = ["SPAF","wrap_profile_with_center_override"]
 
 from typing import Callable, Dict, List, Tuple
 import jax.numpy as jnp

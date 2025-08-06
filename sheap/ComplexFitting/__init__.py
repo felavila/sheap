@@ -4,7 +4,11 @@ __author__ = 'Felipe Avila-Vera'
 # from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 
 
-__all__ = ["ComplexFitting",]
+# Auto-generated __all__
+__all__ = [
+    "ComplexFitting",
+]
+
 
 
 

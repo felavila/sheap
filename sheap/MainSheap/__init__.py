@@ -3,10 +3,12 @@ __author__ = 'Felipe Avila-Vera'
 # from sheap.MainSheap.SheapSpectralList import SheapSpectralList
 # from sheap.MainSheap.Sheapectral   import Sheapectral
 
+# Auto-generated __all__
 __all__ = [
     "SheapSpectralList",
     "Sheapectral",
 ]
+
 
 
 

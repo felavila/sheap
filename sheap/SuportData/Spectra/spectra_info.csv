@@ -1,0 +1,3 @@
+filename,plate,mjd,fiberid,redshift,num_pixels,host_presence
+11109-58523-0450.fits,11109,58523,0450,0.184366,4590,False
+8222-57431-0561.fits,08222,57431,0561,0.161769,4590,False

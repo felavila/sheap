@@ -12,7 +12,7 @@ import numpy as np
 import yaml
 
 from sheap.Core import SpectralLine,ComplexRegion
-from sheap.ComplexBuilder.utils import fe_ties, region_ties, group_lines # asistant material
+from sheap.ComplexBuilder.utils import fe_ties, _maketies, group_lines # asistant material
 
 from sheap.Profiles.profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Profiles.profiles_templates import make_host_function #?
@@ -108,18 +108,13 @@ class ComplexBuilder:
         add_balmer_continuum = False,
         add_uncommon_narrow = False,
         add_host_miles: Optional[Union[Dict,bool]] = None,
-        verbose=True,
-        #tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
-        #tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        #add_outflow: bool = False,
-        #add_narrow_plus: bool = False,
         #by_region: bool = False,
-        
-        #add_balmer_continuum: bool = False,
         #add_NLR : bool = False,
         #fe_tied_params=('center', 'fwhm'),
-        
+        verbose=True,
         ) -> None:
         """
         Initialize the ComplexBuilder with region bounds and options.
@@ -167,6 +162,8 @@ class ComplexBuilder:
         self.add_uncommon_narrow = add_uncommon_narrow
         self.verbose = verbose
         self.add_host_miles = add_host_miles
+        self.tied_broad_to = tied_broad_to
+        self.tied_narrow_to = tied_narrow_to
         
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
@@ -182,40 +179,8 @@ class ComplexBuilder:
         self.lines_available: Dict[str, Any] = {}
         self._load_lines(self.line_repository_path) #this should be always here?
         self.make_region()
-
-    def _load_lines(self, paths: Optional[List[Union[str, Path]]]) -> None:
-        """
-        Load YAML files defining spectral lines into `lines_available`.
-
-        Parameters
-        ----------
-        paths : list of str or Path, optional
-            Paths to YAML templates.
-
-        Raises
-        ------
-        ValueError
-            If no paths are provided.
-        FileNotFoundError
-            If any path does not point to an existing file.
-        KeyError
-            If YAML content is not a list of dicts per file.
-        """
-        if not paths:
-            raise ValueError("No YAML paths provided for region templates.")
-
-        for p in paths:
-            path = Path(p)
-            if not path.is_file():
-                raise FileNotFoundError(f"Region YAML not found: {path}")
-            data = yaml.safe_load(path.read_text())
-            key = path.stem
-            if not isinstance(data, list) and not all(isinstance(item, dict) for item in data):
-                raise KeyError(f"Not all element in the YAML are list filled with dict: {path}")
-            self.lines_available[key] = data
-        self.pseudo_region_available = list(self.lines_available.keys())
         
-        
+             
     def make_region(
         self,
         xmin: Optional[float] = None,
@@ -229,7 +194,9 @@ class ComplexBuilder:
         add_winds = None,
         add_balmer_continuum = None,
         add_uncommon_narrow = None,
-        add_host_miles = None):
+        add_host_miles = None,
+        tied_broad_to= None,
+        tied_narrow_to = None):
         """
         Build a `ComplexRegion` of `SpectralLine` objects based on settings.
 
@@ -272,8 +239,10 @@ class ComplexBuilder:
         add_balmer_continuum = get(add_balmer_continuum, self.add_balmer_continuum)
         add_winds = get(add_winds, self.add_winds)
         add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
-        continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
         add_host_miles = get(add_host_miles,self.add_host_miles)
+        continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
+        tied_broad_to = get(tied_broad_to,self.tied_broad_to)
+        tied_narrow_to = get(tied_narrow_to,self.tied_narrow_to)
         
         if fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
@@ -303,16 +272,20 @@ class ComplexBuilder:
         self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
         self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum))#here we already are able to create the complex_class
         self.complex_class = ComplexRegion(self.complex_list)
-        self.tied_relations = []
+        self._ties = []
+        self._known_ties = []
+        self._feties = []
         if self.group_method:
-             self.complex_class = self._apply_group_method(self.complex_class,fe_mode,self.known_tied_relations) #
-             #self.tied_relations = []
+             self.complex_class = self._apply_group_method(self.complex_class,fe_mode,self.known_tied_relations)
         else:
             #todo add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
-            self.tied_relations.extend(region_ties(self.complex_class,tied_narrow_to = None, tied_broad_to = None,known_tied_relations=self.known_tied_relations))
+            self._ties,self._known_ties =_maketies(self.complex_class,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
+            #self.tied_relations.extend([*_ties,*_known_ties])
+            #self._ties = []
             if fe_mode not in ["none","template"]:
                 routine_fe_tied = {"by":"subregion","tied_params": ('center', 'fwhm')}
-                self.tied_relations.extend(fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied))
+                self._feties = fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied)
+                #self.tied_relations.extend(fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied))
         del self.complex_list
         
     def _handle_broad_and_narrow_lines(
@@ -415,6 +388,10 @@ class ComplexBuilder:
     def _handle_broad_line(self, entry: SpectralLine, n_broad: int,add_winds=False) -> List[SpectralLine]:
         """
         Create broad and optional wind components for a single line.
+        
+        Notes
+        -----
+        Only for the first broad component is possible add the extra-broad lines.
 
         Parameters
         ----------
@@ -617,10 +594,10 @@ class ComplexBuilder:
         line = SpectralLine(line_name="host",region="host",component=self.HOST_COMPONENT,template_info=_host_model["host_info"],profile="hostmiles")    
         self.complex_list.extend([line])
         
-    def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-1]):
+    def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-2]):
         """
         Assemble the fitting routine dictionary for `RegionFitting.from_builder`.
-
+        TODO improve the loop. 
         Parameters
         ----------
         list_num_steps : list of int, optional
@@ -640,12 +617,56 @@ class ComplexBuilder:
             If lengths of `list_num_steps` and `list_learning_rate` differ.
         """
         fitting_routine = {}
-        fitting_routine["step1"] = {"tied": self.tied_relations,"non_optimize_in_axis": 3,"learning_rate": list_learning_rate[0],"num_steps": list_num_steps[0]}
+        tied_relations = [self._known_ties]
+        if len(self._ties) > 0:
+            list_num_steps.extend([1000])
+            list_learning_rate.extend([1e-2])
+            tied_relations = [[*self._ties,*self._known_ties,*self._feties],[*self._known_ties]]
         assert len(list_num_steps) == len(list_learning_rate), "len(list_num_steps) != len(list_learning_rate) "
-        for i, steps in enumerate(list_num_steps[1:], start=2):
-            if self.group_method:
-               tied_params = []
-            else:
-                print("add other tieds") 
-            fitting_routine[f"step{i}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate":list_learning_rate[i-1],"num_steps": list_num_steps[i-1]}
+        if not  self.group_method:
+            for i, steps in enumerate(list_num_steps):
+                if i>0:
+                    fitting_routine[f"step{i+1}"] = {"tied": tied_relations[1],"non_optimize_in_axis": 4,"learning_rate": list_learning_rate[i],"num_steps": list_num_steps[i]}
+                else:
+                    fitting_routine[f"step{i+1}"] = {"tied": tied_relations[i],"non_optimize_in_axis": 4,"learning_rate": list_learning_rate[i],"num_steps": list_num_steps[i]}
+                #fitting_routine[f"step{steps}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate":list_learning_rate[i-1],"num_steps": list_num_steps[i-1]}
+        else:
+            for i, steps in enumerate(list_num_steps):
+                if i>0:
+                    fitting_routine[f"step{i+1}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate": list_learning_rate[i],"num_steps": list_num_steps[i]}
+                else:
+                    fitting_routine[f"step{i+1}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate": list_learning_rate[i],"num_steps": list_num_steps[i]}
+            
         return {"complex_class": self.complex_class,"outer_limits": [self.xmin, self.xmax], "inner_limits": [self.xmin + 50, self.xmax - 50],"fitting_routine":fitting_routine}
+
+    def _load_lines(self, paths: Optional[List[Union[str, Path]]]) -> None:
+            """
+            Load YAML files defining spectral lines into `lines_available`.
+
+            Parameters
+            ----------
+            paths : list of str or Path, optional
+                Paths to YAML templates.
+
+            Raises
+            ------
+            ValueError
+                If no paths are provided.
+            FileNotFoundError
+                If any path does not point to an existing file.
+            KeyError
+                If YAML content is not a list of dicts per file.
+            """
+            if not paths:
+                raise ValueError("No YAML paths provided for region templates.")
+
+            for p in paths:
+                path = Path(p)
+                if not path.is_file():
+                    raise FileNotFoundError(f"Region YAML not found: {path}")
+                data = yaml.safe_load(path.read_text())
+                key = path.stem
+                if not isinstance(data, list) and not all(isinstance(item, dict) for item in data):
+                    raise KeyError(f"Not all element in the YAML are list filled with dict: {path}")
+                self.lines_available[key] = data
+            self.pseudo_region_available = list(self.lines_available.keys())

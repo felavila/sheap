@@ -76,7 +76,7 @@ class SheapPlot:
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         filtered_colors = [
-            c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f']
+            c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f',"blue","green"]
         ] * 50
 
         ylim = kwargs.get("ylim", [0,self.scale[n]])
@@ -108,7 +108,7 @@ class SheapPlot:
             component_y = profile_func(x_axis, values)
 
             if region.region == "continuum":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="blue")
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
             elif "host" in region.region.lower():
@@ -118,10 +118,13 @@ class SheapPlot:
                 ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
-                    centers = np.array(region.center) + params[1]#shift
+                    idx_shift = [n for n,i in enumerate(profile_func.param_names) if "shift" in i ]
+                    centers = np.array(region.center) + params[*idx_shift]#This is only true for gaussian
+                    #print(centers)
                     for ii,c in enumerate(centers):
+                        #ax1.axvline(c)
                         if min(xlim) < c < max(xlim):
-                            label = f"{region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " ")
+                            label = f"- {region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " ")
                             ypos = 0.25 if "broad" in label else 0.75
                             ax1.text(
                             c,
@@ -131,9 +134,10 @@ class SheapPlot:
                             rotation=90,
                             fontsize=20,
                             zorder=10,
+                            ha = "center"
                         )
                 elif add_lines_name and min(xlim) < values[1] < max(xlim):
-                    label = f"{region.line_name}_{region.region}_{region.component}".replace(
+                    label = f"- {region.line_name}_{region.region}_{region.component}".replace(
                         "_", " "
                     )
                     ypos = 0.25 if "broad" in label else 0.75
@@ -145,6 +149,7 @@ class SheapPlot:
                         rotation=90,
                         fontsize=20,
                         zorder=10,
+                        ha = "center"
                     )
 
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red")#

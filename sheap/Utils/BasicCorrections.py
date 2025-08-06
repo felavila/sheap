@@ -2,7 +2,11 @@
 __version__ = '0.1.0'
 __author__ = 'Felipe Avila-Vera'
 
-__all__ = ["unred","deredshift"]
+# Auto-generated __all__
+__all__ = [
+    "deredshift",
+    "unred",
+]
 
 """Based in the implementation in numpy from
 https://github.com/sczesla/PyAstronomy/blob/93f6f0668d6b5aa77d281981e13ba1bf6ded38cd/src/pyasl/asl/unred.py#L4
