@@ -7,6 +7,7 @@ __all__ = ["ComplexBuilder"]
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+import warnings
 
 import numpy as np
 import yaml
@@ -83,9 +84,12 @@ class ComplexBuilder:
     FE_COMPONENT = 20
     NLR_COMPONENT = 30
     HOST_COMPONENT = 40 
+    BAL_COMPONENT = 50 
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
-    lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
+    lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
+    lines_prone_bal = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","NVa","NVb","SiIV","OIV]","AlIIIa","AlIIIb","MgIIb"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
+    
     available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys())
     LINEAR_RANGE_THRESHOLD = 1000
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [(('OIIIb', 'OIIIc'),['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3'],),
@@ -107,6 +111,7 @@ class ComplexBuilder:
         add_winds = False,
         add_balmer_continuum = False,
         add_uncommon_narrow = False,
+        add_BAL = False,
         add_host_miles: Optional[Union[Dict,bool]] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
@@ -164,6 +169,7 @@ class ComplexBuilder:
         self.add_host_miles = add_host_miles
         self.tied_broad_to = tied_broad_to
         self.tied_narrow_to = tied_narrow_to
+        self.add_BAL = add_BAL
         
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
@@ -196,7 +202,8 @@ class ComplexBuilder:
         add_uncommon_narrow = None,
         add_host_miles = None,
         tied_broad_to= None,
-        tied_narrow_to = None):
+        tied_narrow_to = None,
+        add_BAL = None):
         """
         Build a `ComplexRegion` of `SpectralLine` objects based on settings.
 
@@ -234,16 +241,19 @@ class ComplexBuilder:
         xmax = get(xmax, self.xmax)
         n_broad = get(n_broad, self.n_broad)
         n_narrow = get(n_narrow, self.n_narrow)
-        fe_mode = get(fe_mode, self.fe_mode).lower()#right?
+        fe_mode = get(fe_mode, self.fe_mode).lower()
         add_outflow = get(add_outflow, self.add_outflow)
         add_balmer_continuum = get(add_balmer_continuum, self.add_balmer_continuum)
         add_winds = get(add_winds, self.add_winds)
         add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
         add_host_miles = get(add_host_miles,self.add_host_miles)
-        continuum_profile = get(continuum_profile, self.continuum_profile).lower()#right?
+        add_BAL = get(add_BAL,self.add_BAL)
+        continuum_profile = get(continuum_profile, self.continuum_profile).lower()
         tied_broad_to = get(tied_broad_to,self.tied_broad_to)
         tied_narrow_to = get(tied_narrow_to,self.tied_narrow_to)
-        
+        if add_BAL:
+            warnings.warn("The addition of BALs to the fit is still in development not well tested yet.")
+            
         if fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             fe_mode = "template"
@@ -261,11 +271,11 @@ class ComplexBuilder:
                     continue
                 base = SpectralLine(**raw_line)
                 if pseudo_region_name == "broad_and_narrow": #search of name
-                    comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds)
+                    comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds,add_BAL=add_BAL)
                 elif pseudo_region_name == "narrows" and n_narrow>0:
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
-                    comps = self._handle_broad_line(base, n_broad,add_winds=add_winds) 
+                    comps = self._handle_broad_line(base, n_broad,add_winds=add_winds,add_BAL=add_BAL) 
                 self.complex_list.extend(comps)        
         if add_host_miles:
             self._handle_host(add_host_miles,xmin,xmax)
@@ -289,7 +299,7 @@ class ComplexBuilder:
         del self.complex_list
         
     def _handle_broad_and_narrow_lines(
-        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False) -> List[SpectralLine]:
+        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ) -> List[SpectralLine]:
         """
         Create narrow, broad, and optional wind components for a single line.
 
@@ -330,6 +340,16 @@ class ComplexBuilder:
                     line_name=entry.line_name,
                     region ='winds',
                     component = self.WINDS_COMPONENT,
+                    amplitude=1.0,
+                    element = entry.element,
+                )
+                comps.append(out)
+            elif add_BAL and idx == 0 and new.line_name in self.lines_prone_bal:
+                out = SpectralLine(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='bal',
+                    component = self.BAL_COMPONENT,
                     amplitude=1.0,
                     element = entry.element,
                 )
@@ -385,7 +405,7 @@ class ComplexBuilder:
                 comps.append(out)
         return comps
 
-    def _handle_broad_line(self, entry: SpectralLine, n_broad: int,add_winds=False) -> List[SpectralLine]:
+    def _handle_broad_line(self, entry: SpectralLine, n_broad: int,add_winds=False,add_BAL=False) -> List[SpectralLine]:
         """
         Create broad and optional wind components for a single line.
         
@@ -430,6 +450,16 @@ class ComplexBuilder:
                     line_name=entry.line_name,
                     region ='winds',
                     component = self.WINDS_COMPONENT,
+                    amplitude=1.0,
+                    element = entry.element,
+                )
+                comps.append(out)
+            elif add_BAL and idx == 0 and new.line_name in self.lines_prone_bal:
+                out = SpectralLine(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='bal',
+                    component = self.BAL_COMPONENT,
                     amplitude=1.0,
                     element = entry.element,
                 )

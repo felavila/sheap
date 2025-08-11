@@ -10,14 +10,15 @@
 - line_name: CII]b
   center: 2326.0
   element: Carbon
-  rarity: common
+  rarity: uncommon
 - line_name: CII]c
   center: 2327.0
   element: Carbon
-  rarity: common
+  rarity: uncommon
 - line_name: CII]d
   center: 2328.0
   element: Carbon
+  rarity: uncommon
 - line_name: "[NeIV]"
   center: 2423.83
   element: Neon

@@ -11,15 +11,21 @@
 - center: 1908.73
   line_name: CIII]
   element: Carbon
+- line_name: OVIa
+  center: 1031.926
+  element: Oxigen
+- line_name: OVIb
+  center: 1037.617
+  element: Oxigen
 - center: 1892
   line_name: SiIII]
   element: Silicon
-- line_name: SiIV+OIV]a
+- line_name: SiIV #+OIV]a
   center: 1393.755
-  element: SiliconOxygen
-- line_name: SiIV+OIV]b
+  element: Silicon #Oxygen
+- line_name: OIV]
   center: 1402.770
-  element: SiliconOxygen
+  element: Oxygen
 - center: 1548.187
   line_name: CIVa
   element: Carbon

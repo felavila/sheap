@@ -456,7 +456,7 @@ class FittingLimits:
     center_shift: float
     v_shift: Optional[float] = None
     max_amplitude:  Optional[float] = None
-
+    canonical_wavelengths: Optional[float] = None 
     @classmethod
     def from_dict(cls, d: Dict[str, float]) -> "FittingLimits":
         """
@@ -483,5 +483,6 @@ class FittingLimits:
             center_shift=d['center_shift'],
             v_shift=d['v_shift'],
             max_amplitude=d['max_amplitude'],
+            canonical_wavelengths = d["canonical_wavelengths"]
         )
 

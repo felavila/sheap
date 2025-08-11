@@ -360,28 +360,6 @@ class ComplexFitting:
         tied_map = flatten_tied_map(tied_map)
         
         params_obj = _build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
-        
-        # params_obj = Parameters()
-        # #(target, source, op, operand)
-        # for name, idx in self.params_dict.items():
-        #     #print(name, idx)
-        #     val = initial_params[:,idx]
-        #     min,max = self.constraints[idx]
-        #     if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
-        #         params_obj.add(name, val, fixed=True)
-        #     elif idx in tied_map.keys():
-        #         src_idx, op, operand = tied_map[idx]
-        #         #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
-        #         src_name = list(self.params_dict.keys())[src_idx]
-        #         tie = (name, src_name, op, operand)
-        #         print(tie)
-        #         params_obj.add(name, val, min=min, max=max, tie=tie)
-            
-        #     else:
-        #         val = self.initial_params[idx]
-        #         min,max = self.constraints[idx]
-        #         params_obj.add(name, val, min=min, max=max)
-        # #print(params_obj.specs)
         raw_init = params_obj.phys_to_raw(initial_params)
         
         self.params_obj = params_obj
@@ -490,7 +468,6 @@ class ComplexFitting:
         try:
             idxs = mapping_params(self.params_dict, [["amplitude"]]) #, ["scale"]
             idxs_log = mapping_params(self.params_dict, [["logamp"]])
-            #print(idxs_log)
             self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
             self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])          
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])

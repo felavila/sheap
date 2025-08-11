@@ -19,7 +19,7 @@ from sheap.Core import ProfileConstraintSet, FittingLimits, SpectralLine
 from sheap.Utils.BasicFunctions import kms_to_wl
 from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
-from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
+#from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
 
         
 
@@ -53,8 +53,8 @@ def ProfileConstraintMaker(
             raise ValueError(f"SPAF profile requires a defined subprofile avalaible options are {list(PROFILE_LINE_FUNC_MAP.keys())}.")
         if not isinstance(sp.amplitude, list):
             raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
-        if sp.region not in CANONICAL_WAVELENGTHS:
-            raise KeyError(f"Missing canonical wavelength for region='{sp.region}' in CANONICAL_WAVELENGTHS.")
+        #if sp.region not in CANONICAL_WAVELENGTHS:
+         #   raise KeyError(f"Missing canonical wavelength for region='{sp.region}' in CANONICAL_WAVELENGTHS.")
     if selected_profile in PROFILE_CONTINUUM_FUNC_MAP:  
         if selected_profile == 'powerlaw':
             return ProfileConstraintSet(
@@ -121,19 +121,22 @@ def ProfileConstraintMaker(
         cen_lo    = center0 - kms_to_wl(limits.center_shift, center0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    center0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    center0)
+        amp_init =  float(sp.amplitude) / 10.0 * (-1.0 if sp.region in ["bal"] else 1.0)
+        amp_lo =  limits.max_amplitude * (1.0 if sp.region in ["bal"] else 0.0)
+        amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
         #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
         fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
-        amp_init  = np.log10(float(sp.amplitude) / 10.0)
         init, upper, lower = [], [], []
         for p in param_names:
             if p == "logamp":
-                init.append(amp_init)
+                init.append(np.log10(amp_init))
                 upper.append(np.log10(limits.max_amplitude))
                 lower.append(-10.0)
+            
             elif p == "amp":
-                init.append(float(sp.amplitude) / 10.0)
-                upper.append(limits.max_amplitude)
-                lower.append(0.0)
+                init.append(amp_init)
+                upper.append(amp_up)
+                lower.append(amp_lo)
                 
             elif p == "center":
                 init.append(center0 + shift0)
@@ -172,31 +175,49 @@ def ProfileConstraintMaker(
     if selected_profile == "SPAF":
         #func = PROFILE_LINE_FUNC_MAP[subprofile]
         param_names = local_profile.param_names
-        #print(params_names)
-        #amp_list = sp.amplitude
-
-        #names = [f"amplitude{n}" for n in range(len(amp_list))] + ["shift"] + func.param_names[2:]
-        # base kinematics
-        lambda0 = CANONICAL_WAVELENGTHS[sp.region]
+        #print(limits.canonical_wavelengths)
+        lambda0 = limits.canonical_wavelengths
+        #CANONICAL_WAVELENGTHS[sp.region]
         shift_init = 0.0 if sp.component == 1 else (-1.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
         shift_upper = kms_to_wl(limits.center_shift, lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         logamp = -0.25 if sp.region=="narrow" else -2.0
-        #print(shift_upper,fwhm_lo,fwhm_up)
-        #if sp.region in ["narrow"]:
-        #   fwhm_init = fwhm_up
-        #else:
+        #amp_init =  (limits.max_amplitude / 10.0) * (-1.0 if sp.region in ["bal"] else 1.0)
+        #amp_lo =  limits.max_amplitude * (-1.0 if sp.region in ["bal"] else 0.0)
+        #amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
+        #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
         fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
-
+        #fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         init, upper, lower = [], [], []
-
         for _,p in enumerate(param_names):
-            #print(p)
             if "logamp" in p:
+                if sp.region == "bal":
+                    print("In log scale can be use bals.")
+                    break
+                # #for sign
+                # if sp.region == "bal":
+                #     init.append(-0.01)
+                #     upper.append(0.0)
+                #     lower.append(-1.0)
+                # else:
+                #     init.append(0.01)
+                #     upper.append(1.0)
+                #     lower.append(0.0)
                 init.append(logamp)
                 upper.append(1.0)
                 lower.append(-15.0)
+            
+            elif "amplitude" in p:
+                if sp.region == "bal":
+                    init.append(-1.0)
+                    upper.append(0.0)
+                    lower.append(-100)
+                else:
+                    init.append(10**logamp)
+                    upper.append(10**1.0)
+                    lower.append(10**-15.0)
+                   
             elif p == "shift":
                 init.append(shift_init)
                 upper.append(shift_upper)
@@ -235,6 +256,8 @@ def ProfileConstraintMaker(
                 init.append(0)
                 upper.append(1.)
                 lower.append(-1.)
+            else:
+                raise ValueError(f"Unknown profile parameter '{p}' for '{selected_profile}' check ProfileeConstraintMaker or the define profile param_names {param_names}")
             #  elif p == "logshift":
             #     init.append(0.0+(sp.component-1.0)*1e-3)
             #     upper.append(np.log10( (lambda0 + 2*shift_upper) / lambda0 ))
