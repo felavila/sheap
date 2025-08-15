@@ -117,17 +117,19 @@ def pivot_and_split(obj_names, result):
         # 1) if it's a dict, recurse on each item
         if isinstance(node, dict):
             return {k: _recurse(v, idx) for k, v in node.items()}
-
+        elif isinstance(node, (str, float, int)):
+            return node
+                
         # 2) if it's a VectorUncertainty, split into value & error
-        if isinstance(node, VectorUncertainty):
+        elif isinstance(node, VectorUncertainty):
             return {
                 'value': node.value[idx].squeeze(),
                 'error': node.error[idx].squeeze()
             }
-        if isinstance(node, np.ndarray) and node.shape[0] == len(obj_names):
+        elif isinstance(node, np.ndarray) and node.shape[0] == len(obj_names):
             return {'value': node[idx].squeeze(),'error':0}
         # 3) array/list/tuple → index
-        if isinstance(node, (np.ndarray, list, tuple)):
+        elif isinstance(node, (np.ndarray, list, tuple)):
             return node
         
         warnings.warn(f"Unhandled node type {type(node).__name__} for value: {node}")

@@ -74,17 +74,7 @@ def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
     return 10 ** log_M_BH
 
-def calc_black_hole_mass(L_w, fwhm_kms, estimator):
-    """
-    Single-epoch black hole mass:
-    log M_BH = a + b (log L - 44) + 2 log(FWHM/1000)
-    M_BH = 10**log M_BH / f
-    """
-    a, b, f = estimator["a"], estimator["b"], estimator["f"]
-    log_L = np.log10(L_w)
-    log_FWHM = np.log10(fwhm_kms) - 3  # FWHM in 1000 km/s
-    log_M_BH = a + b * (log_L - 44.0) + 2.0 * log_FWHM
-    return (10 ** log_M_BH) / f
+
 
 def ensure_column_matrix(x):
     #to utils.
@@ -102,7 +92,7 @@ def ensure_column_matrix(x):
     return x
 
 
-def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
+def extra_params_functionsv0(broad_params, L_w, L_bol, estimators, c):
     """
     Compute derived AGN parameters from broad line measurements.
 
@@ -196,3 +186,168 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
             })
 
     return dict_extra_params
+
+
+
+
+def _col(x):
+    if isinstance(x,Uncertainty): 
+        return x.reshape(-1, 1) if x.ndim == 1 else x
+    x = np.asarray(x)
+    return x.reshape(-1, 1) if x.ndim == 1 else x
+    
+    
+def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
+    """
+    Unified SE BH-mass estimator (continuum or line), supports width_def and extras.
+    Returns M_BH in Msun with the estimator's virial factor applied.
+    """
+    if extras is None:
+        extras = {}
+
+    kind = str(estimator.get("kind", "continuum")).lower()
+    width_def = str(estimator.get("width_def", "fwhm")).lower()
+
+    piv = estimator.get("pivots", {})
+    L0 = piv.get("L", 1e42 if kind == "line" else 1e44)
+    V0 = piv.get("FWHM", 1e3)
+
+    a = estimator["a"]
+    b = estimator["b"]
+    beta = estimator.get("fwhm_factor", estimator.get("vel_exp", 2.0))
+    f = estimator.get("f", 1.0)
+
+    L = _col(L_in)
+    V = _col(vwidth_kms)
+
+    logM = a + b * (np.log10(L) - np.log10(L0)) + beta * (np.log10(V) - np.log10(V0))
+
+    # Le20 shape (only if baseline uses FWHM)
+    if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
+        sigma = extras.get("sigma_kms", None)
+        if sigma is not None:
+            sigma = _col(sigma)
+            logM += (-1.14 * (np.log10(V) - np.log10(sigma)) + 0.33)
+
+    # Pan25 iron term
+    if "R_Fe" in extras:
+        gamma = estimator.get("extras", {}).get("pan25_gamma", -0.34)
+        RFe = _col(extras["R_Fe"])
+        logM += gamma * RFe  # broadcasts across components
+
+    return (10.0 ** logM) / f
+
+
+def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None):
+    """
+    Compute derived parameters and SE BH masses.
+    - kind='continuum': uses L_w[lambda]; computes Ledd and mdot (if L_bol available).
+    - kind='line'    : uses per-component line luminosity; computes Ledd; no mdot.
+    """
+    if extras is None:
+        extras = {}
+
+    out = {}
+
+    fwhm_all = _col(broad_params.get("fwhm_kms"))
+    lum_all  = _col(broad_params.get("luminosity"))
+    sigma_all = broad_params.get("sigma_kms", None)
+    if sigma_all is not None:
+        sigma_all = _col(sigma_all)
+
+    lines = np.asarray(broad_params.get("lines", []))
+    comps = np.asarray(broad_params.get("component", []))
+
+    if fwhm_all is None or lines.size == 0:
+        return out
+
+    # constants for mdot (continuum only)
+    eta = 0.1
+    c_cm = c * 1e5
+    M_sun_g = 1.98847e33
+    sec_yr = 3.15576e7
+
+    for calib_key, est in estimators.items():
+        line_name = est.get("line")
+        if not line_name or (line_name not in lines):
+            continue
+
+        kind = est.get("kind", "continuum")
+        width_def = str(est.get("width_def", "fwhm")).lower()
+
+        idxs = np.where(lines == line_name)[0]
+        comp_here = comps[idxs]
+
+        # choose velocity width
+        if width_def == "sigma":
+            if sigma_all is not None:
+                Vwidth = sigma_all[:, idxs]
+            elif "sigma_kms" in extras:
+                sig = _col(extras["sigma_kms"])
+                Vwidth = sig[:, idxs] if sig.ndim == 2 else sig
+            else:
+                continue  # no sigma available
+        else:
+            Vwidth = fwhm_all[:, idxs]
+
+        # local extras (Le20 / Pan25)
+        local_extras = {}
+        if est.get("extras", {}).get("le20_shape", False):
+            if sigma_all is not None:
+                local_extras["sigma_kms"] = sigma_all[:, idxs]
+            elif "sigma_kms" in extras:
+                sig = _col(extras["sigma_kms"])
+                local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
+        if "R_Fe" in extras:
+            local_extras["R_Fe"] = extras["R_Fe"]
+
+        if kind == "continuum":
+            lam = est.get("wavelength", None)
+            if lam is None:
+                continue
+            wkey = str(int(lam))
+            if wkey not in L_w:
+                continue
+
+            Lmono = _col(L_w[wkey])
+            MBH = calc_black_hole_mass(Lmono, Vwidth, est, extras=local_extras)
+
+            # Ledd + mdot (only for continuum, and only if L_bol available)
+            Ledd = 1.26e38 * MBH
+            mdot_yr = None
+            Lbol = None
+            if wkey in L_bol:
+                Lbol = _col(L_bol[wkey])
+                mdot_gs = Lbol / (eta * c_cm**2)
+                mdot_yr = mdot_gs / M_sun_g * sec_yr
+
+            out.setdefault(line_name, {})[calib_key] = {
+                "method": "continuum",
+                "wavelength": lam,
+                "vwidth_def": width_def,
+                "vwidth_kms": Vwidth,
+                "log10_smbh": np.log10(MBH),
+                "Lwave": Lmono,
+                "Lbol": Lbol,
+                "Ledd": Ledd,
+                "mdot_msun_per_year": mdot_yr,
+                "component": comp_here,
+            }
+
+        elif kind == "line":
+
+            L_line = lum_all[:, idxs]
+            MBH = calc_black_hole_mass(L_line, Vwidth, est, extras=local_extras)
+            Ledd = 1.26e38 * MBH
+
+            out.setdefault(line_name, {})[calib_key] = {
+                "method": "line",
+                "vwidth_def": width_def,
+                "vwidth_kms": Vwidth,
+                "Lline": L_line,
+                "log10_smbh": np.log10(MBH),
+                "Ledd": Ledd,
+                "component": comp_here,
+            }
+
+    return out

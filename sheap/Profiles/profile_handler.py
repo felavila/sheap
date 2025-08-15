@@ -116,7 +116,7 @@ def ProfileConstraintMaker(
         func = PROFILE_LINE_FUNC_MAP[selected_profile]
         param_names = func.param_names 
         center0   = sp.center
-        shift0    = -1.0 if sp.region in ["outflow", "winds"] else 0.0
+        shift0    = -1.0 if sp.region in ["outflow"] else 0.0
         cen_up    = center0 + kms_to_wl(limits.center_shift, center0)
         cen_lo    = center0 - kms_to_wl(limits.center_shift, center0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    center0)

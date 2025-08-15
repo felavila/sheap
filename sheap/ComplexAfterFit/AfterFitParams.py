@@ -149,7 +149,17 @@ class AfterFitParams:
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr] = np.array(Lmono), np.array(Lbolval)
-
+        if complexclass_group_by_region["fe"]:
+            #i guess meanwhile MgII is not here it is not necesary run this ?
+            group_fe = complexclass_group_by_region["fe"]
+            combine_profile_fe = group_fe.combined_profile
+            integrator_fe = make_integrator(combine_profile_fe, method="vmap")
+            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
+            params_fe = self.params[:, idx_fe]
+            flux_fe = integrator_fe(wavelength_grid_fe, params_fe)
+            idx_fe = cont_group.flat_param_indices_global
+            print(flux_fe)
+        
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=None)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol, "combine_params": combined}
         for k in ["basic_params","combine_params"]:
@@ -249,6 +259,16 @@ class AfterFitParams:
                 Lmono = calc_monochromatic_luminosity(np.array(distances[:, None]), Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr] = Lmono, Lbolval
+        # if complexclass_group_by_region["fe"]:
+        #     #i guess meanwhile MgII is not here it is not necesary run this ?
+        #     group_fe = complexclass_group_by_region["fe"]
+        #     idx_fe = cont_group.flat_param_indices_global
+        #     combine_profile_fe = group_fe.combined_profile
+        #     params_fe = self.params[:, idx_fe]
+        #     uparams_fe = self.uncertainty_params[:, idx_fe]
+        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
+        #     flux_fe =  Uncertainty(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
+        #     print(flux_fe)
         #from here can be the same function only take care on the uncertainty params of the continuum
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=ucont_params)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol, "combine_params": combined}
