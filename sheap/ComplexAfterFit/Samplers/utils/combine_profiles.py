@@ -1,6 +1,11 @@
 """Tools to combine components."""
 __author__ = 'felavila'
 
+__all__ = [
+    "combine_components",
+    "combine_fast",
+    "combine_fast_with_jacobian",
+]
 
 from typing import Any, Dict, List, Union
 import numpy as np
@@ -283,10 +288,5 @@ def combine_fast_with_jacobian(
         Uncertainty(np.array(mu_vals),   np.array(mu_errs))
     )
 
-# Auto-generated __all__
-__all__ = [
-    "combine_components",
-    "combine_fast",
-    "combine_fast_with_jacobian",
-]
+
 

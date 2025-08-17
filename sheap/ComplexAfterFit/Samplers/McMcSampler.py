@@ -1,6 +1,6 @@
 """This module handles basic operations."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "McMcSampler",
 ]

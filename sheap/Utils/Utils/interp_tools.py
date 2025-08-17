@@ -1,4 +1,6 @@
-"""This module handles basic operations."""
+"""This module handles basic operations.
+    The idea will be keep here all the tools for interpolation
+"""
 __author__ = 'felavila'
 
 __all__ = [
@@ -11,12 +13,10 @@ __all__ = [
 
 import warnings
 from copy import deepcopy
+import functools as ft
 
 import jax.numpy as jnp
 from jax import jit, lax, vmap
-
-"The idea will be keep here all the tools for interpolation"
-
 
 @jit
 def cubic_spline_coefficients(x, y):
@@ -171,7 +171,6 @@ def _interp_jax(x, xp, fp, left=None, right=None, period=None):
     return jnp.interp(x, xp, fp, left=left, right=right, period=period)
 
 
-import functools as ft
 
 
 @ft.partial(vmap, in_axes=(None, None, 0), out_axes=0)

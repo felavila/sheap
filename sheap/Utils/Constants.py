@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np 
 import yaml
 
-# Auto-generated __all__
+
 __all__ = [
     "BOL_CORRECTIONS",
     "DEFAULT_LIMITS",
@@ -386,3 +386,13 @@ BOL_CORRECTIONS = Path(__file__).resolve().parent.parent / "BolometricCorrection
 #         "ref": "2025ApJ...987...48P", "width_def": "fwhm",
 #     },
 # }
+
+###
+# Halpha 5600,7300
+# Hbeta 4400, 5600
+# MII 2500, 3000
+# cIII 1600, 2000
+# CIV 1100, 2000
+# La 1000,1500
+####
+#Set of functions to handle different paths and cross match. 

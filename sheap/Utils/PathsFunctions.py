@@ -1,6 +1,6 @@
 """This module handles basic operations."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "cross_pandas_spectra",
     "cross_pandas_spectra_desi",
@@ -10,16 +10,6 @@ import glob
 import os
 import pandas as pd
 
-
-###
-# Halpha 5600,7300
-# Hbeta 4400, 5600
-# MII 2500, 3000
-# cIII 1600, 2000
-# CIV 1100, 2000
-# La 1000,1500
-####
-#Set of functions to handle different paths and cross match. 
 
 def cross_pandas_spectra_desi(path_dr16, path_data, name_csv):
     file_paths = glob.glob(f"{path_dr16}/{path_data}/*.fits")

@@ -1,6 +1,6 @@
 """This module handles basic functions."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "kms_to_wl",
     "vac_to_air",

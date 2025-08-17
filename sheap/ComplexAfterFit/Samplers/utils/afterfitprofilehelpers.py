@@ -1,7 +1,7 @@
 """This module handles basic operations."""
 __author__ = 'felavila'
 
-# Auto-generated __all__
+
 __all__ = [
     "batched_evaluate",
     "evaluate_with_error",

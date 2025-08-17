@@ -1,6 +1,6 @@
 """I have to change the name of this function is not clear neither for me what is inside."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "extract_basic_line_parameters",
     "posterior_parameters",

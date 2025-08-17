@@ -1,8 +1,6 @@
 """This module handles basic operations."""
 __author__ = 'felavila'
-# Auto-generated __all__
 
-# Auto-generated __all__
 __all__ = [
     "calc_black_hole_mass",
     "calc_black_hole_mass_gh2015",

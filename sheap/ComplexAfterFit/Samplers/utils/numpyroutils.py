@@ -1,6 +1,6 @@
 """This module handles basic operations."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "apply_arithmetic_ties",
     "make_numpyro_model",

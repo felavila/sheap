@@ -1,6 +1,6 @@
 """This module contains vocalizations."""
 __author__ = 'felavila'
-# Auto-generated __all__
+
 __all__ = [
     "sounds",
 ]
