@@ -1,7 +1,7 @@
+
 """Core data structures and typing definitions for spectral modeling."""
 
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 from sheap.Core.Definitions import (SpectralLine,ComplexRegion,ComplexResult,ProfileConstraintSet,FittingLimits)
 from sheap.Core.Signatures import (ArrayLike,ProfileFunc,SpectralLineList,)

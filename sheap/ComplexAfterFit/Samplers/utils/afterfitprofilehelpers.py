@@ -1,13 +1,12 @@
 """This module handles basic operations."""
-__author__ = 'Felipe Avila'
+__author__ = 'felavila'
 
+# Auto-generated __all__
 __all__ = [
     "batched_evaluate",
     "evaluate_with_error",
-    "evaluate_with_error",
     "integrate_batch_with_error",
     "integrate_function_error",
-    "integrate_function_error_single",
     "integrate_function_error_single",
     "trapz_jax",
 ]

@@ -1,6 +1,5 @@
 """Tools to move line profiles to fwhm. This should be moved to profiles"""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -96,3 +95,12 @@ def make_batch_fwhm_split_with_error(profile: str):
     over_lines = vmap(single, in_axes=(0, 0, 0, 0, 0, 0))
     batcher = vmap(over_lines, in_axes=(0, 0, 0, 0, 0, 0))
     return batcher
+
+# Auto-generated __all__
+__all__ = [
+    "compute_fwhm_split",
+    "compute_fwhm_split_with_error",
+    "make_batch_fwhm_split",
+    "make_batch_fwhm_split_with_error",
+]
+

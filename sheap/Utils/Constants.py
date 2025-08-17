@@ -1,11 +1,11 @@
 """This module contains constant and stuff."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 from pathlib import Path
 import numpy as np 
 import yaml
 
+# Auto-generated __all__
 __all__ = [
     "BOL_CORRECTIONS",
     "DEFAULT_LIMITS",

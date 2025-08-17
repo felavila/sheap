@@ -1,13 +1,34 @@
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+
+__author__ = 'felavila'
+
 # from sheap.MainSheap.SheapSpectralList import SheapSpectralList
 # from sheap.MainSheap.Sheapectral   import Sheapectral
 
-# Auto-generated __all__
 __all__ = [
     "SheapSpectralList",
     "Sheapectral",
 ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,6 +1,12 @@
 """This module handles ?."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
+
+__all__ = [
+    "SheapPlot_old",
+    "plot_a_spectra",
+    "plot_region",
+]
+
 # import seaborn as sns
 import jax.numpy as jnp
 import matplotlib.gridspec as gridspec
@@ -564,11 +570,4 @@ def plot_a_spectra(spectra, save=None, **kwargs):
         plt.close()
     else:
         plt.show()
-
-# Auto-generated __all__
-__all__ = [
-    "SheapPlot_old",
-    "plot_a_spectra",
-    "plot_region",
-]
 

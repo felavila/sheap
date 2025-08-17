@@ -1,7 +1,9 @@
 """This class should concentrate all the routines for handle the params after the fit and after the sampling"""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
+__all__ = [
+    "AfterFitParams",
+]
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np 
@@ -415,5 +417,4 @@ class AfterFitParams:
         lum_vals = calc_luminosity(distances[:, None], flux)
 
         return amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals
-    
-    
+

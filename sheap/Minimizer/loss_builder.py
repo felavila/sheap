@@ -1,7 +1,6 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+__author__ = 'felavila'
+
 __all__ = [
     "build_loss_function",
 ]

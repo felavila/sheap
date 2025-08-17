@@ -1,9 +1,12 @@
 """This module ."""
 from __future__ import annotations
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
-__all__ = ["ComplexFitting","logger",]
+
+__all__ = [
+    "ComplexFitting",
+    "logger",
+]
 
 import logging
 #from dataclasses import dataclass
@@ -17,7 +20,7 @@ from jax import jit,vmap
 
 from sheap.Core import FittingLimits, SpectralLine,ComplexResult
 
-from sheap.Assistants.Parameters import _build_Parameters
+from sheap.Assistants.Parameters import build_Parameters
 from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value,build_tied,flatten_tied_map,parse_dependencies
 
 
@@ -359,7 +362,7 @@ class ComplexFitting:
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         
-        params_obj = _build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
+        params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
         raw_init = params_obj.phys_to_raw(initial_params)
         
         self.params_obj = params_obj

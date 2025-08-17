@@ -1,11 +1,13 @@
 """This module ."""
 from __future__ import annotations
 
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 
-__all__ = ["Sheapectral","logger"]
+__all__ = [
+    "Sheapectral",
+    "logger",
+]
 
 import logging
 import pickle

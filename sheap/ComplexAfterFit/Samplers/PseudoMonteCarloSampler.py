@@ -1,6 +1,5 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 # Auto-generated __all__
 __all__ = [
     "PseudoMonteCarloSampler",

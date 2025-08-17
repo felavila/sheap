@@ -1,12 +1,12 @@
 """This module contains the Paramter and Parameters that handle the reparametrization."""
 
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 
 __all__ = [
     "Parameter",
     "Parameters",
-    "_build_Parameters"
+    "build_Parameters",
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -314,7 +314,7 @@ class Parameters:
 
 
 
-def _build_Parameters(tied_map,params_dict,initial_params,constraints):
+def build_Parameters(tied_map,params_dict,initial_params,constraints):
     """"TODO"""
     params_obj = Parameters()
     for name, idx in params_dict.items():
@@ -332,3 +332,5 @@ def _build_Parameters(tied_map,params_dict,initial_params,constraints):
             min,max = constraints[idx]
             params_obj.add(name, val, min=min, max=max)
     return params_obj
+
+

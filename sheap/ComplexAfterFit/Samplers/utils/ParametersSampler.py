@@ -1,6 +1,5 @@
 """I have to change the name of this function is not clear neither for me what is inside."""
-__version__ = '0.1.0'
-__author__ = 'Unknown'
+__author__ = 'felavila'
 # Auto-generated __all__
 __all__ = [
     "extract_basic_line_parameters",

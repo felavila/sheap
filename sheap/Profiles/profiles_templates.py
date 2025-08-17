@@ -1,7 +1,6 @@
 """This module ?."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+__author__ = 'felavila'
+
 __all__ = [
     "TEMPLATES_PATH",
     "make_feii_template_function",

@@ -1,8 +1,6 @@
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
 
+__author__ = 'felavila'
 
-# Auto-generated __all__
 __all__ = [
     "profile_handler",
     "profile_lines",
@@ -11,6 +9,27 @@ __all__ = [
     "profiles_templates",
     "utils",
 ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

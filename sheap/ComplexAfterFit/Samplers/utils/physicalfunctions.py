@@ -1,11 +1,9 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Unknown'
+__author__ = 'felavila'
 # Auto-generated __all__
 
 # Auto-generated __all__
 __all__ = [
-    "calc_black_hole_mass",
     "calc_black_hole_mass",
     "calc_black_hole_mass_gh2015",
     "calc_bolometric_luminosity",
@@ -15,6 +13,7 @@ __all__ = [
     "calc_monochromatic_luminosity",
     "ensure_column_matrix",
     "extra_params_functions",
+    "extra_params_functionsv0",
 ]
 
 import jax.numpy as np

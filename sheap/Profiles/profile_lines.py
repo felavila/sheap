@@ -1,8 +1,7 @@
 """This module contains all the line profiles available in sheap."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
-# Auto-generated __all__
+
 __all__ = [
     "emg_fwhm",
     "eval_hermite",

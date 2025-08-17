@@ -1,7 +1,6 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Unknown'
-# Auto-generated __all__
+__author__ = 'felavila'
+
 __all__ = [
     "build_cube_from_fits_header_comments",
     "resample_to_log_lambda_npinterp",

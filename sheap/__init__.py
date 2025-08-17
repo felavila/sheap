@@ -1,5 +1,4 @@
-__author__ = 'Felipe Avila-Vera'
-
+__author__ = 'felavila'
 
 
 from sheap.Core import (SpectralLine,ComplexRegion,ComplexResult,ProfileConstraintSet,FittingLimits,ArrayLike,ProfileFunc,SpectralLineList,)
@@ -18,6 +17,21 @@ __all__ = [
     "Utils",
     "cli",
 ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

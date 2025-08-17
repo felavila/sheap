@@ -1,11 +1,14 @@
 """This module contains all the mappers and parsers."""
 
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
 __all__ = [
     "apply_arithmetic_ties",
     "apply_tied_and_fixed_params",
+    "build_tied",
     "descale_amp",
+    "extract_float",
+    "flatten_tied_map",
     "make_get_param_coord_value",
     "mapping_params",
     "parse_dependencies",

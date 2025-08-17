@@ -1,6 +1,5 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 # Auto-generated __all__
 __all__ = [
     "MonteCarloSampler",
@@ -18,7 +17,7 @@ import time
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
 from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
-from sheap.Assistants.Parameters import _build_Parameters
+from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
 
 class MonteCarloSampler:
@@ -91,7 +90,7 @@ class MonteCarloSampler:
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         
-        self.params_obj = _build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+        self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
             
         iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
         

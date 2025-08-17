@@ -1,6 +1,5 @@
 """Tools to combine components."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila'
+__author__ = 'felavila'
 
 
 from typing import Any, Dict, List, Union
@@ -283,3 +282,11 @@ def combine_fast_with_jacobian(
         Uncertainty(np.array(amp_vals),  np.array(amp_errs)),
         Uncertainty(np.array(mu_vals),   np.array(mu_errs))
     )
+
+# Auto-generated __all__
+__all__ = [
+    "combine_components",
+    "combine_fast",
+    "combine_fast_with_jacobian",
+]
+

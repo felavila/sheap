@@ -1,7 +1,6 @@
 """This module handles basic operations."""
-__version__ = '0.1.0'
-__author__ = 'Unknown'
-# Auto-generated __all__
+__author__ = 'felavila'
+
 __all__ = [
     "cubic_spline_coefficients",
     "interpolate_nans",

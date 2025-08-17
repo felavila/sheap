@@ -1,9 +1,8 @@
 """This module contains the utilities use for ComplexBuilder."""
 
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
+__author__ = 'felavila'
 
-# Auto-generated __all__
+
 __all__ = [
     "default_known_tied_relations",
     "fe_ties",

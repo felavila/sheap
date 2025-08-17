@@ -1,7 +1,6 @@
 """This module handles ?."""
-__version__ = '0.1.0'
-__author__ = 'Felipe Avila-Vera'
-# Auto-generated __all__
+__author__ = 'felavila'
+
 __all__ = [
     "Errorfromloop",
     "error_covariance_matrix",
