@@ -117,15 +117,15 @@ def ProfileConstraintMaker(
         param_names = func.param_names 
         center0   = sp.center
         shift0    = -1.0 if sp.region in ["outflow"] else 0.0
-        cen_up    = center0 + kms_to_wl(limits.center_shift, center0)
-        cen_lo    = center0 - kms_to_wl(limits.center_shift, center0)
+        cen_up    = center0 + kms_to_wl(limits.v_shift, center0)
+        cen_lo    = center0 - kms_to_wl(limits.v_shift, center0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    center0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    center0)
         amp_init =  float(sp.amplitude) / 10.0 * (-1.0 if sp.region in ["bal"] else 1.0)
         amp_lo =  limits.max_amplitude * (1.0 if sp.region in ["bal"] else 0.0)
         amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
         #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
-        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         init, upper, lower = [], [], []
         for p in param_names:
             if p == "logamp":
@@ -179,7 +179,7 @@ def ProfileConstraintMaker(
         lambda0 = limits.canonical_wavelengths
         #CANONICAL_WAVELENGTHS[sp.region]
         shift_init = 0.0 if sp.component == 1 else (-1.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
-        shift_upper = kms_to_wl(limits.center_shift, lambda0)
+        shift_limit = kms_to_wl(limits.v_shift, lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         logamp = -0.25 if sp.region=="narrow" else -2.0
@@ -187,7 +187,7 @@ def ProfileConstraintMaker(
         #amp_lo =  limits.max_amplitude * (-1.0 if sp.region in ["bal"] else 0.0)
         #amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
         #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
-        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         #fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         init, upper, lower = [], [], []
         for _,p in enumerate(param_names):
@@ -220,8 +220,8 @@ def ProfileConstraintMaker(
                    
             elif p == "shift":
                 init.append(shift_init)
-                upper.append(shift_upper)
-                lower.append(-shift_upper)
+                upper.append(shift_limit)
+                lower.append(-shift_limit)
                 
             elif p == "v_shift":
                 init.append(0)
@@ -278,11 +278,14 @@ def ProfileConstraintMaker(
 
     if selected_profile == "fetemplate":
         #maybe add a warning here
+        lambda0 = limits.canonical_wavelengths
+        shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
-        init = [1.0,3.0, 0.0] 
-        upper = [10.0,3.8, 50.0] 
-        lower = [-2.0,2.0, -50.0]  
-        #print(params_names)
+        #logamplitude
+        init = [1.0,np.log10(4000.0), 0.0] 
+        upper = [10.0,np.log10(limits.upper_fwhm), shift] 
+        lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
+        print(init,upper,lower)
         return ProfileConstraintSet(
             init= init,
             upper=upper,
@@ -294,10 +297,13 @@ def ProfileConstraintMaker(
         
     if selected_profile == "hostmiles":
         params_names = local_profile.param_names
-        #print(len(params_names[2:]))
-        init = [5.0,3.0, 0.0] + [0.0] * len(params_names[3:])
-        upper = [10.0,3.8, 50.0] + [1.0] * len(params_names[3:])
-        lower = [-2.0,2.0, -50.0]  + [0.0] * len(params_names[3:])
+        lambda0 = limits.canonical_wavelengths
+        shift = kms_to_wl(limits.v_shift, lambda0)
+        params_names = local_profile.param_names
+        init = [5.0,np.log10(400.0), 0.0] + [0.0] * len(params_names[3:])
+        upper = [10.0,np.log10(limits.upper_fwhm), shift] + [1.0] * len(params_names[3:])
+        lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  + [0.0] * len(params_names[3:])
+        print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,
                 upper=upper,

@@ -446,17 +446,16 @@ class FittingLimits:
     Attributes:
         upper_fwhm (float): Maximum velocity FWHM (km/s).
         lower_fwhm (float): Minimum velocity FWHM (km/s).
-        center_shift (float): Maximum center shift (km/s).
         v_shift (float): Maximum velocity shift (km/s).
         max_amplitude (float): Maximum allowed amplitude.
     """
 
     upper_fwhm: float
     lower_fwhm: float
-    center_shift: float
     v_shift: Optional[float] = None
     max_amplitude:  Optional[float] = None
     canonical_wavelengths: Optional[float] = None 
+    references: Optional[list] = None 
     @classmethod
     def from_dict(cls, d: Dict[str, float]) -> "FittingLimits":
         """
@@ -472,7 +471,7 @@ class FittingLimits:
         Raises:
             ValueError: If any required key is missing from the dictionary.
         """
-        required_keys = {'upper_fwhm', 'lower_fwhm', 'center_shift', 'v_shift', 'max_amplitude'}
+        required_keys = {'upper_fwhm', 'lower_fwhm', 'v_shift', 'max_amplitude'}
         missing = required_keys - d.keys()
         if missing:
             raise ValueError(f"Missing keys for FittingLimits: {missing}")
@@ -480,7 +479,6 @@ class FittingLimits:
         return cls(
             upper_fwhm=d['upper_fwhm'],
             lower_fwhm=d['lower_fwhm'],
-            center_shift=d['center_shift'],
             v_shift=d['v_shift'],
             max_amplitude=d['max_amplitude'],
             canonical_wavelengths = d["canonical_wavelengths"]

@@ -354,9 +354,11 @@ def group_lines(
         region_lines = [line.line_name for line in group]
         elements = [line.element for line in group]
         subregions = [line.subregion for line in group]
+        line_name = f"{region_key}{comp}" if mode=="region" else f"{region}{region_key}{comp}"
+        #print(line_name)
         collapsed = SpectralLine(
             center=centers,
-            line_name=f"{region_key}{comp}",
+            line_name=line_name,
             region=region,
             component=comp,
             profile=profile,

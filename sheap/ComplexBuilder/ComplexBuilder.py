@@ -79,12 +79,12 @@ class ComplexBuilder:
     >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
     
-    OUTFLOW_COMPONENT = 10
-    WINDS_COMPONENT = 15
-    FE_COMPONENT = 20
-    NLR_COMPONENT = 30
-    HOST_COMPONENT = 40 
-    BAL_COMPONENT = 50 
+    #OUTFLOW_COMPONENT = 10
+    #WINDS_COMPONENT = 15
+    #FE_COMPONENT = 20
+    #NLR_COMPONENT = 30
+    #HOST_COMPONENT = 40 
+    #BAL_COMPONENT = 50 
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     lines_prone_bal = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","NVa","NVb","SiIV","OIV]","AlIIIa","AlIIIb","MgIIb"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
@@ -115,9 +115,10 @@ class ComplexBuilder:
         add_host_miles: Optional[Union[Dict,bool]] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
+        n_max_component_outflow = 1,
+        n_max_component_winds = 1,
+        n_max_component_bal = 1,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        #by_region: bool = False,
-        #add_NLR : bool = False,
         #fe_tied_params=('center', 'fwhm'),
         verbose=True,
         ) -> None:
@@ -170,7 +171,9 @@ class ComplexBuilder:
         self.tied_broad_to = tied_broad_to
         self.tied_narrow_to = tied_narrow_to
         self.add_BAL = add_BAL
-        
+        self.n_max_component_outflow = n_max_component_outflow
+        self.n_max_component_winds = n_max_component_winds
+        self.n_max_component_bal = n_max_component_bal
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
@@ -271,7 +274,7 @@ class ComplexBuilder:
                     continue
                 base = SpectralLine(**raw_line)
                 if pseudo_region_name == "broad_and_narrow": #search of name
-                    comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds,add_BAL=add_BAL)
+                    comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds,add_BAL=add_BAL,add_outflow=add_outflow)
                 elif pseudo_region_name == "narrows" and n_narrow>0:
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
@@ -299,7 +302,7 @@ class ComplexBuilder:
         del self.complex_list
         
     def _handle_broad_and_narrow_lines(
-        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ) -> List[SpectralLine]:
+        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ,add_outflow=False) -> List[SpectralLine]:
         """
         Create narrow, broad, and optional wind components for a single line.
 
@@ -334,22 +337,34 @@ class ComplexBuilder:
                 element=entry.element,
             )
             comps.append(new)
-            if add_winds and idx == 0 and new.line_name in self.lines_prone_winds:
+            #self.n_max_component_outflow
+            if add_outflow and comp_num <= self.n_max_component_outflow and new.line_name in self.lines_prone_outflow:
+                out = SpectralLine(
+                    center= entry.center,
+                    line_name=entry.line_name,
+                    region ='outflow',
+                    component = comp_num,
+                    amplitude=1.0,
+                    element = entry.element,
+                    rarity = entry.rarity)
+                
+                comps.append(out)
+            elif add_winds and comp_num <= self.n_max_component_winds  and new.line_name in self.lines_prone_winds:
                 out = SpectralLine(
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='winds',
-                    component = self.WINDS_COMPONENT,
+                    component = comp_num,
                     amplitude=1.0,
                     element = entry.element,
                 )
                 comps.append(out)
-            elif add_BAL and idx == 0 and new.line_name in self.lines_prone_bal:
+            elif add_BAL and comp_num <= self.n_max_component_bal and new.line_name in self.lines_prone_bal:
                 out = SpectralLine(
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='bal',
-                    component = self.BAL_COMPONENT,
+                    component = comp_num,
                     amplitude=1.0,
                     element = entry.element,
                 )
@@ -382,22 +397,23 @@ class ComplexBuilder:
             amp = 1.0
             if entry.rarity=="uncommon" and not add_uncommon_narrow:
                 continue 
+            comp_num = idx + 1
             new = SpectralLine(
                 center=entry.center,
                 line_name=entry.line_name,
                 region ='narrow',
-                component = idx + 1,
+                component = comp_num,
                 amplitude =  amp,
                 element = entry.element,
                 rarity = entry.rarity
             )
             comps.append(new)
-            if add_outflow and idx == 0 and new.line_name in self.lines_prone_outflow:
+            if add_outflow and comp_num <= self.n_max_component_outflow and new.line_name in self.lines_prone_outflow:
                 out = SpectralLine(
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='outflow',
-                    component = self.OUTFLOW_COMPONENT,
+                    component = comp_num,
                     amplitude=1.0,
                     element = entry.element,
                     rarity = entry.rarity)
@@ -434,32 +450,33 @@ class ComplexBuilder:
             if idx>0:
                 continue 
             amp = 1 #if idx == 0 else 0.5
+            comp_num = idx + 1
             new = SpectralLine(
                 center=entry.center,
                 line_name=entry.line_name,
                 region='broad',
-                component=idx + 1,
+                component=comp_num,
                 amplitude=amp,
                 element=entry.element,
             )
             comps.append(new)
             
-            if add_winds and idx == 0 and self.lines_prone_winds:
+            if add_winds and comp_num <= self.n_max_component_winds and self.lines_prone_winds:
                 out = SpectralLine(
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='winds',
-                    component = self.WINDS_COMPONENT,
+                    component = comp_num,
                     amplitude=1.0,
                     element = entry.element,
                 )
                 comps.append(out)
-            elif add_BAL and idx == 0 and new.line_name in self.lines_prone_bal:
+            elif add_BAL and comp_num <= self.n_max_component_bal and new.line_name in self.lines_prone_bal:
                 out = SpectralLine(
                     center= entry.center,
                     line_name=entry.line_name,
                     region ='bal',
-                    component = self.BAL_COMPONENT,
+                    component = comp_num,
                     amplitude=1.0,
                     element = entry.element,
                 )
@@ -499,13 +516,13 @@ class ComplexBuilder:
                 if self.verbose:
                     print("added OP template")
                 fe_comps.extend(
-                    [SpectralLine(line_name="feop",region="fe",component=self.FE_COMPONENT,profile="fetemplate",template_info = {"name":"feop"})])
+                    [SpectralLine(line_name="feop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feop"})])
                 t_c += 1
             if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 500:
                 #maybe it is a good time to r
                 if self.verbose:
                     print("added UV template")
-                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=self.FE_COMPONENT,profile="fetemplate",template_info = {"name":"feuv"})])
+                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuv"})])
                 t_c += 1
             if t_c == 0:
                 print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
@@ -518,7 +535,7 @@ class ComplexBuilder:
                         continue
                     base = SpectralLine(**raw_line)
                     base.subregion = pseudo_region_name
-                    base.component = self.FE_COMPONENT
+                    base.component = 1
                     fe_comps.extend([base])
         return fe_comps
     
@@ -621,7 +638,7 @@ class ComplexBuilder:
         else:
             Warning("Not accepted type of add_host_moles")
             return self.complex_list
-        line = SpectralLine(line_name="host",region="host",component=self.HOST_COMPONENT,template_info=_host_model["host_info"],profile="hostmiles")    
+        line = SpectralLine(line_name="host",region="host",component=1,template_info=_host_model["host_info"],profile="hostmiles")    
         self.complex_list.extend([line])
         
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-2]):
