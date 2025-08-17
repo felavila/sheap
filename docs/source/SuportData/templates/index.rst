@@ -1,4 +1,4 @@
-Templates
+templates
 =========
 
 .. include:: ../../../../sheap/SuportData/templates/README.md

@@ -6,6 +6,7 @@ sheap.Utils package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
 -----------
 
 .. toctree::
@@ -13,6 +14,7 @@ sheap.Utils package
 
    sheap.Utils.Utils
 
+Submodules
 ----------
 
 sheap.Utils.BasicCorrections module

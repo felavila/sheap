@@ -6,6 +6,7 @@ sheap.ComplexAfterFit package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
 -----------
 
 .. toctree::
@@ -13,7 +14,16 @@ sheap.ComplexAfterFit package
 
    sheap.ComplexAfterFit.Samplers
 
+Submodules
 ----------
+
+sheap.ComplexAfterFit.AfterFitParams module
+-------------------------------------------
+
+.. automodule:: sheap.ComplexAfterFit.AfterFitParams
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 sheap.ComplexAfterFit.ComplexAfterFit module
 --------------------------------------------

@@ -14,7 +14,7 @@ AUTHOR_PATTERN = re.compile(r"^__author__\s*=\s*['\"]([^'\"]+)['\"]", re.M)
 summary_report = {"updated_modules": [], "skipped_modules": [], "updated_inits": [], "undocumented": {}}
 
 
-def extract_metadata(init_path: Path, default_version="0.0.1", default_author="Unknown") -> tuple[str, str]:
+def extract_metadata(init_path: Path, default_version="0.0.1", default_author="felavila") -> tuple[str, str]:
     if not init_path.exists():
         print(f"Warning: {init_path} not found. Using defaults.")
         return default_version, default_author
@@ -34,13 +34,20 @@ def ensure_metadata_lines(init_path: Path, version: str, author: str, dry_run: b
 
     modified = False
 
-    if "__version__" not in content:
-        lines.insert(0, f"__version__ = '{version}'")
+    if "__version__" in content:
+        lines.insert(0, "")
         modified = True
-    else:
-        lines = [re.sub(r"^__version__\s*=.*", f"__version__ = '{version}'", line) if "__version__" in line else line for line in lines]
+      
+    #if "__version__" not in content:
+     #   lines.insert(0, f"__version__ = '{version}'")
+      #  modified = True
+    #else:
+     #   lines = [re.sub(r"^__version__\s*=.*", f"__version__ = '{version}'", line) if "__version__" in line else line for line in lines]
 
     if "__author__" not in content:
+        lines.insert(1, f"__author__ = '{author}'")
+        modified = True
+    if "__author__" in content:
         lines.insert(1, f"__author__ = '{author}'")
         modified = True
 
@@ -182,7 +189,7 @@ def process_package_recursively(pkg_root: Path, dry_run: bool, force: bool, chec
 
 def run_script(root_path: Path, dry_run: bool = False, force: bool = False, check_docs: bool = False):
     process_package_recursively(root_path, dry_run, force, check_docs)
-
+    print(root_path)
     print("\nSummary:")
     print("Updated __init__.py files:")
     for path in summary_report["updated_inits"]:
@@ -229,4 +236,3 @@ python all_editor.py --path sheap/ --check-docs
 # 5. All features combined:
 python all_editor.py --path sheap/ --force --check-docs --dry-run
 """
-

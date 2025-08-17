@@ -1,7 +1,6 @@
-__version__ = '0.1.0'
-__author__ = 'Unknown'
+__author__ = 'Felipe Avila'
 
-# Auto-generated __all__
+
 __all__ = [
     "ParametersSampler",
     "afterfitprofilehelpers",

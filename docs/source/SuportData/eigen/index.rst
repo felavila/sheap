@@ -1,4 +1,4 @@
-Eigen
+eigen
 =====
 
 .. include:: ../../../../sheap/SuportData/eigen/README.md

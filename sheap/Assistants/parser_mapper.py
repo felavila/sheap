@@ -1,5 +1,5 @@
 """This module contains all the mappers and parsers."""
-__version__ = '0.1.0'
+
 __author__ = 'Felipe Avila-Vera'
 
 __all__ = [

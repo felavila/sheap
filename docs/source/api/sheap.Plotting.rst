@@ -6,6 +6,7 @@ sheap.Plotting package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Plotting.SheapPlot module

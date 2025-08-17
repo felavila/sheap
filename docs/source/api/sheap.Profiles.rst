@@ -6,6 +6,7 @@ sheap.Profiles package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Profiles.profile\_handler module

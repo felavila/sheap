@@ -1,0 +1,96 @@
+broad:
+  upper_fwhm: 10000.0
+  lower_fwhm: 1500.0
+  v_shift: 3000.0
+  max_amplitude: 10.0
+  canonical_wavelengths: 4861.0
+  references:
+    - 2011ApJS..194...45S
+    - 2017ApJS..229...39R   # Shen+11; Rakshit+17
+
+narrow:
+  upper_fwhm: 500.0
+  lower_fwhm: 100.0
+  v_shift: 500.0
+  max_amplitude: 10.0
+  canonical_wavelengths: 5007.0  # anchor at [O III]
+  references:
+    - 2013MNRAS.433..622M
+    - 2017MNRAS.472.4051C   # Mullaney+13; Calderone+17 (QSFit)
+
+outflow:
+  upper_fwhm: 1500.0
+  lower_fwhm: 500.0
+  v_shift: 500.0
+  max_amplitude: 10.0
+  canonical_wavelengths: 5007.0
+  references:
+    - 2013MNRAS.433..622M
+    - 2018A&A...620A..82C
+    - 2018NatAs...2..198H
+
+winds:
+  upper_fwhm: 15000.0
+  lower_fwhm: 3000.0
+  v_shift: 8000.0
+  max_amplitude: 10.0
+  canonical_wavelengths: 1549.0  # anchor at C IV
+  references:
+    - 2011AJ....141..167R
+    - 2016MNRAS.461..647C
+    - 2017MNRAS.465.2120C
+
+fe_broad:
+  upper_fwhm: 7000.0
+  lower_fwhm: 900.0
+  v_shift: 3000.0
+  max_amplitude: 0.07
+  canonical_wavelengths: 4570.0
+  references:
+    - 2004A&A...417..515V
+    - 2001ApJS..134....1V
+    - 2010ApJS..189...15K
+
+fe_narrow:
+  upper_fwhm: 600.0
+  lower_fwhm: 100.0
+  v_shift: 500.0
+  max_amplitude: 0.07
+  canonical_wavelengths: 4570.0
+  references:
+    - 2004A&A...417..515V
+    - 2010ApJ...721L.143D
+    - 2008ApJ...674..668W
+
+host:
+  upper_fwhm: 1000.0
+  lower_fwhm: 100.0
+  v_shift: 500
+  max_amplitude: 0.0
+  canonical_wavelengths: 5175.0
+  references:
+    - 2003MNRAS.344.1000B
+    - 2006MNRAS.371..703S
+    - 2004PASP..116..138C
+
+bal:
+  upper_fwhm: 20000.0
+  lower_fwhm: 2000.0
+  v_shift: 30000.0
+  max_amplitude: 10.0
+  canonical_wavelengths: 1549.0
+  references:
+    - 1991ApJ...373...23W
+    - 2006ApJS..165....1T
+
+# Optional backward-compat alias
+fe:
+  upper_fwhm: 7000.0
+  lower_fwhm: 100.0
+  v_shift: 3000.0
+  max_amplitude: 0.07
+  canonical_wavelengths: 4570.0
+  references:
+    - 2004A&A...417..515V
+    - 2001ApJS..134....1V
+    - 2010ApJS..189...15K

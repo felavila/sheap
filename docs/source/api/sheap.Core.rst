@@ -6,6 +6,7 @@ sheap.Core package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Core.Definitions module

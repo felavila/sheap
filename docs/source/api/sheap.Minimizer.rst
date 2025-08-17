@@ -6,6 +6,7 @@ sheap.Minimizer package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Minimizer.Minimizer module

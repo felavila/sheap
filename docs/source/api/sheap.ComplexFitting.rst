@@ -6,6 +6,7 @@ sheap.ComplexFitting package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.ComplexFitting.ComplexFitting module

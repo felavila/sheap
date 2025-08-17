@@ -6,6 +6,7 @@ sheap.ComplexAfterFit.Samplers package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
 -----------
 
 .. toctree::
@@ -13,6 +14,7 @@ sheap.ComplexAfterFit.Samplers package
 
    sheap.ComplexAfterFit.Samplers.utils
 
+Submodules
 ----------
 
 sheap.ComplexAfterFit.Samplers.McMcSampler module
@@ -27,6 +29,14 @@ sheap.ComplexAfterFit.Samplers.MonteCarloSampler module
 -------------------------------------------------------
 
 .. automodule:: sheap.ComplexAfterFit.Samplers.MonteCarloSampler
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+sheap.ComplexAfterFit.Samplers.PseudoMonteCarloSampler module
+-------------------------------------------------------------
+
+.. automodule:: sheap.ComplexAfterFit.Samplers.PseudoMonteCarloSampler
    :members:
    :undoc-members:
    :show-inheritance:

@@ -1,0 +1,15 @@
+"1350":
+    value: 3.81
+    ref: "2006ApJS..166..470R"
+"1450":
+  value: 3.81
+  ref: "2006ApJS..166..470R"  # alt: 2012MNRAS.422..478R (k≈4.2)
+"3000":
+  value: 5.15
+  ref: "2006ApJS..166..470R"
+"5100":
+  value: 9.26
+  ref: "2006ApJS..166..470R"
+"6200":
+  value: 9.26
+  ref: "2006ApJS..166..470R"  # proxy, not explicitly in Richards+06

@@ -6,6 +6,7 @@ sheap.Utils.Utils package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Utils.Utils.can\_be\_usefull module

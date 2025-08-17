@@ -4,7 +4,7 @@ import os, sys
 import glob
 import shutil
 import re
-
+from pathlib import Path
 import nbsphinx
 import sphinx_rtd_theme
 from importlib.metadata import PackageNotFoundError, version as pkg_version
@@ -171,8 +171,59 @@ while i < len(body_lines):
     new_body.append(line)
     i += 1
 
+with open("../../README.rst", "rt") as f:
+    lines = f.readlines()
+
+# 1) Find where the first real section starts (title + underline)
+start = 0
+for i in range(len(lines) - 1):
+    title = lines[i].rstrip("\n")
+    underline = lines[i+1].rstrip("\n")
+    if (
+        len(underline) >= 3
+        and set(underline) == {underline[0]}
+        and len(underline) >= len(title)
+        and underline[0] in ("=", "-", "~", "^")
+    ):
+        start = i
+        break
+
+# 2) Split out the body from that section onward
+body_lines = lines[start:]
+
+# 3) Prepare to build a new body with the first section swapped and all underlines → '-'
+new_body = []
+first_replaced = False
+
+i = 0
+while i < len(body_lines):
+    line = body_lines[i]
+    # If this is the first section title (underlined with '=')
+    if (not first_replaced
+        and i + 1 < len(body_lines)
+        and re.match(r"=+", body_lines[i+1].rstrip("\n"))
+    ):
+        # Replace title + its underline
+        new_title = "sheap (Spectral Handling and Estimation of AGN)\n"
+        new_uline = "-" * (len(new_title.rstrip("\n"))) + "\n"
+        new_body.append(new_title)
+        new_body.append(new_uline)
+        first_replaced = True
+        i += 2
+        continue
+
+    # If this line *is* an underline of any repeated punctuation, swap to '-'
+    if re.match(r"^([=~^\-])\1+$", line.rstrip("\n")):
+        new_body.append("-" * len(line.rstrip("\n")) + "\n")
+        i += 1
+        continue
+
+    # Otherwise, just copy the line
+    new_body.append(line)
+    i += 1
+
 # 4) Prepend the “Getting Started with SHEAP” heading
-hdr = "Getting Started with SHEAP\n" + "=" * len("Getting Started with SHEAP") + "\n\n"
+hdr = "Getting Started with sheap\n" + "=" * len("Getting Started with sheap") + "\n\n"
 
 with open("getting_started.rst", "wt") as f:
     f.write(hdr)
@@ -183,28 +234,16 @@ with open("getting_started.rst", "wt") as f:
 if not os.path.exists("tutorials"):
     os.makedirs("tutorials")
 
-for src_file in glob.glob("../examples/*.ipynb"):
+for src_file in glob.glob("../../tutorials/*.ipynb"):
     dst_file = os.path.join("tutorials", src_file.split("/")[-1])
     shutil.copy(src_file, "tutorials/")
 
 # add index file to `tutorials` path, `:orphan:` is used to
 # tell sphinx that this rst file needs not to be appeared in toctree
-with open("../../examples/index.rst", "rt") as f1:
+with open("../../tutorials/index.rst", "rt") as f1:
     with open("tutorials/index.rst", "wt") as f2:
         #f2.write(":orphan:\n\n")
         f2.write(f1.read())
-
-
-# -- Convert scripts to notebooks #####
-sphinx_gallery_conf = {
-    "examples_dirs": ["../../examples"],
-    "gallery_dirs": ["examples"],
-    # only execute files beginning with plot_
-    "filename_pattern": "/plot_",
-   # "ignore_pattern": "(minipyro|__init__)",
-    # not display Total running time of the script because we do not execute it
-    "min_reported_time": 1,
-}
 
 html_logo = "_static/sheap_nobck_logo.png"
 

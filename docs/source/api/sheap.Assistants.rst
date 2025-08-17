@@ -6,6 +6,7 @@ sheap.Assistants package
    :undoc-members:
    :show-inheritance:
 
+Submodules
 ----------
 
 sheap.Assistants.Parameters module

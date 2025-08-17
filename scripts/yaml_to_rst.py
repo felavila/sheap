@@ -49,7 +49,7 @@ for subdir in sorted(SRC_ROOT.iterdir()):
             try:
                 data = yaml.safe_load(file.read_text())
             except Exception as e:
-                print(f"⚠️  Failed to parse {file.name}: {e}")
+                print(f"Failed to parse {file.name}: {e}")
                 continue
 
             # Support both top-level list and {"region": [...]}
@@ -58,7 +58,7 @@ for subdir in sorted(SRC_ROOT.iterdir()):
             elif isinstance(data, dict) and "region" in data:
                 rows = data["region"]
             else:
-                print(f"⚠️  Skipping {file.name}: not a valid region list or format")
+                print(f"Skipping {file.name}: not a valid region list or format")
                 continue
 
             if not rows:
@@ -87,7 +87,7 @@ for subdir in sorted(SRC_ROOT.iterdir()):
                     f.write(divider + "\n")
 
             has_yaml = True
-
+    
         if has_yaml:
             section_index += [
                 "YAML Files",
@@ -98,6 +98,69 @@ for subdir in sorted(SRC_ROOT.iterdir()):
                 "   :glob:",
                 "",
                 "   yaml/*",
+                ""
+            ]
+    elif section in ["BolometricCorrections", "DefaultLimits", "SingleEpochEstimators"]:
+        tables_dir = target_dir / "tables"
+        tables_dir.mkdir(exist_ok=True)
+        has_tables = False
+
+        for file in sorted(subdir.glob("*.yaml")):
+            try:
+                data = yaml.safe_load(file.read_text())
+            except Exception as e:
+                print(f"Failed to parse {file.name}: {e}")
+                continue
+
+            if not isinstance(data, dict):
+                print(f"Skipping {file.name}: expected a dict")
+                continue
+
+            # Collect rows from dict
+            rows = []
+            for key, val in data.items():
+                if isinstance(val, dict):
+                    row = {"name": key, **val}
+                else:
+                    row = {"name": key, "value": val}
+                rows.append(row)
+
+            if not rows:
+                continue
+
+            keys = sorted({k for row in rows for k in row.keys()})
+            col_widths = {k: max(len(k), max(len(str(row.get(k, ""))) for row in rows)) for k in keys}
+
+            def format_row(row_dict):
+                return "| " + " | ".join(f"{str(row_dict.get(k, '')).ljust(col_widths[k])}" for k in keys) + " |"
+
+            divider = "+-" + "-+-".join("-" * col_widths[k] for k in keys) + "-+"
+            header = "| " + " | ".join(k.ljust(col_widths[k]) for k in keys) + " |"
+            header_sep = "+=" + "=+=".join("=" * col_widths[k] for k in keys) + "=+"
+
+            rst_file = tables_dir / f"{file.stem}.rst"
+            with open(rst_file, "w") as f:
+                f.write(f"{file.stem.title()} \n")
+                f.write("=" * (len(file.stem) + 8) + "\n\n")
+                f.write(divider + "\n")
+                f.write(header + "\n")
+                f.write(header_sep + "\n")
+                for row in rows:
+                    f.write(format_row(row) + "\n")
+                    f.write(divider + "\n")
+
+            has_tables = True
+
+        if has_tables:
+            section_index += [
+                "YAML Tables",
+                "-----------",
+                "",
+                ".. toctree::",
+                "   :maxdepth: 1",
+                "   :glob:",
+                "",
+                "   tables/*",
                 ""
             ]
 
@@ -112,4 +175,4 @@ for subdir in sorted(SRC_ROOT.iterdir()):
 with open(PROJECT_ROOT / "docs" / "source" / "supportdata.rst", "w") as f:
     f.write("\n".join(supportdata_index))
 
-#print("✅ All SuportData documentation has been generated.")
+

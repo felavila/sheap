@@ -1,4 +1,4 @@
-Sfddata
+sfddata
 =======
 
 .. include:: ../../../../sheap/SuportData/sfddata/README.md

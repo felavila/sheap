@@ -1,6 +1,6 @@
 """Tools to combine components."""
 __version__ = '0.1.0'
-__author__ = 'Unknown'
+__author__ = 'Felipe Avila'
 
 
 from typing import Any, Dict, List, Union

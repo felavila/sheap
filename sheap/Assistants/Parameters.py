@@ -1,5 +1,5 @@
 """This module contains the Paramter and Parameters that handle the reparametrization."""
-__version__ = '0.1.0'
+
 __author__ = 'Felipe Avila-Vera'
 
 

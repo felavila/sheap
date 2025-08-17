@@ -6,6 +6,7 @@ sheap package
    :undoc-members:
    :show-inheritance:
 
+Subpackages
 -----------
 
 .. toctree::
@@ -23,6 +24,7 @@ sheap package
    sheap.SuportData
    sheap.Utils
 
+Submodules
 ----------
 
 sheap.cli module

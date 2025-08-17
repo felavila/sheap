@@ -1,0 +1,446 @@
+# --------------------------
+# 2005 — Greene & Ho (Hα, line luminosity)
+# --------------------------
+GH05_Halpha_Lha:
+  line: Halpha
+  kind: line
+  a: 6.57
+  b: 0.47
+  fwhm_factor: 2.06
+  f: 1.0
+  pivots: { L: 1e42, FWHM: 1e3 }
+  extras: {}
+  ref: 2005ApJ...630..122G
+  width_def: fwhm
+# --------------------------
+# 2006 — Vestergaard & Peterson (continuum recipes)
+# --------------------------
+VP06_Hbeta_5100:
+  line: Hbeta
+  kind: continuum
+  wavelength: 5100
+  a: 6.91
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2006ApJ...641..689V
+  width_def: fwhm
+
+VP06_CIV_1350:
+  line: CIV
+  kind: continuum
+  wavelength: 1350
+  a: 6.66
+  b: 0.53
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2006ApJ...641..689V
+  width_def: fwhm
+# --------------------------
+# 2009 — Vestergaard & Osmer (Mg II, continuum)
+# --------------------------
+VO09_MgII_1350:
+  line: MgII
+  kind: continuum
+  wavelength: 1350
+  a: 6.72
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2009ApJ...699..800V
+  width_def: fwhm
+
+VO09_MgII_2100:
+  line: MgII
+  kind: continuum
+  wavelength: 2100
+  a: 6.79
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2009ApJ...699..800V
+  width_def: fwhm
+
+VO09_MgII_3000:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.86
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2009ApJ...699..800V
+  width_def: fwhm
+
+VO09_MgII_5100:
+  line: MgII
+  kind: continuum
+  wavelength: 5100
+  a: 6.96
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2009ApJ...699..800V
+  width_def: fwhm
+# --------------------------
+# 2011 — Shen et al. (continuum on VP06 scale)
+# --------------------------
+Shen11_MgII_3000:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.74
+  b: 0.62
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2011ApJS..194...45S
+  width_def: fwhm
+# --------------------------
+# 2015 — Reines & Volonteri (Hα, line luminosity; ε=f/4 with f=4.3, ε = 1.075)
+# --------------------------
+RV15_Halpha_Lha:
+  line: Halpha
+  kind: line
+  a:  6.57
+  b: 0.47
+  fwhm_factor: 2.06
+  f: 1.075
+  pivots: { L: 1e42, FWHM: 1e3 }
+  extras: {}
+  ref: 2015ApJ...813...82R
+  width_def: fwhm
+# --------------------------
+# 2016 — Mejía-Restrepo et al. (Table 7; β=2, f=1; L in 1e44, FWHM in 1e3)
+# Variants: "local", "global", "local_corr". All are FWHM-based.
+# --------------------------
+MR16_local_Halpha_L5100_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 5100
+  a: 6.779
+  b: 0.650
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_Halpha_L5100_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 5100
+  a: 6.958
+  b: 0.569
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_Halpha_L5100_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 5100
+  a: 6.845
+  b: 0.650
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_local_Halpha_L6200_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 6200
+  a: 6.842
+  b: 0.634
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_Halpha_L6200_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 6200
+  a: 7.062
+  b: 0.524
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_Halpha_L6200_FWHM:
+  line: Halpha
+  kind: continuum
+  wavelength: 6200
+  a: 6.891
+  b: 0.634
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_local_Halpha_Lha_FWHM:
+  line: Halpha
+  kind: line
+  a: 7.072
+  b: 0.563
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_Halpha_Lha_FWHM:
+  line: Halpha
+  kind: line
+  a: 7.373
+  b: 0.514
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_Halpha_Lha_FWHM:
+  line: Halpha
+  kind: line
+  a: 7.389
+  b: 0.563
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_local_Hbeta_L5100_FWHM:
+  line: Hbeta
+  kind: continuum
+  wavelength: 5100
+  a: 6.721
+  b: 0.650
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_Hbeta_L5100_FWHM:
+  line: Hbeta
+  kind: continuum
+  wavelength: 5100
+  a: 6.864
+  b: 0.568
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_Hbeta_L5100_FWHM:
+  line: Hbeta
+  kind: continuum
+  wavelength: 5100
+  a: 6.740
+  b: 0.650
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_local_MgII_L3000_FWHM:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.906
+  b: 0.609
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_MgII_L3000_FWHM:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.955
+  b: 0.599
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_MgII_L3000_FWHM:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.925
+  b: 0.609
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_local_CIV_L1450_FWHM:
+  line: CIV
+  kind: continuum
+  wavelength: 1450
+  a: 6.331
+  b: 0.599
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_global_CIV_L1450_FWHM:
+  line: CIV
+  kind: continuum
+  wavelength: 1450
+  a: 6.349
+  b: 0.588
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: global }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+
+MR16_localcorr_CIV_L1450_FWHM:
+  line: CIV
+  kind: continuum
+  wavelength: 1450
+  a: 6.353
+  b: 0.599
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { variant: local_corr }
+  ref: 2016MNRAS.460..187M
+  width_def: fwhm
+# --------------------------
+# 2018 — Mejía-Restrepo et al. (C IV caution)
+# --------------------------
+MR18_CIV_1350_FWHM:
+  line: CIV
+  kind: continuum
+  wavelength: 1350
+  a: 6.66
+  b: 0.53
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2018MNRAS.478.1929M
+  width_def: fwhm
+  enabled: false
+# --------------------------
+# 2020 — Le et al. (Mg II with profile-shape term)
+# --------------------------
+Le20_MgII_3000_FWHM:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.86
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { le20_shape: true }   # requires extras['sigma_kms']
+  ref: 2020ApJ...901...35L
+  width_def: fwhm
+# --------------------------
+# 2023 — Yu et al. (continuum)
+# --------------------------
+Yu23_Hbeta_5100:
+  line: Hbeta
+  kind: continuum
+  wavelength: 5100
+  a: 6.91
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2023MNRAS.522.4132Y
+  width_def: fwhm
+
+Yu23_MgII_3000:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.86
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2023MNRAS.522.4132Y
+  width_def: fwhm
+
+Yu23_CIV_1350:
+  line: CIV
+  kind: continuum
+  wavelength: 1350
+  a: 6.66
+  b: 0.53
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: {}
+  ref: 2023MNRAS.522.4132Y
+  width_def: fwhm
+# --------------------------
+# 2025 — Pan et al. (Mg II with iron-strength term)
+# --------------------------
+Pan25_MgII_3000_RFe:
+  line: MgII
+  kind: continuum
+  wavelength: 3000
+  a: 6.86
+  b: 0.50
+  vel_exp: 2.0
+  f: 1.0
+  pivots: { L: 1e44, FWHM: 1e3 }
+  extras: { pan25_gamma: -0.34 }   # requires extras['R_Fe']
+  ref: 2025ApJ...987...48P
+  width_def: fwhm

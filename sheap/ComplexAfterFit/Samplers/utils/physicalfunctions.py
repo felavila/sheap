@@ -220,7 +220,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     L = _col(L_in)
     V = _col(vwidth_kms)
 
-    logM = a + b * (np.log10(L) - np.log10(L0)) + beta * (np.log10(V) - np.log10(V0))
+    logM = np.log10(f) + a + b * (np.log10(L) - np.log10(L0)) + beta * (np.log10(V) - np.log10(V0))
 
     # Le20 shape (only if baseline uses FWHM)
     if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
@@ -235,7 +235,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
         RFe = _col(extras["R_Fe"])
         logM += gamma * RFe  # broadcasts across components
 
-    return (10.0 ** logM) / f
+    return (10.0 ** logM)
 
 
 def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None):
