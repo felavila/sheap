@@ -10,7 +10,7 @@ build-backend = "poetry.core.masonry.api"
 ## Also renders on pypi as 'subtitle'
 [tool.poetry]
 name = "sheap"
-version = "0.1.0"
+version = "0.0.5"
 description = "SHEAP: Spectral Handling and Estimation of AGN Parameters"
 authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
@@ -159,7 +159,6 @@ docs = [
     "sphinx-inline-tabs",
     "sphinxcontrib-mermaid",
     "furo",
-    "sphinx-autobuild"
 ]
 docslive = [
     "sphinx",
