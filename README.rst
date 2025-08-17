@@ -1,4 +1,4 @@
-.. image:: docs/source/_static/sheap_withname.png
+.. image:: https://raw.githubusercontent.com/felavila/sheap/main/docs/source/_static/sheap_withname.png
    :alt: SHEAP Logo
    :align: left
    :width: 700

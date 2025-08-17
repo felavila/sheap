@@ -1,48 +1,29 @@
-# .readthedocs.yml
-#a
-# Read the Docs configuration file
-# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
-
-# Required
 version: 2
 
-# Set the OS, Python version and other tools you might need
 build:
   os: ubuntu-22.04
   tools:
     python: "3.12"
-
-  # ALL JOBS implied: https://docs.readthedocs.io/en/stable/builds.html
   jobs:
     pre_install:
-      - python --version
-      - python -m pip install poetry
-      - python -m poetry export -o req-docs.txt -E docs
-    post_install:
-      - python -m pip install -e .
-      - python -m pip install pyyaml
+      - python -m pip install -U poetry poetry-plugin-export
+      - python -m poetry export -f requirements.txt -o req-docs.txt -E docs
     pre_build:
-      - python ./scripts/visualize-ga-workflow.py > ./docs/cicd_mermaid.md
-      - python ./scripts/visualize-dockerfile.py > ./docs/dockerfile_mermaid.md
+      - sphinx-apidoc --force --module-first --separate -o docs/source/api sheap
+      - test -f ./scripts/yaml_to_rst.py && python ./scripts/yaml_to_rst.py || echo "Skipping yaml_to_rst.py"
+      - test -f ./scripts/clean_rst.py && python ./scripts/clean_rst.py || echo "Skipping clean_rst.py"
+      - python ./scripts/visualize-ga-workflow.py > docs/cicd_mermaid.md 2>/dev/null || echo "Skipping GA workflow visualization"
+      - python ./scripts/visualize-dockerfile.py > docs/dockerfile_mermaid.md 2>/dev/null || echo "Skipping Dockerfile visualization"
 
+python:
+  install:
+    - method: pip
+      path: .
+    - requirements: req-docs.txt
 
-
-# Build documentation in the docs/ directory with Sphinx
 sphinx:
   builder: html
-  configuration: docs/conf.py
+  configuration: docs/source/conf.py
   fail_on_warning: false
 
-# Optionally build your docs in additional formats such as PDF
-formats:
-  - pdf
-  - epub
-
-
-
-# Optional but recommended, declare the Python requirements required
-# to build your documentation
-# See https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
-python:
-   install:
-   - requirements: req-docs.txt
+formats: [htmlzip, pdf, epub]

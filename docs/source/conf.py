@@ -7,7 +7,7 @@ import re
 
 import nbsphinx
 import sphinx_rtd_theme
-
+from importlib.metadata import PackageNotFoundError, version as pkg_version
 
 #from sheap.RegionHandler.RegionBuilder import RegionBuilder
 
@@ -16,8 +16,21 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 project   = 'sheap'
 author    = 'F. Avila-Vera'
-release   = '0.1.0'
 
+def resolve_release():
+    # On RTD, this is the tag/branch being built, e.g., "v0.1.2" or "latest"
+    v = os.environ.get("READTHEDOCS_VERSION")
+    vt = os.environ.get("READTHEDOCS_VERSION_TYPE")  # "tag" | "branch" | "unknown"
+    if v and vt == "tag":
+        return v.lstrip("v")
+    # Fallback: use installed package version
+    try:
+        return pkg_version("sheap")
+    except PackageNotFoundError:
+        # Last resort: keep a sane default
+        return "0.0.0"
+release = resolve_release()
+version = ".".join(release.split(".")[:2])
 autodoc_inherit_docstrings = True
 
 extensions = [
