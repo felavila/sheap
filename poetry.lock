@@ -1787,10 +1787,7 @@ files = [
 ]
 
 [package.dependencies]
-numpy = [
-    {version = ">=2.1.0", markers = "python_version >= \"3.13\""},
-    {version = ">=1.26.0", markers = "python_version == \"3.12\""},
-]
+numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
 
 [package.extras]
 dev = ["absl-py", "pyink", "pylint (>=2.6.0)", "pytest", "pytest-xdist"]
@@ -3403,7 +3400,7 @@ description = "Add inline tabbed content to your Sphinx documentation."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "python_version == \"3.12\" and (extra == \"docs\" or extra == \"docslive\")"
+markers = "extra == \"docs\" or extra == \"docslive\""
 files = [
     {file = "sphinx_inline_tabs-2023.4.21-py3-none-any.whl", hash = "sha256:06809ac613f7c48ddd6e2fa588413e3fe92cff2397b56e2ccf0b0218f9ef6a78"},
     {file = "sphinx_inline_tabs-2023.4.21.tar.gz", hash = "sha256:5df2f13f602c158f3f5f6c509e008aeada199a8c76d97ba3aa2822206683bebc"},
@@ -3526,7 +3523,7 @@ description = "Mermaid diagrams in yours Sphinx powered docs"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "python_version == \"3.12\" and (extra == \"docs\" or extra == \"docslive\")"
+markers = "extra == \"docs\" or extra == \"docslive\""
 files = [
     {file = "sphinxcontrib-mermaid-0.9.2.tar.gz", hash = "sha256:252ef13dd23164b28f16d8b0205cf184b9d8e2b714a302274d9f59eb708e77af"},
     {file = "sphinxcontrib_mermaid-0.9.2-py3-none-any.whl", hash = "sha256:6795a72037ca55e65663d2a2c1a043d636dc3d30d418e56dd6087d1459d98a5d"},
@@ -3908,5 +3905,5 @@ typing = ["mypy", "pytest", "pytest-click"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12, <3.14"
-content-hash = "0ad7314b8f4cf1804642b94737aee16f374e0ca4d600465fbdd766742662e451"
+python-versions = ">=3.12,<3.13"
+content-hash = "ceeed50d04cfb52a148058762d9da792b1e8385859f2c589b291a362cc869667"
