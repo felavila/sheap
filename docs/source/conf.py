@@ -89,11 +89,12 @@ templates_path   = ['_templates']
 
 html_theme      = 'sphinx_rtd_theme'
 # html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
-# html_theme_options = {
-#     'collapse_navigation': False,
-#     'navigation_depth':     4,
-#     'sticky_navigation':    True,
-# }
+html_theme_options = {
+    "collapse_navigation": False,
+    "navigation_depth": 4,
+    "includehidden": True,  # <- key: show hidden toctrees from other pages
+}
+
 
 html_static_path = ['_static']
 html_css_files = [
@@ -246,6 +247,7 @@ with open("../../tutorials/index.rst", "rt") as f1:
         f2.write(f1.read())
 
 html_logo = "_static/sheap_nobck_logo.png"
+
 
 # # logo
 # html_logo = "_static/img/pyro_logo_wide.png"

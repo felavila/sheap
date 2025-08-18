@@ -57,7 +57,7 @@ def ProfileConstraintMaker(
     if selected_profile in PROFILE_CONTINUUM_FUNC_MAP:  
         if selected_profile == 'powerlaw':
             return ProfileConstraintSet(
-                init=[-1.7, 0.0],
+                init=[-1.7, 0.1],
                 upper=[0.0, 10.0],
                 lower=[-5.0, 0.0],
                 profile=selected_profile,
@@ -186,7 +186,8 @@ def ProfileConstraintMaker(
         #amp_lo =  limits.max_amplitude * (-1.0 if sp.region in ["bal"] else 0.0)
         #amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
         #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
-        fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        #fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         #fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
         init, upper, lower = [], [], []
         for _,p in enumerate(param_names):
@@ -284,7 +285,7 @@ def ProfileConstraintMaker(
         init = [1.0,np.log10(4000.0), 0.0] 
         upper = [10.0,np.log10(limits.upper_fwhm), shift] 
         lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
-        print(init,upper,lower)
+        #print(init,upper,lower)
         return ProfileConstraintSet(
             init= init,
             upper=upper,
@@ -300,9 +301,9 @@ def ProfileConstraintMaker(
         shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
         init = [5.0,np.log10(400.0), 0.0] + [0.0] * len(params_names[3:])
-        upper = [10.0,np.log10(limits.upper_fwhm), shift] + [1.0] * len(params_names[3:])
+        upper = [10.0,np.log10(limits.upper_fwhm), shift] + [1.0] * len(params_names[3:])#
         lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  + [0.0] * len(params_names[3:])
-        print(init,upper,lower)
+        #print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,
                 upper=upper,
@@ -314,9 +315,9 @@ def ProfileConstraintMaker(
     
     if selected_profile == "balmercontinuum":
         return ProfileConstraintSet(
-            init=[1.0, 10000.0, 1.0],
-            upper=[10.0, 50000.0, 2.0],
-            lower=[0.0, 5000.0, 0.01],
+            init=[0.01, 10000.0, 1.0],
+            upper=[2.0, 25000.0, 2.0],
+            lower=[0.0,8000.0 , 1e-3],
             profile = selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
             profile_fn = local_profile)

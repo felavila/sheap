@@ -206,17 +206,17 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     width_def = str(estimator.get("width_def", "fwhm")).lower()
 
     piv = estimator.get("pivots", {})
-    L0 = piv.get("L", 1e42 if kind == "line" else 1e44)
-    V0 = piv.get("FWHM", 1e3)
-
+    L0 = float(piv.get("L", 1e42 if kind == "line" else 1e44))
+    V0 = float(piv.get("FWHM", 1e3))
+    #print(V0,type(V0))
     a = estimator["a"]
     b = estimator["b"]
     beta = estimator.get("fwhm_factor", estimator.get("vel_exp", 2.0))
     f = estimator.get("f", 1.0)
-
+    
     L = _col(L_in)
     V = _col(vwidth_kms)
-
+    #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
     logM = np.log10(f) + a + b * (np.log10(L) - np.log10(L0)) + beta * (np.log10(V) - np.log10(V0))
 
     # Le20 shape (only if baseline uses FWHM)

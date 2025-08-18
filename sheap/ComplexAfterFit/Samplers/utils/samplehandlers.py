@@ -116,6 +116,7 @@ def pivot_and_split(obj_names, result):
         # 1) if it's a dict, recurse on each item
         if isinstance(node, dict):
             return {k: _recurse(v, idx) for k, v in node.items()}
+        
         elif isinstance(node, (str, float, int)):
             return node
                 
@@ -127,8 +128,10 @@ def pivot_and_split(obj_names, result):
             }
         elif isinstance(node, np.ndarray) and node.shape[0] == len(obj_names):
             return {'value': node[idx].squeeze(),'error':0}
-        # 3) array/list/tuple → index
+        # 3) array/list/tuple → index        
         elif isinstance(node, (np.ndarray, list, tuple)):
+            # if isinstance(node, list) and all(isinstance(x, dict) for x in node):
+            #     return [_recurse(n, idx) for n in node]
             return node
         
         warnings.warn(f"Unhandled node type {type(node).__name__} for value: {node}")

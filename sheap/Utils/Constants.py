@@ -1,9 +1,13 @@
 """This module contains constant and stuff."""
+from __future__ import annotations
 __author__ = 'felavila'
+
 
 from pathlib import Path
 import numpy as np 
-import yaml
+from functools import lru_cache
+import yaml  
+
 
 
 __all__ = [
@@ -19,9 +23,27 @@ __all__ = [
 #BolometricCorrections
 c = 299792.458 #speed of light in km/s
 cm_per_mpc = 3.08568e24 #mpc to cm
-DEFAULT_LIMITS =  Path(__file__).resolve().parent.parent / "DefaultLimits" / "DefaultLimits.yaml"
-SINGLE_EPOCH_ESTIMATORS = Path(__file__).resolve().parent.parent / "SingleEpochEstimators" / "SingleEpochEstimators.yaml"
-BOL_CORRECTIONS = Path(__file__).resolve().parent.parent / "BolometricCorrections" / "BolometricCorrections.yaml"
+_DEFAULT_LIMITS =  Path(__file__).resolve().parent.parent / "SuportData"/ "DefaultLimits" / "DefaultLimits.yaml"
+_SINGLE_EPOCH_ESTIMATORS = Path(__file__).resolve().parent.parent / "SuportData"/ "SingleEpochEstimators" / "SingleEpochEstimators.yaml"
+_BOL_CORRECTIONS = Path(__file__).resolve().parent.parent / "SuportData"/ "BolometricCorrections" / "BolometricCorrections.yaml"
+
+
+def _assert_exists(p: Path) -> None:
+    if not p.is_file():
+        raise FileNotFoundError(f"YAML not found: {p}")
+
+@lru_cache(maxsize=None)
+def read_yaml(p: Path) -> dict:
+    """Load a YAML file into a Python dict (cached)."""
+    _assert_exists(p)
+    with p.open("r") as f:
+        return yaml.safe_load(f)  # returns dict/list/str/etc.
+
+# Usage
+DEFAULT_LIMITS           = read_yaml(_DEFAULT_LIMITS)
+SINGLE_EPOCH_ESTIMATORS    = read_yaml(_SINGLE_EPOCH_ESTIMATORS)
+BOL_CORRECTIONS  = read_yaml(_BOL_CORRECTIONS)
+
 # Common bolometric corrections (k_bol ≡ L_bol / λLλ)
 # Baseline constants below are widely used “Richards+06” values, as adopted in large SDSS catalogs (e.g., Shen+11).
 # Notes:

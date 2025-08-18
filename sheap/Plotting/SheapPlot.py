@@ -75,7 +75,7 @@ class SheapPlot:
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
 
-    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,line=None, **kwargs):
+    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,line=None,flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$", **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -98,7 +98,7 @@ class SheapPlot:
                 1,
                 sharex=True,
                 figsize=(35, 15),
-                gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.05},
+                gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.1},
             )
         else:
             fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(35, 15))
@@ -112,13 +112,13 @@ class SheapPlot:
             component_y = profile_func(x_axis, values)
 
             if region.region == "continuum":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="blue")
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="blue",label="Continuum")
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey")
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey",label="Fe")
             elif "host" in region.region.lower():
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green")
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green",label="Host")
             else:
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i])
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i],label=region.region.capitalize())
                 ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
@@ -156,36 +156,37 @@ class SheapPlot:
                         ha = "center"
                     )
 
-        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red")#
-        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1)
+        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red",label="Complex")#
+        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1,label="Data")
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
         if line:
             ax1.axhline(line)
-        ax1.set_ylabel("Flux [arb]", fontsize=20)
+        ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=35)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)
         ax1.text(
-            0.0,
+            0.75,
             1.05,
             f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
-            fontsize=20,
+            fontsize=35,
             transform=ax1.transAxes,
             ha='left',
             va='bottom',
         )
-        ax1.tick_params(axis='both', labelsize=20)
-        ax1.yaxis.offsetText.set_fontsize(20)
-
+        #font_legend =
+        ax1.tick_params(axis='both', labelsize=35)
+        ax1.yaxis.offsetText.set_fontsize(35)
+        ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
             ax2.axhline(0, ls="--", linewidth=5, color="black")
-            ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10)
-            ax2.set_ylabel("Normalized Residuals", fontsize=20)
-            ax2.set_xlabel("Wavelength [Å]", fontsize=30)
-            ax2.tick_params(axis='both', labelsize=20)
+            ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="black")
+            ax2.set_ylabel("Normalized \n residuals", fontsize=35)
+            ax2.set_xlabel("Wavelength [Å] (rest frame)", fontsize=35)
+            ax2.tick_params(axis='both', labelsize=35, pad=10)
         else:
-            ax1.set_xlabel("Wavelength", fontsize=30)
+            ax1.set_xlabel("Wavelength [Å] (rest frame)", fontsize=35)
 
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')

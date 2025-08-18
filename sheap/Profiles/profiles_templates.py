@@ -33,21 +33,32 @@ FEII_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "sigmatemplate": 900.0 / 2.355,
         "fixed_dispersion": 106.3, 
     },
+    "feuvop":{"file": TEMPLATES_PATH / "uvofeii1000kms.txt",
+        "central_wl": 4570.0,
+        "sigmatemplate": 900.0 / 2.355}
 }
 
-
 def make_feii_template_function(
-    name: str
+    name: str,
+    x_min: Optional[float] = None,  # Angstroms (linear)
+    x_max: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
-    Factory for a FeII template model by name.
+    Factory for a FeII template model by name, with optional wavelength cuts.
+
     Looks up path, central_wl, sigmatemplate, and optional fixed_dispersion in FEII_TEMPLATES.
+
+    If x_min/x_max are provided, the template spectrum is cut to [x_min, x_max]
+    with a ±50 Å guard band to reduce boundary artifacts in the FFT broadening, and
+    then re-normalized to unit sum.
 
     Returns:
       {
         'model': Callable(x, params) -> flux,  # has .param_names, .n_params
-        'template_info': { file, central_wl, sigmatemplate,
-                           fixed_dispersion, unit_sum }
+        'template_info': {
+            'name', 'file', 'central_wl', 'sigmatemplate',
+            'fixed_dispersion', 'x_min', 'x_max', 'dl'
+        }
       }
     """
     cfg = FEII_TEMPLATES.get(name)
@@ -60,39 +71,60 @@ def make_feii_template_function(
     user_fd       = cfg.get("fixed_dispersion", None)
 
     data = np.loadtxt(path, comments="#").T
-    wl   = np.array(data[0])
-    flux = np.array(data[1])
-    unit_flux = flux / np.clip(jnp.sum(flux), 1e-10, jnp.inf)
+    wl   = np.array(data[0], dtype=np.float64)
+    flux = np.array(data[1], dtype=np.float64)
 
-    dl = float(wl[1] - wl[0])  # Å per pixel
+    # Optional wavelength cut with ±50 Å margin (like host model)
+    if x_min is not None or x_max is not None:
+        print("cutting between",x_min,x_max)
+        mask = np.ones_like(wl, dtype=bool)
+        if x_min is not None:
+            mask &= wl >= max(x_min - 50.0, wl.min())
+        if x_max is not None:
+            mask &= wl <= min(x_max + 50.0, wl.max())
+        if not np.any(mask):
+            raise ValueError("No wavelength values left after applying x_min/x_max cut.")
+        wl   = wl[mask]
+        flux = flux[mask]
+
+    # Ensure equally spaced grid
+    if wl.size < 3:
+        raise ValueError("Template too short after cutting; need at least 3 points.")
+    dl = float(wl[1] - wl[0])
+
+    # Re-normalize to unit sum AFTER any cut
+    unit_flux = flux / np.clip(np.sum(flux), 1e-10, np.inf)
+
+    # km/s per pixel ≈ (dλ/λ) * c  (c ~ 3e5 km/s)
     if user_fd is None:
-        # km/s per pixel ≈ (dλ/λ) * c
         fixed_dispersion = (dl / central_wl) * 3e5
     else:
-        fixed_dispersion = user_fd
+        fixed_dispersion = float(user_fd)
 
-    param_names = ["logamp","logFWHM","shift"]
+    param_names = ["logamp", "logFWHM", "shift"]
 
     @with_param_names(param_names)
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
         logamp, logFWHM, shift = params
-        amp = 10** logamp
-        FWHM = 10 ** logFWHM
+        amp   = 10.0 ** logamp
+        FWHM  = 10.0 ** logFWHM
         sigma_model = FWHM / 2.355
+        # quadratic subtraction of the template's intrinsic sigma
         delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
 
-        # convert km/s → Å at central λ, then to pixel units
-        sigma_lambda = delta_sigma * central_wl / 3e5   # Å
-        sigma_pix    = sigma_lambda / dl                # pixels
+        # Convert km/s → Å (at central λ), then → pixels
+        sigma_lambda = delta_sigma * central_wl / 3e5  # Å
+        sigma_pix    = sigma_lambda / dl               # pixels
 
         n_pix = unit_flux.shape[0]
-        freq  = jnp.fft.fftfreq(n_pix, d=dl)
-        gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_pix)**2)
-        spec_fft = jnp.fft.fft(unit_flux)
+        # FFT-based Gaussian broadening
+        freq     = jnp.fft.fftfreq(n_pix, d=dl)
+        gauss_tf = jnp.exp(-2.0 * (jnp.pi * freq * sigma_pix) ** 2)
+        spec_fft = jnp.fft.fft(jnp.asarray(unit_flux))
         broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
 
-        # shift & scale
-        shifted_wl = wl + shift
+        # Apply shift in Å and interpolate onto x
+        shifted_wl = jnp.asarray(wl) + shift
         interp = jnp.interp(x, shifted_wl, broadened, left=0.0, right=0.0)
         return amp * interp
 
@@ -100,13 +132,87 @@ def make_feii_template_function(
         "model": model,
         "template_info": {
             "name": name,
-            "central_wl": central_wl,
-            "sigmatemplate": sigmatemplate,
-            "fixed_dispersion": fixed_dispersion,
+            "file": str(path),
+            "central_wl": float(central_wl),
+            "sigmatemplate": float(sigmatemplate),
+            "fixed_dispersion": float(fixed_dispersion),
+            "x_min": None if x_min is None else float(x_min),
+            "x_max": None if x_max is None else float(x_max),
+            "dl": dl,
         },
     }
+
+# def make_feii_template_function(
+#     name: str
+# ) -> Dict[str, Any]:
+#     """
+#     Factory for a FeII template model by name.
+#     Looks up path, central_wl, sigmatemplate, and optional fixed_dispersion in FEII_TEMPLATES.
+
+#     Returns:
+#       {
+#         'model': Callable(x, params) -> flux,  # has .param_names, .n_params
+#         'template_info': { file, central_wl, sigmatemplate,
+#                            fixed_dispersion, unit_sum }
+#       }
+#     """
+#     cfg = FEII_TEMPLATES.get(name)
+#     if cfg is None:
+#         raise KeyError(f"No such FeII template: {name}")
+
+#     path          = cfg["file"]
+#     central_wl    = cfg["central_wl"]
+#     sigmatemplate = cfg["sigmatemplate"]
+#     user_fd       = cfg.get("fixed_dispersion", None)
+
+#     data = np.loadtxt(path, comments="#").T
+#     wl   = np.array(data[0])
+#     flux = np.array(data[1])
+#     unit_flux = flux / np.clip(jnp.sum(flux), 1e-10, jnp.inf)
+
+#     dl = float(wl[1] - wl[0])  # Å per pixel
+#     if user_fd is None:
+#         # km/s per pixel ≈ (dλ/λ) * c
+#         fixed_dispersion = (dl / central_wl) * 3e5
+#     else:
+#         fixed_dispersion = user_fd
+
+#     param_names = ["logamp","logFWHM","shift"]
+
+#     @with_param_names(param_names)
+#     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+#         logamp, logFWHM, shift = params
+#         amp = 10** logamp
+#         FWHM = 10 ** logFWHM
+#         sigma_model = FWHM / 2.355
+#         delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
+
+#         # convert km/s → Å at central λ, then to pixel units
+#         sigma_lambda = delta_sigma * central_wl / 3e5   # Å
+#         sigma_pix    = sigma_lambda / dl                # pixels
+
+#         n_pix = unit_flux.shape[0]
+#         freq  = jnp.fft.fftfreq(n_pix, d=dl)
+#         gauss_tf = jnp.exp(-2 * (jnp.pi * freq * sigma_pix)**2)
+#         spec_fft = jnp.fft.fft(unit_flux)
+#         broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
+
+#         # shift & scale
+#         shifted_wl = wl + shift
+#         interp = jnp.interp(x, shifted_wl, broadened, left=0.0, right=0.0)
+#         return amp * interp
+
+#     return {
+#         "model": model,
+#         "template_info": {
+#             "name": name,
+#             "central_wl": central_wl,
+#             "sigmatemplate": sigmatemplate,
+#             "fixed_dispersion": fixed_dispersion,
+#         },
+#     }
     
-    
+
     
  
 def make_host_function(

@@ -512,22 +512,24 @@ class ComplexBuilder:
         if fe_mode == "none":
             return fe_comps
         elif fe_mode == "template":
-            t_c = 0
-            if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
-                if self.verbose:
-                    print("added OP template")
-                fe_comps.extend(
-                    [SpectralLine(line_name="feop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feop"})])
-                t_c += 1
-            if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 500:
-                #maybe it is a good time to r
-                if self.verbose:
-                    print("added UV template")
-                fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuv"})])
-                t_c += 1
-            if t_c == 0:
-                print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
-                fe_mode = "model"
+            print("Added feuvop template")
+            fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
+            # t_c = 0
+            # if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
+            #     if self.verbose:
+            #         print("added OP template")
+            #     fe_comps.extend(
+            #         [SpectralLine(line_name="feop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feop"})])
+            #     t_c += 1
+            # if max(0, min(xmax, 3500) - max(xmin, 1200)) >= 500:
+            #     #maybe it is a good time to r
+            #     if self.verbose:
+            #         print("added UV template")
+            #     fe_comps.extend([SpectralLine(line_name="feuv",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuv"})])
+            #     t_c += 1
+            # if t_c == 0:
+            #     print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
+            #     fe_mode = "model"
         elif fe_mode == "model":      
             for pseudo_region_name,list_dict in self.lines_available.items():
                 for raw_line in list_dict:

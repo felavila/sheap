@@ -10,6 +10,7 @@ import numpy as np
 import jax.numpy as jnp 
 from jax import vmap
 from auto_uncertainties import Uncertainty
+from collections import defaultdict
 
 from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
 from sheap.ComplexAfterFit.Samplers.utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
@@ -20,7 +21,22 @@ from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_compon
 from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
-    
+
+
+def concat_dicts(list_of_dicts):
+    out = defaultdict(list)
+    for d in list_of_dicts:
+        for k, v in d.items():
+            out[k].append(v)
+
+    # flatten or stack if numeric/array-like
+    for k, v in out.items():
+        #try:
+        out[k] = np.concatenate([x for x in v]).T
+        #except Exception:
+         #   out[k] = v  # fallback if not array-like
+    return dict(out)
+
 class AfterFitParams:
     def __init__(self, afterclass: "ComplexAfterFit"):
         self.afterclass = afterclass
@@ -138,19 +154,20 @@ class AfterFitParams:
                 "amplitude": np.concatenate(amp_parts, axis=1),
                 "eqw": np.concatenate(eqw_parts, axis=1),
                 "luminosity": np.concatenate(lum_parts, axis=1),
-                "shape_params": shape_params_list,}
+                "shape_params": concat_dicts(shape_params_list) 
+            }
 
         # Monochromatic luminosities
         wl_i = self.spec[idx_obj, 0, :]
         mask_i = self.mask[idx_obj, :]
-        L_w, L_bol = {}, {}
+        L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
-            if (jnp.isclose(wl_i, wave, atol=1) & ~mask_i).any():
+            if (jnp.isclose(wl_i, wave, atol=2) & ~mask_i).any():
                 Fcont = vmap(cont_group.combined_profile, in_axes=(None, 0))(jnp.array([wave]), cont_params).squeeze()
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
-                L_w[wstr], L_bol[wstr] = np.array(Lmono), np.array(Lbolval)
+                L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)
         if complexclass_group_by_region["fe"]:
             #i guess meanwhile MgII is not here it is not necesary run this ?
             group_fe = complexclass_group_by_region["fe"]
@@ -163,7 +180,7 @@ class AfterFitParams:
             print(flux_fe)
         
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=None)
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol, "combine_params": combined}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
         for k in ["basic_params","combine_params"]:
             if k == "basic_params":
                 result_local = result[k]["broad"]
@@ -243,13 +260,13 @@ class AfterFitParams:
                 "amplitude": np.concatenate(amp_parts, axis=1),
                 "eqw": np.concatenate(eqw_parts, axis=1),
                 "luminosity": np.concatenate(lum_parts, axis=1),
-                "shape_params": shape_params_list
+                "shape_params": concat_dicts(shape_params_list) 
             }
 
-        L_w, L_bol = {}, {}
+        L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
-            hits = jnp.isclose(self.spec[:, 0, :], wave, atol=1)
+            hits = jnp.isclose(self.spec[:, 0, :], wave, atol=2)
             valid = np.array((hits & (~self.mask)).any(axis=1, keepdims=True))
 
             if any(valid):
@@ -257,10 +274,10 @@ class AfterFitParams:
                 Fcont = Uncertainty(*np.array(
                     evaluate_with_error(cont_group.combined_profile, x, cont_params, jnp.zeros_like(x), ucont_params)
                 )) * valid.astype(float)
-
+                #print(valid)
                 Lmono = calc_monochromatic_luminosity(np.array(distances[:, None]), Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
-                L_w[wstr], L_bol[wstr] = Lmono, Lbolval
+                L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
         # if complexclass_group_by_region["fe"]:
         #     #i guess meanwhile MgII is not here it is not necesary run this ?
         #     group_fe = complexclass_group_by_region["fe"]
@@ -273,7 +290,7 @@ class AfterFitParams:
         #     print(flux_fe)
         #from here can be the same function only take care on the uncertainty params of the continuum
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=ucont_params)
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol, "combine_params": combined}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
         for k in ["basic_params","combine_params"]:
          #   print(k)
             if k == "basic_params":
