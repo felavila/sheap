@@ -5,7 +5,7 @@
 
 sheap: Spectral Handling and Estimation of AGN Parameters
 =========================================================
-|pypi_badge| |docs_badge| |tests_badge|
+|pypi_badge| |docs_badge|
 
 **sheap** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
@@ -54,6 +54,3 @@ License
    :alt: Documentation Status
    :target: https://sheap.readthedocs.io/en/latest/?badge=latest
 
-.. |tests_badge| image:: https://github.com/felavila/sheap/actions/workflows/test.yml/badge.svg
-   :alt: Test Status
-   :target: https://github.com/felavila/sheap/actions/workflows/test.yml
