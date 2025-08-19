@@ -10,8 +10,8 @@ build-backend = "poetry.core.masonry.api"
 ## Also renders on pypi as 'subtitle'
 [tool.poetry]
 name = "sheap"
-version = "0.0.1"
-description = "SHEAP: Spectral Handling and Estimation of AGN Parameters"
+version = "0.0.2"
+description = "sheap: Spectral Handling and Estimation of AGN Parameters"
 authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 license = "AGPL-3.0-only"
