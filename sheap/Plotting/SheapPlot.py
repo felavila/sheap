@@ -75,7 +75,7 @@ class SheapPlot:
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
 
-    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,line=None,flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$", **kwargs):
+    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$", **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # Setup and defaults
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -159,8 +159,8 @@ class SheapPlot:
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red",label="Complex")#
         ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1,label="Data")
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
-        if line:
-            ax1.axhline(line)
+        if isinstance(add_xline,(float,int)):
+            ax1.axvline(add_xline,c='#A020F0',linewidth=3)
         ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=35)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)

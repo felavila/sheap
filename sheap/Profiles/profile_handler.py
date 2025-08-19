@@ -336,14 +336,16 @@ def ProfileConstraintMaker(
     
     if selected_profile == "balmercontinuum":
         return ProfileConstraintSet(
-            init=[0.01, 10000.0, 1.0],
-            upper=[2.0, 25000.0, 2.0],
-            lower=[0.0,8000.0 , 1e-3],
+            init = [1e-2,  9.0,   -1.0,0.0],   # amplitude ~ 0.01 (in normalized units), T ≈ 4000+softplus(9) ~ 13k, tau0 ~ 0.31
+            lower = [0.0,  -10.0,  -10.0,-5.0],  # keep amplitude >= 0; T_raw, tau_raw unconstrained but reasonable
+            upper = [10.0,  20.0,   20.0,5.0],
             profile = selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
             profile_fn = local_profile)
     
-    
+#   "init":  [1e-2,  9.0,   -1.0],   # amplitude ~ 0.01 (in normalized units), T ≈ 4000+softplus(9) ~ 13k, tau0 ~ 0.31
+#     "lower": [0.0,  -10.0,  -10.0],  # keep amplitude >= 0; T_raw, tau_raw unconstrained but reasonable
+#     "upper": [10.0,  20.0,   20.0],  
 
 # balmer_highorder:
 #   upper_fwhm: 8000.0      # km/s
