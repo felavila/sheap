@@ -45,7 +45,7 @@ def ProfileConstraintMaker(
     if selected_profile not in PROFILE_FUNC_MAP:
         raise ValueError(
             f"Profile '{selected_profile}' is not defined. "
-        f"Available for continuum are : {list(PROFILE_CONTINUUM_FUNC_MAP.keys())+["balmercontinuum"]} and for the profiles are {list(PROFILE_LINE_FUNC_MAP.keys())+ ["SPAF"]}")
+        f"Available for continuum are : {list(PROFILE_CONTINUUM_FUNC_MAP.keys())+['balmercontinuum']} and for the profiles are {list(PROFILE_LINE_FUNC_MAP.keys())+ ['SPAF']}")
     if selected_profile == "SPAF":
         # ---- SPAF: Sum of Profiles with Free Amplitudes ----
         if not subprofile:

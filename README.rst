@@ -4,7 +4,7 @@
    :width: 700
 
 
-sheap: Spectral Handling and Estimation of AGN Parameters
+Spectral Handling and Estimation of AGN Parameters
 =========================================================
 |pypi_badge| |docs_badge|
 
