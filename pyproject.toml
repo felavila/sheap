@@ -72,7 +72,8 @@ exclude = [
     ".pylintrc",
     ".readthedocs.yml",
     ".scrutinizer.yml",
-    ".travis.yml"
+    ".travis.yml",
+    "sheap/SuportData/sfddata/*.fits"
 ]
 
 # PyPi url links, that appear in 'Project Links' section

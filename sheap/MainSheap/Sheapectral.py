@@ -25,7 +25,7 @@ from sheap.Utils.SpectralSetup import pad_error_channel
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
-
+from sheap.MainSheap.util import ensure_sfd_data
 from sheap.Utils.Constants  import c
 
 
@@ -263,6 +263,7 @@ class Sheapectral:
             self.coords = jnp.array(self.coords)
             l, b = self.coords.T  # type: ignore[union-attr]
             sfd_path = Path(__file__).resolve().parent.parent / "SuportData" / "sfddata/"
+            ensure_sfd_data(sfd_path)
             ebv_func = sfdmap.SFDMap(sfd_path).ebv
             ebv = ebv_func(l, b)
         corrected = unred(*np.swapaxes(self.spectra[:, [0, 1], :], 0, 1), ebv)
