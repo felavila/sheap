@@ -443,7 +443,7 @@ class Sheapectral:
         from sheap.ComplexAfterFit.ComplexAfterFit import ComplexAfterFit
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
-        
+        #TODO ADD break in case sampling method is not recognize 
         PM = ComplexAfterFit(sheap = self)
         if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?

@@ -97,7 +97,7 @@ matplotlib = ">=3.9.3"
 numpy = ">=2.2.4"
 pandas = "*"
 auto_uncertainties = "*"
-
+tqdm = "*"
 
 # Test: packages imported in test code and packages required for the "test runner"
 pytest = { version = "^8.0.0", optional = true }
