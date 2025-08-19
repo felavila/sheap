@@ -55,6 +55,8 @@ class ComplexBuilder:
         Include wind components for broad lines, by default False.
     add_balmer_continuum : bool, optional
         Include Balmer continuum component, by default False.
+    add_balmerhighorder_continuum : bool, optional
+        Include Balmer high order continuum component, by default False.
     add_uncommon_narrow : bool, optional
         Include uncommon narrow lines, by default False.
     add_host_miles : bool or dict, optional
@@ -113,6 +115,7 @@ class ComplexBuilder:
         add_balmer_continuum = False,
         add_uncommon_narrow = False,
         add_BAL = False,
+        add_balmerhighorder_continuum = False,
         add_host_miles: Optional[Union[Dict,bool]] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
@@ -167,6 +170,7 @@ class ComplexBuilder:
         self.add_outflow = add_outflow
         self.add_winds = add_winds
         self.add_uncommon_narrow = add_uncommon_narrow
+        self.add_balmerhighorder_continuum = add_balmerhighorder_continuum
         self.verbose = verbose
         self.add_host_miles = add_host_miles
         self.tied_broad_to = tied_broad_to
@@ -207,7 +211,8 @@ class ComplexBuilder:
         add_host_miles = None,
         tied_broad_to= None,
         tied_narrow_to = None,
-        add_BAL = None):
+        add_BAL = None,
+        add_balmerhighorder_continuum = None):
         """
         Build a `ComplexRegion` of `SpectralLine` objects based on settings.
 
@@ -252,6 +257,7 @@ class ComplexBuilder:
         add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
         add_host_miles = get(add_host_miles,self.add_host_miles)
         add_BAL = get(add_BAL,self.add_BAL)
+        add_balmerhighorder_continuum = get(add_balmerhighorder_continuum,self.add_balmerhighorder_continuum)
         continuum_profile = get(continuum_profile, self.continuum_profile).lower()
         tied_broad_to = get(tied_broad_to,self.tied_broad_to)
         tied_narrow_to = get(tied_narrow_to,self.tied_narrow_to)
@@ -284,7 +290,7 @@ class ComplexBuilder:
         if add_host_miles:
             self._handle_host(add_host_miles,xmin,xmax)
         self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
-        self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum))#here we already are able to create the complex_class
+        self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum,add_balmerhighorder_continuum = add_balmerhighorder_continuum))#here we already are able to create the complex_class
         self.complex_class = ComplexRegion(self.complex_list)
         self._ties = []
         self._known_ties = []
@@ -542,7 +548,7 @@ class ComplexBuilder:
                     fe_comps.extend([base])
         return fe_comps
     
-    def _continuum_handle(self,continuum_profile,xmin,xmax,add_balmer_continuum=False):
+    def _continuum_handle(self,continuum_profile,xmin,xmax,add_balmer_continuum=False,add_balmerhighorder_continuum=False):
         """
         Create continuum components: linear, powerlaw, or Balmer.
 
@@ -565,6 +571,12 @@ class ComplexBuilder:
         continuum_comps = []
         if add_balmer_continuum and not xmax< 3646:
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
+        if add_balmerhighorder_continuum and not xmax< 3646:
+            #fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
+            # t_c = 0
+            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='continuum',component=0,profile='fetemplate',template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
+        
+        
         if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
             print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
             continuum_comps.append(SpectralLine(line_name="linear",region='continuum',component=0,profile="linear"))

@@ -35,7 +35,11 @@ FEII_TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
     "feuvop":{"file": TEMPLATES_PATH / "uvofeii1000kms.txt",
         "central_wl": 4570.0,
-        "sigmatemplate": 900.0 / 2.355}
+        "sigmatemplate": 1000.0 / 2.355},
+    "BalHiOrd":{"file": TEMPLATES_PATH / "BalHiOrd_FWHM1000.dat",
+                "sigmatemplate": 1000.0 / 2.355,
+                "central_wl": 3675.0
+                }
 }
 
 def make_feii_template_function(
@@ -217,6 +221,7 @@ def make_feii_template_function(
  
 def make_host_function(
     filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
+    #miles_cube_log_old_hightres.npz,"miles_cube_log.npz
     z_include: Optional[Union[tuple[float, float], list[float]]] = [-0.7, 0.22],
     age_include: Optional[Union[tuple[float, float], list[float]]] = [0.1, 10.0],
     x_min: Optional[float] = None,  # in Angstroms (linear)
@@ -282,7 +287,7 @@ def make_host_function(
     
     dx = wave[1] - wave[0]
     n_Z, n_age, n_pix = cube.shape
-    print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
+    #print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
     templates_flat = cube.reshape(-1, n_pix)
     grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
 

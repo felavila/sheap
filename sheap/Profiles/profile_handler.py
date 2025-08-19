@@ -276,7 +276,7 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
 
-    if selected_profile == "fetemplate":
+    if selected_profile == "fetemplate" and sp.region == "fe":
         #maybe add a warning here
         lambda0 = limits.canonical_wavelengths
         shift = kms_to_wl(limits.v_shift, lambda0)
@@ -286,6 +286,27 @@ def ProfileConstraintMaker(
         upper = [10.0,np.log10(limits.upper_fwhm), shift] 
         lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
         #print(init,upper,lower)
+        return ProfileConstraintSet(
+            init= init,
+            upper=upper,
+            lower=lower,
+            profile=selected_profile,
+            param_names= params_names,
+            profile_fn = local_profile
+        )
+    if sp.line_name == "balmerhighorder" and sp.profile == "fetemplate":
+        print("trying to add balmerhighorder")
+        lambda0 = 3675.0 #limits.canonical_wavelengths
+        v_shift = 1500.0 
+        init_fwhm = 2000.0
+        upper_fwhm =  8000.0
+        lower_fwhm =  800.0
+        shift = kms_to_wl(v_shift, lambda0)
+        params_names = local_profile.param_names
+        init= [1.0, np.log10(init_fwhm),0.0]
+        upper= [10.0, np.log10(upper_fwhm), shift]
+        lower= [-2.0,np.log10(lower_fwhm) , -shift]
+        #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(
             init= init,
             upper=upper,
@@ -321,3 +342,11 @@ def ProfileConstraintMaker(
             profile = selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
             profile_fn = local_profile)
+    
+    
+
+# balmer_highorder:
+#   upper_fwhm: 8000.0      # km/s
+#   lower_fwhm: 800.0       # km/s
+#   v_shift: 1500.0         # km/s (±)
+#   max_amplitude: 10.0     # dimensionless scaling
