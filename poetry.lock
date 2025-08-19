@@ -90,14 +90,14 @@ typing = ["pandas-stubs (>=2.0)"]
 
 [[package]]
 name = "astropy-iers-data"
-version = "0.2025.8.11.0.41.9"
+version = "0.2025.8.18.0.40.14"
 description = "IERS Earth Rotation and Leap Second tables for the astropy core package"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "astropy_iers_data-0.2025.8.11.0.41.9-py3-none-any.whl", hash = "sha256:e5419d191259932413f89609315ad9f185a2977fac219333e23476d4491bfabd"},
-    {file = "astropy_iers_data-0.2025.8.11.0.41.9.tar.gz", hash = "sha256:029c3237993fa9689f8543872dfe750393227261111edad8173fdd06d59f1c84"},
+    {file = "astropy_iers_data-0.2025.8.18.0.40.14-py3-none-any.whl", hash = "sha256:fe0ada5fa76da62a425d43777c0a7345596738f2f5b1598cfc7d6f236847faf3"},
+    {file = "astropy_iers_data-0.2025.8.18.0.40.14.tar.gz", hash = "sha256:0c662f062f9a224de6969d9e4403bcb8c14e093e249128ddf34a5a7dd48638eb"},
 ]
 
 [package.extras]
@@ -1082,6 +1082,7 @@ prompt_toolkit = ">=3.0.41,<3.1.0"
 pygments = ">=2.4.0"
 stack_data = "*"
 traitlets = ">=5.13.0"
+typing_extensions = {version = ">=4.6", markers = "python_version < \"3.12\""}
 
 [package.extras]
 all = ["ipython[doc,matplotlib,test,test-extra]"]
@@ -1121,9 +1122,15 @@ files = [
 [package.dependencies]
 jaxlib = ">=0.4.34,<=0.4.35"
 ml-dtypes = ">=0.4.0"
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.24", markers = "python_version < \"3.12\""},
+]
 opt-einsum = "*"
-scipy = {version = ">=1.11.1", markers = "python_version >= \"3.12\""}
+scipy = [
+    {version = ">=1.11.1", markers = "python_version >= \"3.12\""},
+    {version = ">=1.10"},
+]
 
 [package.extras]
 ci = ["jaxlib (==0.4.34)"]
@@ -1168,7 +1175,10 @@ files = [
 [package.dependencies]
 ml-dtypes = ">=0.2.0"
 numpy = ">=1.24"
-scipy = {version = ">=1.11.1", markers = "python_version >= \"3.12\""}
+scipy = [
+    {version = ">=1.11.1", markers = "python_version >= \"3.12\""},
+    {version = ">=1.10"},
+]
 
 [[package]]
 name = "jedi"
@@ -1222,14 +1232,14 @@ files = [
 
 [[package]]
 name = "jsonschema"
-version = "4.25.0"
+version = "4.25.1"
 description = "An implementation of JSON Schema validation for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main", "dev"]
 files = [
-    {file = "jsonschema-4.25.0-py3-none-any.whl", hash = "sha256:24c2e8da302de79c8b9382fee3e76b355e44d2a4364bb207159ce10b517bd716"},
-    {file = "jsonschema-4.25.0.tar.gz", hash = "sha256:e63acf5c11762c0e6672ffb61482bdf57f0876684d8d249c0fe2d730d48bc55f"},
+    {file = "jsonschema-4.25.1-py3-none-any.whl", hash = "sha256:3fba0169e345c7175110351d456342c364814cfcf3b964ba4587f22915230a63"},
+    {file = "jsonschema-4.25.1.tar.gz", hash = "sha256:e4a9655ce0da0c0b67a085847e00a3a51449e1157f4f75e9fb5aa545e122eb85"},
 ]
 
 [package.dependencies]
@@ -1787,7 +1797,10 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.3", markers = "python_version >= \"3.11\""},
+]
 
 [package.extras]
 dev = ["absl-py", "pyink", "pylint (>=2.6.0)", "pytest", "pytest-xdist"]
@@ -2220,7 +2233,10 @@ files = [
 ]
 
 [package.dependencies]
-numpy = {version = ">=1.26.0", markers = "python_version >= \"3.12\""}
+numpy = [
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
+]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
 tzdata = ">=2022.7"
@@ -2982,14 +2998,14 @@ typing-extensions = {version = ">=4.4.0", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "requests"
-version = "2.32.4"
+version = "2.32.5"
 description = "Python HTTP for Humans."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main", "dev"]
 files = [
-    {file = "requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c"},
-    {file = "requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422"},
+    {file = "requests-2.32.5-py3-none-any.whl", hash = "sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6"},
+    {file = "requests-2.32.5.tar.gz", hash = "sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf"},
 ]
 
 [package.dependencies]
@@ -3247,6 +3263,7 @@ description = "Easily download, build, install, upgrade, and uninstall Python pa
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
+markers = "python_version == \"3.12\""
 files = [
     {file = "setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"},
     {file = "setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c"},
@@ -3400,7 +3417,7 @@ description = "Add inline tabbed content to your Sphinx documentation."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"docs\" or extra == \"docslive\""
+markers = "python_version == \"3.12\" and (extra == \"docs\" or extra == \"docslive\")"
 files = [
     {file = "sphinx_inline_tabs-2023.4.21-py3-none-any.whl", hash = "sha256:06809ac613f7c48ddd6e2fa588413e3fe92cff2397b56e2ccf0b0218f9ef6a78"},
     {file = "sphinx_inline_tabs-2023.4.21.tar.gz", hash = "sha256:5df2f13f602c158f3f5f6c509e008aeada199a8c76d97ba3aa2822206683bebc"},
@@ -3523,7 +3540,7 @@ description = "Mermaid diagrams in yours Sphinx powered docs"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"docs\" or extra == \"docslive\""
+markers = "python_version == \"3.12\" and (extra == \"docs\" or extra == \"docslive\")"
 files = [
     {file = "sphinxcontrib-mermaid-0.9.2.tar.gz", hash = "sha256:252ef13dd23164b28f16d8b0205cf184b9d8e2b714a302274d9f59eb708e77af"},
     {file = "sphinxcontrib_mermaid-0.9.2-py3-none-any.whl", hash = "sha256:6795a72037ca55e65663d2a2c1a043d636dc3d30d418e56dd6087d1459d98a5d"},
@@ -3905,5 +3922,5 @@ typing = ["mypy", "pytest", "pytest-click"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.12,<3.13"
-content-hash = "ceeed50d04cfb52a148058762d9da792b1e8385859f2c589b291a362cc869667"
+python-versions = ">=3.11,<3.13"
+content-hash = "661a34aa22fbbde413b19a28e8849f762fad124555792534606e30c13fbb5a91"

@@ -88,7 +88,7 @@ exclude = [
 
 ### Dependency Constraints, aka Requirements ###
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
+python = ">=3.11,<3.13"
 jax = "0.4.35"
 optax = ">0.2.3"
 sfdmap2 = "*"
