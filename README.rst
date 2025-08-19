@@ -3,18 +3,6 @@
    :align: left
    :width: 700
 
-.. image:: https://img.shields.io/pypi/v/sheap.svg
-   :alt: PyPI version
-   :target: https://pypi.org/project/sheap/
-
-.. image:: https://readthedocs.org/projects/sheap/badge/?version=latest
-   :alt: Documentation Status
-   :target: https://sheap.readthedocs.io/en/latest/?badge=latest
-
-.. image:: https://github.com/felavila/sheap/actions/workflows/test.yml/badge.svg
-   :alt: Test Status
-   :target: https://github.com/felavila/sheap/actions/workflows/test.yml
-
 sheap: Spectral Handling and Estimation of AGN Parameters
 =========================================================
 |pypi_badge| |docs_badge| |tests_badge|
