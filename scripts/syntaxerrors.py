@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check all .py files in a package can be parsed by Python (catch SyntaxErrors).
+Check all .py file (catch SyntaxErrors).
 """
 
 import ast
