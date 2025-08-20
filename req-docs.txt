@@ -1741,6 +1741,9 @@ tornado==6.5.2 ; python_version >= "3.11" and python_version < "3.13" \
     --hash=sha256:d6c33dc3672e3a1f3618eb63b7ef4683a7688e7b9e6e8f0d9aa5726360a004af \
     --hash=sha256:e56a5af51cc30dd2cae649429af65ca2f6571da29504a07995175df14c18f35f \
     --hash=sha256:e792706668c87709709c18b353da1f7662317b563ff69f00bab83595940c7108
+tqdm==4.67.1 ; python_version >= "3.11" and python_version < "3.13" \
+    --hash=sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2 \
+    --hash=sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2
 traitlets==5.14.3 ; python_version >= "3.11" and python_version < "3.13" \
     --hash=sha256:9ed0579d3502c94b4b3732ac120375cda96f923114522847de4b3bb98b96b6b7 \
     --hash=sha256:b74e89e397b1ed28cc831db7aea759ba6640cb3de13090ca145426688ff1ac4f

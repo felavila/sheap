@@ -3785,6 +3785,28 @@ files = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.67.1"
+description = "Fast, Extensible Progress Meter"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "tqdm-4.67.1-py3-none-any.whl", hash = "sha256:26445eca388f82e72884e0d580d5464cd801a3ea01e63e5601bdff9ba6a48de2"},
+    {file = "tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2"},
+]
+
+[package.dependencies]
+colorama = {version = "*", markers = "platform_system == \"Windows\""}
+
+[package.extras]
+dev = ["nbval", "pytest (>=6)", "pytest-asyncio (>=0.24)", "pytest-cov", "pytest-timeout"]
+discord = ["requests"]
+notebook = ["ipywidgets (>=6)"]
+slack = ["slack-sdk"]
+telegram = ["requests"]
+
+[[package]]
 name = "traitlets"
 version = "5.14.3"
 description = "Traitlets Python configuration system"
@@ -3923,4 +3945,4 @@ typing = ["mypy", "pytest", "pytest-click"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "661a34aa22fbbde413b19a28e8849f762fad124555792534606e30c13fbb5a91"
+content-hash = "a98b23527b905ff654416aaae27717aa32899812eb38be386a0d989d400ccb8b"

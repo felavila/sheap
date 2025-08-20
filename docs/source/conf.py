@@ -154,7 +154,7 @@ while i < len(body_lines):
         and re.match(r"=+", body_lines[i+1].rstrip("\n"))
     ):
         # Replace title + its underline
-        new_title = "sheap (Spectral Handling and Estimation of AGN)\n"
+        new_title = "sheap (Spectral Handling and Estimation of AGN Parameters)\n"
         new_uline = "-" * (len(new_title.rstrip("\n"))) + "\n"
         new_body.append(new_title)
         new_body.append(new_uline)
@@ -205,7 +205,7 @@ while i < len(body_lines):
         and re.match(r"=+", body_lines[i+1].rstrip("\n"))
     ):
         # Replace title + its underline
-        new_title = "sheap (Spectral Handling and Estimation of AGN)\n"
+        new_title = "sheap (Spectral Handling and Estimation of AGN Parameters)\n"
         new_uline = "-" * (len(new_title.rstrip("\n"))) + "\n"
         new_body.append(new_title)
         new_body.append(new_uline)
