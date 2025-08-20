@@ -42,7 +42,7 @@ class PseudoMonteCarloSampler:
         self.SINGLE_EPOCH_ESTIMATORS = estimator.SINGLE_EPOCH_ESTIMATORS
         self.names = estimator.names 
         self.complex_class = estimator.complex_class
-    def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,extra_products =True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    def sample_params(self, num_samples: int = 2000, key_seed: int = 0,summarize=True) -> Tuple[List[Dict], List[Dict], List[Dict]]:
         from tqdm import tqdm
         
         from sheap.ComplexAfterFit.UncertaintyFunction import (make_residuals_free_fn, error_covariance_matrix)
@@ -97,6 +97,6 @@ class PseudoMonteCarloSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #full_samples.at[:, idxs].multiply(scale[n])
-            dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(full_samples,n)
+            dic_posterior_params[name_i] = self.afterfitparams.extract_params(full_samples,n,summarize=summarize)
         iterator.close()
         return dic_posterior_params

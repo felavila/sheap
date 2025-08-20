@@ -54,8 +54,6 @@ class MonteCarloSampler:
         print("Running Monte Carlo with JAX.")
         
         model = jit(self.model)
-        names = self.names
-
         # Normalize spectra
         scale = self.scale.astype(jnp.float32)
         spec = self.spec.astype(jnp.float32)
@@ -79,17 +77,12 @@ class MonteCarloSampler:
         )
 
         
-        # self.params_obj = Parameters()
-        # for name, idx in self.params_dict.items():
-        #     val = float(self.initial_params[idx])
-        #     min_, max_ = self.constraints[idx]
-        #     self.params_obj.add(name, val, min=min_, max=max_)
-        
         list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
         list_dependencies = parse_dependencies(self._build_tied(self.fitkwargs[-1]["tied"]))
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         
+        #(tied_map,self.params_dict,initial_params,self.constraints)
         self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
             
         iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
@@ -110,17 +103,17 @@ class MonteCarloSampler:
         _monte_params = np.stack(monte_params).reshape(norm_spec.shape[0],num_samples,-1)
         dic_posterior_params = {}
         for n,name_i in enumerate(self.names):
-            dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(_monte_params[n],n)
+            dic_posterior_params[name_i] = self.afterfitparams.extract_params(_monte_params[n],n)
         return dic_posterior_params
     
         
     def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
-             method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True):
+                    method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
         
-        
+        #print(tied)
         
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
-                              learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
+                            learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
                             penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         
         

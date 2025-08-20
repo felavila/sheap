@@ -155,7 +155,7 @@ class ComplexAfterFit:
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
        
 
-    def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
+    def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True):
         """
         Run pseudomontecarlosamplerparameter sampling.
 
@@ -180,9 +180,9 @@ class ComplexAfterFit:
         sampler = PseudoMonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
-        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
+        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize)
     
-    def montecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True, extra_products=True):
+    def montecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True):
         """
         Run montecarlosampler sampling.
 
@@ -207,9 +207,9 @@ class ComplexAfterFit:
         sampler = MonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
-        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,extra_products=extra_products)
+        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize)
     
-    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True, extra_products=True):
+    def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True):
         """
         Run MCMC sampling using NumPyro.
 
@@ -234,7 +234,7 @@ class ComplexAfterFit:
         from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
         self.method = "mcmc"
         sampler = McMcSampler(self)
-        return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize,extra_products=extra_products)
+        return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize)
 
     def sample_single(self,extra_products=True):
         """
@@ -254,7 +254,7 @@ class ComplexAfterFit:
         self.method = "single"
         afterfitparams = AfterFitParams(self)
         
-        return afterfitparams.extract_basic_params()
+        return afterfitparams.extract_params()
         
     def _from_sheap(self, sheap):
         """

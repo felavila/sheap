@@ -91,7 +91,7 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-            dic_posterior_params[name_i] = self.afterfitparams.extract_basic_params(full_samples,n)
+            dic_posterior_params[name_i] = self.afterfitparams.extract_params(full_samples,n)
             #iterator.close()
         return dic_posterior_params
        

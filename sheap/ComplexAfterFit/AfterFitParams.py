@@ -18,12 +18,13 @@ from sheap.Profiles.utils import make_integrator
 from sheap.ComplexAfterFit.Samplers.utils.physicalfunctions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexAfterFit.Samplers.utils.afterfitprofilehelpers import integrate_batch_with_error,evaluate_with_error 
 from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_components
-from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split
+from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split,summarize_nested_samples
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 
 
 def concat_dicts(list_of_dicts):
+    """TODO find a better place for this"""
     out = defaultdict(list)
     for d in list_of_dicts:
         for k, v in d.items():
@@ -31,10 +32,7 @@ def concat_dicts(list_of_dicts):
 
     # flatten or stack if numeric/array-like
     for k, v in out.items():
-        #try:
         out[k] = np.concatenate([x for x in v]).T
-        #except Exception:
-         #   out[k] = v  # fallback if not array-like
     return dict(out)
 
 class AfterFitParams:
@@ -68,13 +66,14 @@ class AfterFitParams:
         self.LINES_TO_COMBINE = ["Halpha", "Hbeta","MgII","CIV"]
         self.limit_velocity = 150.
     
-    def extract_basic_params(self,full_samples=None,idx_obj=None):
+    def extract_params(self,full_samples=None,idx_obj=None,summarize=False):
         #Add the filtering an separation of the params for params_single and the sample reduction for params_sampled
         if self.method == "single":
             return pivot_and_split(self.names,self._extract_basic_params_single())
         else:
-            #print(full_samples.shape[0])
-            return self._extract_basic_params_sampled(full_samples=full_samples,idx_obj=idx_obj)
+            if summarize:
+                print("Samples will be summarize")
+            return summarize_nested_samples(self._extract_basic_params_sampled(full_samples=full_samples,idx_obj=idx_obj),run_summarize=summarize)
 
     def _extract_basic_params_sampled(self, full_samples, idx_obj):
         """
@@ -168,16 +167,17 @@ class AfterFitParams:
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)
-        if complexclass_group_by_region["fe"]:
-            #i guess meanwhile MgII is not here it is not necesary run this ?
-            group_fe = complexclass_group_by_region["fe"]
-            combine_profile_fe = group_fe.combined_profile
-            integrator_fe = make_integrator(combine_profile_fe, method="vmap")
-            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
-            params_fe = self.params[:, idx_fe]
-            flux_fe = integrator_fe(wavelength_grid_fe, params_fe)
-            idx_fe = cont_group.flat_param_indices_global
-            print(flux_fe)
+        #TODO ADD fe integral
+        # if complexclass_group_by_region["fe"]:
+        #     #i guess meanwhile MgII is not here it is not necesary run this ?
+        #     group_fe = complexclass_group_by_region["fe"]
+        #     combine_profile_fe = group_fe.combined_profile
+        #     integrator_fe = make_integrator(combine_profile_fe, method="vmap")
+        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
+        #     params_fe = self.params[:, idx_fe]
+        #     flux_fe = integrator_fe(wavelength_grid_fe, params_fe)
+        #     idx_fe = cont_group.flat_param_indices_global
+        #     print(flux_fe)
         
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=None)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}

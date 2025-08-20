@@ -548,9 +548,15 @@ class Parameters:
 
 def build_Parameters(tied_map,params_dict,initial_params,constraints):
     """"TODO"""
+    
+    #print("tied_map",tied_map)
+    #print("params_dict",params_dict)
+    #print("initial_params",initial_params.shape)
+    #print("initial_params",jnp.atleast_2d(initial_params).shape)
+    #print("constraints",constraints)
     params_obj = Parameters()
     for name, idx in params_dict.items():
-        val = initial_params[:,idx]
+        val = jnp.atleast_2d(initial_params)[:,idx]
         min,max = constraints[idx]
         #if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
          #   params_obj.add(name, val, fixed=True)

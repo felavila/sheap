@@ -407,7 +407,7 @@ class Sheapectral:
             self.plotter = SheapPlot(sheap=self)
     
     def afterfit(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
-                         num_warmup=500,n_random=1_000,extra_products=True):
+                         num_warmup=500,n_random=1_000):
         """
         Estimate or sample posterior distributions of fit parameters.
 
@@ -455,21 +455,21 @@ class Sheapectral:
             # After this point a function inside ComplexAfterFit should be able to call the different sampling methods. 
             if  sampling_method.lower()=="single":
                 print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
-                dic_posterior_params = PM.sample_single(extra_products=extra_products)
+                dic_posterior_params = PM.sample_single()
                 self.result.posterior = [{"method":sampling_method.lower()},dic_posterior_params]
                 
             elif sampling_method.lower()=="pseudomontecarlo":
-                dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
+                dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize)     
                 self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
             
             elif sampling_method.lower() == "montecarlo":
-                dic_posterior_params = PM.montecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize,extra_products = extra_products )     
+                dic_posterior_params = PM.montecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize)     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
             
             elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
-                dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize,extra_products = extra_products)
+                dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize)
                 self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"n_random":n_random,
                                         "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
     

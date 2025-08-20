@@ -161,11 +161,14 @@ def summarize_samples(samples) -> Dict[str, np.ndarray]:
     }
     
     
-def summarize_nested_samples(d: dict) -> dict:
+def summarize_nested_samples(d: dict,run_summarize:bool = True) -> dict:
     """
+    TODO 
     Recursively walk through a dictionary and apply summarize_samples_numpy
     to any array-like values.
     """
+    if not run_summarize:
+        return d
     summarized = {}
     for k, v in d.items():
         if isinstance(v, dict):
