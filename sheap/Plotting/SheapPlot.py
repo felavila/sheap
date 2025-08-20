@@ -119,7 +119,7 @@ class SheapPlot:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green",label="Host")
             else:
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i],label=region.region.capitalize())
-                ax1.axvline(values[1], ls="--", linewidth=1, color="k")
+                #ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
                     idx_shift = [n for n,i in enumerate(profile_func.param_names) if "shift" in i ]
@@ -176,7 +176,7 @@ class SheapPlot:
         #font_legend =
         ax1.tick_params(axis='both', labelsize=35)
         ax1.yaxis.offsetText.set_fontsize(35)
-        ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
+        #ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
