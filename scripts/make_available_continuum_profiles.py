@@ -29,7 +29,7 @@ from typing import Iterable, List, Tuple, Dict
 
 DEFAULT_MODULES = [
     "sheap.Profiles.profiles_continuum",
-    "sheap.Profiles.profiles_lines",
+    "sheap.Profiles.profile_lines",
 ]
 
 
@@ -107,6 +107,7 @@ def compute_outfile(module_qualname: str, outdir: Path, renames: Dict[str, str])
     - Else use 'available_{last}.rst'
     """
     last = module_qualname.split(".")[-1]
+    print(last)
     fname = renames.get(last, f"available_{last}.rst")
     return outdir / fname
 

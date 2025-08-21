@@ -33,7 +33,7 @@ Welcome to sheap documentation
    :hidden:
 
    available_continuum_profiles.rst
-   available_lines_profiles.rst
+   available_lines_profile.rst
    
 .. toctree::
    :maxdepth: 2
