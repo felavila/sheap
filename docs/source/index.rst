@@ -20,6 +20,13 @@ Welcome to sheap documentation
 
    Overview
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Constants and Data
+   :hidden:
+
+   supportdata
+
 
 .. toctree::
    :maxdepth: 2
@@ -34,7 +41,7 @@ Welcome to sheap documentation
    :hidden:
 
    api/sheap
-   supportdata
+   
 
 Indices and tables
 ==================
