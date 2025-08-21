@@ -97,7 +97,7 @@ def render_page(module_qualname: str, out_path: Path) -> None:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--module", default="sheap.Profile.profiles_continuum")
+    p.add_argument("--module", default="sheap.Profiles.profiles_continuum")
     p.add_argument("--out", default="docs/source/available_continuum_profiles.rst")
     args = p.parse_args()
     render_page(args.module, Path(args.out))

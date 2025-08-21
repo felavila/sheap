@@ -22,7 +22,7 @@ Welcome to sheap documentation
    
 .. toctree::
    :maxdepth: 2
-   :caption: Available in sheap 
+   :caption: Profiles in sheap 
    :hidden:
 
    available_continuum_profiles

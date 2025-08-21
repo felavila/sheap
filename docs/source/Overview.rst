@@ -75,7 +75,7 @@ See the following modules for detailed API reference:
 
 - :py:mod:`sheap.Minimizer`: low‐level optimizer wrapper  
 
-- :py:mod:`sheap.ComplexAfterFit`: Posterior sampling 
+- :py:mod:`sheap.ComplexAfterFit.ComplexAfterFit`: Posterior sampling 
 
 - :py:mod:`sheap.ComplexAfterFit.AfterFitParams`: sheap extra products. 
 
