@@ -32,8 +32,8 @@ Welcome to sheap documentation
    :caption: Profiles in sheap 
    :hidden:
 
-   available_continuum_profiles.rst
-   available_lines_profile.rst
+   available_profiles_continuum.rst
+   available_profile_lines.rst
    
 .. toctree::
    :maxdepth: 2
