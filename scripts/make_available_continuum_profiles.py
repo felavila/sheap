@@ -92,7 +92,7 @@ def render_single_module(module_qualname: str) -> str:
 
         param_names = getattr(func, "param_names", None)
         if param_names:
-            rst.append(f"   **Parameter order (SHEAP):** ``{', '.join(param_names)}``\n\n")
+            rst.append(f"   **Parameter order (sheap):** ``{', '.join(param_names)}``\n\n")
 
         doc = inspect.getdoc(func) or "No docstring available."
         rst.append(textwrap.indent(doc, "   ") + "\n\n")

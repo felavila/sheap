@@ -37,7 +37,7 @@ def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Linear continuum profile.
 
     .. math::
-        f(\\lambda) = \text{intercept} + \text{slope} \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)
+        f(\lambda) = \text{intercept} + \text{slope} \cdot \left(\frac{\lambda}{\lambda_0}\right)
 
     Parameters
     ----------
@@ -63,7 +63,7 @@ def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Power-law continuum profile.
 
     .. math::
-        f(\\lambda) = A \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)^{\alpha}
+        f(\lambda) = A \cdot \left(\frac{\lambda}{\lambda_0}\right)^{\alpha}
 
     Parameters
     ----------
@@ -88,10 +88,10 @@ def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Broken power-law continuum profile.
 
     .. math::
-        f(\\lambda) =
+        f(\lambda) =
         \begin{cases}
-            A \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)^{\alpha_1} & \\text{if } \\lambda < x_{\\text{break}} \\\\
-            A \cdot x_{\\text{break}}^{\alpha_1 - \alpha_2} \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)^{\alpha_2} & \\text{otherwise}
+        A \left(\dfrac{\lambda}{\lambda_0}\right)^{\alpha_1}, & \text{if } \lambda < x_{\text{break}} \\
+        A \, x_{\text{break}}^{\alpha_1 - \alpha_2} \left(\dfrac{\lambda}{\lambda_0}\right)^{\alpha_2}, & \text{otherwise}
         \end{cases}
 
     Parameters
@@ -123,7 +123,7 @@ def logparabola(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Log-parabolic continuum profile.
 
     .. math::
-        f(\\lambda) = A \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)^{-\\alpha - \\beta \cdot \log(\\lambda / \\lambda_0)}
+        f(\lambda) = A \cdot \left(\frac{\lambda}{\lambda_0}\right)^{-\alpha - \beta \cdot \log(\lambda / \lambda_0)}
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ def exp_cutoff(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Power-law with exponential cutoff.
 
     .. math::
-        f(\\lambda) = A \cdot \left(\\frac{\\lambda}{\\lambda_0}\right)^{-\\alpha} \cdot \exp\left(-\\frac{\\lambda}{x_{cut}}\right)
+        f(\lambda) = A \cdot \left(\frac{\lambda}{\lambda_0}\right)^{-\alpha} \cdot \exp\left(-\frac{\lambda}{x_{cut}}\right)
 
     Parameters
     ----------
@@ -177,7 +177,7 @@ def polynomial(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     Cubic polynomial continuum profile.
 
     .. math::
-        f(\\lambda) = A \cdot \left(1 + c_1 \cdot x + c_2 \cdot x^2 + c_3 \cdot x^3\right), \quad x = \\frac{\\lambda}{\\lambda_0}
+        f(\lambda) = A \cdot \left(1 + c_1 \cdot x + c_2 \cdot x^2 + c_3 \cdot x^3\right), \quad x = \frac{\lambda}{\lambda_0}
 
     Parameters
     ----------
