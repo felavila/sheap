@@ -75,9 +75,10 @@ class SheapPlot:
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
 
-    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$", **kwargs):
+    def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
+             flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
-        # Setup and defaults
+        # TODO is time to update this. 
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         filtered_colors = [
             c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f',"blue","green"]
@@ -176,7 +177,8 @@ class SheapPlot:
         #font_legend =
         ax1.tick_params(axis='both', labelsize=35)
         ax1.yaxis.offsetText.set_fontsize(35)
-        #ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
+        if add_legend:
+            ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
