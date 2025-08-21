@@ -19,14 +19,22 @@ Welcome to sheap documentation
    :hidden:
 
    Overview
-   
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Optimization Strategy
+   :hidden:
+
+   opst.rst
+
 .. toctree::
    :maxdepth: 2
    :caption: Profiles in sheap 
    :hidden:
 
    available_continuum_profiles.rst
-
+   available_lines_profiles.rst
+   
 .. toctree::
    :maxdepth: 2
    :caption: Constants and Data
