@@ -6,3 +6,5 @@
 # TODO: Choice of using skewed Gaussians
 # TODO: Different line models: Gauss Hermite 
 # TODO: The MS is customarily represented by a trend in the
+# TODO: separate complex afterfit -> complexfituncertainties
+	         		  -> complextraproducts.         

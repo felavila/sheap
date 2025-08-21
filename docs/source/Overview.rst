@@ -77,7 +77,7 @@ See the following modules for detailed API reference:
 
 - :py:mod:`sheap.ComplexAfterFit`: Posterior sampling 
 
-- **utils**: parameter projection, loss building, dependency parsing  
+- :py:mod:`sheap.ComplexAfterFit.AfterFitParams`: sheap extra products. 
 
 .. Installation
 .. ------------

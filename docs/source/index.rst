@@ -19,6 +19,13 @@ Welcome to sheap documentation
    :hidden:
 
    Overview
+   
+.. toctree::
+   :maxdepth: 2
+   :caption: Available in sheap 
+   :hidden:
+
+   available_continuum_profiles
 
 .. toctree::
    :maxdepth: 2

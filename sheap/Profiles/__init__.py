@@ -8,6 +8,7 @@ __all__ = [
     "profiles_continuum",
     "profiles_templates",
     "utils",
+    "balmercontinuum"
 ]
 
 

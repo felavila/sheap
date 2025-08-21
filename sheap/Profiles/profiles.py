@@ -17,7 +17,7 @@ from sheap.Profiles.profiles_continuum import (linear, balmercontinuum, powerlaw
 from sheap.Profiles.profile_lines import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
 from sheap.Profiles.profiles_templates import make_feii_template_function,make_host_function
 from sheap.Profiles.utils import with_param_names
-
+from sheap.Profiles.balmercontinuum import balmercontinuum
 
 
 # Low-level line profiles (require center+amplitude inside param vector)

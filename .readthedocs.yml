@@ -12,6 +12,7 @@ build:
       - sphinx-apidoc --force --module-first --separate -o docs/source/api sheap
       - test -f ./scripts/yaml_to_rst.py && python ./scripts/yaml_to_rst.py || echo "Skipping yaml_to_rst.py"
       - test -f ./scripts/clean_rst.py && python ./scripts/clean_rst.py || echo "Skipping clean_rst.py"
+      - test -f ./scripts/make_available_continuum_profiles.py && python ./scripts/make_available_continuum_profiles.py || echo "Skipping make_available_continuum_profiles.py"
       - python ./scripts/visualize-ga-workflow.py > docs/cicd_mermaid.md 2>/dev/null || echo "Skipping GA workflow visualization"
       - python ./scripts/visualize-dockerfile.py > docs/dockerfile_mermaid.md 2>/dev/null || echo "Skipping Dockerfile visualization"
 
