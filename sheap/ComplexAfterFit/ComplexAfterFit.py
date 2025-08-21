@@ -1,10 +1,9 @@
 """This module ?."""
 __author__ = 'felavila'
 
-# Auto-generated __all__
+
 __all__ = [
-    "ComplexAfterFit",
-]
+    "ComplexAfterFit",]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
