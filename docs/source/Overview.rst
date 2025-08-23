@@ -1,4 +1,4 @@
-SHEAP: Spectral Handling and Estimation of AGN Parameters
+sheap: Spectral Handling and Estimation of AGN Parameters
 =========================================================
 
 Overview
@@ -23,7 +23,7 @@ Key Features
 Quickstart
 ----------
 
-1. **Install SHEAP**  
+1. **Install sheap**  
 
    .. code-block:: shell
 
@@ -33,7 +33,7 @@ Quickstart
 
    .. code-block:: python
 
-      from sheap.MainSheap import Sheapectral
+      from sheap import Sheapectral
       spec = Sheapectral("my_spectrum.txt", z=0.5, ebv=0.02)
 
 3. **Build a fitting region**
@@ -53,13 +53,15 @@ Quickstart
    .. code-block:: python
 
       fig    = spec.plotter.plot(0)
-      params = spec.result.params(0)
+      params = spec.result.params
 
-6. **Obtain the extra parameters**
+6. **Obtain the extra products**
 
    .. code-block:: python
 
-      spec.afterfit()
+      spec.afterfit(sampling_method="pseudomontecarlo")
+      spec.result.posterior[1]
+
 
 
 Documentation
@@ -67,13 +69,13 @@ Documentation
 
 See the following modules for detailed API reference:
 
-- :py:mod:`sheap.MainSheap`: core entry point, I/O, extinction & redshift correction  
+- :py:mod:`sheap.MainSheap.Sheapectral`: core entry point, I/O, extinction & redshift correction  
 
-- :py:mod:`sheap.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
+- :py:mod:`sheap.ComplexBuilder.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
 
-- :py:mod:`sheap.ComplexFitting`: perform JAX/Optax minimization with constraints  
+- :py:mod:`sheap.ComplexFitting.ComplexFitting`: perform JAX/Optax minimization with constraints  
 
-- :py:mod:`sheap.Minimizer`: low‐level optimizer wrapper  
+- :py:mod:`sheap.Minimizer.Minimizer`: low‐level optimizer wrapper  
 
 - :py:mod:`sheap.ComplexAfterFit.ComplexAfterFit`: Posterior sampling 
 

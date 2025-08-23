@@ -21,6 +21,8 @@
     background-color: #D3DAD9; /* light gray */
     color: #37353E; /* dark text */
 }
+.wy-nav-content a:visited { color: #df5819; }
+.wy-menu-vertical a:visited { color: #df5819; }
 
 /* Headings and links */
 h1, h2, h3, h4, h5, h6,
@@ -45,4 +47,22 @@ code {
     color: #f8f8f2 !important;
     border-radius: 4px;
     padding: 2px 4px;
+}
+
+/* YAML token colors (work across themes) */
+.highlight .na { color: #86e1fc !important; }  /* attribute/key: e.g., 'center:' */
+.highlight .s  { color: #c3e88d !important; }  /* strings */
+.highlight .m  { color: #c792ea !important; }  /* numbers */
+.highlight .kc,
+.highlight .k  { color: #ffcb6b !important; }  /* booleans/keywords if present */
+.highlight .p  { color: #e0e0e0 !important; }  /* punctuation like ':' */
+
+
+
+/* Content headings (e.g., "GETTING STARTED") */
+.rst-content .section > h1,
+.rst-content .section > h2,
+.rst-content .section > h3,
+.rst-content .section > h4 {
+  color: #715A5A;            /* <-- pick your color */
 }

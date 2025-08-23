@@ -1,9 +1,9 @@
-Getting Started with SHEAP
+Getting Started with sheap
 ==========================
 
 sheap (Spectral Handling and Estimation of AGN)
 -----------------------------------------------
-**SHEAP** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
+**sheap** is a Python 3 package designed to analyze and estimate key parameters of Active Galactic Nuclei (AGN) from spectral data. This package provides tools to streamline the handling of spectral data and applies models to extract relevant AGN properties efficiently.
 
 
 Features
@@ -16,7 +16,7 @@ Features
 Installation
 ------------
 
-You can install SHEAP locally using the following command:
+You can install sheap locally using the following command:
 
 .. code-block:: shell
 
@@ -27,15 +27,15 @@ Prerequisites
 
 You need to have Python (>=3.12) and the required dependencies installed. Dependencies are managed using Poetry or can be installed manually via `requirements.txt`.
 
-References
-----------
+.. References
+.. ----------
 
-SHEAP is based on methodologies and models outlined in the following paper:
+.. sheap is based on methodologies and models outlined in the following paper:
 
-- **Mejía-Restrepo, J. E., et al. (2016)**.  
-  *Active galactic nuclei at z ∼ 1.5 – II. Black hole mass estimation by means of broad emission lines.*  
-  Monthly Notices of the Royal Astronomical Society, **460**, 187.  
-    Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_
+.. - **Mejía-Restrepo, J. E., et al. (2016)**.  
+..   *Active galactic nuclei at z ∼ 1.5 – II. Black hole mass estimation by means of broad emission lines.*  
+..   Monthly Notices of the Royal Astronomical Society, **460**, 187.  
+..     Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_
 
 
 License
