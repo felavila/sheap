@@ -4,7 +4,7 @@ __author__ = 'felavila'
 
 
 __all__ = [
-    "ParametersSampler",
+    #"ParametersSampler",
     "afterfitprofilehelpers",
     "combine_profiles",
     "fwhm_conv",

@@ -1,7 +1,8 @@
 Optimization Strategy
 =====================
 
-The spectral fitting in :code:`sheap` uses the Adam optimizer [2014arXiv1412.6980K], via the :code:`Optax` library. Adam provides efficient, adaptive gradient updates within JAX and is well-suited to the non-linear, high-dimensional parameter spaces of AGN spectral models.
+The spectral fitting in :code:`sheap` uses the Adam optimizer by default but can also use other optimizers available in the `Optax <https://optax.readthedocs.io/en/latest/index.html>`_ library. These optimizers provide efficient, adaptive gradient updates within JAX and are well-suited to the non-linear, high-dimensional parameter spaces of AGN spectral models.
+
 
 The total loss minimized during optimization combines several terms:
 
@@ -18,7 +19,7 @@ The primary component is the log-cosh residual, which behaves quadratically for 
    \;+\;
    \alpha \cdot \max_{i}\, \log\!\cosh\!\left( \frac{f_{\mathrm{model}} - f_{\mathrm{obs}}}{\sigma} \right)
 
-where :math:`\alpha` is a small weight (typically :math:`0.1`) that emphasizes the worst residual pixel.
+where :math:`\alpha` is a small weight that emphasizes the worst residual pixel.
 
 In addition, the model can include a curvature term to match the second derivatives of the predicted and observed fluxes:
 

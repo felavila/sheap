@@ -1,4 +1,26 @@
-"""This module handles basic operations."""
+"""
+Physical Functions for AGN Spectral Analysis
+============================================
+
+This module provides helper functions to compute derived physical
+quantities from fitted line profiles, such as flux, luminosity,
+velocity widths, bolometric luminosities, and single-epoch black hole
+masses.
+
+Main Features
+-------------
+- Flux and luminosity calculations from profile amplitudes and widths.
+- Conversions between FWHM (Å) and velocity (km/s).
+- Monochromatic and bolometric luminosities.
+- Multiple single-epoch BH mass estimators (continuum- and line-based).
+- Helpers to compute derived parameters (Lbol, Ledd, mdot) from fitted spectra.
+
+Notes
+-----
+- Unless stated otherwise, luminosities are in erg/s,
+  distances are in cm, and velocities in km/s.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -9,9 +31,9 @@ __all__ = [
     "calc_fwhm_kms",
     "calc_luminosity",
     "calc_monochromatic_luminosity",
-    "ensure_column_matrix",
+   # "ensure_column_matrix",
     "extra_params_functions",
-    "extra_params_functionsv0",
+#    "extra_params_functionsv0",
 ]
 
 import jax.numpy as np
@@ -20,40 +42,137 @@ from auto_uncertainties import Uncertainty
 
 def calc_flux(norm_amplitude, fwhm):
     """
-    Compute flux from normalized amplitude and FWHM assuming a Gaussian profile.
-    F = A × FWHM × sqrt(π / (4 * ln(2)))
+    Compute the integrated flux of a Gaussian line profile.
+
+    .. math::
+        F = A \cdot \mathrm{FWHM} \cdot \sqrt{ \frac{\pi}{4 \ln 2} }
+
+    Parameters
+    ----------
+    norm_amplitude : array-like
+        Normalized amplitude of the Gaussian peak.
+    fwhm : array-like
+        Full width at half maximum in wavelength units.
+
+    Returns
+    -------
+    flux : jnp.ndarray
+        Integrated line flux.
     """
     return np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
 
 def calc_luminosity(distance, flux):
     """
-    Line luminosity: L = 4π D^2 × F 
+    Compute line luminosity from flux and luminosity distance.
+
+    .. math::
+        L = 4 \pi D^2 \, F
+
+    Parameters
+    ----------
+    distance : float or array
+        Luminosity distance in cm.
+    flux : float or array
+        Integrated line flux.
+
+    Returns
+    -------
+    luminosity : jnp.ndarray
+        Line luminosity in erg/s.
     """
     return 4.0 * np.pi * distance**2 * flux #* center
 
 def calc_fwhm_kms(fwhm, c, center):
     """
-    Convert FWHM [Å] to velocity [km/s].
+    Convert FWHM in Å to velocity width in km/s.
+
+    .. math::
+        v = \frac{\mathrm{FWHM}}{\lambda_0} \, c
+
+    Parameters
+    ----------
+    fwhm : float or array
+        Full width at half maximum in Å.
+    c : float
+        Speed of light in km/s.
+    center : float or array
+        Line center wavelength in Å.
+
+    Returns
+    -------
+    v_kms : jnp.ndarray
+        Velocity width in km/s.
     """
     return (fwhm * c) / center
 
 def calc_monochromatic_luminosity(distance, flux_at_wavelength, wavelength):
     """
-    Monochromatic luminosity: Lλ × λ = νLν (erg/s)
+    Compute monochromatic luminosity at a given wavelength.
+
+    .. math::
+        L_\lambda \cdot \lambda = \nu L_\nu = \lambda \, 4 \pi D^2 \, F_\lambda
+
+    Parameters
+    ----------
+    distance : float or array
+        Luminosity distance in cm.
+    flux_at_wavelength : float or array
+        Flux density at the wavelength (erg/s/cm^2/Å).
+    wavelength : float
+        Wavelength in Å.
+
+    Returns
+    -------
+    L_lambda : jnp.ndarray
+        Monochromatic luminosity in erg/s.
     """
     return wavelength * 4.0 * np.pi * distance**2 * flux_at_wavelength
 
 def calc_bolometric_luminosity(monochromatic_lum, correction):
     """
-    Apply bolometric correction to monochromatic luminosity.
+    Apply a bolometric correction to a monochromatic luminosity.
+
+    .. math::
+        L_{\mathrm{bol}} = L_\lambda \cdot C
+
+    Parameters
+    ----------
+    monochromatic_lum : float or array
+        Monochromatic luminosity in erg/s.
+    correction : float
+        Bolometric correction factor.
+
+    Returns
+    -------
+    L_bol : jnp.ndarray
+        Bolometric luminosity in erg/s.
     """
     return monochromatic_lum * correction
 
 def calc_black_hole_mass(L_w, fwhm_kms, estimator):
     """
-    Single-epoch black hole mass:
-    log M_BH = a + b (log L - 44) + 2 log(FWHM/1000)
-    M_BH = 10**log M_BH / f
+    Single-epoch BH mass estimator (continuum-based).
+
+    .. math::
+        \log M_{\rm BH} =
+        a + b \, (\log L - 44) + 2 \, \log \left(\frac{\mathrm{FWHM}}{1000}\right)
+
+    .. math::
+        M_{\rm BH} = \frac{10^{\log M_{\rm BH}}}{f}
+
+    Parameters
+    ----------
+    L_w : float or array
+        Monochromatic luminosity (erg/s).
+    fwhm_kms : float or array
+        Line width in km/s.
+    estimator : dict
+        Coefficients with keys ``a``, ``b``, ``f``.
+
+    Returns
+    -------
+    MBH : jnp.ndarray
+        Black hole mass in solar masses.
     """
     a, b, f = estimator["a"], estimator["b"], estimator["f"]
     log_L = np.log10(L_w)
@@ -63,141 +182,157 @@ def calc_black_hole_mass(L_w, fwhm_kms, estimator):
 
 def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     """
-    Greene & Ho 2015 (Eq. 6):
-    log(M_BH/M_sun) = 6.57 + 0.47 * (log L_Hα - 42) + 2.06 * log(FWHM / 1000)
+    Greene & Ho (2015) Hα mass estimator (Eq. 6).
+
+    .. math::
+        \log \left(\frac{M_{\rm BH}}{M_\odot}\right) =
+        6.57 + 0.47 \, (\log L_{H\alpha} - 42)
+        + 2.06 \, \log \left(\frac{\mathrm{FWHM}}{1000}\right)
+
+    Parameters
+    ----------
+    L_halpha : float or array
+        Hα line luminosity in erg/s.
+    fwhm_kms : float or array
+        FWHM in km/s.
+
+    Returns
+    -------
+    MBH : jnp.ndarray
+        Black hole mass in solar masses.
     """
     log_L = np.log10(L_halpha)
     log_FWHM = np.log10(fwhm_kms) - 3
     log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
     return 10 ** log_M_BH
 
-
-
-def ensure_column_matrix(x):
-    #to utils.
-    if isinstance(x,Uncertainty):
-        if x.ndim == 1:
-            #print("1D")
-            #print(x_.shape)
-            return x.reshape(-1, 1)  # Convert to (N, 1)
-        return x
-    x = np.asarray(x)
-    if x.ndim == 1:
-        #print(x.reshape(1, -1).shape)
-        return x.reshape(-1, 1)  # Convert to (N, 1)
-    
-    return x
-
-
-def extra_params_functionsv0(broad_params, L_w, L_bol, estimators, c):
+def _col(x):
     """
-    Compute derived AGN parameters from broad line measurements.
-
+    Ensure input is a 2D column vector repetead.
+    TODO move it .
     Parameters
     ----------
-    broad_params : dict
-        Dictionary with extracted parameters including FWHM, luminosity, and line labels.
-    L_w : dict
-        Dictionary of monochromatic luminosities keyed by wavelength (as str).
-    L_bol : dict
-        Dictionary of bolometric luminosities keyed by wavelength (as str).
-    estimators : dict
-        Dictionary of estimator configurations, keys formatted as "{line}_{method}".
-        Each value is a dict with keys: 'wavelength', 'a', 'b', 'f' or 'fwhm_factor'.
-    c : float
-        Speed of light in km/s.
+    x : array-like or Uncertainty
+        Input data.
 
     Returns
     -------
-    dict
-        Dictionary of derived parameters per line.
+    array-like
+        If input is 1D, reshaped to (N, 1).
     """
-    dict_extra_params = {}
-    #n_obj,nlines_component
-    fwhm_kms_all = broad_params.get("fwhm_kms")
-    lum_all = broad_params.get("luminosity")
-    line_list = np.array(broad_params.get("lines", []))
-    component_list = np.array(broad_params.get("component", []))
-    #print(line_list)
-    if fwhm_kms_all is None or line_list.size == 0:
-        return dict_extra_params
-    for line_method, est in estimators.items():
-        try:
-            line_name, method = line_method.split("_", 1)
-        except ValueError:
-            continue  # invalid key format
-
-        if line_name not in line_list:
-            continue
-        idxs = np.where(line_list == line_name)[0]
-
-        compt = component_list[idxs]
-        #print("compt",idxs,"fwhm_kms_all",fwhm_kms_all.shape,ensure_column_matrix(fwhm_kms_all).shape)
-        fkm = ensure_column_matrix(fwhm_kms_all)[:, idxs]
-        lum_custom = ensure_column_matrix(lum_all)[:, idxs]
-        #print("lum_custom",lum_custom.shape,"fkm",fkm.shape)
-        if line_name not in dict_extra_params:
-            dict_extra_params[line_name] = {}
-
-        
-        log_FWHM = np.log10(fkm) - 3
-
-        if method == "w":
-            lam = est.get("wavelength", 0)
-            wstr = str(int(lam))
-
-            if wstr not in L_w:
-                continue
-
-            Lmono = L_w[wstr]
-            Lbolval = L_bol[wstr]
-            a, b, f = est["a"], est["b"], est["f"]
-            log_L = np.log10(Lmono)
-            log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
-            M_BH = (10 ** log_M_BH) / f
-            L_edd = 1.26e38 * M_BH
-
-            # mass accretion rate (M_sun / yr)
-            eta = 0.1
-            c_cm = c * 1e5
-            M_sun_g = 1.98847e33
-            sec_yr = 3.15576e7
-            mdot_gs = Lbolval / (eta * c_cm**2)
-            mdot_yr = mdot_gs / M_sun_g * sec_yr
-
-            dict_extra_params[line_name].update({
-                "Lwave": Lmono,
-                "Lbol": Lbolval,
-                "fwhm_kms": fkm,
-                "log10_smbh": np.log10(M_BH),
-                "Ledd": L_edd,
-                "mdot_msun_per_year": mdot_yr,
-                "component": compt,
-            })
-
-        elif method == "l":
-            a, b, fwhm_factor = est["a"], est["b"], est["fwhm_factor"]
-            log_M_special = a + b * (np.log10(lum_custom) - 42) + fwhm_factor * log_FWHM
-            dict_extra_params[line_name].update({
-                f"log10_smbh_{line_name.lower()}": log_M_special
-            })
-
-    return dict_extra_params
-
-
-
-
-def _col(x):
     if isinstance(x,Uncertainty): 
         return x.reshape(-1, 1) if x.ndim == 1 else x
     x = np.asarray(x)
     return x.reshape(-1, 1) if x.ndim == 1 else x
     
-    
+
 def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     """
-    Unified SE BH-mass estimator (continuum or line), supports width_def and extras.
-    Returns M_BH in Msun with the estimator's virial factor applied.
+    Unified single-epoch (SE) black-hole mass estimator.
+
+    This keeps the classical behavior of the function but documents the math used
+    for both continuum- and line-based calibrations, optional shape terms, and
+    iron-strength corrections.
+
+    Parameters
+    ----------
+    L_in : array-like or float
+        Luminosity used by the calibration:
+        - For kind="continuum": monochromatic luminosity :math:`L_\\lambda \\times \\lambda`
+          (erg s\\ :sup:`-1`).
+        - For kind="line": line luminosity :math:`L_\\text{line}` (erg s\\ :sup:`-1`).
+    vwidth_kms : array-like or float
+        Velocity width in km/s. By default the calibration assumes FWHM, but you can
+        set ``width_def="sigma"`` in ``estimator`` to use :math:`\\sigma`.
+    estimator : dict
+        Calibration dictionary. Required keys:
+
+        - ``kind``: "continuum" or "line".
+        - ``a``: intercept term (dimensionless).
+        - ``b``: luminosity slope.
+        - ``f``: virial factor (dimensionless, applied multiplicatively in mass).
+        - ``fwhm_factor`` (alias ``vel_exp``): velocity-width exponent (defaults to 2.0).
+        - ``pivots``: dict with reference values, e.g.
+          ``{"L": 1e44, "FWHM": 1e3}`` for continuum or ``{"L": 1e42, "FWHM": 1e3}`` for line.
+
+        Optional:
+        - ``width_def``: "fwhm" (default) or "sigma".
+        - ``extras``: nested dict with optional switches:
+            * ``le20_shape``: If True and width_def="fwhm", adds a shape term using
+              :math:`\\sigma`.
+            * ``pan25_gamma``: Slope for Fe II strength correction (default :math:`-0.34`).
+
+    extras : dict, optional
+        Runtime extras to feed optional terms:
+        - ``sigma_kms``: second velocity measure (km/s) for Le20-like shape term.
+        - ``R_Fe``: Fe II strength (e.g., :math:`R_\\mathrm{FeII}`).
+
+    Returns
+    -------
+    numpy-like
+        :math:`M_\\mathrm{BH}` in solar masses (:math:`M_\\odot`), **with** the
+        virial factor ``f`` already applied.
+
+    Notes
+    -----
+    Base (log) mass relation (works for either continuum or line, depending on inputs):
+
+    .. math::
+        \\log_{10} M_\\mathrm{BH} \\\\;=\\\\;
+        \\log_{10} f \\\\;+ a \\\\;+ b\\,[\\log_{10} L - \\log_{10} L_0]
+        \\\\;+ \\beta\\,[\\log_{10} V - \\log_{10} V_0] \\;,
+
+    where:
+
+    - :math:`L` is :math:`L_\\lambda \\times \\lambda` (continuum) or :math:`L_\\text{line}` (line),
+    - :math:`V` is the velocity width (FWHM or :math:`\\sigma`) in km/s,
+    - :math:`L_0` and :math:`V_0` are the pivot luminosity and velocity from ``pivots``,
+    - :math:`\\beta` is ``fwhm_factor`` (or ``vel_exp``), by default 2.0,
+    - :math:`f` is the virial factor.
+
+    If ``width_def="fwhm"`` and ``extras["le20_shape"]`` is True (Leighly+20-like term),
+    and a second velocity measure :math:`\\sigma` is provided via ``extras["sigma_kms"]``,
+    we add:
+
+    .. math::
+        \\Delta \\log_{10} M_\\mathrm{BH} \\\\;=\\\\; -1.14\\,[\\log_{10}(\\mathrm{FWHM}) - \\log_{10}(\\sigma)] + 0.33 \\;.
+
+    If ``extras["R_Fe"]`` is provided, we add (Panessa+25-like term):
+
+    .. math::
+        \\Delta \\log_{10} M_\\mathrm{BH} \\\\;=\\\\; \\gamma\\,R_\\mathrm{Fe} \\;,
+
+    with :math:`\\gamma =` ``estimator["extras"]["pan25_gamma"]`` (default :math:`-0.34`).
+
+    Examples
+    --------
+    Classical continuum-based recipe with FWHM:
+
+    >>> est = {
+    ...     "kind": "continuum",
+    ...     "a": 0.0, "b": 0.5, "f": 1.0,
+    ...     "fwhm_factor": 2.0,
+    ...     "pivots": {"L": 1e44, "FWHM": 1e3},
+    ...     "width_def": "fwhm",
+    ... }
+    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est)
+
+    Same but with the Le20 shape term:
+
+    >>> extras = {"sigma_kms": sigma_kms}
+    >>> est["extras"] = {"le20_shape": True}
+    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est, extras=extras)
+
+    Line-based calibration:
+
+    >>> est_line = {
+    ...     "kind": "line",
+    ...     "a": 6.57, "b": 0.47, "f": 1.0,
+    ...     "fwhm_factor": 2.06,
+    ...     "pivots": {"L": 1e42, "FWHM": 1e3},
+    ...     "width_def": "fwhm",
+    ... }
+    >>> MBH = calc_black_hole_mass(L_Halpha, FWHM_kms, est_line)
     """
     if extras is None:
         extras = {}
@@ -237,9 +372,76 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
 
 def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None):
     """
-    Compute derived parameters and SE BH masses.
-    - kind='continuum': uses L_w[lambda]; computes Ledd and mdot (if L_bol available).
-    - kind='line'    : uses per-component line luminosity; computes Ledd; no mdot.
+    Compute derived parameters (BH masses, Eddington ratios, accretion rates).
+
+    This routine applies single–epoch virial estimators to broad-line
+    measurements, combining continuum or line luminosities with velocity
+    widths to derive black hole masses and accretion-related quantities.
+
+    Parameters
+    ----------
+    broad_params : dict
+        Dictionary of broad line properties (fwhm_kms, luminosity, etc.).
+    L_w : dict
+        Monochromatic luminosities keyed by wavelength.
+    L_bol : dict
+        Bolometric luminosities keyed by wavelength.
+    estimators : dict
+        Single-epoch estimators (continuum and line).
+    c : float
+        Speed of light in km/s.
+    extras : dict, optional
+        Extra quantities for corrections (e.g., sigma_kms, R_Fe).
+
+    Returns
+    -------
+    dict
+        Nested dictionary of derived parameters per line and calibration.
+
+    Notes
+    -----
+    The general single–epoch black hole mass relation is:
+
+    .. math::
+        \\log M_\\mathrm{BH} =
+            a
+            + b \\cdot (\\log L - \\log L_0)
+            + \\beta \\cdot (\\log V - \\log V_0)
+            + \\log f
+
+    where:
+      * :math:`L` is either a monochromatic continuum luminosity or a line luminosity
+      * :math:`V` is the velocity width (FWHM or \\(\\sigma\\))
+      * :math:`(a, b, \\beta, f)` are calibration parameters
+      * :math:`L_0, V_0` are pivot values from the calibration
+
+    Special cases include:
+
+    - **Continuum-based estimators**  
+      Use monochromatic luminosities :math:`L_\\lambda` at a wavelength λ with bolometric correction:
+
+      .. math::
+          L_{\\mathrm{bol}} = BC_\\lambda \\cdot (\\lambda L_\\lambda)
+
+      From this, Eddington ratio and accretion rate are derived:
+
+      .. math::
+          L_{\\mathrm{Edd}} = 1.26 \\times 10^{38} \\, (M_\\mathrm{BH} / M_\\odot) \\, [\\mathrm{erg\\,s^{-1}}]
+
+      .. math::
+          \\dot{M} = \\frac{L_{\\mathrm{bol}}}{\\eta c^2}
+
+      with η = 0.1 by default.
+
+    - **Line-based estimators**  
+      Use the integrated line luminosity:
+
+      .. math::
+          \\log M_\\mathrm{BH} = a + b (\\log L_\\mathrm{line} - \\log L_0) + \\beta (\\log V - \\log V_0)
+
+    Corrections supported:
+      * **Le20 shape**: additional dependence on FWHM/σ.  
+      * **Pan25 iron term**: additional correction proportional to R_Fe.
     """
     if extras is None:
         extras = {}
@@ -348,3 +550,129 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
             }
 
     return out
+
+
+
+
+  # def ensure_column_matrix(x):
+#     """
+#     Ensure input is a 2D column vector.
+#     TODO move it .
+#     Parameters
+#     ----------
+#     x : array-like or Uncertainty
+#         Input data.
+
+#     Returns
+#     -------
+#     array-like
+#         If input is 1D, reshaped to (N, 1).
+#     """
+#     if isinstance(x,Uncertainty):
+#         if x.ndim == 1:
+#             #print("1D")
+#             #print(x_.shape)
+#             return x.reshape(-1, 1)  # Convert to (N, 1)
+#         return x
+#     x = np.asarray(x)
+#     if x.ndim == 1:
+#         #print(x.reshape(1, -1).shape)
+#         return x.reshape(-1, 1)  # Convert to (N, 1)
+    
+#     return x
+  
+
+# def extra_params_functionsv0(broad_params, L_w, L_bol, estimators, c):
+#     """
+#     Compute derived AGN parameters from broad line measurements.
+
+#     Parameters
+#     ----------
+#     broad_params : dict
+#         Dictionary with extracted parameters including FWHM, luminosity, and line labels.
+#     L_w : dict
+#         Dictionary of monochromatic luminosities keyed by wavelength (as str).
+#     L_bol : dict
+#         Dictionary of bolometric luminosities keyed by wavelength (as str).
+#     estimators : dict
+#         Dictionary of estimator configurations, keys formatted as "{line}_{method}".
+#         Each value is a dict with keys: 'wavelength', 'a', 'b', 'f' or 'fwhm_factor'.
+#     c : float
+#         Speed of light in km/s.
+
+#     Returns
+#     -------
+#     dict
+#         Dictionary of derived parameters per line.
+#     """
+#     dict_extra_params = {}
+#     #n_obj,nlines_component
+#     fwhm_kms_all = broad_params.get("fwhm_kms")
+#     lum_all = broad_params.get("luminosity")
+#     line_list = np.array(broad_params.get("lines", []))
+#     component_list = np.array(broad_params.get("component", []))
+#     #print(line_list)
+#     if fwhm_kms_all is None or line_list.size == 0:
+#         return dict_extra_params
+#     for line_method, est in estimators.items():
+#         try:
+#             line_name, method = line_method.split("_", 1)
+#         except ValueError:
+#             continue  # invalid key format
+
+#         if line_name not in line_list:
+#             continue
+#         idxs = np.where(line_list == line_name)[0]
+
+#         compt = component_list[idxs]
+#         #print("compt",idxs,"fwhm_kms_all",fwhm_kms_all.shape,ensure_column_matrix(fwhm_kms_all).shape)
+#         fkm = ensure_column_matrix(fwhm_kms_all)[:, idxs]
+#         lum_custom = ensure_column_matrix(lum_all)[:, idxs]
+#         #print("lum_custom",lum_custom.shape,"fkm",fkm.shape)
+#         if line_name not in dict_extra_params:
+#             dict_extra_params[line_name] = {}
+
+        
+#         log_FWHM = np.log10(fkm) - 3
+
+#         if method == "w":
+#             lam = est.get("wavelength", 0)
+#             wstr = str(int(lam))
+
+#             if wstr not in L_w:
+#                 continue
+
+#             Lmono = L_w[wstr]
+#             Lbolval = L_bol[wstr]
+#             a, b, f = est["a"], est["b"], est["f"]
+#             log_L = np.log10(Lmono)
+#             log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
+#             M_BH = (10 ** log_M_BH) / f
+#             L_edd = 1.26e38 * M_BH
+
+#             # mass accretion rate (M_sun / yr)
+#             eta = 0.1
+#             c_cm = c * 1e5
+#             M_sun_g = 1.98847e33
+#             sec_yr = 3.15576e7
+#             mdot_gs = Lbolval / (eta * c_cm**2)
+#             mdot_yr = mdot_gs / M_sun_g * sec_yr
+
+#             dict_extra_params[line_name].update({
+#                 "Lwave": Lmono,
+#                 "Lbol": Lbolval,
+#                 "fwhm_kms": fkm,
+#                 "log10_smbh": np.log10(M_BH),
+#                 "Ledd": L_edd,
+#                 "mdot_msun_per_year": mdot_yr,
+#                 "component": compt,
+#             })
+
+#         elif method == "l":
+#             a, b, fwhm_factor = est["a"], est["b"], est["fwhm_factor"]
+#             log_M_special = a + b * (np.log10(lum_custom) - 42) + fwhm_factor * log_FWHM
+#             dict_extra_params[line_name].update({
+#                 f"log10_smbh_{line_name.lower()}": log_M_special
+#             })
+
+#     return dict_extra_params

@@ -1,4 +1,27 @@
-"""This module handles basic operations."""
+"""
+NumPyro Model Utilities
+=======================
+
+Helper functions to construct NumPyro models from SHEAP parameters,
+including dictionary conversion, handling of tied parameters, and
+safe initialization near constraints.
+
+Main Features
+-------------
+- Apply arithmetic ties between parameters.
+- Convert flat parameter arrays to dictionaries for NumPyro.
+- Initialize values safely away from hard bounds.
+- Build a full NumPyro model for flux fitting with uncertainty.
+
+Notes
+-----
+- Dependencies are expressed as tuples
+  ``(tag, target_idx, src_idx, op, val)`` where ``op`` is one of
+  ``{'+','-','*','/'}``.
+- Parameters tied via dependencies are excluded from sampling and
+  reconstructed after free parameters are sampled.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -15,8 +38,28 @@ import numpyro
 import numpyro.distributions as dist
 
 def apply_arithmetic_ties(params: Dict[str, float], dependencies: List[Tuple]) -> Dict[str, float]:
-    #_, target, source, op, operand = dep
-    #tag,target_idx,src_idx, op, val = ties
+    """
+    Apply arithmetic ties to update dependent parameters in place.
+    #TODO this is already in other place?
+    Parameters
+    ----------
+    params : dict
+        Dictionary of parameter values keyed by ``"theta_{i}"``.
+    dependencies : list of tuple
+        List of constraints of the form:
+        ``(tag, target_idx, src_idx, op, val)``.
+
+    Returns
+    -------
+    dict
+        Updated parameter dictionary with tied targets assigned.
+
+    Notes
+    -----
+    - Supported operations are ``+``, ``-``, ``*``, ``/``.
+    - Example: if ``theta_3 = theta_1 * 2``, then dependency is
+      ``("arith", 3, 1, "*", 2.0)``.
+    """
     for tag, target_idx,src_idx, op, val in dependencies:
         src = params[f"theta_{src_idx}"]
         if op == '+':
@@ -33,6 +76,22 @@ def apply_arithmetic_ties(params: Dict[str, float], dependencies: List[Tuple]) -
     return params
 
 def params_to_dict_old(params,dependencies):
+    """
+    Convert parameters to a dict (legacy version).
+
+    Parameters
+    ----------
+    params : array-like
+        Flat list of parameter values.
+    dependencies : list of tuple
+        Constraints (same format as in :func:`apply_arithmetic_ties`).
+
+    Returns
+    -------
+    dict
+        Dictionary mapping free parameter indices to values,
+        keyed as ``theta_i``.
+    """
     #tag,target_idx,src_idx, op, val = dependencies 
     target_idx_list = [d[1] for d in dependencies]
     init_value = {}
@@ -47,17 +106,33 @@ def params_to_dict_old(params,dependencies):
 
 def params_to_dict(params, dependencies, constraints=None, eps=1e-2):
     """
-    Convert a list of parameter values into a dict for init_to_value,
-    excluding tied (dependent) parameters and applying jitter near bounds.
+    Convert flat parameters into a dictionary for NumPyro initialization.
 
-    Args:
-        params: list or array of parameter values (e.g. from minimization)
-        dependencies: list of (tag, target_idx, src_idx, op, val)
-        constraints: optional dict {f"theta_{i}": (low, high)} or list of (low, high)
-        eps: minimum distance from bounds to avoid edge initialization
+    Excludes dependent parameters and applies jitter to avoid initializing
+    exactly at bounds.
 
-    Returns:
-        init_dict: dict of {param_name: jittered_value}
+    Parameters
+    ----------
+    params : array-like
+        Flat parameter values (e.g. from a minimizer).
+    dependencies : list of tuple
+        Ties of the form ``(tag, target_idx, src_idx, op, val)``.
+    constraints : dict or list, optional
+        Parameter bounds. Either a dict mapping ``theta_i -> (low, high)``
+        or a list aligned with params.
+    eps : float, default=1e-2
+        Minimum offset from bounds to avoid initialization at the edge.
+
+    Returns
+    -------
+    dict
+        Dictionary of free parameters, keyed as ``theta_i``.
+
+    Notes
+    -----
+    - If a parameter value is invalid (NaN, inf, outside bounds),
+      it is reset to the midpoint of its allowed range.
+    - Exact zeros are nudged to ``eps`` to avoid degenerate starts.
     """
     if not dependencies:
         dependencies = ()
@@ -93,7 +168,54 @@ def params_to_dict(params, dependencies, constraints=None, eps=1e-2):
     return init_dict
 
 def make_numpyro_model(name_list,wl,flux,sigma,constraints,params_i,theta_to_sheap,fixed_params,dependencies,model_func):
-    
+    """
+    Build a NumPyro probabilistic model for spectrum fitting.
+
+    Parameters
+    ----------
+    name_list : list of str
+        Names of NumPyro parameters (e.g. ``["theta_0", "theta_1", ...]``).
+    wl : jnp.ndarray
+        Wavelength grid, shape (n_pix,).
+    flux : jnp.ndarray
+        Observed flux, shape (n_pix,).
+    sigma : jnp.ndarray
+        Flux uncertainties, shape (n_pix,).
+    constraints : list of tuple
+        Bounds for each parameter as (low, high).
+    params_i : array-like
+        Initial parameter values.
+    theta_to_sheap : dict
+        Mapping from NumPyro parameter name to SHEAP parameter name.
+    fixed_params : dict
+        Dictionary of fixed parameter values keyed by SHEAP names.
+    dependencies : list of tuple
+        List of ties (see :func:`apply_arithmetic_ties`).
+    model_func : Callable
+        Spectral model function with signature ``model_func(wl, theta)``.
+
+    Returns
+    -------
+    numpyro_model : Callable
+        A function defining the NumPyro model.
+    init_value : dict
+        Dictionary of initial parameter values for ``init_to_value``.
+
+    Notes
+    -----
+    The model:
+    .. math::
+
+        \\theta_i \sim \mathrm{Uniform}(low_i, high_i)
+
+        f(\\lambda) = \\mathrm{model\_func}(\\lambda, \\theta)
+
+        y(\\lambda) \sim \mathcal{N}(f(\\lambda), \sigma)
+
+    - Dependent (tied) parameters are excluded from sampling and
+      reconstructed afterward.
+    - Fixed parameters are held at their provided values.
+    """
     init_values = {key: params_i[_] for _,key in enumerate(theta_to_sheap.values())}
     init_value = params_to_dict(params_i,dependencies,constraints)
     if not dependencies:
