@@ -21,8 +21,8 @@
     background-color: #D3DAD9; /* light gray */
     color: #37353E; /* dark text */
 }
-.wy-nav-content a:visited { color: #df5819; }
-.wy-menu-vertical a:visited { color: #df5819; }
+.wy-nav-content a:visited { color: #715A5A; }
+.wy-menu-vertical a:visited { color: #715A5A; }
 
 /* Headings and links */
 h1, h2, h3, h4, h5, h6,
@@ -65,4 +65,12 @@ code {
 .rst-content .section > h3,
 .rst-content .section > h4 {
   color: #715A5A;            /* <-- pick your color */
+}
+
+/* Sidebar section titles: "GETTING STARTED", "OVERVIEW", etc. */
+.wy-menu-vertical p.caption,
+.wy-menu-vertical .caption,
+.wy-menu-vertical .caption > span.caption-text,
+.wy-menu-vertical span.caption-text {
+  color: #7C4DFF !important;   /* <-- your new color */
 }
