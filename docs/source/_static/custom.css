@@ -1,0 +1,29 @@
+/* Sidebar background */
+.wy-side-nav-search, .wy-nav-side {
+    background-color: #37353E; /* dark */
+}
+
+/* Sidebar text */
+.wy-side-nav-search .project,
+.wy-menu-vertical a {
+    color: #D3DAD9; /* light gray */
+}
+
+/* Hover/active link in sidebar */
+.wy-menu-vertical li.current > a,
+.wy-menu-vertical a:hover {
+    background-color: #44444E; /* slate */
+    color: #D3DAD9;
+}
+
+/* Main content background */
+.wy-nav-content {
+    background-color: #D3DAD9; /* light gray */
+    color: #37353E; /* dark text */
+}
+
+/* Headings and links */
+h1, h2, h3, h4, h5, h6,
+a {
+    color: #715A5A; /* muted red/brown accent */
+}

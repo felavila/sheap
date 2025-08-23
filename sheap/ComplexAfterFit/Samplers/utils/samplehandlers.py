@@ -1,4 +1,20 @@
-"""This module handles basic operations."""
+"""
+Flattening and Summarizing Utilities
+====================================
+
+This module provides helpers to:
+- Concatenate lists of dictionaries with array-like leaves.
+- Flatten nested “masses” / parameter dictionaries to pandas DataFrames.
+- Pivot nested results per object into per-object dictionaries.
+- Summarize posterior samples via 16/50/84 percentiles.
+
+Notes
+-----
+- All functions are NumPy/JAX friendly; arrays may be ``numpy.ndarray`` or ``jax.numpy.ndarray``.
+- Percentile summaries follow a common convention:
+    median = 50th percentile, err_minus = 50th - 16th, err_plus = 84th - 50th.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -15,12 +31,35 @@ __all__ = [
 from typing import Dict, Any
 import pandas as pd
 import warnings
+from collections import defaultdict
 from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
 import numpy as np 
 import jax.numpy as jnp
 #?
 
 def concat_dicts(list_of_dicts):
+    """
+    Concatenate lists/arrays across a list of homogeneous dictionaries.
+
+    Parameters
+    ----------
+    list_of_dicts : list of dict
+        Each dict must share the same keys. Values are arrays (or array-like)
+        that can be concatenated along their first axis.
+
+    Returns
+    -------
+    dict
+        Dictionary with the same keys; each value is the concatenation of
+        the corresponding values across the input list, then transposed
+        (so that samples shape usually becomes ``(N, ...)``).
+
+    Notes
+    -----
+    This is used to merge per-profile/line dictionaries into a single
+    per-region dict. It expects all leaves to be concatenable; non-numeric
+    leaves should be filtered out before calling.
+    """
     out = defaultdict(list)
     for d in list_of_dicts:
         for k, v in d.items():
@@ -34,13 +73,19 @@ def concat_dicts(list_of_dicts):
 
 def flatten_mass_samples_to_df(dict_samples: Dict[str, Dict[str, Any]]) -> pd.DataFrame:
     """
-    Extract 'masses' from nested sample dictionaries and return a flat pandas DataFrame.
-    
-    Parameters:
-    - dict_samples: Dictionary of objects, each containing a 'masses' dictionary.
+    Flatten nested mass sample summaries into a tidy DataFrame.
 
-    Returns:
-    - A pandas DataFrame with columns: object, line, quantity, median, err_minus, err_plus
+    Parameters
+    ----------
+    dict_samples : dict
+        Mapping ``object_name -> {"masses": {line: {quantity: stats_dict}}}``.
+        Each ``stats_dict`` must have keys ``median``, ``err_minus``, ``err_plus``
+        (scalars or 0-d arrays).
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: ``object``, ``line``, ``quantity``, ``median``, ``err_minus``, ``err_plus``.
     """
     records = []
     
@@ -62,6 +107,20 @@ def flatten_mass_samples_to_df(dict_samples: Dict[str, Dict[str, Any]]) -> pd.Da
 
 
 def flatten_param_dict(dict_basic_params):
+    """
+    Convert a nested parameter dictionary into a tidy table.
+
+    Parameters
+    ----------
+    dict_basic_params : dict
+        Structure like:
+        ``{kind: {"lines": [...], "component": [...], <param>: {"median": [...], "err_minus": [...], "err_plus": [...]}, ...}}``
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per (line, component, kind, parameter), with median and error bars.
+    """
     rows = []
     for kind, values in dict_basic_params.items():
         lines = values["lines"]
@@ -86,6 +145,21 @@ def flatten_param_dict(dict_basic_params):
     return pd.DataFrame(rows)
 
 def flatten_scalar_dict(name, scalar_dict):
+    """
+    Flatten a scalar-valued dictionary (e.g., L_bol/L_w summaries) into a DataFrame.
+
+    Parameters
+    ----------
+    name : str
+        Label for the quantity (e.g., ``"L_bol"`` or ``"L_w"``).
+    scalar_dict : dict
+        Mapping ``key -> {"median": scalar, "err_minus": scalar, "err_plus": scalar}``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: ``quantity``, ``wavelength_or_line``, ``median``, ``err_minus``, ``err_plus``.
+    """
     rows = []
     for key, stats in scalar_dict.items():
         rows.append({
@@ -99,6 +173,19 @@ def flatten_scalar_dict(name, scalar_dict):
 
 
 def flatten_mass_dict(masses):
+    """
+    Flatten a masses dictionary into a DataFrame.
+
+    Parameters
+    ----------
+    masses : dict
+        Mapping ``line -> {stat_name: {"median": scalar, "err_minus": scalar, "err_plus": scalar}}``.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns: ``line_name``, ``quantity``, ``median``, ``err_minus``, ``err_plus``.
+    """
     rows = []
     for line, metrics in masses.items():
         #print(line)
@@ -116,14 +203,27 @@ def flatten_mass_dict(masses):
 
 def pivot_and_split(obj_names, result):
     """
-    Turn `result` (a nested dict of dicts whose leaves are either:
-       - VectorUncertainty of length N,
-       - indexable arrays/lists of length N, or
-       - scalars
-    ) into a dict keyed by each obj_name, where each leaf becomes either:
-       - {'value': ..., 'error': ...} for VectorUncertainty
-       - the single element node[obj_idx] for other indexables
-       - the original scalar for non-indexables
+    Pivot a nested result dict into a per-object view.
+
+    For each object index, traverse the structure and:
+      - If a leaf is a ``VectorUncertainty`` of length N: return
+        ``{'value': value[idx], 'error': error[idx]}``.
+      - If a leaf is a NumPy array whose first dimension equals N: return
+        ``{'value': leaf[idx], 'error': 0}`` (no explicit error given).
+      - If a leaf is a list/tuple/array of other shapes: return as-is.
+      - If a leaf is a scalar/string: return as-is.
+
+    Parameters
+    ----------
+    obj_names : list of str
+        Object identifiers; length N.
+    result : dict
+        Nested dictionary (e.g., output of after-fit samplers).
+
+    Returns
+    -------
+    dict
+        Mapping ``obj_name -> per-object nested result``.
     """
     def _recurse(node, idx):
         # 1) if it's a dict, recurse on each item
@@ -155,7 +255,26 @@ def pivot_and_split(obj_names, result):
 
 
 def summarize_samples(samples) -> Dict[str, np.ndarray]:
-    """Compute 16/50/84 percentiles and return a summary dict using NumPy."""
+    """
+    Summarize a sample vector by 16th/50th/84th percentiles.
+
+    Parameters
+    ----------
+    samples : array-like
+        1D vector of draws, or 2D array where each column is a separate variable.
+        JAX arrays are accepted and converted to NumPy for percentile computation.
+
+    Returns
+    -------
+    dict
+        ``{"median": ..., "err_minus": ..., "err_plus": ...}``.
+
+    Notes
+    -----
+    - If more than 20% of entries are NaN, a warning is emitted and
+      percentiles are computed with ``np.nanpercentile``.
+    - For 1D input, returns scalars; for 2D (n, m), returns length-m arrays.
+    """
     if isinstance(samples, jnp.ndarray):
         samples = np.asarray(samples)
     samples = np.atleast_2d(samples).T
@@ -176,9 +295,25 @@ def summarize_samples(samples) -> Dict[str, np.ndarray]:
     
 def summarize_nested_samples(d: dict,run_summarize:bool = True) -> dict:
     """
-    TODO 
-    Recursively walk through a dictionary and apply summarize_samples_numpy
-    to any array-like values.
+    Recursively apply :func:`summarize_samples` to array-like leaves.
+
+    Parameters
+    ----------
+    d : dict
+        Nested dictionary whose leaves may be arrays to summarize.
+    run_summarize : bool, default True
+        If False, returns ``d`` unchanged.
+
+    Returns
+    -------
+    dict
+        Same structure as input with arrays replaced by percentile summaries.
+
+    Notes
+    -----
+    - Keys named ``"component"`` are passed through untouched (often categorical).
+    - JAX arrays are accepted; they are converted to NumPy within
+        :func:`summarize_samples`.
     """
     if not run_summarize:
         return d
@@ -191,30 +326,3 @@ def summarize_nested_samples(d: dict,run_summarize:bool = True) -> dict:
         else:
             summarized[k] = v
     return summarized
-
-
-
-#TODO the functions to handle the after sapling methods are still in developed process like take the best "parameters" and teh 1sigma plot 
-# import numpy as np 
-
-# fwhm_kms_all = broad_params.get("fwhm_kms")
-# lum_all = broad_params.get("luminosity")
-# line_list = np.array(broad_params.get("lines", []))
-# component_list = np.array(broad_params.get("component", []))
-
-# def ensure_column_matrix(x):
-#     #to utils.
-#     x = np.asarray(x)
-#     if x.ndim == 1:
-#         return x.reshape(-1, 1)  # Convert to (N, 1)
-#     return x
-
-
-# #print(estimators.keys())
-# for line_name  in ['Halpha']:
-   
-#     idxs = np.where(line_list == line_name)[0]
-
-#     compt = component_list[idxs]
-#     fkm = ensure_column_matrix(fwhm_kms_all)[:, idxs].squeeze()
-#     lum_custom = ensure_column_matrix(lum_all)[:, idxs].squeeze()

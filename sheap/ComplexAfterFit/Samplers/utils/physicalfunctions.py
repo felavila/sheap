@@ -31,9 +31,7 @@ __all__ = [
     "calc_fwhm_kms",
     "calc_luminosity",
     "calc_monochromatic_luminosity",
-   # "ensure_column_matrix",
     "extra_params_functions",
-#    "extra_params_functionsv0",
 ]
 
 import jax.numpy as np
@@ -41,7 +39,7 @@ import numpy as np
 from auto_uncertainties import Uncertainty
 
 def calc_flux(norm_amplitude, fwhm):
-    """
+    r"""
     Compute the integrated flux of a Gaussian line profile.
 
     .. math::
@@ -62,7 +60,7 @@ def calc_flux(norm_amplitude, fwhm):
     return np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
 
 def calc_luminosity(distance, flux):
-    """
+    r"""
     Compute line luminosity from flux and luminosity distance.
 
     .. math::
@@ -83,7 +81,7 @@ def calc_luminosity(distance, flux):
     return 4.0 * np.pi * distance**2 * flux #* center
 
 def calc_fwhm_kms(fwhm, c, center):
-    """
+    r"""
     Convert FWHM in Å to velocity width in km/s.
 
     .. math::
@@ -106,7 +104,7 @@ def calc_fwhm_kms(fwhm, c, center):
     return (fwhm * c) / center
 
 def calc_monochromatic_luminosity(distance, flux_at_wavelength, wavelength):
-    """
+    r"""
     Compute monochromatic luminosity at a given wavelength.
 
     .. math::
@@ -129,7 +127,7 @@ def calc_monochromatic_luminosity(distance, flux_at_wavelength, wavelength):
     return wavelength * 4.0 * np.pi * distance**2 * flux_at_wavelength
 
 def calc_bolometric_luminosity(monochromatic_lum, correction):
-    """
+    r"""
     Apply a bolometric correction to a monochromatic luminosity.
 
     .. math::
@@ -150,7 +148,7 @@ def calc_bolometric_luminosity(monochromatic_lum, correction):
     return monochromatic_lum * correction
 
 def calc_black_hole_mass(L_w, fwhm_kms, estimator):
-    """
+    r"""
     Single-epoch BH mass estimator (continuum-based).
 
     .. math::
@@ -181,7 +179,7 @@ def calc_black_hole_mass(L_w, fwhm_kms, estimator):
     return (10 ** log_M_BH) / f
 
 def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
-    """
+    r"""
     Greene & Ho (2015) Hα mass estimator (Eq. 6).
 
     .. math::
@@ -227,82 +225,82 @@ def _col(x):
     
 
 def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
-    """
+    r"""
     Unified single-epoch (SE) black-hole mass estimator.
 
-    This keeps the classical behavior of the function but documents the math used
-    for both continuum- and line-based calibrations, optional shape terms, and
-    iron-strength corrections.
+    This function keeps the classical behavior of the SE mass formula while providing
+    clear documentation for continuum-based and line-based calibrations. It also supports
+    optional shape terms and Fe II strength corrections.
 
     Parameters
     ----------
     L_in : array-like or float
         Luminosity used by the calibration:
-        - For kind="continuum": monochromatic luminosity :math:`L_\\lambda \\times \\lambda`
-          (erg s\\ :sup:`-1`).
-        - For kind="line": line luminosity :math:`L_\\text{line}` (erg s\\ :sup:`-1`).
+        - For ``kind="continuum"``: monochromatic luminosity :math:`L_\lambda \cdot \lambda`
+        (erg s\ :sup:`-1`).
+        - For ``kind="line"``: line luminosity :math:`L_\text{line}` (erg s\ :sup:`-1`).
     vwidth_kms : array-like or float
-        Velocity width in km/s. By default the calibration assumes FWHM, but you can
-        set ``width_def="sigma"`` in ``estimator`` to use :math:`\\sigma`.
+        Velocity width in km/s. Defaults to FWHM, but you can set
+        ``width_def="sigma"`` in ``estimator`` to use :math:`\sigma`.
     estimator : dict
         Calibration dictionary. Required keys:
 
-        - ``kind``: "continuum" or "line".
-        - ``a``: intercept term (dimensionless).
-        - ``b``: luminosity slope.
-        - ``f``: virial factor (dimensionless, applied multiplicatively in mass).
-        - ``fwhm_factor`` (alias ``vel_exp``): velocity-width exponent (defaults to 2.0).
-        - ``pivots``: dict with reference values, e.g.
-          ``{"L": 1e44, "FWHM": 1e3}`` for continuum or ``{"L": 1e42, "FWHM": 1e3}`` for line.
+        - ``kind``: "continuum" or "line"
+        - ``a``: intercept term (dimensionless)
+        - ``b``: luminosity slope
+        - ``f``: virial factor (applied multiplicatively to the mass)
+        - ``fwhm_factor`` (alias ``vel_exp``): velocity-width exponent (default 2.0)
+        - ``pivots``: dict with reference values (e.g., ``{"L": 1e44, "FWHM": 1e3}`` for continuum
+        or ``{"L": 1e42, "FWHM": 1e3}`` for line)
 
         Optional:
-        - ``width_def``: "fwhm" (default) or "sigma".
+        - ``width_def``: "fwhm" (default) or "sigma"
         - ``extras``: nested dict with optional switches:
-            * ``le20_shape``: If True and width_def="fwhm", adds a shape term using
-              :math:`\\sigma`.
+            * ``le20_shape``: If True and ``width_def="fwhm"``, adds a shape term using
+            :math:`\sigma`.
             * ``pan25_gamma``: Slope for Fe II strength correction (default :math:`-0.34`).
 
     extras : dict, optional
-        Runtime extras to feed optional terms:
-        - ``sigma_kms``: second velocity measure (km/s) for Le20-like shape term.
-        - ``R_Fe``: Fe II strength (e.g., :math:`R_\\mathrm{FeII}`).
+        Runtime extras for optional terms:
+        - ``sigma_kms``: second velocity measure (km/s) for the Le20-like shape term.
+        - ``R_Fe``: Fe II strength (e.g., :math:`R_\mathrm{FeII}`).
 
     Returns
     -------
     numpy-like
-        :math:`M_\\mathrm{BH}` in solar masses (:math:`M_\\odot`), **with** the
-        virial factor ``f`` already applied.
+        :math:`M_\mathrm{BH}` in solar masses (:math:`M_\odot`), with the virial factor ``f``
+        already applied.
 
     Notes
     -----
-    Base (log) mass relation (works for either continuum or line, depending on inputs):
+    Base (log) mass relation, valid for both continuum- and line-based inputs:
 
     .. math::
-        \\log_{10} M_\\mathrm{BH} \\\\;=\\\\;
-        \\log_{10} f \\\\;+ a \\\\;+ b\\,[\\log_{10} L - \\log_{10} L_0]
-        \\\\;+ \\beta\\,[\\log_{10} V - \\log_{10} V_0] \\;,
+    \log_{10} M_\mathrm{BH} = 
+    \log_{10} f + a + b \left[ \log_{10} L - \log_{10} L_0 \right]
+    + \beta \left[ \log_{10} V - \log_{10} V_0 \right] \;,
 
     where:
 
-    - :math:`L` is :math:`L_\\lambda \\times \\lambda` (continuum) or :math:`L_\\text{line}` (line),
-    - :math:`V` is the velocity width (FWHM or :math:`\\sigma`) in km/s,
+    - :math:`L` is :math:`L_\lambda \cdot \lambda` (continuum) or :math:`L_\text{line}` (line),
+    - :math:`V` is the velocity width (FWHM or :math:`\sigma`) in km/s,
     - :math:`L_0` and :math:`V_0` are the pivot luminosity and velocity from ``pivots``,
-    - :math:`\\beta` is ``fwhm_factor`` (or ``vel_exp``), by default 2.0,
+    - :math:`\beta` is ``fwhm_factor`` (or ``vel_exp``), by default 2.0,
     - :math:`f` is the virial factor.
 
     If ``width_def="fwhm"`` and ``extras["le20_shape"]`` is True (Leighly+20-like term),
-    and a second velocity measure :math:`\\sigma` is provided via ``extras["sigma_kms"]``,
-    we add:
+    and a second velocity measure :math:`\sigma` is provided via ``extras["sigma_kms"]``:
 
     .. math::
-        \\Delta \\log_{10} M_\\mathrm{BH} \\\\;=\\\\; -1.14\\,[\\log_{10}(\\mathrm{FWHM}) - \\log_{10}(\\sigma)] + 0.33 \\;.
+    \Delta \log_{10} M_\mathrm{BH} =
+    -1.14 \left[ \log_{10}(\mathrm{FWHM}) - \log_{10}(\sigma) \right] + 0.33 \;.
 
-    If ``extras["R_Fe"]`` is provided, we add (Panessa+25-like term):
+    If ``extras["R_Fe"]`` is provided, a Panessa+25-like correction is added:
 
     .. math::
-        \\Delta \\log_{10} M_\\mathrm{BH} \\\\;=\\\\; \\gamma\\,R_\\mathrm{Fe} \\;,
+    \Delta \log_{10} M_\mathrm{BH} = \gamma \, R_\mathrm{Fe} \;,
 
-    with :math:`\\gamma =` ``estimator["extras"]["pan25_gamma"]`` (default :math:`-0.34`).
+    with :math:`\gamma =` ``estimator["extras"]["pan25_gamma"]`` (default :math:`-0.34`).
 
     Examples
     --------
@@ -334,6 +332,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     ... }
     >>> MBH = calc_black_hole_mass(L_Halpha, FWHM_kms, est_line)
     """
+
     if extras is None:
         extras = {}
 
@@ -371,27 +370,27 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
 
 
 def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None):
-    """
+    r"""
     Compute derived parameters (BH masses, Eddington ratios, accretion rates).
 
-    This routine applies single–epoch virial estimators to broad-line
-    measurements, combining continuum or line luminosities with velocity
-    widths to derive black hole masses and accretion-related quantities.
+    This routine applies single-epoch (SE) virial estimators to broad-line
+    measurements, combining continuum or line luminosities with velocity widths
+    to derive black hole masses and accretion-related quantities.
 
     Parameters
     ----------
     broad_params : dict
-        Dictionary of broad line properties (fwhm_kms, luminosity, etc.).
+        Dictionary of broad-line properties (e.g., ``fwhm_kms``, ``luminosity``).
     L_w : dict
         Monochromatic luminosities keyed by wavelength.
     L_bol : dict
         Bolometric luminosities keyed by wavelength.
     estimators : dict
-        Single-epoch estimators (continuum and line).
+        Single-epoch estimators for both continuum and line calibrations.
     c : float
         Speed of light in km/s.
     extras : dict, optional
-        Extra quantities for corrections (e.g., sigma_kms, R_Fe).
+        Extra quantities for corrections (e.g., ``sigma_kms``, ``R_Fe``).
 
     Returns
     -------
@@ -400,49 +399,59 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
 
     Notes
     -----
-    The general single–epoch black hole mass relation is:
+    The general single-epoch black hole mass relation is:
 
     .. math::
-        \\log M_\\mathrm{BH} =
-            a
-            + b \\cdot (\\log L - \\log L_0)
-            + \\beta \\cdot (\\log V - \\log V_0)
-            + \\log f
+    \log M_\mathrm{BH} =
+    a
+    + b \cdot (\log L - \log L_0)
+    + \beta \cdot (\log V - \log V_0)
+    + \log f \;,
 
     where:
-      * :math:`L` is either a monochromatic continuum luminosity or a line luminosity
-      * :math:`V` is the velocity width (FWHM or \\(\\sigma\\))
-      * :math:`(a, b, \\beta, f)` are calibration parameters
-      * :math:`L_0, V_0` are pivot values from the calibration
 
-    Special cases include:
+    - :math:`L` is either a monochromatic continuum luminosity or a line luminosity
+    - :math:`V` is the velocity width (FWHM or :math:`\sigma`)
+    - :math:`(a, b, \beta, f)` are the calibration parameters
+    - :math:`L_0, V_0` are the pivot values from the calibration
 
-    - **Continuum-based estimators**  
-      Use monochromatic luminosities :math:`L_\\lambda` at a wavelength λ with bolometric correction:
+    Special cases
+    -------------
 
-      .. math::
-          L_{\\mathrm{bol}} = BC_\\lambda \\cdot (\\lambda L_\\lambda)
+    **Continuum-based estimators**  
+    Use monochromatic luminosities :math:`L_\lambda` at a given wavelength
+    with a bolometric correction:
 
-      From this, Eddington ratio and accretion rate are derived:
+    .. math::
+    L_\mathrm{bol} = BC_\lambda \cdot (\lambda L_\lambda)
 
-      .. math::
-          L_{\\mathrm{Edd}} = 1.26 \\times 10^{38} \\, (M_\\mathrm{BH} / M_\\odot) \\, [\\mathrm{erg\\,s^{-1}}]
+    From this, the Eddington ratio and accretion rate are derived:
 
-      .. math::
-          \\dot{M} = \\frac{L_{\\mathrm{bol}}}{\\eta c^2}
+    .. math::
+    L_\mathrm{Edd} = 1.26 \times 10^{38} \; 
+    \left( \frac{M_\mathrm{BH}}{M_\odot} \right)
+    \; [\mathrm{erg\,s^{-1}}]
 
-      with η = 0.1 by default.
+    .. math::
+    \dot{M} = \frac{L_\mathrm{bol}}{\eta \, c^2}
 
-    - **Line-based estimators**  
-      Use the integrated line luminosity:
+    with :math:`\eta = 0.1` by default.
 
-      .. math::
-          \\log M_\\mathrm{BH} = a + b (\\log L_\\mathrm{line} - \\log L_0) + \\beta (\\log V - \\log V_0)
+    **Line-based estimators**  
+    Use the integrated line luminosity:
 
-    Corrections supported:
-      * **Le20 shape**: additional dependence on FWHM/σ.  
-      * **Pan25 iron term**: additional correction proportional to R_Fe.
+    .. math::
+    \log M_\mathrm{BH} =
+    a + b \cdot (\log L_\mathrm{line} - \log L_0)
+    + \beta \cdot (\log V - \log V_0)
+
+    Corrections supported
+    ---------------------
+
+    - **Le20 shape term**: additional dependence on the FWHM-to-σ ratio.  
+    - **Pan25 iron term**: additional correction proportional to :math:`R_\mathrm{Fe}`.
     """
+
     if extras is None:
         extras = {}
 
