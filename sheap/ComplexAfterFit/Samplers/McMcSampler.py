@@ -1,4 +1,41 @@
-"""This module handles basic operations."""
+"""
+MCMC Sampler (NumPyro)
+======================
+
+This module provides the :class:`McMcSampler`, a wrapper around
+`numpyro.infer.MCMC` + NUTS for sampling posterior distributions of
+spectral fit parameters.
+
+Main Features
+-------------
+- Interfaces directly with a :class:`ComplexAfterFit` estimator
+  (after a fit has been run).
+- Prepares normalized spectra, constraints, and parameter dictionaries
+  for NumPyro.
+- Builds a model function via :func:`make_numpyro_model`.
+- Runs Hamiltonian Monte Carlo (No-U-Turn Sampler).
+- Reconstructs full parameter vectors from sampled free parameters,
+  applying tied and fixed constraints.
+- Rescales amplitude/log-amplitude parameters back into original units.
+- Wraps posterior samples into physical quantities using
+  :class:`AfterFitParams`.
+
+Public API
+----------
+- :class:`McMcSampler`:
+    * :meth:`McMcSampler.sample_params` — run the sampler for one or more
+      spectra, returning posterior parameter dictionaries.
+
+Notes
+-----
+- Dependencies (ties/fixes) are enforced via
+  :func:`sheap.Assistants.parser_mapper.apply_tied_and_fixed_params`.
+- By default, each parameter is renamed to ``theta_N`` for NumPyro’s
+  sampler to avoid issues with long names.
+- Internally uses JAX PRNG keys; ``n_random`` and ``key_seed`` can be
+  used to control reproducibility.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

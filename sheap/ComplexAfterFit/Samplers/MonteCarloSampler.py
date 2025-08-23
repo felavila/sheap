@@ -1,4 +1,42 @@
-"""This module handles basic operations."""
+"""
+Monte Carlo Sampler
+===================
+
+This module implements the :class:`MonteCarloSampler`, a simple
+posterior approximation for spectral fits based on randomized parameter
+initialization and local re-optimization.
+
+Main Features
+-------------
+- Generates random draws of parameter vectors within their constraints.
+- Converts parameters to raw space and re-optimizes them with
+  :class:`Minimizer`.
+- Handles tied/fixed parameters through :func:`build_Parameters` and
+  dependency flattening utilities.
+- Reconstructs physical parameters from optimized raw vectors.
+- Computes physical quantities (fluxes, FWHM, luminosities, etc.)
+  for each draw using :class:`AfterFitParams`.
+
+Public API
+----------
+- :class:`MonteCarloSampler`
+    * :meth:`MonteCarloSampler.sample_params` —
+      run the Monte Carlo sampler and return posterior dictionaries.
+    * :meth:`MonteCarloSampler.make_minimizer` —
+      construct a :class:`Minimizer` configured with penalties/weights.
+    * :meth:`MonteCarloSampler._build_tied` —
+      convert tied-parameter specifications into dependency strings.
+
+Notes
+-----
+- This method approximates the posterior distribution by repeatedly
+  optimizing from random starts (sometimes called a “poor man’s MCMC”).
+- Actual uncertainty propagation is performed by analyzing the
+  distribution of optimized solutions.
+- Dependencies are flattened so that all tied parameters ultimately
+  reference free parameters only.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

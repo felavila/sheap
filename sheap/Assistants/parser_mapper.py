@@ -1,4 +1,69 @@
-"""This module contains all the mappers and parsers."""
+"""
+Mappers & Parsers
+=================
+
+Utility functions to (a) map parameter names to indices, (b) scale/unscale
+amplitudes, and (c) parse and enforce inter‑parameter constraints (“ties”)
+both during optimization and when reconstructing full parameter vectors.
+
+Public API
+----------
+- :func:`mapping_params`:
+    Resolve indices in ``params_dict`` that match name patterns.
+- :func:`scale_amp` / :func:`descale_amp`:
+    Apply / undo multiplicative flux scaling on amplitude-like params.
+- :func:`parse_dependency` / :func:`parse_dependencies`:
+    Parse dependency strings into structured constraints.
+- :func:`project_params_clasic` / :func:`project_params`:
+    Clip to bounds and enforce parsed dependencies (JAX‑JIT friendly).
+- :func:`make_get_param_coord_value`:
+    Build a helper that retrieves (index, value, name) for a param key.
+- :func:`apply_arithmetic_ties` / :func:`apply_tied_and_fixed_params`:
+    Compose free→full parameter vectors using arithmetic ties.
+- :func:`build_tied`:
+    Convert human‑readable ties to dependency strings with indices.
+- :func:`flatten_tied_map`:
+    Resolve chained ties so all targets depend on free sources directly.
+
+Constraint String Grammar
+-------------------------
+Each dependency is written as a single string and later parsed to a tuple.
+Supported forms (indices refer to positions in the *flat* parameter vector):
+
+Arithmetic:
+    ``"target source *k"`` → ``param[target] = param[source] * k``  
+    ``"target source /k"`` → divide;  
+    ``"target source +k"`` / ``-k`` → additive ties.
+
+Inequality (strict, enforced with small ε):
+    ``"target source <"``  → ``param[target] < param[source]``  
+    ``"target source >"``  → ``param[target] > param[source]``
+
+Range (literals):
+    ``"target in [lo,hi]"`` → clip target to the closed interval.
+
+Range (between params):
+    ``"target lower_idx upper_idx"`` → clip target between two *indices*.
+
+Examples
+--------
+- Tie two line centers with an offset of +1.2 Å:
+    ``"15 12 +1.2"``
+- Force a width to be less than another width:
+    ``"7 6 <"``
+- Keep a continuum slope within [-5, 5]:
+    ``"3 in [-5, 5]"``
+- Constrain a parameter between two others:
+    ``"9 2 5"``
+
+Notes
+-----
+- All helpers are **JAX‑compatible** where marked with ``@jit``; inputs should
+  be JAX arrays whenever you need tracing/compilation.
+- Arithmetic ties combine naturally for reconstruction of full parameter
+  vectors (see :func:`apply_tied_and_fixed_params`).
+"""
+
 
 __author__ = 'felavila'
 
@@ -42,21 +107,25 @@ def extract_float(s: str) -> float:
 
 def mapping_params(params_dict, params, verbose=False):
     """
-    Identify indices in the parameter dictionary that match the given name patterns.
+    Identify indices in the parameter dictionary that match given name patterns.
 
     Parameters
     ----------
-    params_dict : dict or np.ndarray
-        Dictionary mapping parameter names to indices.
-    params : str or list of str or list of list of str
-        Parameter name patterns to match.
+    params_dict : dict | np.ndarray
+        Maps full parameter keys (e.g., ``'amplitude_Hbeta_1_broad'``) to indices.
+        If an array is passed, indices are inferred from enumeration of its elements.
+    params : str | list[str] | list[list[str]]
+        One or more *substring* patterns. Each pattern can be a list of substrings
+        that must all appear in the key (logical AND).
+        Examples: ``"amplitude"``, ``["amplitude", "Hbeta"]``, or
+        ``[["amplitude"], ["center","OIII"]]``.
     verbose : bool, optional
-        If True, print matching parameter names.
+        If ``True``, print matching keys.
 
     Returns
     -------
     jnp.ndarray
-        Array of unique matching indices.
+        1‑D array of **unique** matching indices (sorted).
     """
     if isinstance(params_dict, np.ndarray):
         params_dict = {str(key): n for n, key in enumerate(params_dict)}
@@ -201,17 +270,19 @@ def parse_dependency(dep_str: str):
 
 def parse_dependencies(dependencies: list[str]):
     """
-    Parse a list of dependency strings into structured constraints.
+    Parse multiple dependency strings into a tuple of structured constraints.
+
+    See the module docstring “Constraint String Grammar” for supported forms.
 
     Parameters
     ----------
-    dependencies : list of str
-        List of dependency definitions.
+    dependencies : list[str]
+        Dependency strings, e.g., ``["7 6 <", "3 in [0.1, 10.0]"]``.
 
     Returns
     -------
     tuple
-        Parsed dependencies.
+        Parsed constraints (each an ``("arithmetic"|... , ...)`` tuple).
     """
     return tuple(parse_dependency(dep) for dep in dependencies)
 
@@ -373,6 +444,26 @@ def apply_tied_and_fixed_params(
 
 
 def build_tied(tied_params,get_param_coord_value):
+    """
+    Convert human‑readable ties (using semantic keys) into dependency strings
+    that reference **indices** in the flattened parameter vector.
+
+    Parameters
+    ----------
+    tied_params : list[list[str]]
+        Each item is either ``[target_key, source_key]`` (auto “*1” or center offset)
+        or ``[target_key, source_key, op_str]`` where ``op_str`` is one of
+        ``'*k'``, ``'/k'``, ``'+k'``, ``'-k'`` (``k`` numeric).
+    get_param_coord_value : Callable
+        Function returned by :func:`make_get_param_coord_value` to translate
+        semantic keys into (index, value, name).
+
+    Returns
+    -------
+    list[str]
+        Dependency strings like ``"target_idx source_idx *k"`` ready for
+        :func:`parse_dependencies`.
+    """
     list_tied_params = []
     if len(tied_params) > 0:
         for tied in tied_params:
@@ -403,17 +494,18 @@ def build_tied(tied_params,get_param_coord_value):
         
 def flatten_tied_map(tied_map: dict[int, tuple[int, str, float]]) -> dict[int, tuple[int, str, float]]:
     """
-    Resolve all ties in `tied_map` to point only to free (non-tied) sources.
-    
+    Resolve chained ties so that every target ultimately depends on a **free**
+    (non‑tied) source.
+
     Parameters
     ----------
-    tied_map : dict
-        Maps target index -> (source index, operator, operand)
+    tied_map : dict[int, tuple[int, str, float]]
+        ``target_idx -> (source_idx, op, operand)``
 
     Returns
     -------
-    dict
-        Flattened map: target index -> (free source index, operator, operand)
+    dict[int, tuple[int, str, float]]
+        ``target_idx -> (free_source_idx, op', operand')`` with combined ops.
     """
     def resolve(idx, visited=None):
         if visited is None:
@@ -453,47 +545,3 @@ def flatten_tied_map(tied_map: dict[int, tuple[int, str, float]]) -> dict[int, t
     for tgt in tied_map:
         result[tgt] = resolve(tgt)
     return result
-#####################################
-
-#list_dependencies = parse_dependencies(self._build_tied(tied))
-
-#                 #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
-            
-#                 tie = (name, src_name, op, operand)
-#                 print(tie)
-#                 
-            
-#             else:
-#                 val = self.initial_params[idx]
-#                 min,max = self.constraints[idx]
-#                 params_obj.add(name, val, min=min, max=max)
-# from sheap.Assistants.parser_mapper import parse_dependencies
-        
-#         list_dependencies = parse_dependencies(self._build_tied(tied))
-#         tied_map = {T[1]: T[2:] for  T in list_dependencies}
-        
-#         #print(tied_map)
-#         tied_map = flatten_tied_map(tied_map)
-#         #print()
-#         params_obj = Parameters()
-#         #(target, source, op, operand)
-#         for name, idx in self.params_dict.items():
-#             #print(name, idx)
-#             val = initial_params[:,idx]
-#             min,max = self.constraints[idx]
-#             if name in ["amplitude_slope_linear_0_continuum","amplitude_intercept_linear_0_continuum"] and iteration_number==10:
-#                 params_obj.add(name, val, fixed=True)
-#             elif idx in tied_map.keys():
-#                 src_idx, op, operand = tied_map[idx]
-#                 #print("obj_name",list(self.params_dict.keys())[idx],"src_name",list(self.params_dict.keys())[src_idx])
-#                 src_name = list(self.params_dict.keys())[src_idx]
-#                 tie = (name, src_name, op, operand)
-#                 print(tie)
-#                 params_obj.add(name, val, min=min, max=max, tie=tie)
-            
-#             else:
-#                 val = self.initial_params[idx]
-#                 min,max = self.constraints[idx]
-#                 params_obj.add(name, val, min=min, max=max)
-
-

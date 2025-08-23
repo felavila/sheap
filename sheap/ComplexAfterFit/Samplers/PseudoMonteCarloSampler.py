@@ -1,4 +1,40 @@
-"""This module handles basic operations."""
+"""
+Pseudo Monte Carlo Sampler
+==========================
+
+This module provides the :class:`PseudoMonteCarloSampler`, an approximate
+posterior sampler based on a Laplace (Gaussian) approximation around the
+best-fit parameters.
+
+Main Features
+-------------
+- Constructs a local covariance matrix from the Jacobian of residuals
+  using :func:`error_covariance_matrix`.
+- Draws random perturbations in the free-parameter subspace using
+  Cholesky decomposition of the covariance.
+- Reconstructs the full parameter vector for each draw by applying tied
+  and fixed relationships.
+- Rescales amplitudes/log-amplitudes back to original flux units.
+- Summarizes posterior draws into physical line quantities via
+  :class:`AfterFitParams`.
+
+Public API
+----------
+- :class:`PseudoMonteCarloSampler`
+    * :meth:`PseudoMonteCarloSampler.sample_params` —
+      run the pseudo Monte Carlo sampler and return posterior parameter
+      dictionaries.
+
+Notes
+-----
+- This method approximates the posterior distribution as a multivariate
+  Gaussian centered on the best-fit solution (Laplace approximation).
+- It is considerably faster than full MCMC but does not capture
+  non-Gaussian features of the posterior.
+- Dependencies (tied/fixed parameters) are restored via
+  :func:`sheap.Assistants.parser_mapper.apply_tied_and_fixed_params`.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

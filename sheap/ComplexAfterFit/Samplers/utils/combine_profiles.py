@@ -1,4 +1,48 @@
-"""Tools to combine components."""
+"""
+Line Component Combination Utilities
+====================================
+
+This module provides functions to merge multiple spectral line
+components (e.g., broad and narrow Gaussians) into an effective
+single representation, with optional uncertainty propagation.
+
+Main Features
+-------------
+- :func:`combine_components`  
+  High-level wrapper that inspects fitted line parameters and,
+  when possible, combines broad and narrow components into a
+  single effective profile (flux, FWHM, luminosity, etc.).
+
+- :func:`combine_fast`  
+  Efficient JAX-compatible routine that merges any number of
+  broad components with one narrow component, returning effective
+  width, amplitude, and center. Used in batched pipelines.
+
+- :func:`combine_fast_with_jacobian`  
+  Variant that propagates uncertainties through the combination
+  using JAX’s automatic differentiation (Jacobian). Falls back
+  to rough scaling if Jacobian evaluation fails.
+
+Use Cases
+---------
+- Constructing combined Hα or Hβ line properties when both narrow
+  and broad components are fitted.
+- Estimating effective FWHM and flux for virial mass estimators
+  that require a single line measure.
+- Propagating uncertainties from individual components into the
+  combined measurement.
+
+Notes
+-----
+- :func:`combine_components` distinguishes between deterministic
+  and :class:`auto_uncertainties.Uncertainty` inputs.
+- Virial filtering is applied to discard broad components with
+  velocity offsets smaller than ``limit_velocity``.
+- For rigorous posterior distributions, prefer sampling-based
+  methods rather than the analytic approximation in
+  :func:`combine_fast_with_jacobian`.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -25,6 +69,54 @@ def combine_components(
     c=299792.458,
     ucont_params = None 
 ):
+    """
+    Combine narrow and broad components of selected lines into a single
+    effective profile with flux, FWHM, luminosity, and EQW.
+
+    Parameters
+    ----------
+    basic_params : dict
+        Dictionary of per-region fitted parameters, typically the output
+        of :class:`AfterFitParams`.
+        Must contain at least ``basic_params["broad"]`` and
+        ``basic_params["narrow"]`` entries with keys:
+        ``["lines","component","amplitude","center","fwhm_kms",...]``.
+    cont_group : ComplexRegion
+        Continuum region object with method ``combined_profile``.
+    cont_params : jnp.ndarray
+        Continuum parameter array of shape (N, P).
+    distances : array-like
+        Luminosity distance(s) in cm, one per object.
+    LINES_TO_COMBINE : tuple of str, optional
+        Line names to attempt to combine (default ``("Halpha","Hbeta")``).
+    limit_velocity : float, optional
+        Minimum velocity offset (km/s) for virial filtering.
+    c : float, optional
+        Speed of light in km/s.
+    ucont_params : jnp.ndarray, optional
+        Uncertainty array for continuum parameters. Required if
+        input amplitudes/centers are :class:`auto_uncertainties.Uncertainty`.
+
+    Returns
+    -------
+    dict
+        Dictionary with combined line measurements containing:
+        - ``"lines"`` : list of str
+        - ``"component"`` : list of components used
+        - ``"flux"`` : ndarray
+        - ``"fwhm"`` : ndarray
+        - ``"fwhm_kms"`` : ndarray
+        - ``"center"`` : ndarray
+        - ``"amplitude"`` : ndarray
+        - ``"eqw"`` : ndarray
+        - ``"luminosity"`` : ndarray
+
+    Notes
+    -----
+    - If no valid combination is found, an empty dict is returned.
+    - If inputs are :class:`Uncertainty`, then uncertainties are
+      propagated using :func:`combine_fast_with_jacobian`.
+    """
     combined = {}
     line_names, components = [], []
     flux_parts, fwhm_parts, fwhm_kms_parts = [], [], []
@@ -124,21 +216,35 @@ def combine_fast(
     c: float = 299_792.0,
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """
-    Combine any number of broad Gaussians + a narrow Gaussian per object,
-    returning only (fwhm_final, amp_final, mu_final).
+    Efficiently combine multiple broad components with one narrow
+    component into an effective line measurement.
 
-    Inputs
-    ------
-    params_broad : (N, 3*n_broad) array: [amp_i, mu_i, fwhm_i,...].
-    params_narrow: (N, 3) array: [amp_n, mu_n, fwhm_n] but only mu_n used.
-    limit_velocity : velocity threshold for virial filtering.
-    c              : speed of light (same units as velocities).
+    Parameters
+    ----------
+    params_broad : ndarray, shape (N, 3*n_broad)
+        Broad component parameters grouped as [amp_i, mu_i, fwhm_i, ...].
+    params_narrow : ndarray, shape (N, 3)
+        Narrow component parameters [amp_n, mu_n, fwhm_n].
+        Only ``mu_n`` is used in velocity filtering.
+    limit_velocity : float, optional
+        Velocity threshold in km/s for virial filtering. Default 150.
+    c : float, optional
+        Speed of light in km/s. Default 299792.
 
     Returns
     -------
-    fwhm_final : (N,) — chosen FWHM (in same units as input).
-    amp_final  : (N,) — chosen amplitude.
-    mu_final   : (N,) — chosen center.
+    fwhm_final : ndarray, shape (N,)
+        Effective full width at half maximum (same units as input).
+    amp_final : ndarray, shape (N,)
+        Effective amplitude.
+    mu_final : ndarray, shape (N,)
+        Effective line center.
+
+    Notes
+    -----
+    - Virial filtering selects the nearest broad component relative
+      to the narrow component if offsets exceed ``limit_velocity``.
+    - Otherwise, amplitude-weighted averages of broad components are used.
     """
     N = params_broad.shape[0]
     n_broad = params_broad.shape[1] // 3
@@ -193,46 +299,40 @@ def combine_fast_with_jacobian(
     rough_scale: float = 1.0
 ) -> tuple[Uncertainty, Uncertainty, Uncertainty]:
     """
-    Rough analytic uncertainty propagation for `combine_fast`.
+    Combine broad + narrow components with uncertainty propagation.
 
     Parameters
     ----------
-    amp_b : Uncertainty
-        Amplitudes of broad components.
-    mu_b : Uncertainty
-        Centers of broad components.
-    fwhm_b : Uncertainty
-        FWHMs of broad components.
-    amp_n : Uncertainty
-        Amplitudes of narrow component.
-    mu_n : Uncertainty
-        Centers of narrow component.
-    fwhm_n : Uncertainty
-        FWHM of narrow component.
+    amp_b, mu_b, fwhm_b : Uncertainty
+        Amplitude, center, and FWHM arrays for broad components.
+    amp_n, mu_n, fwhm_n : Uncertainty
+        Amplitude, center, and FWHM for the narrow component.
     limit_velocity : float, optional
-        Velocity threshold in km/s used in profile merging. Default is 150.
+        Velocity threshold (km/s) for virial filtering. Default 150.
     c : float, optional
-        Speed of light in km/s. Default is 299792.458.
+        Speed of light (km/s). Default 299792.458.
     use_jacobian : bool, optional
-        Whether to use JAX’s jacfwd for uncertainty propagation. If False, uses a rough scale estimate.
+        If True (default), propagate uncertainties using
+        Jacobians via :func:`jax.jacfwd`.
+        If False, apply a rough scaling factor.
     rough_scale : float, optional
-        Scaling factor applied to combined outputs if `use_jacobian` is False. Default is 1.0.
+        Multiplier for fallback uncertainty estimates.
 
     Returns
     -------
     fwhm : Uncertainty
-        FWHM of the combined profile.
+        Effective FWHM with propagated uncertainty.
     amp : Uncertainty
-        Amplitude of the combined profile.
+        Effective amplitude with propagated uncertainty.
     mu : Uncertainty
-        Center of the combined profile.
+        Effective center with propagated uncertainty.
 
     Notes
     -----
-    This function uses analytic uncertainty propagation via Jacobian computation with JAX,
-    or falls back to a rough scaling of the combined output value. It is not intended
-    to provide rigorous uncertainty estimates. For proper posterior sampling, use
-    dedicated inference tools such as ?.
+    - Jacobian-based propagation may fail for degenerate inputs;
+      in that case, a fallback approximation is used.
+    - This routine provides *approximate* error propagation; for
+      full posterior distributions, use sampling-based methods.
     """
     N = amp_b.value.shape[0]
     n_broad = amp_b.value.shape[1]

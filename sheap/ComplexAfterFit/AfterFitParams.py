@@ -1,4 +1,52 @@
-"""This class should concentrate all the routines for handle the params after the fit and after the sampling"""
+"""
+After-fit Parameter Handling
+============================
+
+Routines to post-process fitted or sampled parameter sets and compute
+derived physical quantities.
+
+This module provides the :class:`AfterFitParams` class, which acts as a
+bridge between raw fitting/sampling outputs (parameter vectors) and
+scientifically useful quantities such as line fluxes, widths, equivalent
+widths, luminosities, and single-epoch black hole mass estimators.
+
+Main Features
+-------------
+- Unified interface to handle both:
+  * **single best-fit parameters** (deterministic optimization), and
+  * **sampled parameters** (Monte Carlo / MCMC posterior draws).
+- Automatic grouping of parameters by spectral region and profile.
+- Computation of:
+  * line flux, FWHM, velocity width (km/s),
+  * line centers, amplitudes, shape parameters,
+  * equivalent width (EQW),
+  * monochromatic and bolometric luminosities,
+  * combined quantities (e.g. Hα+Hβ, Mg II+Fe, CIV blends).
+- Uncertainty propagation via :mod:`auto_uncertainties`.
+
+Public API
+----------
+- :class:`AfterFitParams`:
+    High-level handler that connects a :class:`ComplexAfterFit` result
+    to physical parameter extraction.
+
+Typical Workflow
+----------------
+1. Fit or sample spectra with :class:`RegionFitting` or a sampler.
+2. Wrap the result in a :class:`ComplexAfterFit` instance.
+3. Construct :class:`AfterFitParams(afterclass)` from it.
+4. Call :meth:`AfterFitParams.extract_params` to obtain dictionaries
+   of physical line quantities, optionally summarized across samples.
+
+Notes
+-----
+- The attribute ``method`` determines whether results are handled as
+  ``"single"`` (best fit) or ``"sampled"`` (posterior draws).
+- Many helpers internally rely on
+  :func:`make_batch_fwhm_split[_with_error]`,
+  :func:`make_integrator`, and profile-specific shape functions.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -18,22 +66,11 @@ from sheap.Profiles.utils import make_integrator
 from sheap.ComplexAfterFit.Samplers.utils.physicalfunctions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexAfterFit.Samplers.utils.afterfitprofilehelpers import integrate_batch_with_error,evaluate_with_error 
 from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_components
-from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split,summarize_nested_samples
+from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 
 
-def concat_dicts(list_of_dicts):
-    """TODO find a better place for this"""
-    out = defaultdict(list)
-    for d in list_of_dicts:
-        for k, v in d.items():
-            out[k].append(v)
-
-    # flatten or stack if numeric/array-like
-    for k, v in out.items():
-        out[k] = np.concatenate([x for x in v]).T
-    return dict(out)
 
 class AfterFitParams:
     def __init__(self, afterclass: "ComplexAfterFit"):

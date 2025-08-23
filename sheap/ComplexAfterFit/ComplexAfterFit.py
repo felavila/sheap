@@ -1,4 +1,52 @@
-"""This module ?."""
+"""
+ComplexAfterFit
+===============
+
+Post–fitting interface for extracting physical parameters and running
+posterior sampling on spectral models.
+
+This module defines :class:`ComplexAfterFit`, which acts as a high-level
+wrapper around results from :class:`Sheapectral` or :class:`ComplexResult`.
+It provides multiple strategies to handle parameters after fitting:
+
+- **Single best-fit mode**  
+  Extract physical quantities (flux, FWHM, EQW, luminosity, etc.)
+  directly from the optimized parameters with propagated uncertainties.
+
+- **Monte Carlo mode**  
+  Generate pseudo-random realizations of parameters around the covariance
+  matrix for uncertainty propagation.
+
+- **Pseudo Monte Carlo mode**  
+  Fast approximate sampler for posterior parameter exploration.
+
+- **MCMC mode (NumPyro)**  
+  Full Bayesian sampling of the posterior distribution using Hamiltonian
+  Monte Carlo / NUTS.
+
+Key Features
+------------
+- Organizes parameter arrays, constraints, and dependencies after a fit.
+- Provides consistent access to spectra, masks, scaling factors, and model functions.
+- Computes luminosity distances given redshifts and a cosmology.
+- Interfaces with downstream tools (:class:`AfterFitParams`) to compute
+  line and continuum physical properties.
+- Exposes convenience methods:
+
+  * :meth:`ComplexAfterFit.sample_single`
+  * :meth:`ComplexAfterFit.montecarlosampler`
+  * :meth:`ComplexAfterFit.sample_pseudomontecarlosampler`
+  * :meth:`ComplexAfterFit.sample_mcmc`
+
+Notes
+-----
+- By default, cosmology is set to ``FlatLambdaCDM(H0=70, Om0=0.3)``.
+- Bolometric corrections and single-epoch estimators are loaded from
+  :mod:`sheap.Utils.Constants`.
+- This module will eventually centralize routines now duplicated in
+  samplers and parameter estimation helpers.
+"""
+
 __author__ = 'felavila'
 
 

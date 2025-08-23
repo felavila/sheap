@@ -9,6 +9,7 @@ __all__ = [
     "pivot_and_split",
     "summarize_nested_samples",
     "summarize_samples",
+    "concat_dicts"
 ]
 
 from typing import Dict, Any
@@ -18,6 +19,18 @@ from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertai
 import numpy as np 
 import jax.numpy as jnp
 #?
+
+def concat_dicts(list_of_dicts):
+    out = defaultdict(list)
+    for d in list_of_dicts:
+        for k, v in d.items():
+            out[k].append(v)
+
+    # flatten or stack if numeric/array-like
+    for k, v in out.items():
+        out[k] = np.concatenate([x for x in v]).T
+    return dict(out)
+
 
 def flatten_mass_samples_to_df(dict_samples: Dict[str, Dict[str, Any]]) -> pd.DataFrame:
     """

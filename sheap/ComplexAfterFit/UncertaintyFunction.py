@@ -1,4 +1,50 @@
-"""This module handles ?."""
+"""
+Uncertainty Estimation via Residuals
+====================================
+
+This module provides utilities to estimate parameter uncertainties
+after a fit, using residuals and Jacobian-based covariance
+approximations.
+
+Main Features
+-------------
+- Compute normalized residuals between data and model
+  (:func:`residuals`).
+- Build residual functions for *free parameters only*, taking into
+  account tied and fixed relationships
+  (:func:`make_residuals_free_fn`).
+- Estimate covariance matrices from the Jacobian of residuals with
+  respect to free parameters
+  (:func:`error_covariance_matrix`).
+- Loop over spectra to propagate uncertainties back into the full
+  parameter vector, respecting ties/fixed constraints
+  (:func:`Errorfromloop`, :func:`error_for_loop_s`).
+
+Public API
+----------
+- :func:`residuals`:
+    Compute (y - model)/σ residuals for a given parameter vector.
+- :func:`make_residuals_free_fn`:
+    Construct a callable that maps free parameters → residuals,
+    restoring tied/fixed values internally.
+- :func:`error_covariance_matrix`:
+    Estimate uncertainties for free parameters from the JTJ matrix.
+- :func:`Errorfromloop`:
+    Iterate over multiple spectra, returning uncertainty arrays
+    mapped back into the full parameter space.
+- :func:`error_for_loop_s`:
+    Simplified variant of :func:`Errorfromloop`.
+
+Notes
+-----
+- The covariance is estimated with the usual
+  :math:`(J^T J)^{-1} \, s^2` approximation, where *J* is the Jacobian
+  of residuals and *s^2* is the residual variance.
+- Tied and fixed parameters are reconstructed using
+  :func:`sheap.Assistants.parser_mapper.apply_tied_and_fixed_params`.
+- Regularization is applied to stabilize ill-conditioned inversions.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

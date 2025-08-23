@@ -1,4 +1,20 @@
-"""This module contains the Paramter and Parameters that handle the reparametrization."""
+"""
+Parameters
+=================
+
+This module defines the `Parameter` and `Parameters` classes and a helper
+`build_Parameters` to construct constraint‑aware parameter sets for fitting.
+
+It handles:
+- Reparameterization between optimizer (raw) and physical spaces
+- Per‑parameter bounds, fixed values, and arithmetic ties
+- Batched evaluation for multiple spectra via JAX vmap
+
+Notes
+-----
+- Tied parameters are reconstructed from their sources during raw→physical mapping.
+- Only *free* (untied, unfixed) parameters live in the raw vector.
+"""
 
 __author__ = 'felavila'
 
@@ -9,7 +25,7 @@ __all__ = [
     "build_Parameters",
 ]
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 
 import jax.numpy as jnp
@@ -24,239 +40,6 @@ if TYPE_CHECKING:
     default_inf = jnp.inf
 else:
     default_inf = float("inf")
-
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-import math
-import jax
-import jax.numpy as jnp
-
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    import jax.numpy as jnp
-    default_inf = jnp.inf
-else:
-    default_inf = float("inf")
-
-
-# # ---------- helpers (stable) ----------
-# _EPS = 1e-12
-
-# def _softplus_inv(y: jnp.ndarray) -> jnp.ndarray:
-#     # inverse of softplus: x = ln(e^y - 1) = log(expm1(y))
-#     y = jnp.clip(y, _EPS, jnp.inf)
-#     return jnp.log(jnp.expm1(y))
-
-# def _mid_from_bounds(lo: float, hi: float) -> float:
-#     if math.isfinite(lo) and math.isfinite(hi):
-#         return 0.5 * (lo + hi)
-#     if math.isfinite(lo):
-#         return lo + 1.0
-#     if math.isfinite(hi):
-#         return hi - 1.0
-#     return 0.0
-
-
-# class Parameter:
-#     """
-#     Represents a single fit parameter with optional bounds, ties, and fixed status.
-
-#     transform ∈ {'logistic','lower_softplus','upper_softplus','linear'}
-#     """
-#     def __init__(
-#         self,
-#         name: str,
-#         value: Union[float, jnp.ndarray, List[float], Tuple[float, ...]],
-#         *,
-#         min: float = -default_inf,
-#         max: float = default_inf,
-#         tie: Optional[Tuple[str, str, str, float]] = None,
-#         fixed: bool = False,
-#     ):
-#         self.name  = name
-#         if isinstance(value, (jnp.ndarray, list, tuple)):
-#             self.value = jnp.array(value)
-#         else:
-#             self.value = float(value)
-#         self.min   = float(min)
-#         self.max   = float(max)
-#         self.tie   = tie   # (target, source, op, operand)
-#         self.fixed = fixed
-
-#         # Choose transform (softplus for one-sided bounds).
-#         if math.isfinite(self.min) and math.isfinite(self.max):
-#             self.transform = 'logistic'
-#         elif math.isfinite(self.min):
-#             self.transform = 'lower_softplus'
-#         elif math.isfinite(self.max):
-#             self.transform = 'upper_softplus'
-#         else:
-#             self.transform = 'linear'
-
-
-# class Parameters:
-#     """
-#     Container managing Parameter instances and raw<->phys reparameterization.
-#     Softplus-based one-sided transforms + NaN rescue.
-#     """
-
-#     def __init__(self):
-#         self._list = []
-#         self._jit_raw_to_phys = None
-#         self._jit_phys_to_raw = None
-
-#     def add(
-#         self,
-#         name: str,
-#         value: Union[float, jnp.ndarray, List[float], Tuple[float, ...]],
-#         *,
-#         min: Optional[float] = None,
-#         max: Optional[float] = None,
-#         tie: Optional[Tuple[str, str, str, float]] = None,
-#         fixed: bool = False,
-#     ):
-#         lo = -jnp.inf if min is None else float(min)
-#         hi = jnp.inf  if max is None else float(max)
-#         self._list.append(Parameter(
-#             name=name, value=value, min=lo, max=hi, tie=tie, fixed=fixed
-#         ))
-#         self._jit_raw_to_phys = None
-#         self._jit_phys_to_raw = None
-
-#     @property
-#     def names(self) -> List[str]:
-#         return [p.name for p in self._list]
-
-#     def _finalize(self):
-#         self._raw_list  = [p for p in self._list if p.tie is None and not p.fixed]
-#         self._tied_list = [p for p in self._list if p.tie is not None and not p.fixed]
-#         self._fixed_list= [p for p in self._list if p.fixed]
-#         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
-#         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
-
-#     def raw_init(self) -> jnp.ndarray:
-#         if self._jit_phys_to_raw is None:
-#             self._finalize()
-#         init_phys = jnp.array([p.value for p in self._raw_list])
-#         return self._jit_phys_to_raw(init_phys)
-
-#     def raw_to_phys(self, raw_params: jnp.ndarray) -> jnp.ndarray:
-#         if self._jit_raw_to_phys is None:
-#             self._finalize()
-#         return self._jit_raw_to_phys(raw_params)
-
-#     def phys_to_raw(self, phys_params: jnp.ndarray) -> jnp.ndarray:
-#         if self._jit_phys_to_raw is None:
-#             self._finalize()
-#         return self._jit_phys_to_raw(phys_params)
-
-#     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
-#         """
-#         raw: (n_free,) or (n_batch, n_free)
-#         returns full physical vector in declaration order.
-#         """
-#         def convert_one(r_vec, spec_idx):
-#             ctx: Dict[str, jnp.ndarray] = {}
-#             idx = 0
-#             for p in self._raw_list:
-#                 rv = r_vec[idx]
-#                 # NaN rescue in raw-space (center of bounds / 0)
-#                 rv = jnp.where(
-#                     jnp.isnan(rv),
-#                     jnp.array(_mid_from_bounds(p.min, p.max), dtype=r_vec.dtype),
-#                     rv
-#                 )
-
-#                 if p.transform == 'logistic':
-#                     # map R -> (min,max) using sigmoid; clip fraction away from 0/1
-#                     sig = jax.nn.sigmoid(rv)
-#                     val = p.min + (p.max - p.min) * jnp.clip(sig, 1e-6, 1.0 - 1e-6)
-
-#                 elif p.transform == 'lower_softplus':
-#                     val = p.min + jax.nn.softplus(rv)
-
-#                 elif p.transform == 'upper_softplus':
-#                     val = p.max - jax.nn.softplus(rv)
-
-#                 else:  # linear
-#                     val = rv
-
-#                 # Final NaN/Inf scrub in phys space
-#                 fallback = jnp.array(_mid_from_bounds(p.min, p.max), dtype=val.dtype)
-#                 val = jnp.nan_to_num(val, nan=fallback, posinf=fallback, neginf=fallback)
-
-#                 ctx[p.name] = val
-#                 idx += 1
-
-#             # Apply ties then fixed
-#             op_map = {'*': jnp.multiply, '+': jnp.add, '-': jnp.subtract, '/': jnp.divide}
-#             for p in self._tied_list:
-#                 tgt, src, op, operand = p.tie
-#                 ctx[tgt] = op_map[op](ctx[src], operand)
-
-#             for p in self._fixed_list:
-#                 v = p.value
-#                 ctx[p.name] = v[spec_idx] if isinstance(v, jnp.ndarray) else v
-
-#             return jnp.stack([ctx[p.name] for p in self._list])
-
-#         if raw.ndim == 1:
-#             return convert_one(raw, 0)
-#         else:
-#             N = raw.shape[0]
-#             idxs = jnp.arange(N)
-#             return jax.vmap(convert_one, in_axes=(0, 0))(raw, idxs)
-
-#     def _phys_to_raw_core(self, phys: jnp.ndarray) -> jnp.ndarray:
-#         """
-#         phys: (n_free,) or (n_batch, n_free) *for the free-parameter slice*.
-#         Returns raw vector matching _raw_list order.
-#         """
-#         def invert_one(v_vec):
-#             raws: List[jnp.ndarray] = []
-#             idx = 0
-#             for p in self._raw_list:
-#                 vv = v_vec[idx]
-#                 # Phys NaN rescue → midpoint (or reasonable fallback)
-#                 vv = jnp.where(
-#                     jnp.isnan(vv),
-#                     jnp.array(_mid_from_bounds(p.min, p.max), dtype=v_vec.dtype),
-#                     vv
-#                 )
-
-#                 if p.transform == 'logistic':
-#                     # clamp to open interval (min,max) before inverting
-#                     vv_clamped = jnp.clip(vv, p.min + 1e-8, p.max - 1e-8)
-#                     frac = (vv_clamped - p.min) / (p.max - p.min)
-#                     frac = jnp.clip(frac, 1e-6, 1 - 1e-6)
-#                     raw_v = jnp.log(frac / (1.0 - frac))
-
-#                 elif p.transform == 'lower_softplus':
-#                     delta = jnp.maximum(vv - p.min, _EPS)
-#                     raw_v = _softplus_inv(delta)
-
-#                 elif p.transform == 'upper_softplus':
-#                     delta = jnp.maximum(p.max - vv, _EPS)
-#                     raw_v = _softplus_inv(delta)
-
-#                 else:  # linear
-#                     raw_v = vv
-
-#                 raw_v = jnp.nan_to_num(raw_v, nan=0.0, posinf=0.0, neginf=0.0)
-#                 raws.append(raw_v)
-#                 idx += 1
-#             return jnp.stack(raws)
-
-#         if phys.ndim == 1:
-#             return invert_one(phys)
-#         else:
-#             return jax.vmap(invert_one)(phys)
-
-#     @property
-#     def specs(self) -> List[Tuple[str, float, float, float, str, bool]]:
-#         return [
-#             (p.name, p.value, p.min, p.max, p.transform, p.fixed)
-#             for p in self._list
-#         ]
 
 class Parameter:
     """
@@ -546,14 +329,54 @@ class Parameters:
 
 
 
-def build_Parameters(tied_map,params_dict,initial_params,constraints):
-    """"TODO"""
-    
-    #print("tied_map",tied_map)
-    #print("params_dict",params_dict)
-    #print("initial_params",initial_params.shape)
-    #print("initial_params",jnp.atleast_2d(initial_params).shape)
-    #print("constraints",constraints)
+def build_Parameters(
+    tied_map: Dict[int, Tuple[int, str, float]],
+    params_dict: Dict[str, int],
+    initial_params: Iterable[float],
+    constraints: jnp.ndarray,
+) -> Parameters:
+    """
+    Construct a :class:`Parameters` object from initialization arrays, constraints,
+    and tie definitions.
+
+    This helper builds a container of :class:`Parameter` instances ready for fitting,
+    applying bounds, fixed values, and tied relationships.
+
+    Parameters
+    ----------
+    tied_map : dict[int, tuple[int, str, float]]
+        Mapping of parameter indices to tie definitions.
+        Each entry is of the form
+        ``idx_target -> (idx_source, op, operand)``, where:
+          * ``idx_target`` is the index of the tied parameter,
+          * ``idx_source`` is the index of the source parameter,
+          * ``op`` is an arithmetic operator string (``'*'``, ``'/'``, ``'+'``, ``'-'``),
+          * ``operand`` is a numeric factor or offset.
+    params_dict : dict[str, int]
+        Dictionary mapping parameter names to their index positions
+        in the parameter vector.
+    initial_params : array-like, shape (n_params,)
+        Initial physical parameter values.
+    constraints : array-like, shape (n_params, 2)
+        Lower and upper bounds per parameter.
+
+    Returns
+    -------
+    Parameters
+        A populated container with names, values, bounds, and tie definitions.
+
+    Notes
+    -----
+    * Tied parameters are added with their ``tie`` attribute and are not optimized
+      directly; their values are reconstructed from the source parameter during
+      raw→physical mapping.
+    * Untied parameters are added with their initial value and bounds taken from
+      ``constraints``.
+    * Fixed parameters are not assigned here; add them via
+      :meth:`Parameters.add(..., fixed=True) <Parameters.add>` if needed.
+    * Typically called by higher-level fitting routines (e.g., :class:`RegionFitting`)
+      when preparing parameter sets.
+    """
     params_obj = Parameters()
     for name, idx in params_dict.items():
         val = jnp.atleast_2d(initial_params)[:,idx]
@@ -570,5 +393,7 @@ def build_Parameters(tied_map,params_dict,initial_params,constraints):
             min,max = constraints[idx]
             params_obj.add(name, val, min=min, max=max)
     return params_obj
+
+
 
 
