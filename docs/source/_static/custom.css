@@ -27,3 +27,22 @@ h1, h2, h3, h4, h5, h6,
 a {
     color: #715A5A; /* muted red/brown accent */
 }
+
+/* If links inside headings need color */
+h1 a, h2 a, h3 a {
+    color: #715A5A !important;
+}
+
+/* Change background color of code blocks */
+div.highlight pre, div.highlight {
+    background-color: #1e1e2e !important; /* Dark background */
+    color: #e0e0e0 !important;           /* Light text */
+}
+
+/* Optional: inline code styling */
+code {
+    background-color: #2d2d2d !important;
+    color: #f8f8f2 !important;
+    border-radius: 4px;
+    padding: 2px 4px;
+}
