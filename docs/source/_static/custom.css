@@ -74,3 +74,17 @@ code {
 .wy-menu-vertical span.caption-text {
   color: #7C4DFF !important;   /* <-- your new color */
 }
+
+/* Force sidebar section headers ("GETTING STARTED", etc.) */
+nav.wy-nav-side .wy-menu-vertical p.caption,
+nav.wy-nav-side .wy-menu-vertical p.caption > span.caption-text,
+nav.wy-nav-side .wy-menu-vertical .caption,
+nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
+  color: #7C4DFF !important;   /* <-- your color */
+}
+
+/* If you use a dark-mode extension, override its theme too */
+html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
+html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
+  color: #7C4DFF !important;
+}
