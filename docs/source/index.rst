@@ -11,7 +11,7 @@ Welcome to sheap documentation
    :caption: Getting Started 
    :hidden:
 
-   getting_started
+   getting_started.rst
 
 .. toctree::
    :maxdepth: 2
