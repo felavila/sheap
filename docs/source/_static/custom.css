@@ -21,8 +21,8 @@
     background-color: #D3DAD9; /* light gray */
     color: #37353E; /* dark text */
 }
-.wy-nav-content a:visited { color: #715A5A; }
-.wy-menu-vertical a:visited { color: #715A5A; }
+.wy-nav-content a:visited { color: #b54444; }
+.wy-menu-vertical a:visited { color: #b54444; }
 
 /* Headings and links */
 h1, h2, h3, h4, h5, h6,
@@ -72,7 +72,7 @@ code {
 .wy-menu-vertical .caption,
 .wy-menu-vertical .caption > span.caption-text,
 .wy-menu-vertical span.caption-text {
-  color: #7C4DFF !important;   /* <-- your new color */
+  color: #5634b4 !important;   /* <-- your new color */
 }
 
 /* Force sidebar section headers ("GETTING STARTED", etc.) */
@@ -80,11 +80,16 @@ nav.wy-nav-side .wy-menu-vertical p.caption,
 nav.wy-nav-side .wy-menu-vertical p.caption > span.caption-text,
 nav.wy-nav-side .wy-menu-vertical .caption,
 nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #7C4DFF !important;   /* <-- your color */
+  color: #5634b4 !important;   /* <-- your color */
 }
 
 /* If you use a dark-mode extension, override its theme too */
 html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
 html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #7C4DFF !important;
+  color: #5634b4 !important;
+}
+
+.highlight .nt {
+  color: #a3cb59 !important;   /* <- your new color */
+  font-weight: 700;            /* optional */
 }
