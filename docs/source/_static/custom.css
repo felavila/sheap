@@ -80,13 +80,13 @@ nav.wy-nav-side .wy-menu-vertical p.caption,
 nav.wy-nav-side .wy-menu-vertical p.caption > span.caption-text,
 nav.wy-nav-side .wy-menu-vertical .caption,
 nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #5634b4 !important;   /* <-- your color */
+  color: #7f52ff !important;   /* <-- your color */
 }
 
 /* If you use a dark-mode extension, override its theme too */
 html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
 html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #5634b4 !important;
+  color: #7f52ff !important;
 }
 
 .highlight .nt {
@@ -95,12 +95,6 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
 }
 
 .wy-nav-top {
-    display: none;
     background: #37353E;
-    color: #fff;
-    padding: .4045em .809em;
-    position: relative;
-    line-height: 50px;
-    text-align: center;
-    font-size: 100%;
+    color: #D3DAD9
 }
