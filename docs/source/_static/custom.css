@@ -21,6 +21,9 @@
   --note-bg:          #EAEFF2;  /* admonition NOTE */
   --note-border:      #715A5A;
   --note-header:      #8A6B6B;
+
+  /* NEW: function-name color for Pygments .nf */
+  --code-func:        #89B4FA;
 }
 
 /* =========================================================
@@ -97,13 +100,15 @@ code {
 }
 
 /* Pygments token colors (tweak as you like) */
-.highlight .na { color: #86e1fc !important; }  /* keys / attributes */
-.highlight .nt { color: #a3cb59 !important; font-weight: 700; } /* tag names */
-.highlight .nn { color: #86e1fc !important; font-weight: 700; } /* namespaces */
-.highlight .s, .highlight .s2 { color: #9ee1f5 !important; }   /* strings */
-.highlight .m, .highlight .mf { color: #a3cb59 !important; }   /* numbers */
-.highlight .kc, .highlight .k  { color: #ffcb6b !important; }  /* keywords */
-.highlight .p { color: #e0e0e0 !important; }                   /* punctuation */
+.highlight .na { color: #86e1fc !important; }                      /* keys / attributes */
+.highlight .nt { color: #a3cb59 !important; font-weight: 700; }    /* tag names */
+.highlight .nn { color: #86e1fc !important; font-weight: 700; }    /* namespaces */
+.highlight .s, .highlight .s2 { color: #9ee1f5 !important; }       /* strings */
+.highlight .m, .highlight .mf { color: #a3cb59 !important; }       /* numbers */
+.highlight .kc, .highlight .k  { color: #ffcb6b !important; }      /* keywords */
+.highlight .p { color: #e0e0e0 !important; }                       /* punctuation */
+/* NEW: function names */
+.highlight .nf { color: var(--code-func) !important; }
 
 /* =========================================================
    Definition-list term badge (API dt blocks)
@@ -166,6 +171,9 @@ html[data-theme="dark"]{
   --note-bg:        #232836;
   --note-border:    #C6A6A6;
   --note-header:    #9F7F7F;
+
+  /* NEW: dark-mode function-name color */
+  --code-func:      #89B4FA;
 }
 
 /* Keep sidebar caption readable in dark mode */
