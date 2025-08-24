@@ -1,3 +1,4 @@
+```css
 /* =========================================================
    Palette (light mode)
    Change these vars and the whole theme follows.
@@ -22,8 +23,9 @@
   --note-border:      #715A5A;
   --note-header:      #8A6B6B;
 
-  /* NEW: function-name color for Pygments .nf */
-  --code-func:        #89B4FA;
+  /* Token vars */
+  --code-func:        #06287E;  /* Pygments .nf — function names */
+  --code-op:          #e3e2e2;  /* Pygments .o  — operators */
 }
 
 /* =========================================================
@@ -107,8 +109,8 @@ code {
 .highlight .m, .highlight .mf { color: #a3cb59 !important; }       /* numbers */
 .highlight .kc, .highlight .k  { color: #ffcb6b !important; }      /* keywords */
 .highlight .p { color: #e0e0e0 !important; }                       /* punctuation */
-/* NEW: function names */
-.highlight .nf { color: var(--code-func) !important; }
+.highlight .o { color: var(--code-op) !important; }                /* operators */
+.highlight .nf { color: var(--code-func) !important; }             /* function names */
 
 /* =========================================================
    Definition-list term badge (API dt blocks)
@@ -172,8 +174,9 @@ html[data-theme="dark"]{
   --note-border:    #C6A6A6;
   --note-header:    #9F7F7F;
 
-  /* NEW: dark-mode function-name color */
-  --code-func:      #89B4FA;
+  /* Dark-mode token vars */
+  --code-func:      #89B4FA;  /* function names */
+  --code-op:        #B3B3B3;  /* operators */
 }
 
 /* Keep sidebar caption readable in dark mode */
@@ -181,3 +184,4 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
 html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
   color: var(--accent) !important;
 }
+```
