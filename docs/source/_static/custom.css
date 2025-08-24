@@ -1,181 +1,175 @@
-/* Sidebar background */
-.wy-side-nav-search, .wy-nav-side {
-    background-color: #37353E; /* dark */
+/* =========================================================
+   Palette (light mode)
+   Change these vars and the whole theme follows.
+   ========================================================= */
+:root{
+  --bg:               #D3DAD9;  /* main content background */
+  --text:             #37353E;  /* main text */
+  --accent:           #715A5A;  /* links, headings, captions */
+  --accent-hover:     #8A6B6B;
+  --accent-visited:   #9A7A7A;
+
+  --sb-bg:            #37353E;  /* sidebar bg + mobile top bar */
+  --sb-text:          #D3DAD9;  /* sidebar text */
+  --sb-hover-bg:      #44444E;
+
+  --code-bg:          #2B2B2B;  /* block code */
+  --code-fg:          #F2F2F2;
+  --inline-code-bg:   #37353E;  /* inline code */
+  --inline-code-fg:   #FAFAFA;
+
+  --note-bg:          #EAEFF2;  /* admonition NOTE */
+  --note-border:      #715A5A;
+  --note-header:      #8A6B6B;
 }
 
-/* Sidebar text */
+/* =========================================================
+   Layout & navigation
+   ========================================================= */
+.wy-nav-content {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Side bar */
+.wy-side-nav-search, .wy-nav-side {
+  background-color: var(--sb-bg);
+}
 .wy-side-nav-search .project,
 .wy-menu-vertical a {
-    color: #D3DAD9; /* light gray */
+  color: var(--sb-text);
 }
 
-/* Hover/active link in sidebar */
+/* Sidebar hover/current */
 .wy-menu-vertical li.current > a,
 .wy-menu-vertical a:hover {
-    background-color: #44444E; /* slate */
-    color: #D3DAD9;
+  background-color: var(--sb-hover-bg);
+  color: var(--sb-text);
 }
 
-/* Main content background */
-.wy-nav-content {
-    background-color: #D3DAD9; /* light gray */
-    color: #37353E; /* dark text */
-}
-.wy-nav-content a:visited { color: #b54444; }
-.wy-menu-vertical a:visited { color: #b54444; }
-
-/* Headings and links */
-h1, h2, h3, h4, h5, h6,
-a {
-    color: #715A5A; /* muted red/brown accent */
+/* Sidebar section titles (GETTING STARTED, etc.) */
+nav.wy-nav-side .wy-menu-vertical p.caption,
+nav.wy-nav-side .wy-menu-vertical .caption,
+nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
+  color: var(--accent) !important;
 }
 
-/* If links inside headings need color */
-h1 a, h2 a, h3 a {
-    color: #715A5A !important;
+/* Mobile top bar */
+.wy-nav-top { background-color: var(--sb-bg) !important; }
+.wy-nav-top a, .wy-nav-top i, .wy-nav-top .fa, .wy-nav-top .icon {
+  color: var(--sb-text) !important;
 }
 
-/* Change background color of code blocks */
-div.highlight pre, div.highlight {
-    background-color: #715A5A !important; /* Dark background */
-    color: #e0e0e0 !important;           /* Light text */
-}
+/* =========================================================
+   Links & headings (content area only)
+   ========================================================= */
+.wy-nav-content a { color: var(--accent); }
+.wy-nav-content a:hover { color: var(--accent-hover); }
+.wy-nav-content a:visited { color: var(--accent-visited); }
 
-/* Optional: inline code styling */
-code {
-    background-color: #37353E !important;
-    color: #fafafa !important;
-    border-radius: 4px;
-    padding: 2px 4px;
-}
-
-/* YAML token colors (work across themes) */
-.highlight .na { color: #86e1fc !important; }  /* attribute/key: e.g., 'center:' */
-.highlight .s  { color: #c3e88d !important; }  /* strings */
-.highlight .m  { color: #c792ea !important; }  /* numbers */
-.highlight .kc,
-.highlight .k  { color: #ffcb6b !important; }  /* booleans/keywords if present */
-.highlight .p  { color: #e0e0e0 !important; }  /* punctuation like ':' */
-
-
-
-/* Content headings (e.g., "GETTING STARTED") */
 .rst-content .section > h1,
 .rst-content .section > h2,
 .rst-content .section > h3,
-.rst-content .section > h4 {
-  color: #715A5A;            /* <-- pick your color */
+.rst-content .section > h4,
+.rst-content .section > h5,
+.rst-content .section > h6 {
+  color: var(--accent);
+}
+.rst-content h1 a, .rst-content h2 a, .rst-content h3 a {
+  color: var(--accent) !important;
 }
 
-/* Sidebar section titles: "GETTING STARTED", "OVERVIEW", etc. */
-.wy-menu-vertical p.caption,
-.wy-menu-vertical .caption,
-.wy-menu-vertical .caption > span.caption-text,
-.wy-menu-vertical span.caption-text {
-  color: #5634b4 !important;   /* <-- your new color */
+/* Keep visited color consistent in the left TOC, too */
+.wy-menu-vertical a:visited { color: var(--accent-visited); }
+
+/* =========================================================
+   Code blocks & inline code
+   ========================================================= */
+div.highlight, div.highlight pre {
+  background-color: var(--code-bg) !important;
+  color: var(--code-fg) !important;
+}
+code {
+  background-color: var(--inline-code-bg) !important;
+  color: var(--inline-code-fg) !important;
+  border-radius: 4px;
+  padding: 2px 4px;
 }
 
-/* Force sidebar section headers ("GETTING STARTED", etc.) */
-nav.wy-nav-side .wy-menu-vertical p.caption,
-nav.wy-nav-side .wy-menu-vertical p.caption > span.caption-text,
-nav.wy-nav-side .wy-menu-vertical .caption,
-nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #7f52ff !important;   /* <-- your color */
-}
+/* Pygments token colors (tweak as you like) */
+.highlight .na { color: #86e1fc !important; }  /* keys / attributes */
+.highlight .nt { color: #a3cb59 !important; font-weight: 700; } /* tag names */
+.highlight .nn { color: #86e1fc !important; font-weight: 700; } /* namespaces */
+.highlight .s, .highlight .s2 { color: #9ee1f5 !important; }   /* strings */
+.highlight .m, .highlight .mf { color: #a3cb59 !important; }   /* numbers */
+.highlight .kc, .highlight .k  { color: #ffcb6b !important; }  /* keywords */
+.highlight .p { color: #e0e0e0 !important; }                   /* punctuation */
 
-/* If you use a dark-mode extension, override its theme too */
-html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
-html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
-  color: #7f52ff !important;
-}
-
-.highlight .nt {
-  color: #a3cb59 !important;   /* <- your new color */
-  font-weight: 700;            /* optional */
-}
-
-/* .wy-nav-top {
-    background: #37353E;
-    color: #D3DAD9
-} */
-
-.highlight .nn {
-    color: #86e1fc;
-    font-weight: bold;
-}
-
-.highlight .s2 {
-    color: #9ee1f5;
-}
-
-.highlight .mf {
-    color: #a3cb59;
-}
-
-.highlight .kn {
-    color: #b8e662;
-    font-weight: bold;
-}
-
-/* Mobile top bar (project title + hamburger) */
-.wy-nav-top {
-  background-color: #37353E !important;   /* <-- new background */
-}
-.wy-nav-top a,
-.wy-nav-top i,
-.wy-nav-top .fa,
-.wy-nav-top .icon {
-  color: #D3DAD9 !important;              /* <-- text + hamburger color */
-}
-
-/* (Optional) only apply on small screens */
-@media (max-width: 768px) {
-  .wy-nav-top { background-color: #37353E !important; }
-}
-
-
-/* Definition-list term badge (both html4 & html5 writers) */
+/* =========================================================
+   Definition-list term badge (API dt blocks)
+   ========================================================= */
 html .rst-content dl:not(.docutils) > dt,
 html .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple) > dt {
-  background: #a38383 !important;      /* ← your background */
-  color: #37353E !important;            /* ← your text color */
-  border-top: 3px solid #715A5A !important;  /* ← accent bar */
+  background: #CDB9B9 !important;  /* soft taupe to match accent family */
+  color: var(--text) !important;
+  border-top: 3px solid var(--accent) !important;
 }
 
-/* If you also want the docstring field lists (Parameters/Returns) to match */
+/* Field lists (Parameters/Returns) heading chips */
 .rst-content dl.field-list > dt,
 .rst-content dl.field-list > dt > strong {
-  background: #a38383 !important;
-  color: #37353E !important;
-  border-top: 3px solid #715A5A !important;
+  background: #CDB9B9 !important;
+  color: var(--text) !important;
+  border-top: 3px solid var(--accent) !important;
 }
 
-
-
-/* ===== Admonitions: NOTE ===== */
+/* =========================================================
+   Admonitions (NOTE)
+   ========================================================= */
 .rst-content .admonition.note {
-  background: #7e6ab4 !important;      /* body background */
-  border: 1px solid #5634b4 !important; /* outer border */
+  background: var(--note-bg) !important;
+  border: 1px solid var(--note-border) !important;
 }
 .rst-content .admonition.note > .admonition-title {
-  background: #7e6ab4 !important;      /* header bar */
-  color: #ffffff !important;            /* header text */
-  border-bottom: 1px solid #5634b4 !important;
+  background: var(--note-header) !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid var(--note-border) !important;
 }
 .rst-content .admonition.note > .admonition-title:before {
-  color: #ffffff !important;            /* icon color */
-}
-
-/* Optional: link & code colors inside admonitions */
-.rst-content .admonition a { color: #5634b4; }
-.rst-content .admonition code { background: #2d2d2d; color: #f8f8f2; }
-
-/* (If you use a dark-mode toggle) */
-html[data-theme="dark"] .rst-content .admonition.note {
-  background: #1f2430 !important;
-  border-color: #5634b4 !important;
-}
-html[data-theme="dark"] .rst-content .admonition.note > .admonition-title {
-  background: #5634b4!important;
   color: #ffffff !important;
+}
+
+/* Links & code inside admonitions */
+.rst-content .admonition a { color: var(--accent); }
+.rst-content .admonition code { background: var(--inline-code-bg); color: var(--inline-code-fg); }
+
+/* =========================================================
+   Optional dark-mode overrides (only if you use a toggle)
+   ========================================================= */
+html[data-theme="dark"]{
+  --bg:             #1f2430;
+  --text:           #E6E6E6;
+  --accent:         #C6A6A6;
+  --accent-hover:   #D1B7B7;
+  --accent-visited: #A78989;
+
+  --sb-bg:          #111318;
+  --sb-text:        #D3DAD9;
+  --sb-hover-bg:    #1b1e25;
+
+  --code-bg:        #0f1115;
+  --code-fg:        #e8e8e8;
+
+  --inline-code-bg: #1b1e25;
+  --inline-code-fg: #f2f2f2;
+
+  --note-bg:        #232836;
+  --note-border:    #C6A6A6;
+  --note-header:    #9F7F7F;
+}
+
+/* Keep sidebar caption readable in dark mode */
+html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption,
+html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.caption-text {
+  color: var(--accent) !important;
 }
