@@ -93,3 +93,14 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
   color: #a3cb59 !important;   /* <- your new color */
   font-weight: 700;            /* optional */
 }
+
+.wy-nav-top {
+    display: none;
+    background: #37353E;
+    color: #fff;
+    padding: .4045em .809em;
+    position: relative;
+    line-height: 50px;
+    text-align: center;
+    font-size: 100%;
+}
