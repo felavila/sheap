@@ -1,10 +1,13 @@
-sheap: Spectral Handling and Estimation of AGN Parameters
-=========================================================
+.. sheap: Spectral Handling and Estimation of AGN Parameters
+.. =========================================================
+
+sheap's Overview
+================
 
 Overview
 --------
 
-**sheap** (Spectral Handling and Estimation of AGN Parameters) is a Python library for modeling, fitting, and sampling astronomical spectra. Leveraging modern JAX-based numerical routines and probabilistic inference via NumPyro, sheap provides a flexible, high-performance framework for:
+**sheap** is a Python library for modeling, fitting, and sampling astronomical spectra. Leveraging modern JAX-based numerical routines and probabilistic inference via NumPyro, sheap provides a flexible, high-performance framework for:
 
 - **Pre-processing**: automated Galactic extinction and redshift corrections  
 - **Region definition**: build complex emission‐line regions with broad, narrow, outflow, Fe II templates, Balmer continuum, and more  
