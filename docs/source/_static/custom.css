@@ -100,26 +100,26 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
 } */
 
 .highlight .nn {
-    color: #09394e;
+    color: #86e1fc;
     font-weight: bold;
 }
 
 .highlight .s2 {
-    color: #15416d;
+    color: #3f6a77;
 }
 
 .highlight .mf {
-    color: #02532b;
+    color: #a3cb59;
 }
 
 .highlight .kn {
-    color: #002009;
+    color: #b8e662;
     font-weight: bold;
 }
 
 /* Mobile top bar (project title + hamburger) */
 .wy-nav-top {
-  background-color: #715A5A !important;   /* <-- new background */
+  background-color: #37353E !important;   /* <-- new background */
 }
 .wy-nav-top a,
 .wy-nav-top i,
@@ -130,22 +130,7 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
 
 /* (Optional) only apply on small screens */
 @media (max-width: 768px) {
-  .wy-nav-top { background-color: #715A5A !important; }
+  .wy-nav-top { background-color: #37353E !important; }
 }
 
 
-/* Definition-list term badge (both html4 & html5 writers) */
-html .rst-content dl:not(.docutils) > dt,
-html .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple) > dt {
-  background: #D3DAD9 !important;      /* ← your background */
-  color: #37353E !important;            /* ← your text color */
-  border-top: 3px solid #715A5A !important;  /* ← accent bar */
-}
-
-/* If you also want the docstring field lists (Parameters/Returns) to match */
-.rst-content dl.field-list > dt,
-.rst-content dl.field-list > dt > strong {
-  background: #D3DAD9 !important;
-  color: #37353E !important;
-  border-top: 3px solid #715A5A !important;
-}
