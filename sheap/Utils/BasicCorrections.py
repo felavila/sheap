@@ -1,4 +1,21 @@
-"""This module ?."""
+"""
+Basic Spectral Corrections
+==========================
+
+This module implements extinction (reddening) and redshift corrections
+for astronomical spectra, using JAX for differentiable, batched execution.
+
+Functions
+---------
+unred(wave, flux, ebv, R_V=3.1, LMC2=False, AVGLMC=False)
+    Apply Galactic extinction correction to spectra using the Cardelli
+    et al. (1989) extinction law with optional LMC parameterizations. Based on the code [https://github.com/sczesla/PyAstronomy/blob/93f6f0668d6b5aa77d281981e13ba1bf6ded38cd/src/pyasl/asl/unred.py#L4]
+    
+deredshift(spectra, z)
+    Apply redshift correction to spectra by transforming both the
+    wavelength and flux/error channels.
+"""
+
 __author__ = 'felavila'
 
 # Auto-generated __all__
@@ -6,10 +23,6 @@ __all__ = [
     "deredshift",
     "unred",
 ]
-
-"""Based in the implementation in numpy from
-https://github.com/sczesla/PyAstronomy/blob/93f6f0668d6b5aa77d281981e13ba1bf6ded38cd/src/pyasl/asl/unred.py#L4
-"""
 
 import functools as ft
 

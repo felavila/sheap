@@ -1,4 +1,32 @@
-"""This module contains all the continuum profiles available in sheap."""
+"""
+Continuum Profiles
+==================
+
+This module defines all continuum profile functions available in *sheap*.
+Each function is JAX-compatible and decorated with ``@with_param_names``
+to provide consistent parameter naming for fitting routines.
+
+Profiles
+--------
+- ``linear``          : Linear continuum (slope + intercept).
+- ``powerlaw``        : Standard power law anchored at λ₀=5500 Å.
+- ``brokenpowerlaw``  : Two-slope power law with a break wavelength.
+- ``logparabola``     : Log-parabolic shape with curvature term.
+- ``exp_cutoff``      : Power law with exponential cutoff.
+- ``polynomial``      : Cubic polynomial expansion.
+
+Constants
+---------
+- ``delta0`` : Reference wavelength (5500 Å) used for continuum scaling.
+
+Notes
+-----
+- All functions take wavelength arrays in Ångström and return dimensionless
+    continuum templates scaled by their amplitude parameter.
+- The reference wavelength ``delta0`` ensures consistent normalization
+    across continuum forms.
+"""
+
 __author__ = 'felavila'
 
 

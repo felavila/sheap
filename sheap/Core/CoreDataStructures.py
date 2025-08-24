@@ -1,4 +1,36 @@
-"""This module handles ?."""
+"""
+Core Data Structures
+====================
+
+This module defines the core data classes used across **sheap** to describe
+spectral lines, grouped regions, fitting outputs, per‑profile constraints,
+and per‑kind fitting limits.
+
+Exposed classes
+---------------
+- :class:`SpectralLine` — a single (or composite) emission/absorption component.
+- :class:`ComplexRegion` — a container of lines with profile functions, parameter
+  maps, and convenient subsetting/grouping utilities.
+- :class:`ComplexResult` — a structured record of a completed fit (parameters,
+  uncertainties, residuals, χ², etc.).
+- :class:`ProfileConstraintSet` — per‑profile initial values and bounds.
+- :class:`FittingLimits` — canonical velocity/shift/amplitude limits by kind.
+
+Main Features
+-------------
+- Dataclass APIs with typed fields and `.to_dict()` helpers.
+- Region‑level table view (`as_df()`), filtering, grouping, and safe subsetting
+  that preserves global↔local parameter index mappings.
+- Lazy assembly of fused profile functions for fast evaluation with JAX.
+- Seamless attachment of fitted parameter matrices and uncertainties.
+
+Notes
+-----
+- Arrays may be NumPy or JAX arrays; fused profile evaluation is JAX‑friendly.
+- Global parameter indices are preserved when subsetting regions so results can
+  be traced back to the original packed parameter vector.
+"""
+
 from __future__ import annotations
 __author__ = 'felavila'
 

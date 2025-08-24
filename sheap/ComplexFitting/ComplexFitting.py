@@ -1,4 +1,24 @@
-"""This module ."""
+"""
+Complex Fitting
+===============
+
+This module defines :class:`ComplexFitting`, the main driver for fitting
+multi-component spectral regions with JAX-based minimization.
+
+Main Features
+-------------
+- Builds parameter initialization, constraints, and profile functions.
+- Performs iterative optimization using custom JAX minimizers.
+- Supports tied parameters, penalties, and continuum fitting.
+- Computes uncertainties via covariance matrices or samplers.
+- Packages results into :class:`ComplexResult`.
+
+Notes
+-----
+- All fitting is GPU-accelerated via JAX.
+- Residual loss is log-cosh with optional smoothness/curvature penalties.
+- Continuum slopes/intercepts can be initialized via weighted least squares.
+"""
 from __future__ import annotations
 __author__ = 'felavila'
 
@@ -27,7 +47,7 @@ from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,mak
 from sheap.Minimizer.Minimizer import Minimizer
 
 from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
-from sheap.Profiles.profile_handler import ProfileConstraintMaker 
+from sheap.Profiles.ProfileConstraintMaker import ProfileConstraintMaker 
 from sheap.Profiles.utils import make_fused_profiles,build_grid_penalty
 
 

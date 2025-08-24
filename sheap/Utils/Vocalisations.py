@@ -1,9 +1,7 @@
 """This module contains vocalizations."""
 __author__ = 'felavila'
 
-__all__ = [
-    "sounds",
-]
+__all__ = ["sounds",]
 
 def sounds(language):
     if language.lower() == "spanish":

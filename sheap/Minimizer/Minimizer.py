@@ -1,4 +1,47 @@
-"""This module Contains the main minimization routines in sheap."""
+"""
+Minimization Routines
+=====================
+
+This module contains the main minimization routines in *sheap*.
+It defines the `Minimizer` class, which wraps JAX and Optax
+optimizers for constrained spectral model fitting.
+
+Contents
+--------
+- **Minimizer**: high-level interface for fitting spectral models with
+  Adam or LBFGS optimizers.
+- **Loss Function**: constructed via `loss_builder.build_loss_function`,
+  supporting weighted residuals, penalties, and regularization terms.
+- **Vectorization**: optimization can be run across batches via `jax.vmap`.
+- **Constraints & Dependencies**: supports tied parameters and physical
+  constraints through `Parameters` converters.
+
+Notes
+-----
+- Optimization supports two methods:
+  - `"adam"` (gradient descent with adaptive moments, default)
+  - `"lbfgs"` (quasi-Newton optimizer via Optax)
+- Regularization options include:
+  curvature matching, smoothness penalties, and maximum residual weighting.
+- `non_optimize_in_axis` controls how constraints and initial conditions
+  are shared across batched spectra:
+  
+  * 3 → same initial values and constraints  
+  * 4 → same constraints, different initial values  
+  * 5 → both constraints and initial values vary
+
+Example
+-------
+.. code-block:: python
+
+   from sheap.Minimizer.Minimizer import Minimizer
+
+   minimizer = Minimizer(model_fn, num_steps=2000, learning_rate=1e-2)
+   final_params, loss_history = minimizer(
+       initial_params, flux, wavelength, errors, constraints
+   )
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

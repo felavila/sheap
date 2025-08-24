@@ -1,4 +1,23 @@
-"""This module handles basic functions."""
+"""
+Basic Functions
+===============
+
+This module provides core physical conversions frequently used in 
+spectral analysis, including wavelength ↔ velocity conversions and 
+vacuum ↔ air wavelength corrections.
+
+Functions
+---------
+kms_to_wl(kms, line_center, c=c)
+    Convert velocity in km/s to a wavelength shift at a given line center.
+
+wl_to_kms(wl, line_center, c=c)
+    Convert wavelength shift to velocity in km/s at a given line center.
+
+vac_to_air(lam_vac)
+    Convert vacuum wavelengths to air wavelengths using the IAU standard.
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

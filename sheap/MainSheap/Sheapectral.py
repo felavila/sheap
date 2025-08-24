@@ -1,4 +1,37 @@
-"""This module ."""
+"""
+Main SHEAP Interface
+====================
+
+Provides the `Sheapectral` class, the high-level entry point for
+loading, correcting, fitting, and analyzing AGN spectra with *sheap*.
+
+Contents
+--------
+- **Spectral I/O**: load spectra from arrays or files.
+- **Corrections**: apply Galactic extinction and redshift corrections.
+- **Modeling**: build complex spectral regions via `ComplexBuilder`.
+- **Fitting**: run JAX-based optimization with `ComplexFitting`.
+- **Posterior Sampling**: estimate parameters using single, pseudo-MC, MC, or MCMC.
+- **Persistence**: save/load full state with pickle.
+- **Visualization**: quicklook plotting and model visualization with `SheapPlot`.
+
+Notes
+-----
+- Input spectra are expected in shape `(n_objects, 3[,4], n_pixels)`,
+  with channels = (wavelength, flux, error[, wdisp]).
+- Velocity resolution (FWHM) is computed from dispersion when available.
+- Main workflow:
+
+  .. code-block:: python
+
+     sheap = Sheapectral("spectrum.fits", z=0.5, coords=(l, b))
+     sheap.makecomplex(6500, 6600, n_narrow=1, n_broad=2)
+     sheap.fitcomplex()
+     sheap.afterfit(sampling_method="mcmc")
+
+- Results are stored in `self.result` (`ComplexResult`).
+"""
+
 from __future__ import annotations
 
 __author__ = 'felavila'

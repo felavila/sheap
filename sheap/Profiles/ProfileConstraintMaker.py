@@ -1,4 +1,50 @@
-"""This module ?."""
+"""
+Profile Constraint Maker
+========================
+
+This module defines the `ProfileConstraintMaker`, the central routine in *sheap*
+for generating **initial values** and **bounds** of profile parameters associated
+with each `SpectralLine`.
+
+The constraint sets are specific to the type of profile being modeled:
+- **Continuum profiles** (e.g. powerlaw, linear, broken powerlaw, Balmer continuum)
+- **Emission line profiles** (e.g. gaussian, lorentzian, skewed)
+- **Composite profiles** such as SPAF (Sum of Profiles with Adjustable Fractions)
+- **Template profiles** (e.g. Fe templates, Balmer high-order templates, host MILES)
+
+Returned objects are `ProfileConstraintSet` instances, which encapsulate:
+- Initial parameter values
+- Upper and lower bounds
+- Profile name
+- Parameter names
+- The callable profile function
+
+Notes
+-----
+- Constraints are informed by physically motivated defaults such as
+    velocity FWHM limits, Doppler shift limits, and expected amplitude scales.
+- SPAF and template profiles require additional metadata (subprofiles,
+    canonical wavelengths, or template info).
+- The `balmercontinuum` case uses raw parameterization
+    (`T_raw`, `tau_raw`, `v_raw`) with transformations applied in the profile.
+
+Examples
+--------
+.. code-block:: python
+
+    from sheap.Core import SpectralLine, FittingLimits
+    from sheap.Profiles.profile_handler import ProfileConstraintMaker
+
+    sp = SpectralLine(line_name="Halpha", center=6563.0,
+                    region="narrow", component=1,
+                    amplitude=1.0, profile="gaussian")
+    limits = FittingLimits(upper_fwhm=5000, lower_fwhm=200,
+                        v_shift=600, max_amplitude=100)
+    constraints = ProfileConstraintMaker(sp, limits)
+
+    print(constraints.init, constraints.upper, constraints.lower)
+"""
+
 __author__ = 'felavila'
 
 

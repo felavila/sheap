@@ -1,4 +1,49 @@
-"""This module contains all the line profiles available in sheap."""
+r"""
+Line Profiles
+=============
+
+This module implements all emission- and absorption-line profile functions 
+available in *sheap*. These functions define the mathematical shapes of 
+spectral lines (Gaussian, Lorentzian, Voigt, skewed Gaussian, EMG, etc.) 
+and provide consistent JAX-compatible implementations for fitting routines.
+
+Profiles are parameterized in terms of **log-amplitude**, **center**, and 
+width measures (FWHM, \sigma, \gamma), with extensions for skewness, exponential 
+decay, or Hermite expansions.
+
+Functions
+---------
+- ``gaussian_fwhm`` : Standard Gaussian profile with FWHM parameterization.
+- ``lorentzian_fwhm`` : Lorentzian profile with FWHM.
+- ``voigt_pseudo`` : Pseudo-Voigt (linear combination of Gaussian and Lorentzian).
+- ``skewed_gaussian`` : Skew-normal Gaussian with shape parameter α.
+- ``emg_fwhm`` : Exponentially Modified Gaussian (Gaussian ⊗ exponential decay).
+- ``top_hat`` : Rectangular (boxcar) profile.
+- ``eval_hermite`` : Recursive Hermite polynomial evaluator.
+- ``gauss_hermite_losvd_jax`` : Gauss–Hermite line-of-sight velocity distribution.
+
+Notes
+-----
+- All profiles are decorated with ``@with_param_names`` to provide
+    consistent parameter naming across the codebase.
+- Amplitudes are expressed in base-10 logarithmic form (``logamp``),
+    so physical scaling is applied as ``10**logamp``.
+- Functions are written in JAX and fully differentiable, suitable for
+    gradient-based fitting and uncertainty propagation.
+
+Examples
+--------
+.. code-block:: python
+
+    import jax.numpy as jnp
+    from sheap.Profiles.profiles_line import gaussian_fwhm
+
+    x = jnp.linspace(6500, 6600, 1000)
+    params = jnp.array([0.0, 6563.0, 10.0])  # logamp=0 → amp=1, center=6563Å, FWHM=10Å
+    y = gaussian_fwhm(x, params)
+
+"""
+
 __author__ = 'felavila'
 
 

@@ -1,4 +1,42 @@
-"""This module ?."""
+"""
+Template-Based Profiles
+=======================
+
+This module provides template-driven spectral components used in *sheap*:
+
+- **Fe II templates** (UV, optical, combined) read from ASCII files and broadened
+    via FFT convolution.
+- **Balmer high-order blends** represented as fixed templates.
+- **Host galaxy templates** based on E-MILES SSP cubes, sub-selected in metallicity,
+    age, and wavelength, and combined with free weights.
+
+Functions
+---------
+- ``make_feii_template_function`` :
+    Factory for Fe II template models by name. Supports optional wavelength cuts
+    and returns a JAX-ready profile function plus template metadata.
+- ``make_host_function`` :
+    Factory for host galaxy models from a precomputed SSP cube. Uses efficient
+    memory mapping and a single FFT-based convolution of the weighted template sum.
+
+Constants
+---------
+- ``TEMPLATES_PATH`` : Path to the bundled template data directory.
+- ``FEII_TEMPLATES`` : Registry of available Fe II template definitions.
+
+Notes
+-----
+- All returned models are decorated with ``@with_param_names`` and are JAX-compatible.
+- FFT-based Gaussian broadening quadratically subtracts the intrinsic template
+    resolution before applying user-defined FWHM.
+- Host models build parameter names dynamically as ``weight_Z{Z}_age{age}``
+    for each included SSP grid point.
+
+Todo
+----
+Rename ``make_feii_template_function`` for a more general function. 
+"""
+
 __author__ = 'felavila'
 
 __all__ = [

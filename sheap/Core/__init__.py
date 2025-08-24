@@ -3,8 +3,8 @@
 
 __author__ = 'felavila'
 
-from sheap.Core.Definitions import (SpectralLine,ComplexRegion,ComplexResult,ProfileConstraintSet,FittingLimits)
-from sheap.Core.Signatures import (ArrayLike,ProfileFunc,SpectralLineList,)
+from sheap.Core.CoreDataStructures import (SpectralLine,ComplexRegion,ComplexResult,ProfileConstraintSet,FittingLimits)
+from sheap.Core.CoreTypeAliases import (ArrayLike,ProfileFunc,SpectralLineList,)
 
 __all__ = [
     "SpectralLine",

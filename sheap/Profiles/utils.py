@@ -1,4 +1,43 @@
-"""This module ?."""
+"""
+Profile Utilities
+=================
+
+This module provides utility functions to support the definition,
+integration, and composition of spectral line and continuum profiles
+in *sheap*.
+
+Functions
+---------
+- ``make_fused_profiles(funcs)`` :
+    Combine multiple profile functions into a single callable that
+    evaluates the sum of all components.
+
+- ``with_param_names(param_names)`` :
+    Decorator to attach parameter names and count metadata to profile
+    functions for consistent handling across the codebase.
+
+- ``make_integrator(profile_fn, method="broadcast")`` :
+    Factory for JAX-based integrators of profile functions. Supports
+    either broadcasting across batches or nested `vmap` evaluation.
+
+- ``build_grid_penalty(weights_idx, n_Z, n_age)`` :
+    Construct a Laplacian smoothness penalty on 2D grids of host
+    template weights (Z × age), useful for regularization.
+
+- ``trapz_jax(y, x)`` :
+    Lightweight trapezoidal integration implemented with JAX.
+
+Notes
+-----
+- All utilities are JAX-compatible and designed for use in differentiable
+  fitting pipelines.
+- ``with_param_names`` ensures that each profile function exposes
+  ``.param_names`` and ``.n_params`` attributes for downstream
+  bookkeeping.
+- ``make_integrator`` can be used to integrate profiles per spectrum,
+  per component, or across batches without manual looping.
+"""
+
 __author__ = 'felavila'
 
 
@@ -21,6 +60,21 @@ from jax import vmap, jit
 
 
 def make_fused_profiles(funcs):
+    """
+    Fuse multiple profile functions into a single callable.
+
+    Parameters
+    ----------
+    funcs : list of callables
+        Each function must have a `.n_params` attribute
+        and a signature `(x, params)`.
+
+    Returns
+    -------
+    fused_profile : callable
+        A function that evaluates the sum of all profiles given
+        a single concatenated parameter vector.
+    """
     n_params = [f.n_params for f in funcs]
     param_splits = np.cumsum([0] + n_params)  # [0, 3, 6, ...]
     def fused_profile(x, all_args):
@@ -32,6 +86,20 @@ def make_fused_profiles(funcs):
     return fused_profile
 
 def with_param_names(param_names: list[str]):
+    """
+    Decorator to attach parameter names and count to a profile function.
+
+    Parameters
+    ----------
+    param_names : list of str
+        Names of the parameters for the decorated profile function.
+
+    Returns
+    -------
+    decorator : callable
+        A decorator that attaches `.param_names` and `.n_params` attributes
+        to the target function.
+    """
     def decorator(func):
         func.param_names = param_names
         func.n_params = len(param_names)
@@ -47,20 +115,22 @@ def with_param_names(param_names: list[str]):
 
 def make_integrator(profile_fn, method="broadcast"):
     """
+    Create an integrator for profile functions.
+
+    Parameters
+    ----------
     profile_fn : callable
-        f(x, p) → y, where
-        x has shape (n_pixels,) or (n_pixels,1,1,…),
-        p has shape (..., n_params),
-        and y broadcasts to shape (n_pixels, ...).
-    method : {"broadcast", "vmap"}
+        Profile function with signature `(x, params) -> y`.
+    method : {"broadcast", "vmap"}, optional
+        Integration strategy:
+        - "broadcast": expand x for broadcasting across batches
+        - "vmap": use nested vectorization
+
     Returns
     -------
-    integrate(x, params) → integral over x of profile_fn(x,p)
-    x      shape (n_pixels,)
-    params shape (n_spectra, n_lines, n_params)
-    → returns array of shape (n_spectra, n_lines)
+    integrate : callable
+        Function `(x, params) -> integral` returning integrated flux.
     """
-
     if method == "broadcast":
         @jit
         def integrate(x, params):
@@ -97,15 +167,21 @@ def build_grid_penalty(
     n_age: int,
 ) -> Callable[[jnp.ndarray], float]:
     """
-    Create a Laplacian penalty function for weights stored at arbitrary positions.
+    Construct a Laplacian smoothness penalty over a 2D template grid.
 
-    Parameters:
-    - weights_idx: indices into `params` for the host template weights
-    - n_Z: number of metallicity bins
-    - n_age: number of age bins
+    Parameters
+    ----------
+    weights_idx : list[int]
+        Indices of weight parameters in the global parameter vector.
+    n_Z : int
+        Number of metallicity bins.
+    n_age : int
+        Number of age bins.
 
-    Returns:
-    - penalty(params): float Laplacian loss
+    Returns
+    -------
+    penalty : callable
+        Function `(params) -> float` computing the smoothness penalty.
     """
     if len(weights_idx) != n_Z * n_age:
         raise ValueError(f"Expected {n_Z * n_age} weight indices, got {len(weights_idx)}")
@@ -121,40 +197,20 @@ def build_grid_penalty(
     return penalty
 
 def trapz_jax(y: jnp.ndarray, x: jnp.ndarray) -> jnp.ndarray:
+    """
+    JAX-compatible trapezoidal integration.
+
+    Parameters
+    ----------
+    y : jnp.ndarray
+        Function values.
+    x : jnp.ndarray
+        Grid over which integration is performed.
+
+    Returns
+    -------
+    jnp.ndarray
+        Approximate integral of y over x.
+    """
     dx = x[1:] - x[:-1]
     return jnp.sum((y[1:] + y[:-1]) * dx / 2)
-
-# def make_super_fused(funcs):
-#     # For clarity, give each function a label
-#     fn_labels = [f"fn{i}" for i in range(len(funcs))]
-#     param_counts = [f.n_params for f in funcs]
-#     param_splits = [0] + list(jnp.cumsum(jnp.array(param_counts)))
-    
-#     # Build the code string for the fused function
-#     code_lines = ["def fused(x, all_args, " + ", ".join(fn_labels) + "):"]
-#     code_lines.append("    out = 0.0")
-#     for i, (fn, start, end) in enumerate(zip(fn_labels, param_splits[:-1], param_splits[1:])):
-#         code_lines.append(f"    out += {fn}(x, all_args[{start}:{end}])")
-#     code_lines.append("    return out")
-#     code_str = "\n".join(code_lines)
-    
-#     # Local namespace to exec into
-#     local_ns = {}
-#     exec(code_str, {}, local_ns)
-#     fused = local_ns["fused"]
-#     # Partially apply the profile functions as fixed arguments
-#     def fused_fixed(x, all_args):
-#         return fused(x, all_args, *funcs)
-#     return fused_fixed
-
-# def param_count(n):
-#     """
-#     A decorator that attaches an attribute `.n_params` to the function,
-#     indicating how many parameters it expects.
-#     """
-
-#     def decorator(func):
-#         func.n_params = n
-#         return func
-
-#     return decorator

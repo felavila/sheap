@@ -1,4 +1,26 @@
-"""This module handles basic operations."""
+"""
+FITS Spectrum Readers
+=====================
+
+This module provides utilities to read spectra from different survey
+and simulation formats (SDSS, DESI, PyQSO, and custom simulations).
+It also includes parallel and batched readers to handle multiple files
+efficiently, with fallbacks for sequential reading.
+
+Readers
+-------
+- fits_reader_sdss:       SDSS spectra (PLATE-MJD-FIBERID format)
+- fits_reader_desi:       DESI spectra
+- fits_reader_pyqso:      PyQSO pipeline spectra
+- fits_reader_simulation: Simulated spectra
+
+Batching / Parallel utilities
+-----------------------------
+- parallel_reader
+- batched_reader
+- sequential_reader
+"""
+
 __author__ = 'felavila'
 
 __all__ = [
@@ -20,53 +42,131 @@ from astropy.io import fits
 from functools import partial
 
 from sheap.Utils.SpectralSetup import resize_and_fill_with_nans
-# Limit CPUs for safety
-n_cpu = min(4, os.cpu_count())  # Adjustable
 
-def fits_reader_desi(file):
-    "wdisp in pixels i guess"
-    
-    
+# Limit CPUs for safety
+n_cpu = min(4, os.cpu_count())
+
+
+def fits_reader_desi(file: str):
+    """
+    Read a DESI FITS spectrum.
+
+    Parameters
+    ----------
+    file : str
+        Path to DESI FITS file.
+
+    Returns
+    -------
+    data_array : np.ndarray
+        Array with shape (3, n_pix): [wavelength, flux, error].
+    header_array : np.ndarray
+        Array with RA and DEC from header.
+    """
     hdul = fits.open(file)
     flux_scale = float(hdul[1].header["TUNIT2"].split(" ")[0])
     ivar_scale = float(hdul[1].header["TUNIT3"].split(" ")[0])
     data = hdul[1].data
-    data_array = np.array([data["WAVELENGTH"],data["FLUX"] * flux_scale,1/np.sqrt(data["IVAR"]* ivar_scale)])
+    data_array = np.array([
+        data["WAVELENGTH"],
+        data["FLUX"] * flux_scale,
+        1 / np.sqrt(data["IVAR"] * ivar_scale)
+    ])
     data_array[np.isinf(data_array)] = 1e20
-    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])#PLUG_RA/PLUG_DEC
+    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])
     return data_array, header_array
 
 
-#('WAVE', '>f4', (23198,)), ('FLUX', '>f4', (23198,)), ('ERR_FLUX', '>f4', (23198,)
-def fits_reader_simulation(file,chanel=1,template=False):
+def fits_reader_simulation(file: str, chanel: int = 1, template: bool = False):
+    """
+    Read a simulated spectrum from a FITS file.
+
+    Parameters
+    ----------
+    file : str
+        Path to simulation FITS file.
+    chanel : int, default=1
+        HDU extension index to read.
+    template : bool, default=False
+        If True, reads template arrays.
+
+    Returns
+    -------
+    data_array : np.ndarray
+        Array with shape (n_channels, n_pix).
+    header_array : list
+        Empty or metadata, depending on template.
+    """
     hdul = fits.open(file)
     header_array = []
     if template:
-        data_array = np.array([hdul[chanel].data['LAMBDA'], hdul[chanel].data["FLUX_DENSITY"]])
+        data_array = np.array([
+            hdul[chanel].data['LAMBDA'],
+            hdul[chanel].data["FLUX_DENSITY"]
+        ])
         return data_array.squeeze(), header_array
-    if chanel==1:
-        data_array = np.array([hdul[chanel].data["WAVE"], hdul[chanel].data["FLUX"],hdul[chanel].data["ERR_FLUX"]])
+
+    if chanel == 1:
+        data_array = np.array([
+            hdul[chanel].data["WAVE"],
+            hdul[chanel].data["FLUX"],
+            hdul[chanel].data["ERR_FLUX"],
+        ])
     else:
-        data_array = np.array([hdul[chanel].data["WAVE"], hdul[chanel].data["FLUX"],hdul[chanel].data["ERR"]])
-    
+        data_array = np.array([
+            hdul[chanel].data["WAVE"],
+            hdul[chanel].data["FLUX"],
+            hdul[chanel].data["ERR"],
+        ])
     return data_array.squeeze(), header_array
 
-def fits_reader_sdss(file):
-    "wdisp in pixels i guess"
-    
-    
+
+def fits_reader_sdss(file: str):
+    """
+    Read an SDSS FITS spectrum.
+
+    Parameters
+    ----------
+    file : str
+        Path to SDSS FITS file.
+
+    Returns
+    -------
+    data_array : np.ndarray
+        Array with shape (4, n_pix): [wavelength, flux, error, wdisp].
+    header_array : np.ndarray
+        Array with RA and DEC from header.
+    """
     hdul = fits.open(file)
     flux_scale = float(hdul[0].header["BUNIT"].split(" ")[0])
     data = hdul[1].data
     data_array = np.array([
         10 ** data["loglam"],
         data["flux"] * flux_scale,
-        flux_scale / np.sqrt(data["ivar"]),data["wdisp"]])
+        flux_scale / np.sqrt(data["ivar"]),
+        data["wdisp"]
+    ])
     data_array[np.isinf(data_array)] = 1e20
-    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])#PLUG_RA/PLUG_DEC
+    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])
     return data_array, header_array
 
-def fits_reader_pyqso(file):
+
+def fits_reader_pyqso(file: str):
+    """
+    Read a PyQSO-format spectrum.
+
+    Parameters
+    ----------
+    file : str
+        Path to PyQSO FITS file.
+
+    Returns
+    -------
+    spectra : np.ndarray
+        Array with shape (3, n_pix): [wavelength, flux, error].
+    header_array : list
+        Empty list (no coords stored).
+    """
     hdul = fits.open(file)
     spectra = np.array([
         hdul[3].data["wave_prereduced"],
@@ -75,20 +175,36 @@ def fits_reader_pyqso(file):
     ])
     return spectra, []
 
+
 READER_FUNCTIONS = {
     "fits_reader_sdss": fits_reader_sdss,
     "fits_reader_simulation": fits_reader_simulation,
     "fits_reader_pyqso": fits_reader_pyqso,
-    "fits_reader_desi" :fits_reader_desi
+    "fits_reader_desi": fits_reader_desi,
 }
-
-
 
 
 def parallel_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     """
-    Safe parallel reading using multiprocessing.Pool.
-    Accepts additional keyword arguments for the reader function.
+    Parallel reader using multiprocessing.
+
+    Parameters
+    ----------
+    paths : list of str
+        Paths to FITS files.
+    n_cpu : int, optional
+        Number of processes to use (default=min(4, os.cpu_count())).
+    function : callable or str, optional
+        Reader function or key in `READER_FUNCTIONS`.
+
+    Returns
+    -------
+    coords : np.ndarray
+        Coordinates from headers (RA, DEC).
+    spectra_reshaped : list
+        Placeholder for reshaped spectra (currently empty).
+    spectra : list of np.ndarray
+        Raw spectra arrays.
     """
     if isinstance(function, str):
         function = READER_FUNCTIONS[function]
@@ -101,39 +217,37 @@ def parallel_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     spectra = [result[0] for result in results]
     coords = np.array([result[1] for result in results])
     shapes_max = max(s.shape[1] for s in spectra)
-    spectra_reshaped = []
-    #np.array([
-        #resize_and_fill_with_nans(s, shapes_max) for s in spectra
-    #])
+    spectra_reshaped = []  # TODO: enable resize_and_fill_with_nans
     return coords, spectra_reshaped, spectra
 
-# def parallel_reader_safe(paths, n_cpu=n_cpu, function=fits_reader_sdss):
-#     """
-#     Safe parallel reading using multiprocessing.Pool.
-#     """
-#     if isinstance(function, str):
-#         function = READER_FUNCTIONS[function]
-
-#     with Pool(processes=min(n_cpu, len(paths))) as pool:
-#         results = pool.map(function, paths, chunksize=1)
-
-#     spectra = [result[0] for result in results]
-#     coords = np.array([result[1] for result in results])
-#     shapes_max = max(s.shape[1] for s in spectra)
-#     spectra_reshaped = np.array([
-#         resize_and_fill_with_nans(s, shapes_max) for s in spectra
-#     ])
-#     return coords, spectra_reshaped, spectra
 
 def batched_reader(paths, batch_size=8, function=fits_reader_sdss):
     """
-    Batch files in groups for safer memory usage.
+    Batch reader for safer memory usage.
+
+    Parameters
+    ----------
+    paths : list of str
+        Paths to FITS files.
+    batch_size : int, optional
+        Number of files to read per batch.
+    function : callable or str, optional
+        Reader function or key in `READER_FUNCTIONS`.
+
+    Returns
+    -------
+    coords : np.ndarray
+        Stacked coordinates from all batches.
+    spectra_reshaped : str
+        Placeholder (currently unused).
+    spectra_raw : list of np.ndarray
+        All raw spectra arrays.
     """
     all_coords, all_reshaped, all_raw = [], [], []
 
     for i in range(0, len(paths), batch_size):
         batch = paths[i:i + batch_size]
-        coords, reshaped, raw = parallel_reader_safe(
+        coords, reshaped, raw = parallel_reader(
             batch, n_cpu=min(n_cpu, len(batch)), function=function
         )
         all_coords.append(coords)
@@ -141,13 +255,28 @@ def batched_reader(paths, batch_size=8, function=fits_reader_sdss):
         all_raw.extend(raw)
 
     coords = np.vstack(all_coords)
-    _ = "a"
-    #spectra_reshaped = np.vstack(all_reshaped)
-    return coords, _, all_raw
+    return coords, "unused", all_raw
+
 
 def sequential_reader(paths, function=fits_reader_sdss):
     """
-    Fully sequential fallback reader.
+    Sequential FITS reader (fallback for debugging).
+
+    Parameters
+    ----------
+    paths : list of str
+        Paths to FITS files.
+    function : callable or str, optional
+        Reader function or key in `READER_FUNCTIONS`.
+
+    Returns
+    -------
+    coords : np.ndarray
+        Coordinates from headers (RA, DEC).
+    spectra_reshaped : np.ndarray
+        Reshaped spectra array.
+    spectra : list of np.ndarray
+        Raw spectra arrays.
     """
     results = []
     for i in paths:
@@ -162,6 +291,7 @@ def sequential_reader(paths, function=fits_reader_sdss):
         resize_and_fill_with_nans(s, shapes_max) for s in spectra
     ])
     return coords, spectra_reshaped, spectra
+
 
 # Ensure start method is set safely when calling as a script
 if __name__ == '__main__':

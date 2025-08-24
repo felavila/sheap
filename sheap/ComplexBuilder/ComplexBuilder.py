@@ -1,4 +1,96 @@
-"""This module ."""
+"""
+ComplexBuilder
+==============
+
+Builds spectral fitting regions from wavelength bounds and YAML templates.
+It assembles narrow/broad/outflow/wind/BAL/FeII components, adds continuum
+(and optional Balmer continua), and generates parameter‑tying rules suitable
+for downstream fitting.
+
+Main features
+-------------
+- Load line definitions from YAML repositories within a wavelength window.
+- Instantiate `SpectralLine` objects for narrow/broad/outflow/wind/BAL/FeII.
+- Add continuum components (power law, linear; Balmer/Balmer high order optional).
+- Group lines into SPAF composites and apply known/amplitude ties.
+- Produce a `ComplexRegion` and a fitting routine configuration.
+
+
+Parameters
+----------
+xmin : float
+    Lower wavelength bound of the region (Å).
+xmax : float
+    Upper wavelength bound of the region (Å).
+n_narrow : int, optional
+    Number of narrow components per line (default: 1).
+n_broad : int, optional
+    Number of broad components per line (default: 1).
+line_repository_path : list[str | pathlib.Path], optional
+    Paths to YAML files defining line templates. If not provided, loads all
+    templates in ``SuportData/LineRepository``.
+fe_mode : {"template", "model", "none"}, optional
+    How to include FeII emission (default: "template").
+continuum_profile : str, optional
+    Continuum profile name (keys of ``PROFILE_CONTINUUM_FUNC_MAP``; default: "powerlaw").
+group_method : bool, optional
+    If True, group lines and apply default ties automatically (default: True).
+add_outflow : bool, optional
+    Include outflow components for selected narrow lines (default: False).
+add_winds : bool, optional
+    Include wind components for selected broad lines (default: False).
+add_balmer_continuum : bool, optional
+    Include Balmer continuum component (default: False).
+add_balmerhighorder_continuum : bool, optional
+    Include Balmer high‑order continuum template (default: False).
+add_uncommon_narrow : bool, optional
+    Include lines marked as uncommon (default: False).
+add_host_miles : bool | dict, optional
+    Include a host‑galaxy template from MILES (``True`` for defaults or a dict of kwargs).
+tied_narrow_to : str | dict, optional
+    Main line (or per‑component map) to which narrow lines are tied.
+tied_broad_to : str | dict, optional
+    Main line (or per‑component map) to which broad lines are tied.
+n_max_component_outflow : int, optional
+    Max outflow components per line (default: 1).
+n_max_component_winds : int, optional
+    Max wind components per line (default: 1).
+n_max_component_bal : int, optional
+    Max BAL components per line (default: 1).
+verbose : bool, optional
+    Print informational messages (default: True).
+
+Attributes
+----------
+lines_available : dict[str, list[dict]]
+    Loaded line definitions keyed by YAML stem.
+pseudo_region_available : list[str]
+    Available pseudo‑region keys found in YAML.
+complex_class : ComplexRegion
+    Final container with all built `SpectralLine` objects.
+known_tied_relations : list[tuple]
+    Default amplitude/center ties used during grouping when enabled.
+
+Examples
+--------
+>>> cb = ComplexBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
+>>> cb.make_region()
+>>> config = cb._make_fitting_routine(
+...     list_num_steps=[2000, 2000],
+...     list_learning_rate=[1e-1, 1e-2]
+... )
+
+Notes
+-----
+- If the wavelength span is shorter than ``LINEAR_RANGE_THRESHOLD``, the
+  continuum is forced to linear for stability.
+- ``group_method=True`` collapses lines into SPAF composites per region/element
+  and applies known ties (e.g., [O III], [N II]) automatically.
+- FeII “template” mode inserts broad templates spanning the requested range;
+  “model” loads individual FeII lines; “none” skips FeII.
+"""
+
+
 from __future__ import annotations
 __author__ = 'felavila'
 

@@ -1,4 +1,32 @@
-"""This module contains the utilities use for ComplexBuilder."""
+"""
+ComplexBuilder Utilities
+=======================
+
+Helpers for constructing parameter ties and grouping spectral lines
+into composite (SPAF) profiles used by the ComplexBuilder pipeline.
+
+Main Features
+-------------
+- **Fe ties**: Build tied-parameter expressions for Fe regions based on
+    element or subregion membership (:func:`fe_ties`).
+- **Region ties**: Generate coherent tie maps for narrow/broad components,
+    optionally merging with known relations (:func:`_maketies`).
+- **Index ties resolution**: Flatten index-based dependencies into a simple
+    (coefficient, free-index) mapping (:func:`flatten_index_ties`).
+- **Line grouping (SPAF)**: Collapse multiple lines into grouped pseudo-lines
+    with amplitude relations for compact modeling (:func:`group_lines`).
+
+Notes
+-----
+- Tie expressions follow the naming scheme:
+    ``{param}_{line_name}_{component}_{region}``, e.g.
+    ``center_Hbeta_1_broad`` or ``fwhm_OIIIc_1_narrow``.
+- Amplitude handling may depend on your parameterization (e.g., ``logamp`` vs
+    linear amplitude). If you moved to logarithmic amplitudes, ensure upstream
+    tie generation is consistent with that convention.
+- The grouping logic supports modes ``"region"``, ``"subregion"``, and
+    ``"element"``; choose according to how you want lines fused.
+"""
 
 __author__ = 'felavila'
 

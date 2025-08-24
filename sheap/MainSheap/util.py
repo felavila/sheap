@@ -1,3 +1,11 @@
+"""This module ?."""
+__author__ = 'felavila'
+
+__all__ = [
+    "ensure_sfd_data",
+    
+]
+
 import requests
 from pathlib import Path
 

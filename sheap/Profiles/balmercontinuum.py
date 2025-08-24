@@ -1,6 +1,40 @@
+"""
+Balmer continuum
+==================
 
+This module implements Balmer continuum available in *sheap*, with a focus
+on physically motivated prescriptions for AGN spectra.
 
-"""This module contains all the continuum profiles available in sheap."""
+Contents
+--------
+- **balmercontinuum** : Balmer edge continuum with edge normalization and optional
+  velocity shift.
+- **_planck_ratio_lambda** : Stable ratio of Planck functions B_λ(T)/B_λref(T).
+- **_softplus** : Numerically stable softplus transform, used for reparameterization.
+
+Notes
+-----
+- The Balmer continuum follows the Dietrich+2002 prescription but is normalized
+  at the Balmer edge (λ_BE = 3646 Å) for stability.
+- Temperature (`T_raw`), optical depth (`tau_raw`), and velocity (`v_raw`) are
+  parameterized in raw space and transformed into physical values inside the
+  function.
+- The velocity parameter allows a global Doppler shift of the edge up to
+  ±3000 km/s.
+- All functions are JAX-compatible and differentiable.
+
+Example
+-------
+.. code-block:: python
+
+   import jax.numpy as jnp
+   from sheap.Profiles.continuum_profiles import balmercontinuum
+
+   lam = jnp.linspace(3000, 4000, 500)  # Å
+   pars = [1.0, 0.5, -0.1, 0.0]         # [amplitude, T_raw, tau_raw, v_raw]
+   flux = balmercontinuum(lam, pars)
+"""
+
 __author__ = 'felavila'
 
 
