@@ -137,7 +137,7 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
 /* Definition-list term badge (both html4 & html5 writers) */
 html .rst-content dl:not(.docutils) > dt,
 html .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):not(.citation):not(.glossary):not(.simple) > dt {
-  background: #D3DAD9 !important;      /* ← your background */
+  background: #a38383 !important;      /* ← your background */
   color: #37353E !important;            /* ← your text color */
   border-top: 3px solid #715A5A !important;  /* ← accent bar */
 }
@@ -145,9 +145,37 @@ html .rst-content dl[class]:not(.option-list):not(.field-list):not(.footnote):no
 /* If you also want the docstring field lists (Parameters/Returns) to match */
 .rst-content dl.field-list > dt,
 .rst-content dl.field-list > dt > strong {
-  background: #D3DAD9 !important;
+  background: #a38383 !important;
   color: #37353E !important;
   border-top: 3px solid #715A5A !important;
 }
 
 
+
+/* ===== Admonitions: NOTE ===== */
+.rst-content .admonition.note {
+  background: #7e6ab4 !important;      /* body background */
+  border: 1px solid #5634b4 !important; /* outer border */
+}
+.rst-content .admonition.note > .admonition-title {
+  background: #7e6ab4 !important;      /* header bar */
+  color: #ffffff !important;            /* header text */
+  border-bottom: 1px solid #5634b4 !important;
+}
+.rst-content .admonition.note > .admonition-title:before {
+  color: #ffffff !important;            /* icon color */
+}
+
+/* Optional: link & code colors inside admonitions */
+.rst-content .admonition a { color: #5634b4; }
+.rst-content .admonition code { background: #2d2d2d; color: #f8f8f2; }
+
+/* (If you use a dark-mode toggle) */
+html[data-theme="dark"] .rst-content .admonition.note {
+  background: #1f2430 !important;
+  border-color: #5634b4 !important;
+}
+html[data-theme="dark"] .rst-content .admonition.note > .admonition-title {
+  background: #5634b4!important;
+  color: #ffffff !important;
+}
