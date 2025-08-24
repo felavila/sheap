@@ -43,8 +43,8 @@ div.highlight pre, div.highlight {
 
 /* Optional: inline code styling */
 code {
-    background-color: #715A5A !important;
-    color: #f8f8f2 !important;
+    background-color: #382b2b !important;
+    color: #fafafa !important;
     border-radius: 4px;
     padding: 2px 4px;
 }
@@ -98,3 +98,21 @@ html[data-theme="dark"] nav.wy-nav-side .wy-menu-vertical .caption > span.captio
     background: #37353E;
     color: #D3DAD9
 } */
+
+.highlight .nn {
+    color: #007db3;
+    font-weight: bold;
+}
+
+.highlight .s2 {
+    color: #2c68a3;
+}
+
+.highlight .mf {
+    color: #048645;
+}
+
+.highlight .kn {
+    color: #004714;
+    font-weight: bold;
+}
