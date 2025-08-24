@@ -1,8 +1,5 @@
 :github_url: https://github.com/felavila/sheap
 
-===============================
-Welcome to sheap documentation
-===============================
 
 .. include:: getting_started.rst
 
