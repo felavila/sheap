@@ -159,13 +159,13 @@ def make_feii_template_function(
         sigma_pix    = sigma_lambda / dl               # pixels
 
         n_pix = unit_flux.shape[0]
-        # FFT-based Gaussian broadening
-        freq     = jnp.fft.fftfreq(n_pix, d=dl)
+        #freq     = jnp.fft.fftfreq(n_pix, d=dl)
+        freq     = jnp.fft.fftfreq(n_pix, d=1.0)
         gauss_tf = jnp.exp(-2.0 * (jnp.pi * freq * sigma_pix) ** 2)
         spec_fft = jnp.fft.fft(jnp.asarray(unit_flux))
         broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
 
-        # Apply shift in Å and interpolate onto x
+        
         shifted_wl = jnp.asarray(wl) + shift
         interp = jnp.interp(x, shifted_wl, broadened, left=0.0, right=0.0)
         return amp * interp
