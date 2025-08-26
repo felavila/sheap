@@ -56,7 +56,7 @@ from numpyro.infer.initialization import init_to_value
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp
 from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
 from .utils.numpyroutils import make_numpyro_model
-#from .utils.ParametersSampler import posterior_parameters
+
 
 
 class McMcSampler:
