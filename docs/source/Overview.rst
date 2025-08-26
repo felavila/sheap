@@ -72,17 +72,17 @@ Documentation
 
 See the following modules for detailed API reference:
 
-- :py:mod:`sheap.MainSheap.Sheapectral`: core entry point, I/O, extinction & redshift correction  
+- :py:mod:`Sheapectral <sheap.MainSheap.Sheapectral>`: core entry point, I/O, extinction & redshift correction  
 
-- :py:mod:`sheap.ComplexBuilder.ComplexBuilder`: construct line‐fitting templates from YAML & rules  
+- :py:mod:`ComplexBuilder <sheap.ComplexBuilder.ComplexBuilder>`: construct line‐fitting templates from YAML & rules  
 
-- :py:mod:`sheap.ComplexFitting.ComplexFitting`: perform JAX/Optax minimization with constraints  
+- :py:mod:`ComplexFitting <sheap.ComplexFitting.ComplexFitting>`: perform JAX/Optax minimization with constraints  
 
-- :py:mod:`sheap.Minimizer.Minimizer`: low‐level optimizer wrapper  
+- :py:mod:`Minimizer <sheap.Minimizer.Minimizer>`: low‐level optimizer wrapper  
 
-- :py:mod:`sheap.ComplexAfterFit.ComplexAfterFit`: Posterior sampling 
+- :py:mod:`ComplexAfterFit <sheap.ComplexAfterFit.ComplexAfterFit>`: Posterior sampling 
 
-- :py:mod:`sheap.ComplexAfterFit.AfterFitParams`: sheap extra products. 
+- :py:mod:`AfterFitParams <sheap.ComplexAfterFit.AfterFitParams>`: sheap extra products. 
 
 .. Installation
 .. ------------
