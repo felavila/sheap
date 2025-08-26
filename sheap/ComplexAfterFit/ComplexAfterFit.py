@@ -6,7 +6,7 @@ Post–fitting interface for extracting physical parameters and running
 posterior sampling on spectral models.
 
 This module defines :class:`ComplexAfterFit`, which acts as a high-level
-wrapper around results from :class:`Sheapectral` or :class:`ComplexResult`.
+wrapper around results from :class:`Sheapectral <sheap.MainSheap.Sheapectral>` or :class:`ComplexResult <sheap.Core.ComplexResult>`.
 It provides multiple strategies to handle parameters after fitting:
 
 - **Single best-fit mode**  
