@@ -87,5 +87,5 @@ def read_yaml(p: Path) -> dict:
 # Load configuration data
 # ---------------------------------------------------------------------
 DEFAULT_LIMITS = read_yaml(_DEFAULT_LIMITS)
-SINGLE_EPOCH_ESTIMATORS = read_yaml(_SINGLE_EPOCH_ESTIMATORS)
-BOL_CORRECTIONS = read_yaml(_BOL_CORRECTIONS)
+DEFAULT_SINGLE_EPOCH_ESTIMATORS = read_yaml(_SINGLE_EPOCH_ESTIMATORS)
+DEFAULT_BOL_CORRECTIONS = read_yaml(_BOL_CORRECTIONS)

@@ -51,8 +51,7 @@ import numpy as np
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params
 from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
-#from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_fast
-#from .utils.ParametersSampler import posterior_parameters
+
 
 class PseudoMonteCarloSampler:
     """

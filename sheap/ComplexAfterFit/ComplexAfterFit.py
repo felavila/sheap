@@ -70,7 +70,7 @@ from sheap.Core import ComplexResult
 from sheap.Profiles.utils import make_fused_profiles
 
 
-from sheap.Utils.Constants import BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
+from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
 
 
 
@@ -150,8 +150,8 @@ class ComplexAfterFit:
         z: Optional[jnp.ndarray] = None,
         fluxnorm=None,
         cosmo=None,
-        BOL_CORRECTIONS = BOL_CORRECTIONS,
-        SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS,
+        BOL_CORRECTIONS = None,
+        SINGLE_EPOCH_ESTIMATORS = None,
         c=c,):
         """
         Initialize ParameterEstimation context.
@@ -183,9 +183,10 @@ class ComplexAfterFit:
             self._from_complexresult(complexresult, spectra, z)
         else:
             raise ValueError("Provide either `sheap` or (`complexresult` + `spectra`).")
-        
-        self.BOL_CORRECTIONS = BOL_CORRECTIONS
-        self.SINGLE_EPOCH_ESTIMATORS = SINGLE_EPOCH_ESTIMATORS
+        if not BOL_CORRECTIONS:
+            self.BOL_CORRECTIONS = DEFAULT_BOL_CORRECTIONS
+        if not SINGLE_EPOCH_ESTIMATORS:
+            self.SINGLE_EPOCH_ESTIMATORS = DEFAULT_SINGLE_EPOCH_ESTIMATORS
         self.c = c
         if self.z is None:
             print("None informed redshift, assuming zero.")
