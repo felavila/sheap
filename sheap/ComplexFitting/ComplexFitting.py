@@ -289,7 +289,7 @@ class ComplexFitting:
                 step["learning_rate"] = list_learning_rate[_step]
             if isinstance(list_num_steps,list):
                 step["num_steps"] = list_num_steps[_step]
-            print(f"\n{'='*40}\n{key.upper()} ({key}) free params {self.initial_params.shape[0]-len(step['tied'])}")
+            print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
             start_time = time.time()  # 
             params, loss = self._fit(_step,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,

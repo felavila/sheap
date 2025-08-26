@@ -118,7 +118,7 @@ def make_feii_template_function(
 
     # Optional wavelength cut with ±50 Å margin (like host model)
     if x_min is not None or x_max is not None:
-        print("cutting between",x_min,x_max)
+        #print("cutting between",x_min,x_max)
         mask = np.ones_like(wl, dtype=bool)
         if x_min is not None:
             mask &= wl >= max(x_min - 50.0, wl.min())
@@ -377,8 +377,9 @@ def make_host_function(
     filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
     z_include: Optional[Union[tuple[float, float], list[float]]] = [-0.7, 0.22],
     age_include: Optional[Union[tuple[float, float], list[float]]] = [0.1, 10.0],
-    x_min: Optional[float] = None,  # in Angstroms (linear)
+    x_min: Optional[float] = None, 
     x_max: Optional[float] = None,
+    verbose: Optional[bool] = None,
     **kwargs,
 ) -> dict:
     """
@@ -387,7 +388,7 @@ def make_host_function(
       - np.load(..., mmap_mode='r') to reduce RAM pressure
       - keeps arrays in float32
     """
-    # 1) memory-map to avoid loading everything eagerly into RAM
+    
     data = np.load(filename, mmap_mode="r")
 
     cube = np.asarray(data["cube_log"], dtype=np.float32)   # (n_Z, n_age, n_pix)
@@ -397,7 +398,6 @@ def make_host_function(
     sigmatemplate = float(data["sigmatemplate"])
     fixed_dispersion = float(data["fixed_dispersion"])
 
-    # 2) filter Z / age
     if z_include is not None:
         z_min, z_max = np.min(z_include), np.max(z_include)
         z_mask = (all_zs >= z_min) & (all_zs <= z_max)
@@ -418,7 +418,7 @@ def make_host_function(
     else:
         ages = all_ages
 
-    # 3) wavelength window (do this before flattening to shrink everything downstream)
+    
     if x_min is not None or x_max is not None:
         mask = np.ones_like(wave, dtype=bool)
         if x_min is not None:
@@ -432,8 +432,9 @@ def make_host_function(
 
     dx = float(wave[1] - wave[0])
     n_Z, n_age, n_pix = cube.shape
+    #if verbose:
     print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
-    # 4) flatten the grid to (n_templates, n_pix) and keep it float32
+
     templates_flat = cube.reshape(-1, n_pix)                # numpy array
     grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
 
@@ -444,7 +445,7 @@ def make_host_function(
         astr = str(age).replace(".", "p")
         param_names.append(f"weight_Z{zstr}_age{astr}")
 
-    # 6) Put the (n_templates, n_pix) matrix on device once, but DO NOT precompute FFT per template
+   
     templates_jax = jnp.asarray(templates_flat)             # (N, P) float32
     wave_jax = jnp.asarray(wave)
     freq = jnp.fft.fftfreq(n_pix, d=dx)                     # (P,) float64 -> cast to float32
@@ -458,11 +459,10 @@ def make_host_function(
         shift_A = params[2]
         weights = params[3:]                                 # (N,)
 
-        # Single weighted sum first to avoid (N,P) intermediates downstream
-        # base := Σ_i w_i * template_i, shape (P,)
+       
         base = jnp.tensordot(weights, templates_jax, axes=(0, 0))  # (P,)
 
-        # Gaussian width for convolution
+        
         FWHM = 10.0 ** logFWHM
         sigma_model = FWHM / 2.355
         delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
@@ -474,7 +474,6 @@ def make_host_function(
         base_fft = jnp.fft.fft(base)                                        # (P,) complex64
         conv = jnp.real(jnp.fft.ifft(base_fft * gauss_tf))                  # (P,) float32
 
-        # shift in wavelength domain (simple & safe; phase-shift would be circular)
         return amplitude * jnp.interp(x, wave_jax + shift_A, conv, left=0.0, right=0.0)
 
     return {

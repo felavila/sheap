@@ -344,7 +344,8 @@ class Sheapectral:
     #     self._makecomplex(xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=group_method,**kwargs)
     #     self._fitcomplex()
         
-    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,**kwargs):
+    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,
+                    add_balmer_continuum = None,add_balmerhighorder_continuum = None ,**kwargs):
         """
         Initialize a ComplexBuilder for later fitting.
 
@@ -365,7 +366,18 @@ class Sheapectral:
         -------
         None
         """
-        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,**kwargs)
+        if xmin < 3600:
+            print("add_balmer_continuum")
+         #   add_balmer_continuum = add_balmer_continuum or True
+        
+        if 3700 > xmin and 4000 < xmax:    
+            print("add_balmerhighorder_continuum")
+            add_balmerhighorder_continuum = add_balmerhighorder_continuum or True
+        #print(add_balmer_continuum,add_balmerhighorder_continuum)
+        
+        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
+                                           add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
+                                           **kwargs)
     
 
     def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'

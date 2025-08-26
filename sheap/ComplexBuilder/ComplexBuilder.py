@@ -610,7 +610,7 @@ class ComplexBuilder:
         if fe_mode == "none":
             return fe_comps
         elif fe_mode == "template":
-            print("Added feuvop template")
+            #print("Added feuvop template")
             fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
             # t_c = 0
             # if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
@@ -737,6 +737,7 @@ class ComplexBuilder:
         defaults = {name: val for name, val in zip(names_for_pos, pos_defaults)}
         defaults["x_max"] = xmax
         defaults["x_min"] = xmin
+        defaults["verbose"] = False
         if isinstance(add_host_miles,bool):
             _host_model = make_host_function(**defaults)
         elif isinstance(add_host_miles,Dict):

@@ -341,7 +341,7 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "fetemplate":
-        print("trying to add balmerhighorder")
+        #print("trying to add balmerhighorder")
         lambda0 = 3675.0 #limits.canonical_wavelengths
         v_shift = 1500.0 
         init_fwhm = 2000.0
