@@ -62,7 +62,7 @@ Quickstart
 
    .. code-block:: python
 
-      spec.afterfit(sampling_method="pseudomontecarlo")
+      spec.posteriors(sampling_method="pseudomontecarlo")
       spec.result.posterior[1]
 
 

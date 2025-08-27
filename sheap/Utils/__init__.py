@@ -10,6 +10,7 @@ __all__ = [
     "extras",
     "Vocalisations",
     "Interp_tools"
+    "UncertaintyFunction"
 ]
 
 

@@ -63,11 +63,11 @@ from collections import defaultdict
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
 from sheap.Profiles.Utils import make_integrator
 
-from sheap.ComplexSampler.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
-from sheap.ComplexSampler.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
-from sheap.ComplexSampler.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexSampler.Utils.Combine_profiles import combine_components
-from sheap.ComplexSampler.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
+from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
+from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
+from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
+from sheap.ComplexParams.Utils.Combine_profiles import combine_components
+from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 

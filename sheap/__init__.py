@@ -10,7 +10,7 @@ __all__ = [
     "ComplexAfterFit",
     "ComplexBuilder",
     "ComplexFitting",
-    "MainSheap",
+    "Sheapectral",
     "Minimizer",
     "Plotting",
     "Profiles",

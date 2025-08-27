@@ -22,11 +22,11 @@ __all__ = ["deredshift","unred",]
 
 import functools as ft
 
-import jax
+#import jax,jit,
 import jax.numpy as jnp
-from jax import jit, vmap
+from jax import  vmap
 
-from sheap.Utils.interp_tools import cubic_spline_coefficients, spline_eval
+from sheap.Utils.Interp_tools import cubic_spline_coefficients, spline_eval
 
 
 #basic correction for reddening and redshift.

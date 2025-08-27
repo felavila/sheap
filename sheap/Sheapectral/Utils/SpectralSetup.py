@@ -29,6 +29,7 @@ from typing import Optional, Sequence, Tuple
 
 import jax.numpy as jnp
 import numpy as np
+from pathlib import Path
 
 from sheap.Core import ArrayLike
 

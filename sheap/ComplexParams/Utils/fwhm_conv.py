@@ -1,4 +1,4 @@
-"""
+r"""
 FWHM utilities for line profiles
 ================================
 
@@ -43,7 +43,7 @@ import warnings
 from functools import partial
 from jax import vmap,jit
 import jax.numpy as jnp
-from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
 
 from jax import jacfwd
 
@@ -52,7 +52,7 @@ def compute_fwhm_split(profile: str,
                        amp:   jnp.ndarray,
                        center:jnp.ndarray,
                        extras:jnp.ndarray) -> jnp.ndarray:
-    """
+    r"""
     Compute the FWHM of a single line component for a given profile.
 
     The function uses analytic formulas when available (Gaussian,
@@ -132,7 +132,7 @@ def compute_fwhm_split_with_error(
     center_err: jnp.ndarray,
     extras_err: jnp.ndarray
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
-    """
+    r"""
     Compute FWHM and its 1σ uncertainty for a single component.
 
     Uncertainty is propagated via the Jacobian of FWHM with respect to

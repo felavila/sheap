@@ -54,7 +54,7 @@ from sheap.Profiles.Utils import make_fused_profiles,build_grid_penalty
 from sheap.Sheapectral.Utils.SpectralSetup import mask_builder, prepare_spectra
 from sheap.Utils.Constants import DEFAULT_LIMITS
 
-from sheap.ComplexAfterFit.UncertaintyFunction import Errorfromloop
+from sheap.Utils.UncertaintyFunction import Errorfromloop
 
 # Configure module-level logger
 logger = logging.getLogger(__name__)

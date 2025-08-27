@@ -57,7 +57,7 @@ import jax.numpy as jnp
 from jax import vmap,jit,jacfwd
 from auto_uncertainties import Uncertainty
 
-from sheap.ComplexAfterFit.Samplers.utils.physicalfunctions import calc_flux,calc_luminosity
+from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosity
 
 def combine_components(
     basic_params,
@@ -140,7 +140,7 @@ def combine_components(
             is_uncertainty = isinstance(amp_b, Uncertainty)
 
             if is_uncertainty:
-                from sheap.ComplexAfterFit.Samplers.utils.afterfitprofilehelpers import evaluate_with_error 
+                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
                 fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
                 if fwhm_c.ndim==1:

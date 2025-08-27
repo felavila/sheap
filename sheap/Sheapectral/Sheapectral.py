@@ -1,5 +1,5 @@
 """
-Main SHEAP Interface
+Main sheap Interface
 ====================
 
 Provides the `Sheapectral` class, the high-level entry point for
@@ -27,7 +27,7 @@ Notes
      sheap = Sheapectral("spectrum.fits", z=0.5, coords=(l, b))
      sheap.makecomplex(6500, 6600, n_narrow=1, n_broad=2)
      sheap.fitcomplex()
-     sheap.afterfit(sampling_method="mcmc")
+     sheap.posteriors(sampling_method="mcmc")
 
 - Results are stored in `self.result` (`ComplexResult`).
 """
@@ -54,7 +54,7 @@ import numpy as np
 
 from sheap.Core import SpectralLine,ComplexResult,ArrayLike
 
-from sheap.MainSheap.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
+from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
@@ -125,7 +125,7 @@ class Sheapectral:
     fitcomplex(...)
         Perform spectral model fitting using the configured complex.
     
-    afterfit(...)
+    posteriors(...)
         Estimate posterior distributions using MC or MCMC or just give and estimation of the params.
 
     save_to_pickle(filepath)
@@ -289,7 +289,7 @@ class Sheapectral:
         None
         """
         from sfdmap2 import sfdmap
-        from sheap.MainSheap.Utils.BasicCorrections import unred
+        from sheap.Sheapectral.Utils.BasicCorrections import unred
         ebv = self.ebv
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
@@ -316,7 +316,7 @@ class Sheapectral:
         -------
         None
         """
-        from sheap.MainSheap.Utils.BasicCorrections import deredshift
+        from sheap.Sheapectral.Utils.BasicCorrections import deredshift
         self.spectra = deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
@@ -443,7 +443,7 @@ class Sheapectral:
 
             self.plotter = SheapPlot(sheap=self)
     
-    def afterfit(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
+    def posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                         num_warmup=500,n_random=1_000):
         """
         Estimate or sample posterior distributions of fit parameters.

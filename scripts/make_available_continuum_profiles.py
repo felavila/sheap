@@ -23,7 +23,7 @@ from typing import Dict, List
 
 DEFAULT_MODULES = [
     "sheap.Profiles.profiles_continuum",
-    "sheap.Profiles.profile_lines",   # note: singular 'profile_lines' here
+    "sheap.Profiles.profiles_lines",   # note: singular 'profile_lines' here
 ]
 
 def underline(title: str, ch: str = "=") -> str:
