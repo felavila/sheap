@@ -4,7 +4,7 @@ After-Fit Profile Helpers
 
 This module provides helper routines to evaluate and integrate
 spectral line profiles while propagating parameter and/or grid
-uncertainties. These are used primarily in the ``ComplexAfterFit``
+uncertainties. These are used primarily in the ``ComplexParams``
 pipeline when computing derived quantities (flux, FWHM, luminosity,
 etc.) from fitted or sampled parameter sets.
 
@@ -101,7 +101,7 @@ def integrate_function_error_single(function: Callable, x: jnp.ndarray,
 
 
 def integrate_batch_with_error(function: Callable, x: jnp.ndarray,
-                               p: jnp.ndarray, sigma_p: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+                            p: jnp.ndarray, sigma_p: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Batched integration with parameter uncertainty propagation.
 
@@ -136,7 +136,7 @@ def integrate_batch_with_error(function: Callable, x: jnp.ndarray,
 
 
 def integrate_function_error(function: Callable, x: jnp.ndarray,
-                             p: jnp.ndarray, sigma_p: jnp.ndarray = None) -> Tuple[jnp.ndarray, jnp.ndarray]:
+                            p: jnp.ndarray, sigma_p: jnp.ndarray = None) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Integrate a profile and propagate parameter uncertainties.
 
@@ -236,7 +236,7 @@ def evaluate_with_error(function: Callable,
 
 
 def batched_evaluate(function: Callable, x: jnp.ndarray,
-                     p: jnp.ndarray, sigma_p: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+                    p: jnp.ndarray, sigma_p: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Batched evaluation with parameter uncertainties only.
 

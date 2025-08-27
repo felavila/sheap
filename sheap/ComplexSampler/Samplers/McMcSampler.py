@@ -18,7 +18,7 @@ Main Features
   applying tied and fixed constraints.
 - Rescales amplitude/log-amplitude parameters back into original units.
 - Wraps posterior samples into physical quantities using
-  :class:`AfterFitParams`.
+  :class:`ComplexParams`.
 
 Public API
 ----------
@@ -54,16 +54,16 @@ from numpyro.infer.initialization import init_to_value
 #
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp
-from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
-from .utils.numpyroutils import make_numpyro_model
+from sheap.ComplexParams.ComplexParams import ComplexParams
+from ComplexSampler.Samplers.Utils.numpyro_utils import make_numpyro_model
 
 
 
 class McMcSampler:
-    def __init__(self, estimator: "ComplexAfterFit"):
+    def __init__(self, estimator: "ComplexSampler"):
         
         self.estimator = estimator  
-        self.afterfitparams = AfterFitParams(estimator)
+        self.complexparams = ComplexParams(estimator)
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
@@ -128,7 +128,7 @@ class McMcSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #matrix_sample_params = matrix_sample_params.at[n].set(full_samples)
-            dic_posterior_params[name_i] = self.afterfitparams.extract_params(full_samples,n)
+            dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n)
             #iterator.close()
         return dic_posterior_params
        

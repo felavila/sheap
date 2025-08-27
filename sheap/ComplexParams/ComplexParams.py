@@ -1,11 +1,11 @@
 """
-After-fit Parameter Handling
+ComplexParams Handling
 ============================
 
 Routines to post-process fitted or sampled parameter sets and compute
 derived physical quantities.
 
-This module provides the :class:`AfterFitParams` class, which acts as a
+This module provides the :class:`ComplexParams` class, which acts as a
 bridge between raw fitting/sampling outputs (parameter vectors) and
 scientifically useful quantities such as line fluxes, widths, equivalent
 widths, luminosities, and single-epoch black hole mass estimators.
@@ -26,31 +26,31 @@ Main Features
 
 Public API
 ----------
-- :class:`AfterFitParams`:
-    High-level handler that connects a :class:`ComplexAfterFit` result
+- :class:`ComplexParams`:
+    High-level handler that connects a :class:`ComplexSampler` result
     to physical parameter extraction.
 
 Typical Workflow
 ----------------
 1. Fit or sample spectra with :class:`RegionFitting` or a sampler.
-2. Wrap the result in a :class:`ComplexAfterFit` instance.
-3. Construct :class:`AfterFitParams(afterclass)` from it.
-4. Call :meth:`AfterFitParams.extract_params` to obtain dictionaries
-   of physical line quantities, optionally summarized across samples.
+2. Wrap the result in a :class:`ComplexSampler` instance.
+3. Construct :class:`ComplexParams(samplerclass)` from it.
+4. Call :meth:`ComplexParams.extract_params` to obtain dictionaries
+    of physical line quantities, optionally summarized across samples.
 
 Notes
 -----
 - The attribute ``method`` determines whether results are handled as
-  ``"single"`` (best fit) or ``"sampled"`` (posterior draws).
+    ``"single"`` (best fit) or ``"sampled"`` (posterior draws).
 - Many helpers internally rely on
-  :func:`make_batch_fwhm_split[_with_error]`,
-  :func:`make_integrator`, and profile-specific shape functions.
+    :func:`make_batch_fwhm_split[_with_error]`,
+    :func:`make_integrator`, and profile-specific shape functions.
 """
 
 __author__ = 'felavila'
 
 __all__ = [
-    "AfterFitParams",
+    "ComplexParams",
 ]
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -61,44 +61,43 @@ from auto_uncertainties import Uncertainty
 from collections import defaultdict
 
 from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
-from sheap.ComplexAfterFit.Samplers.utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.Profiles.utils import make_integrator
-from sheap.ComplexAfterFit.Samplers.utils.physicalfunctions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
-from sheap.ComplexAfterFit.Samplers.utils.afterfitprofilehelpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexAfterFit.Samplers.utils.combine_profiles import combine_components
-from sheap.ComplexAfterFit.Samplers.utils.samplehandlers import pivot_and_split,summarize_nested_samples,concat_dicts
+
+from sheap.ComplexSampler.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
+from sheap.ComplexSampler.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
+from sheap.ComplexSampler.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
+from sheap.ComplexSampler.Utils.Combine_profiles import combine_components
+from sheap.ComplexSampler.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 
-
-
-class AfterFitParams:
-    def __init__(self, afterclass: "ComplexAfterFit"):
-        self.afterclass = afterclass
-        self.model = afterclass.model
-        self.c = afterclass.c
-        self.dependencies = afterclass.dependencies
-        self.scale = afterclass.scale
-        self.fluxnorm = afterclass.fluxnorm
-        self.spec = afterclass.spec
-        self.mask = afterclass.mask
-        self.d = afterclass.d
+class ComplexParams:
+    def __init__(self, samplerclass: "ComplexSampler"):
+        self.samplerclass = samplerclass
+        self.model = samplerclass.model
+        self.c = samplerclass.c
+        self.dependencies = samplerclass.dependencies
+        self.scale = samplerclass.scale
+        self.fluxnorm = samplerclass.fluxnorm
+        self.spec = samplerclass.spec
+        self.mask = samplerclass.mask
+        self.d = samplerclass.d
         
         
-        self.names = afterclass.names 
-        self.complex_class = afterclass.complex_class
-        self.constraints = afterclass.constraints
+        self.names = samplerclass.names 
+        self.complex_class = samplerclass.complex_class
+        self.constraints = samplerclass.constraints
         
-        self.params_dict = afterclass.params_dict
-        self.params = afterclass.params
-        self.uncertainty_params = afterclass.uncertainty_params
-        self.method = afterclass.method
+        self.params_dict = samplerclass.params_dict
+        self.params = samplerclass.params
+        self.uncertainty_params = samplerclass.uncertainty_params
+        self.method = samplerclass.method
         if not self.method:
             print("Not found method sampler")
             self.method = "single"
         
-        self.BOL_CORRECTIONS = afterclass.BOL_CORRECTIONS
-        self.SINGLE_EPOCH_ESTIMATORS = afterclass.SINGLE_EPOCH_ESTIMATORS
+        self.BOL_CORRECTIONS = samplerclass.BOL_CORRECTIONS
+        self.SINGLE_EPOCH_ESTIMATORS = samplerclass.SINGLE_EPOCH_ESTIMATORS
         self.wavelength_grid = jnp.linspace(0, 20_000, 20_000)
         self.LINES_TO_COMBINE = ["Halpha", "Hbeta","MgII","CIV"]
         self.limit_velocity = 150.

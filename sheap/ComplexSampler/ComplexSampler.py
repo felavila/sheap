@@ -1,11 +1,11 @@
 """
-ComplexAfterFit
+ComplexSampler
 ===============
 
 Post–fitting interface for extracting physical parameters and running
 posterior sampling on spectral models.
 
-This module defines :class:`ComplexAfterFit`, which acts as a high-level
+This module defines :class:`ComplexSampler`, which acts as a high-level
 wrapper around results from :class:`Sheapectral <sheap.MainSheap.Sheapectral>` or :class:`ComplexResult <sheap.Core.ComplexResult>`.
 It provides multiple strategies to handle parameters after fitting:
 
@@ -33,10 +33,10 @@ Key Features
   line and continuum physical properties.
 - Exposes convenience methods:
 
-  * :meth:`ComplexAfterFit.sample_single`
-  * :meth:`ComplexAfterFit.montecarlosampler`
-  * :meth:`ComplexAfterFit.sample_pseudomontecarlosampler`
-  * :meth:`ComplexAfterFit.sample_mcmc`
+  * :meth:`ComplexSampler.sample_single`
+  * :meth:`ComplexSampler.montecarlosampler`
+  * :meth:`ComplexSampler.sample_pseudomontecarlosampler`
+  * :meth:`ComplexSampler.sample_mcmc`
 
 Notes
 -----
@@ -51,7 +51,7 @@ __author__ = 'felavila'
 
 
 __all__ = [
-    "ComplexAfterFit",]
+    "ComplexSampler",]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from pathlib import Path
@@ -76,7 +76,7 @@ from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_
 
 #TODO here we have to move the entire subrutines for montecarlosampler/mcmcsampler and ParametersSingle to his respective places bc in general they require different subfunctions. 
 
-class ComplexAfterFit:
+class ComplexSampler:
     """
     Computes best-fit physical parameters and uncertainties for spectral regions.
     Provides Monte Carlo and MCMC posterior sampling.
@@ -223,7 +223,7 @@ class ComplexAfterFit:
         full_samples, summary_dict
             Array of samples and dictionary of summarized statistics.
         """
-        from sheap.ComplexAfterFit.Samplers.PseudoMonteCarloSampler import PseudoMonteCarloSampler
+        from sheap.ComplexSampler.Samplers.PseudoMonteCarloSampler import PseudoMonteCarloSampler
         self.method = "pseudomontecarlos"
         sampler = PseudoMonteCarloSampler(self)
         if summarize:
@@ -250,7 +250,7 @@ class ComplexAfterFit:
         full_samples, summary_dict
             Array of samples and dictionary of summarized statistics.
         """
-        from sheap.ComplexAfterFit.Samplers.MonteCarloSampler import MonteCarloSampler
+        from sheap.ComplexSampler.Samplers.MonteCarloSampler import MonteCarloSampler
         self.method = "montecarlo"
         sampler = MonteCarloSampler(self)
         if summarize:
@@ -279,7 +279,7 @@ class ComplexAfterFit:
         full_chain, summary_dict
             Array of MCMC samples and dictionary of statistics.
         """
-        from sheap.ComplexAfterFit.Samplers.McMcSampler import McMcSampler
+        from sheap.ComplexSampler.Samplers.McMcSampler import McMcSampler
         self.method = "mcmc"
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize)
@@ -298,11 +298,11 @@ class ComplexAfterFit:
         summary_dict
             Dictionary of parameter estimates and uncertainties.
         """
-        from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
+        from sheap.ComplexParams.ComplexParams import ComplexParams
         self.method = "single"
-        afterfitparams = AfterFitParams(self)
+        complexparams = ComplexParams(self)
         
-        return afterfitparams.extract_params()
+        return complexparams.extract_params()
         
     def _from_sheap(self, sheap):
         """

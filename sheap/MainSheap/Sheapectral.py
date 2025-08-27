@@ -336,14 +336,7 @@ class Sheapectral:
             self.spectra = self.spectra[jnp.newaxis, :]
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
-
-    # def sheaprutine(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
-    #                ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
-    #                ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1,**kwargs)
-
-    #     self._makecomplex(xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=group_method,**kwargs)
-    #     self._fitcomplex()
-        
+    
     def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,
                     add_balmer_continuum = None,add_balmerhighorder_continuum = None ,**kwargs):
         """
@@ -485,11 +478,11 @@ class Sheapectral:
         RuntimeError
             If fit has not been run (`self.result` missing).
         """
-        from sheap.ComplexAfterFit.ComplexAfterFit import ComplexAfterFit
+        from sheap.ComplexSampler.ComplexSampler import ComplexSampler
         if not hasattr(self, "result"):
              raise RuntimeError("self.result should exist to run this.")
         #TODO ADD break in case sampling method is not recognize 
-        PM = ComplexAfterFit(sheap = self)
+        PM = ComplexSampler(sheap = self)
         if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?
             print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=no_sampling")

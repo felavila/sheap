@@ -6,7 +6,7 @@ __all__ = [
     "McMcSampler",
     "MonteCarloSampler",
     "PseudoMonteCarloSampler",
-    "utils",
+    "Utils",
 ]
 
 

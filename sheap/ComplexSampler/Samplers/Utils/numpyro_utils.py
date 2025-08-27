@@ -1,8 +1,10 @@
 """
 NumPyro Model Utilities
 =======================
-
-Helper functions to construct NumPyro models from SHEAP parameters,
+.. note::
+    This require cleaning
+    
+Helper functions to construct NumPyro models from sheap parameters,
 including dictionary conversion, handling of tied parameters, and
 safe initialization near constraints.
 
@@ -12,6 +14,7 @@ Main Features
 - Convert flat parameter arrays to dictionaries for NumPyro.
 - Initialize values safely away from hard bounds.
 - Build a full NumPyro model for flux fitting with uncertainty.
+
 
 Notes
 -----

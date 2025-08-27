@@ -16,7 +16,7 @@ Main Features
   and fixed relationships.
 - Rescales amplitudes/log-amplitudes back to original flux units.
 - Summarizes posterior draws into physical line quantities via
-  :class:`AfterFitParams`.
+  :class:`ComplexParams`.
 
 Public API
 ----------
@@ -50,7 +50,7 @@ import numpy as np
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params
-from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
+from sheap.ComplexParams.ComplexParams import ComplexParams
 
 
 class PseudoMonteCarloSampler:
@@ -62,7 +62,7 @@ class PseudoMonteCarloSampler:
     def __init__(self, estimator: "ComplexAfterFit"):
         
         self.estimator = estimator  # ParameterEstimation instance
-        self.afterfitparams = AfterFitParams(estimator)
+        self.complexparams = ComplexParams(estimator)
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
@@ -88,8 +88,6 @@ class PseudoMonteCarloSampler:
         norm_spec = norm_spec.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spec[:, 2, :]))
         norm_spec = norm_spec.astype(jnp.float64)
         params = descale_amp(self.params_dict,self.params,scale[:, None])
-        #idxs = mapping_params(self.params_dict, [["amplitude"], ["scale"]])
-        #params = self.params.at[:, idxs].divide(scale[:, None]).astype(jnp.float64)
         names = self.names 
         wl, flux, yerr = jnp.moveaxis(norm_spec, 0, 1)
         model = self.model
@@ -97,8 +95,6 @@ class PseudoMonteCarloSampler:
         idx_target = [i[1] for i in dependencies]
         idx_free_params = list(set(range(len(params[0]))) - set(idx_target))
         key = random.PRNGKey(key_seed)
-        
-        #matrix_sample_params = jnp.zeros((norm_spec.shape[0],num_samples,params.shape[1])) 
         if len(dependencies) == 0:
             print('No dependencies')
             dependencies = None
@@ -132,6 +128,6 @@ class PseudoMonteCarloSampler:
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
             #full_samples.at[:, idxs].multiply(scale[n])
-            dic_posterior_params[name_i] = self.afterfitparams.extract_params(full_samples,n,summarize=summarize)
+            dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
         iterator.close()
         return dic_posterior_params

@@ -15,7 +15,7 @@ Main Features
   dependency flattening utilities.
 - Reconstructs physical parameters from optimized raw vectors.
 - Computes physical quantities (fluxes, FWHM, luminosities, etc.)
-  for each draw using :class:`AfterFitParams`.
+  for each draw using :class:`ComplexParams`.
 
 Public API
 ----------
@@ -54,7 +54,7 @@ import time
 
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
-from sheap.ComplexAfterFit.AfterFitParams import AfterFitParams
+from sheap.ComplexParams.ComplexParams import ComplexParams
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
 
@@ -64,10 +64,10 @@ class MonteCarloSampler:
     BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS should came from ParameterEstimation
     """
     
-    def __init__(self, estimator: "ComplexAfterFit"):
+    def __init__(self, estimator: "ComplexSampler"):
         
         self.estimator = estimator  # ParameterEstimation instance
-        self.afterfitparams = AfterFitParams(estimator)
+        self.complexparams = ComplexParams(estimator)
         self.model = estimator.model
         self.c = estimator.c
         self.dependencies = estimator.dependencies
@@ -141,7 +141,7 @@ class MonteCarloSampler:
         _monte_params = np.stack(monte_params).reshape(norm_spec.shape[0],num_samples,-1)
         dic_posterior_params = {}
         for n,name_i in enumerate(self.names):
-            dic_posterior_params[name_i] = self.afterfitparams.extract_params(_monte_params[n],n)
+            dic_posterior_params[name_i] = self.complexparams.extract_params(_monte_params[n],n)
         return dic_posterior_params
     
         
