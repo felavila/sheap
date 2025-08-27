@@ -286,7 +286,6 @@ class ComplexBuilder:
         self._load_lines(self.line_repository_path) #this should be always here?
         self.make_region()
         
-             
     def make_region(
         self,
         xmin: Optional[float] = None,
