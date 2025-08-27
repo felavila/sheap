@@ -106,9 +106,9 @@ import numpy as np
 import yaml
 
 from sheap.Core import SpectralLine,ComplexRegion
-from sheap.ComplexBuilder.utils import fe_ties, _maketies, group_lines # asistant material
+from sheap.ComplexBuilder.Utils import fe_ties, _maketies, group_lines # asistant material
 
-from sheap.Profiles.profiles import PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.Profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Profiles.profiles_templates import make_host_function #?
 
 

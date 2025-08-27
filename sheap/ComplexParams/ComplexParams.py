@@ -60,8 +60,8 @@ from jax import vmap
 from auto_uncertainties import Uncertainty
 from collections import defaultdict
 
-from sheap.Profiles.profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
-from sheap.Profiles.utils import make_integrator
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
+from sheap.Profiles.Utils import make_integrator
 
 from sheap.ComplexSampler.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.ComplexSampler.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions

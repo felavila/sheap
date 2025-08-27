@@ -54,11 +54,10 @@ import numpy as np
 
 from sheap.Core import SpectralLine,ComplexResult,ArrayLike
 
-from sheap.Utils.SpectralSetup import pad_error_channel
+from sheap.MainSheap.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
 from sheap.ComplexFitting.ComplexFitting import ComplexFitting
 from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
-from sheap.MainSheap.util import ensure_sfd_data
 from sheap.Utils.Constants  import c
 
 
@@ -290,7 +289,7 @@ class Sheapectral:
         None
         """
         from sfdmap2 import sfdmap
-        from sheap.Utils.BasicCorrections import unred
+        from sheap.MainSheap.Utils.BasicCorrections import unred
         ebv = self.ebv
         if self.coords is not None:
             self.coords = jnp.array(self.coords)
@@ -317,7 +316,7 @@ class Sheapectral:
         -------
         None
         """
-        from sheap.Utils.BasicCorrections import deredshift
+        from sheap.MainSheap.Utils.BasicCorrections import deredshift
         self.spectra = deredshift(self.spectra, self.z)
 
     def sheap_set_up(self):
@@ -361,7 +360,7 @@ class Sheapectral:
         """
         if xmin < 3600:
             print("add_balmer_continuum")
-         #   add_balmer_continuum = add_balmer_continuum or True
+        #   add_balmer_continuum = add_balmer_continuum or True
         
         if 3700 > xmin and 4000 < xmax:    
             print("add_balmerhighorder_continuum")
@@ -369,13 +368,13 @@ class Sheapectral:
         #print(add_balmer_continuum,add_balmerhighorder_continuum)
         
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
-                                           add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
+                                        add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
                                            **kwargs)
     
 
     def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
-                   ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
-                   ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1):
+                ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
+                ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1):
         """
         Execute fitting of the prepared region on the spectra.
 
@@ -411,7 +410,7 @@ class Sheapectral:
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:    
             self.fitting_class(spectra,list_num_steps = list_num_steps,list_learning_rate =list_learning_rate,
-                               covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
+                            covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,
                                         smoothness_weight= smoothness_weight,max_weight= max_weight)
 
@@ -445,7 +444,7 @@ class Sheapectral:
             self.plotter = SheapPlot(sheap=self)
     
     def afterfit(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
-                         num_warmup=500,n_random=1_000):
+                        num_warmup=500,n_random=1_000):
         """
         Estimate or sample posterior distributions of fit parameters.
 
@@ -480,7 +479,7 @@ class Sheapectral:
         """
         from sheap.ComplexSampler.ComplexSampler import ComplexSampler
         if not hasattr(self, "result"):
-             raise RuntimeError("self.result should exist to run this.")
+            raise RuntimeError("self.result should exist to run this.")
         #TODO ADD break in case sampling method is not recognize 
         PM = ComplexSampler(sheap = self)
         if sampling_method == "none":

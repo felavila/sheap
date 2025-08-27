@@ -41,7 +41,7 @@ from multiprocessing import Pool, set_start_method
 from astropy.io import fits
 from functools import partial
 
-from sheap.Utils.SpectralSetup import resize_and_fill_with_nans
+#from sheap.Utils.SpectralSetup import resize_and_fill_with_nans
 
 # Limit CPUs for safety
 n_cpu = min(4, os.cpu_count())
@@ -287,9 +287,7 @@ def sequential_reader(paths, function=fits_reader_sdss):
     spectra = [result[0] for result in results]
     coords = np.array([result[1] for result in results])
     shapes_max = max(s.shape[1] for s in spectra)
-    spectra_reshaped = np.array([
-        resize_and_fill_with_nans(s, shapes_max) for s in spectra
-    ])
+    spectra_reshaped = []  # TODO: enable resize_and_fill_with_nans
     return coords, spectra_reshaped, spectra
 
 

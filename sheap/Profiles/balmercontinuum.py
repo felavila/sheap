@@ -50,7 +50,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.Profiles.utils import with_param_names
+from sheap.Profiles.Utils import with_param_names
 
 # # This requiere one more variable i guess.
 # @with_param_names(["amplitude", "T", "τ0"])

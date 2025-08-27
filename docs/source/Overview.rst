@@ -72,7 +72,7 @@ Documentation
 
 See the following modules for detailed API reference:
 
-- :py:mod:`Sheapectral <sheap.MainSheap.Sheapectral>`: core entry point, I/O, extinction & redshift correction  
+- :py:mod:`Sheapectral <sheap.Sheapectral.Sheapectral>`: core entry point, I/O, extinction & redshift correction  
 
 - :py:mod:`ComplexBuilder <sheap.ComplexBuilder.ComplexBuilder>`: construct line‐fitting templates from YAML & rules  
 
@@ -80,9 +80,9 @@ See the following modules for detailed API reference:
 
 - :py:mod:`Minimizer <sheap.Minimizer.Minimizer>`: low‐level optimizer wrapper  
 
-- :py:mod:`ComplexAfterFit <sheap.ComplexAfterFit.ComplexAfterFit>`: Posterior sampling 
+- :py:mod:`ComplexSampler <sheap.ComplexSampler.ComplexSampler>`: Posterior sampling 
 
-- :py:mod:`AfterFitParams <sheap.ComplexAfterFit.AfterFitParams>`: sheap extra products. 
+- :py:mod:`ComplexParams <sheap.ComplexParams.ComplexParams>`: sheap extra products. 
 
 .. Installation
 .. ------------

@@ -2,15 +2,15 @@
 __author__ = 'felavila'
 
 __all__ = [
-    "BasicCorrections",
     "BasicFunctions",
     "Constants",
     "PathsFunctions",
     "SpectralReaders",
     "SpectralSetup",
-    "Utils",
+    "extras",
     "Vocalisations",
-]  # list of submodules or subpackages
+    "Interp_tools"
+]
 
 
 

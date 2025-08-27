@@ -6,7 +6,7 @@ Post–fitting interface for extracting physical parameters and running
 posterior sampling on spectral models.
 
 This module defines :class:`ComplexSampler`, which acts as a high-level
-wrapper around results from :class:`Sheapectral <sheap.MainSheap.Sheapectral>` or :class:`ComplexResult <sheap.Core.ComplexResult>`.
+wrapper around results from :class:`Sheapectral <sheap.Sheapectral.Sheapectral>` or :class:`ComplexResult <sheap.Core.ComplexResult>`.
 It provides multiple strategies to handle parameters after fitting:
 
 - **Single best-fit mode**  
@@ -64,10 +64,10 @@ from auto_uncertainties import Uncertainty
 from jax import grad, jit,vmap
 
 
-from sheap.MainSheap.Sheapectral import Sheapectral
+from sheap.Sheapectral.Sheapectral import Sheapectral
 from sheap.Core import ComplexResult
 
-from sheap.Profiles.utils import make_fused_profiles
+from sheap.Profiles.Utils import make_fused_profiles
 
 
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc

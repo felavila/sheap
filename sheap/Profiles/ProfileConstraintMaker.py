@@ -62,7 +62,7 @@ import numpy as np
 
 from sheap.Core import ProfileConstraintSet, FittingLimits, SpectralLine
 from sheap.Utils.BasicFunctions import kms_to_wl
-from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
 #from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
 

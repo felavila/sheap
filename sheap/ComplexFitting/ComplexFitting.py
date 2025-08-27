@@ -46,12 +46,12 @@ from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,mak
 
 from sheap.Minimizer.Minimizer import Minimizer
 
-from sheap.Profiles.profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Profiles.ProfileConstraintMaker import ProfileConstraintMaker 
-from sheap.Profiles.utils import make_fused_profiles,build_grid_penalty
+from sheap.Profiles.Utils import make_fused_profiles,build_grid_penalty
 
 
-from sheap.Utils.SpectralSetup import mask_builder, prepare_spectra
+from sheap.Sheapectral.Utils.SpectralSetup import mask_builder, prepare_spectra
 from sheap.Utils.Constants import DEFAULT_LIMITS
 
 from sheap.ComplexAfterFit.UncertaintyFunction import Errorfromloop

@@ -51,7 +51,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd 
 
-from sheap.Profiles.utils import make_fused_profiles
+from sheap.Profiles.Utils import make_fused_profiles
 
 
 @dataclass

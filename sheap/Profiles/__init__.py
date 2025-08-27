@@ -2,12 +2,12 @@
 __author__ = 'felavila'
 
 __all__ = [
-    "profile_handler",
-    "profile_lines",
-    "profiles",
+    "ProfileConstraintMaker",
+    "profiles_lines",
+    "Profiles",
     "profiles_continuum",
     "profiles_templates",
-    "utils",
+    "Utils",
     "balmercontinuum"
 ]
 

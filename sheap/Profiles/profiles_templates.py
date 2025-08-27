@@ -53,7 +53,7 @@ import jax.numpy as jnp
 import jax.scipy as jsp
 import numpy as np
 
-from sheap.Profiles.utils import with_param_names
+from sheap.Profiles.Utils import with_param_names
 
 
 TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "templates"

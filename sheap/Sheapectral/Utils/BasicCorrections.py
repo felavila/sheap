@@ -18,11 +18,7 @@ deredshift(spectra, z)
 
 __author__ = 'felavila'
 
-# Auto-generated __all__
-__all__ = [
-    "deredshift",
-    "unred",
-]
+__all__ = ["deredshift","unred",]
 
 import functools as ft
 
@@ -30,7 +26,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.Utils.Utils.interp_tools import cubic_spline_coefficients, spline_eval
+from sheap.Utils.interp_tools import cubic_spline_coefficients, spline_eval
 
 
 #basic correction for reddening and redshift.

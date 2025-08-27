@@ -65,7 +65,7 @@ from jax import jit, vmap,lax
 from jax.scipy.special import erfc
 from jax.scipy.stats import norm #maybe dosent exist xd
 
-from sheap.Profiles.utils import with_param_names,trapz_jax
+from sheap.Profiles.Utils import with_param_names,trapz_jax
 
 @with_param_names(["logamp", "center", "fwhm"])
 def gaussian_fwhm(x, params):
