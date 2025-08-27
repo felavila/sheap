@@ -1,5 +1,5 @@
 r"""
-Parameters
+Params Class 
 ==========
 
 This module defines the :class:`Parameter` and :class:`Parameters`
@@ -15,7 +15,7 @@ It handles
 Notes
 -----
 - Tied parameters are reconstructed from their sources during
-  raw→physical mapping.
+    raw→physical mapping.
 - Only **free** (untied, unfixed) parameters live in the raw vector.
 
 """
@@ -103,7 +103,7 @@ class Parameter:
 
 
 class Parameters:
-    """
+    r"""
     Container for managing a list of `Parameter` instances for fitting models.
 
     This class handles the declaration, transformation, and synchronization
@@ -339,7 +339,7 @@ def build_Parameters(
     initial_params: Iterable[float],
     constraints: jnp.ndarray,
 ) -> Parameters:
-    """
+    r"""
     Construct a :class:`Parameters` object from initialization arrays, constraints,
     and tie definitions.
 
@@ -372,14 +372,14 @@ def build_Parameters(
     Notes
     -----
     * Tied parameters are added with their ``tie`` attribute and are not optimized
-      directly; their values are reconstructed from the source parameter during
-      raw→physical mapping.
+        directly; their values are reconstructed from the source parameter during
+        raw→physical mapping.
     * Untied parameters are added with their initial value and bounds taken from
-      ``constraints``.
+        ``constraints``.
     * Fixed parameters are not assigned here; add them via
-      :meth:`Parameters.add(..., fixed=True) <Parameters.add>` if needed.
+        :meth:`Parameters.add(..., fixed=True) <Parameters.add>` if needed.
     * Typically called by higher-level fitting routines (e.g., :class:`RegionFitting`)
-      when preparing parameter sets.
+        when preparing parameter sets.
     """
     params_obj = Parameters()
     for name, idx in params_dict.items():
