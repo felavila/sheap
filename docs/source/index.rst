@@ -30,7 +30,7 @@
    :hidden:
 
    available_profiles_continuum.rst
-   available_profile_lines.rst
+   available_profiles_lines.rst
    
 .. toctree::
    :maxdepth: 2

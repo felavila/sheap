@@ -1,19 +1,22 @@
 """
 Parameters
-=================
+==========
 
-This module defines the `Parameter` and `Parameters` classes and a helper
-`build_Parameters` to construct constraint‑aware parameter sets for fitting.
+This module defines the :class:`Parameter` and :class:`Parameters`
+classes and a helper :func:`build_Parameters` to construct
+constraint-aware parameter sets for fitting.
 
-It handles:
+It handles
+-----------
 - Reparameterization between optimizer (raw) and physical spaces
-- Per‑parameter bounds, fixed values, and arithmetic ties
-- Batched evaluation for multiple spectra via JAX vmap
+- Per-parameter bounds, fixed values, and arithmetic ties
+- Batched evaluation for multiple spectra via JAX ``vmap``
 
 Notes
 -----
-- Tied parameters are reconstructed from their sources during raw→physical mapping.
-- Only *free* (untied, unfixed) parameters live in the raw vector.
+- Tied parameters are reconstructed from their sources during
+  raw→physical mapping.
+- Only **free** (untied, unfixed) parameters live in the raw vector.
 """
 
 __author__ = 'felavila'
