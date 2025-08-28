@@ -9,7 +9,7 @@ broad:
     - 2017ApJS..229...39R   # Shen+11; Rakshit+17
 
 narrow:
-  upper_fwhm: 500.0
+  upper_fwhm: 600.0
   lower_fwhm: 100.0
   v_shift: 500.0
   max_amplitude: 10.0
@@ -19,8 +19,8 @@ narrow:
     - 2017MNRAS.472.4051C   # Mullaney+13; Calderone+17 (QSFit)
 
 outflow:
-  upper_fwhm: 1500.0
-  lower_fwhm: 500.0
+  upper_fwhm: 2000.0
+  lower_fwhm: 600.0
   v_shift: 500.0
   max_amplitude: 10.0
   canonical_wavelengths: 5007.0

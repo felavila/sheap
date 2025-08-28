@@ -32,9 +32,10 @@ from typing import Dict, Any
 import pandas as pd
 import warnings
 from collections import defaultdict
-from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
+#from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
 import numpy as np 
 import jax.numpy as jnp
+from uncertainties import unumpy
 #?
 
 def concat_dicts(list_of_dicts):
@@ -203,55 +204,73 @@ def flatten_mass_dict(masses):
 
 def pivot_and_split(obj_names, result):
     """
-    Pivot a nested result dict into a per-object view.
-
-    For each object index, traverse the structure and:
-      - If a leaf is a ``VectorUncertainty`` of length N: return
-        ``{'value': value[idx], 'error': error[idx]}``.
-      - If a leaf is a NumPy array whose first dimension equals N: return
-        ``{'value': leaf[idx], 'error': 0}`` (no explicit error given).
-      - If a leaf is a list/tuple/array of other shapes: return as-is.
-      - If a leaf is a scalar/string: return as-is.
-
-    Parameters
-    ----------
-    obj_names : list of str
-        Object identifiers; length N.
-    result : dict
-        Nested dictionary (e.g., output of after-fit samplers).
-
-    Returns
-    -------
-    dict
-        Mapping ``obj_name -> per-object nested result``.
+    Two-pass approach:
+      1) Normalize the tree once: replace uarray leaves with {'value': vals, 'error': errs}
+         and plain arrays with {'value': arr, 'error': 0} when leading dim == N.
+      2) Create per-object slices without calling unumpy again.
     """
-    def _recurse(node, idx):
-        # 1) if it's a dict, recurse on each item
+    N = len(obj_names)
+    _memo = {}
+
+    def _normalize(node):
+        oid = id(node)
+        if oid in _memo:
+            return _memo[oid]
+
+        # dict -> recurse
         if isinstance(node, dict):
-            return {k: _recurse(v, idx) for k, v in node.items()}
-        
-        elif isinstance(node, (str, float, int)):
-            return node
-                
-        # 2) if it's a VectorUncertainty, split into value & error
-        elif isinstance(node, VectorUncertainty):
-            return {
-                'value': node.value[idx].squeeze(),
-                'error': node.error[idx].squeeze()
-            }
-        elif isinstance(node, np.ndarray) and node.shape[0] == len(obj_names):
-            return {'value': node[idx].squeeze(),'error':0}
-        # 3) array/list/tuple → index        
-        elif isinstance(node, (np.ndarray, list, tuple)):
-            # if isinstance(node, list) and all(isinstance(x, dict) for x in node):
-            #     return [_recurse(n, idx) for n in node]
-            return node
-        
-        warnings.warn(f"Unhandled node type {type(node).__name__} for value: {node}")
-    return {
-        obj_name: _recurse(result, obj_idx)
-        for obj_idx, obj_name in enumerate(obj_names)
-    }
+            out = {k: _normalize(v) for k, v in node.items()}
+
+        # simple scalars/strings/None -> as-is
+        elif isinstance(node, (str, int, float, type(None))):
+            out = node
+
+        # arrays of uncertainties (dtype=object) -> split once
+        elif isinstance(node, np.ndarray) and node.dtype == object and node.size:
+            # Try extracting; if it's not uarray-like, fall back as-is.
+            try:
+                vals = unumpy.nominal_values(node)
+                errs = unumpy.std_devs(node)
+                out = {'value': vals, 'error': errs}
+            except Exception:
+                out = node  # not an uncertainties array after all
+
+        # numeric arrays whose first axis is N -> batch leaf
+        elif isinstance(node, np.ndarray) and node.ndim >= 1 and node.shape[0] == N:
+            out = {'value': node, 'error': 0}  # keep a scalar 0 to avoid huge zero arrays
+
+        # lists/tuples -> recurse elementwise (kept shape)
+        elif isinstance(node, (list, tuple)):
+            seq = [_normalize(x) for x in node]
+            out = tuple(seq) if isinstance(node, tuple) else seq
+
+        else:
+            out = node
+
+        _memo[oid] = out
+        return out
+
+    normalized = _normalize(result)
+
+    def _slice_idx(node, idx):
+        # If this is a normalized leaf with 'value'/'error', slice only if the first dim is N
+        if isinstance(node, dict) and 'value' in node and 'error' in node:
+            v, e = node['value'], node['error']
+            if isinstance(v, np.ndarray) and v.ndim >= 1 and v.shape[0] == N:
+                # e can be 0 (scalar) or an array aligned with v
+                ei = (e[idx].squeeze() if isinstance(e, np.ndarray) and
+                      e.ndim >= 1 and e.shape[0] == N else e)
+                return {'value': v[idx].squeeze(), 'error': ei}
+            # not a batch leaf → recurse normally below
+
+        if isinstance(node, dict):
+            return {k: _slice_idx(v, idx) for k, v in node.items()}
+        if isinstance(node, (list, tuple)):
+            seq = [_slice_idx(x, idx) for x in node]
+            return tuple(seq) if isinstance(node, tuple) else seq
+        return node
+
+    return {name: _slice_idx(normalized, i) for i, name in enumerate(obj_names)}
 
 
 def summarize_samples(samples) -> Dict[str, np.ndarray]:

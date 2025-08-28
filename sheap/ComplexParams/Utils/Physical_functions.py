@@ -36,7 +36,8 @@ __all__ = [
 
 import jax.numpy as np
 import numpy as np 
-from auto_uncertainties import Uncertainty
+from uncertainties import unumpy as unp
+
 
 def calc_flux(norm_amplitude, fwhm):
     r"""
@@ -173,8 +174,8 @@ def calc_black_hole_mass(L_w, fwhm_kms, estimator):
         Black hole mass in solar masses.
     """
     a, b, f = estimator["a"], estimator["b"], estimator["f"]
-    log_L = np.log10(L_w)
-    log_FWHM = np.log10(fwhm_kms) - 3  # FWHM in 1000 km/s
+    log_L = unp.log10(L_w)
+    log_FWHM = unp.log10(fwhm_kms) - 3  # FWHM in 1000 km/s
     log_M_BH = a + b * (log_L - 44.0) + 2.0 * log_FWHM
     return (10 ** log_M_BH) / f
 
@@ -199,8 +200,8 @@ def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     MBH : jnp.ndarray
         Black hole mass in solar masses.
     """
-    log_L = np.log10(L_halpha)
-    log_FWHM = np.log10(fwhm_kms) - 3
+    log_L = unp.log10(L_halpha)
+    log_FWHM = unp.log10(fwhm_kms) - 3
     log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
     return 10 ** log_M_BH
 
@@ -210,7 +211,7 @@ def _col(x):
     TODO move it .
     Parameters
     ----------
-    x : array-like or Uncertainty
+    x : array-like
         Input data.
 
     Returns
@@ -218,8 +219,7 @@ def _col(x):
     array-like
         If input is 1D, reshaped to (N, 1).
     """
-    if isinstance(x,Uncertainty): 
-        return x.reshape(-1, 1) if x.ndim == 1 else x
+#
     x = np.asarray(x)
     return x.reshape(-1, 1) if x.ndim == 1 else x
     
@@ -351,14 +351,14 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     L = _col(L_in)
     V = _col(vwidth_kms)
     #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
-    logM = np.log10(f) + a + b * (np.log10(L) - np.log10(L0)) + beta * (np.log10(V) - np.log10(V0))
+    logM = unp.log10(f) + a + b * (unp.log10(L) - unp.log10(L0)) + beta * (unp.log10(V) - unp.log10(V0))
 
     # Le20 shape (only if baseline uses FWHM)
     if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
         sigma = extras.get("sigma_kms", None)
         if sigma is not None:
             sigma = _col(sigma)
-            logM += (-1.14 * (np.log10(V) - np.log10(sigma)) + 0.33)
+            logM += (-1.14 * (unp.log10(V) - unp.log10(sigma)) + 0.33)
 
     # Pan25 iron term
     if "R_Fe" in extras:
@@ -534,7 +534,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
                 "wavelength": lam,
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
-                "log10_smbh": np.log10(MBH),
+                "log10_smbh": unp.log10(MBH),
                 "Lwave": Lmono,
                 "Lbol": Lbol,
                 "Ledd": Ledd,
@@ -553,7 +553,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
                 "Lline": L_line,
-                "log10_smbh": np.log10(MBH),
+                "log10_smbh": unp.log10(MBH),
                 "Ledd": Ledd,
                 "component": comp_here,
             }
@@ -561,127 +561,3 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
     return out
 
 
-
-
-  # def ensure_column_matrix(x):
-#     """
-#     Ensure input is a 2D column vector.
-#     TODO move it .
-#     Parameters
-#     ----------
-#     x : array-like or Uncertainty
-#         Input data.
-
-#     Returns
-#     -------
-#     array-like
-#         If input is 1D, reshaped to (N, 1).
-#     """
-#     if isinstance(x,Uncertainty):
-#         if x.ndim == 1:
-#             #print("1D")
-#             #print(x_.shape)
-#             return x.reshape(-1, 1)  # Convert to (N, 1)
-#         return x
-#     x = np.asarray(x)
-#     if x.ndim == 1:
-#         #print(x.reshape(1, -1).shape)
-#         return x.reshape(-1, 1)  # Convert to (N, 1)
-    
-#     return x
-  
-
-# def extra_params_functionsv0(broad_params, L_w, L_bol, estimators, c):
-#     """
-#     Compute derived AGN parameters from broad line measurements.
-
-#     Parameters
-#     ----------
-#     broad_params : dict
-#         Dictionary with extracted parameters including FWHM, luminosity, and line labels.
-#     L_w : dict
-#         Dictionary of monochromatic luminosities keyed by wavelength (as str).
-#     L_bol : dict
-#         Dictionary of bolometric luminosities keyed by wavelength (as str).
-#     estimators : dict
-#         Dictionary of estimator configurations, keys formatted as "{line}_{method}".
-#         Each value is a dict with keys: 'wavelength', 'a', 'b', 'f' or 'fwhm_factor'.
-#     c : float
-#         Speed of light in km/s.
-
-#     Returns
-#     -------
-#     dict
-#         Dictionary of derived parameters per line.
-#     """
-#     dict_extra_params = {}
-#     #n_obj,nlines_component
-#     fwhm_kms_all = broad_params.get("fwhm_kms")
-#     lum_all = broad_params.get("luminosity")
-#     line_list = np.array(broad_params.get("lines", []))
-#     component_list = np.array(broad_params.get("component", []))
-#     #print(line_list)
-#     if fwhm_kms_all is None or line_list.size == 0:
-#         return dict_extra_params
-#     for line_method, est in estimators.items():
-#         try:
-#             line_name, method = line_method.split("_", 1)
-#         except ValueError:
-#             continue  # invalid key format
-
-#         if line_name not in line_list:
-#             continue
-#         idxs = np.where(line_list == line_name)[0]
-
-#         compt = component_list[idxs]
-#         #print("compt",idxs,"fwhm_kms_all",fwhm_kms_all.shape,ensure_column_matrix(fwhm_kms_all).shape)
-#         fkm = ensure_column_matrix(fwhm_kms_all)[:, idxs]
-#         lum_custom = ensure_column_matrix(lum_all)[:, idxs]
-#         #print("lum_custom",lum_custom.shape,"fkm",fkm.shape)
-#         if line_name not in dict_extra_params:
-#             dict_extra_params[line_name] = {}
-
-        
-#         log_FWHM = np.log10(fkm) - 3
-
-#         if method == "w":
-#             lam = est.get("wavelength", 0)
-#             wstr = str(int(lam))
-
-#             if wstr not in L_w:
-#                 continue
-
-#             Lmono = L_w[wstr]
-#             Lbolval = L_bol[wstr]
-#             a, b, f = est["a"], est["b"], est["f"]
-#             log_L = np.log10(Lmono)
-#             log_M_BH = a + b * (log_L - 44.0) + 2 * log_FWHM
-#             M_BH = (10 ** log_M_BH) / f
-#             L_edd = 1.26e38 * M_BH
-
-#             # mass accretion rate (M_sun / yr)
-#             eta = 0.1
-#             c_cm = c * 1e5
-#             M_sun_g = 1.98847e33
-#             sec_yr = 3.15576e7
-#             mdot_gs = Lbolval / (eta * c_cm**2)
-#             mdot_yr = mdot_gs / M_sun_g * sec_yr
-
-#             dict_extra_params[line_name].update({
-#                 "Lwave": Lmono,
-#                 "Lbol": Lbolval,
-#                 "fwhm_kms": fkm,
-#                 "log10_smbh": np.log10(M_BH),
-#                 "Ledd": L_edd,
-#                 "mdot_msun_per_year": mdot_yr,
-#                 "component": compt,
-#             })
-
-#         elif method == "l":
-#             a, b, fwhm_factor = est["a"], est["b"], est["fwhm_factor"]
-#             log_M_special = a + b * (np.log10(lum_custom) - 42) + fwhm_factor * log_FWHM
-#             dict_extra_params[line_name].update({
-#                 f"log10_smbh_{line_name.lower()}": log_M_special
-#             })
-
-#     return dict_extra_params

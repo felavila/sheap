@@ -35,7 +35,7 @@ Use Cases
 Notes
 -----
 - :func:`combine_components` distinguishes between deterministic
-  and :class:`auto_uncertainties.Uncertainty` inputs.
+  and :class:`uncertainties` inputs.
 - Virial filtering is applied to discard broad components with
   velocity offsets smaller than ``limit_velocity``.
 - For rigorous posterior distributions, prefer sampling-based
@@ -55,7 +55,9 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import jax.numpy as jnp
 from jax import vmap,jit,jacfwd
-from auto_uncertainties import Uncertainty
+#from auto_uncertainties import Uncertainty
+from uncertainties import unumpy
+#from uncertainties.core import AffineScalarFunc
 
 from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosity
 
@@ -95,7 +97,7 @@ def combine_components(
         Speed of light in km/s.
     ucont_params : jnp.ndarray, optional
         Uncertainty array for continuum parameters. Required if
-        input amplitudes/centers are :class:`auto_uncertainties.Uncertainty`.
+        input amplitudes/centers are :class:`?`.
 
     Returns
     -------
@@ -137,12 +139,14 @@ def combine_components(
             mu_n = basic_params["narrow"]["center"][:, idx_narrow]
             fwhm_kms_n = basic_params["narrow"]["fwhm_kms"][:, idx_narrow]
 
-            is_uncertainty = isinstance(amp_b, Uncertainty)
-
+            #is_uncertainty = isinstance(amp_b, Uncertainty)
+            is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
+                print("here")
                 from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
                 fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
+                
                 if fwhm_c.ndim==1:
                   #  print("fwhm_c",fwhm_c.shape)
                     #two objects 1 line 
@@ -150,8 +154,9 @@ def combine_components(
                  #   print("fwhm_c",fwhm_c.shape)
                 fwhm_A = (fwhm_c / c) * mu_c
                 #print(fwhm_A.shape)
+                #unumpy.nominal_values,unumpy.std_devs
                 flux_c = calc_flux(amp_c, fwhm_A)
-                cont_c = Uncertainty(*np.array(evaluate_with_error(cont_group.combined_profile,mu_c.value, cont_params,mu_c.error, ucont_params)))
+                cont_c = Uncertainty(*np.array(evaluate_with_error(cont_group.combined_profile,unumpy.nominal_values(mu_c), cont_params,unumpy.std_devs(mu_c), ucont_params)))
                 #ndim1 * ndim2 requires always a [:,None] to work 
                 L_line = calc_luminosity(np.array(distances)[:,None], flux_c)
                 eqw_c = flux_c / cont_c
@@ -287,17 +292,17 @@ def combine_fast(
 
 
 def combine_fast_with_jacobian(
-    amp_b: Uncertainty,
-    mu_b: Uncertainty,
-    fwhm_b: Uncertainty,
-    amp_n: Uncertainty,
-    mu_n: Uncertainty,
-    fwhm_n: Uncertainty,
+    amp_b,
+    mu_b,
+    fwhm_b,
+    amp_n,
+    mu_n,
+    fwhm_n,
     limit_velocity: float = 150.0,
     c: float = 299792.458,
     use_jacobian: bool = True,
     rough_scale: float = 1.0
-) -> tuple[Uncertainty, Uncertainty, Uncertainty]:
+):
     """
     Combine broad + narrow components with uncertainty propagation.
 
@@ -334,19 +339,20 @@ def combine_fast_with_jacobian(
     - This routine provides *approximate* error propagation; for
       full posterior distributions, use sampling-based methods.
     """
-    N = amp_b.value.shape[0]
-    n_broad = amp_b.value.shape[1]
+    #unumpy.std_devs,unumpy.nominal_values
+    N = unumpy.nominal_values(amp_b).shape[0]
+    n_broad = unumpy.nominal_values(amp_b).shape[1]
     results = []
 
     for i in range(N):
         # Flatten input vector
         x0 = jnp.concatenate([
-            amp_b.value[i], mu_b.value[i], fwhm_b.value[i],
-            amp_n.value[i], mu_n.value[i], fwhm_n.value[i]
+            unumpy.nominal_values(amp_b)[i], unumpy.nominal_values(mu_b)[i], unumpy.nominal_values(fwhm_b)[i],
+            unumpy.nominal_values(amp_n)[i], unumpy.nominal_values(mu_n)[i], unumpy.nominal_values(fwhm_n)[i]
         ])
         errors = jnp.concatenate([
-            amp_b.error[i], mu_b.error[i], fwhm_b.error[i],
-            amp_n.error[i], mu_n.error[i], fwhm_n.error[i]
+            unumpy.std_devs(amp_b)[i], unumpy.std_devs(mu_b)[i], unumpy.std_devs(fwhm_b)[i],
+            unumpy.std_devs(amp_n)[i], unumpy.std_devs(mu_n)[i], unumpy.std_devs(fwhm_n)[i]
         ])
 
         def wrapped_func(x):

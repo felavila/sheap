@@ -60,7 +60,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 from astropy.cosmology import FlatLambdaCDM
-from auto_uncertainties import Uncertainty
+
 from jax import grad, jit,vmap
 
 
@@ -284,7 +284,7 @@ class ComplexSampler:
         sampler = McMcSampler(self)
         return sampler.sample_params(n_random=n_random,num_warmup=num_warmup,num_samples=num_samples,summarize=summarize)
 
-    def sample_single(self,extra_products=True):
+    def sample_single(self,summarize=True):
         """
         Compute parameter estimates and uncertainties without sampling.
 
@@ -302,7 +302,7 @@ class ComplexSampler:
         self.method = "single"
         complexparams = ComplexParams(self)
         
-        return complexparams.extract_params()
+        return complexparams.extract_params(summarize=summarize)
         
     def _from_sheap(self, sheap):
         """

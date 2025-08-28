@@ -174,12 +174,7 @@ class ComplexBuilder:
     >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
     
-    #OUTFLOW_COMPONENT = 10
-    #WINDS_COMPONENT = 15
-    #FE_COMPONENT = 20
-    #NLR_COMPONENT = 30
-    #HOST_COMPONENT = 40 
-    #BAL_COMPONENT = 50 
+
     lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     lines_prone_bal = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","NVa","NVb","SiIV","OIV]","AlIIIa","AlIIIb","MgIIb"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
@@ -660,11 +655,14 @@ class ComplexBuilder:
             Continuum components.
         """
         continuum_comps = []
-        if add_balmer_continuum and not xmax< 3646:
+        print(add_balmer_continuum,add_balmerhighorder_continuum)
+        if add_balmer_continuum:
+            #if not xmax< 3646:
+             #   warnings.warn(f"Care with the addition of balmer continuum {xmax}")
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
-        if add_balmerhighorder_continuum and not xmax< 3646:
-            #fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
-            # t_c = 0
+        if add_balmerhighorder_continuum:
+            #if not xmax< 3646:
+             #   warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
             continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='continuum',component=0,profile='fetemplate',template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
         
         

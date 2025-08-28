@@ -22,7 +22,7 @@ Main Features
   * equivalent width (EQW),
   * monochromatic and bolometric luminosities,
   * combined quantities (e.g. Hα+Hβ, Mg II+Fe, CIV blends).
-- Uncertainty propagation via :mod:`auto_uncertainties`.
+- uncertainties propagation via :mod:`uncertainties`.
 
 Public API
 ----------
@@ -57,7 +57,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import numpy as np 
 import jax.numpy as jnp 
 from jax import vmap
-from auto_uncertainties import Uncertainty
+#from auto_uncertainties import Uncertainty
+from uncertainties import unumpy
+
 from collections import defaultdict
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
@@ -70,7 +72,6 @@ from sheap.ComplexParams.Utils.Combine_profiles import combine_components
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
-
 class ComplexParams:
     def __init__(self, samplerclass: "ComplexSampler"):
         self.samplerclass = samplerclass
@@ -105,7 +106,9 @@ class ComplexParams:
     def extract_params(self,full_samples=None,idx_obj=None,summarize=False):
         #Add the filtering an separation of the params for params_single and the sample reduction for params_sampled
         if self.method == "single":
-            return pivot_and_split(self.names,self._extract_basic_params_single())
+            if summarize:
+                return pivot_and_split(self.names,self._extract_basic_params_single())
+            return self._extract_basic_params_single()
         else:
             if summarize:
                 print("Samples will be summarize")
@@ -205,10 +208,10 @@ class ComplexParams:
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)
         #TODO ADD fe integral
         # if complexclass_group_by_region["fe"]:
-        #     #i guess meanwhile MgII is not here it is not necesary run this ?
+        # #     #i guess meanwhile MgII is not here it is not necesary run this ?
         #     group_fe = complexclass_group_by_region["fe"]
-        #     combine_profile_fe = group_fe.combined_profile
-        #     integrator_fe = make_integrator(combine_profile_fe, method="vmap")
+        #     combined_profile_fe = group_fe.combined_profile
+        #     integrator_fe = make_integrator(combined_profile_fe, method="vmap")
         #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
         #     params_fe = self.params[:, idx_fe]
         #     flux_fe = integrator_fe(wavelength_grid_fe, params_fe)
@@ -298,6 +301,21 @@ class ComplexParams:
                 "luminosity": np.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list) 
             }
+        
+        targets = {'MgIIa', 'MgIIb'}
+        if  targets.issubset(basic_params["broad"]["lines"]):
+            _flux = basic_params["broad"]["flux"]
+            _center = basic_params["broad"]["center"]
+            index_map = {name: idx for idx, name in enumerate(basic_params["broad"]["lines"])}
+            positions = {t: index_map[t] for t in targets if t in index_map}
+            # fe_maped =vmap(complexclass_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["fe"].params)
+            # cont_maped =vmap(complexclass_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["host"].params)
+            # host_maped =vmap(complexclass_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["continuum"].params)
+            # spectra_wh_nothing = self.spec[:,1,:] - (fe_maped+cont_maped+host_maped)
+            # mg_center =  jnp.dot(_center[list(positions.values)],_flux[list(positions.values)])/jnp.sum(_flux[list(positions.values)])
+            # print(mg_center)
+            print(f"time for MgII combined {positions}")
+            #print(basic_params["broad"]["lines"])
 
         L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
@@ -307,15 +325,16 @@ class ComplexParams:
 
             if any(valid):
                 x = jnp.full((cont_params.shape[0], 1), wave)
-                Fcont = Uncertainty(*np.array(
+                Fcont = unumpy.uarray(*np.array(
                     evaluate_with_error(cont_group.combined_profile, x, cont_params, jnp.zeros_like(x), ucont_params)
                 )) * valid.astype(float)
                 #print(valid)
                 Lmono = calc_monochromatic_luminosity(np.array(distances[:, None]), Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
+        # print(complexclass_group_by_region)
         # if complexclass_group_by_region["fe"]:
-        #     #i guess meanwhile MgII is not here it is not necesary run this ?
+        # #     #i guess meanwhile MgII is not here it is not necesary run this ?
         #     group_fe = complexclass_group_by_region["fe"]
         #     idx_fe = cont_group.flat_param_indices_global
         #     combine_profile_fe = group_fe.combined_profile
@@ -388,17 +407,18 @@ class ComplexParams:
         return np.moveaxis(np.array(full_params_by_line), 0, 1), np.moveaxis(np.array(ufull_params_by_line), 0, 1)
 
     def _extract_profile_quantities(self, profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params):
-        amps = 10**Uncertainty(params_by_line[:,:,0], uparams_by_line[:,:,0])
-        centers = Uncertainty(params_by_line[:,:,1], uparams_by_line[:,:,1])
-        shape_params = Uncertainty(params_by_line[:,:,2:], uparams_by_line[:,:,2:])
-        flux =  Uncertainty(*np.array(integrate_batch_with_error(profile_fn,self.wavelength_grid,params_by_line,uparams_by_line))) 
+        amps = 10**unumpy.uarray(params_by_line[:,:,0], uparams_by_line[:,:,0])
+        centers = unumpy.uarray(params_by_line[:,:,1], uparams_by_line[:,:,1])
+        shape_params = unumpy.uarray(params_by_line[:,:,2:], uparams_by_line[:,:,2:])
+        flux =  unumpy.uarray(*np.array(integrate_batch_with_error(profile_fn,self.wavelength_grid,params_by_line,uparams_by_line))) 
         
-        fwhm = Uncertainty(*np.array(batch_fwhm(amps.value, centers.value, shape_params.value,amps.error, centers.error, shape_params.error)))
+        fwhm = unumpy.uarray(*np.array(batch_fwhm(unumpy.nominal_values(amps), unumpy.nominal_values(centers), unumpy.nominal_values(shape_params),
+                                                  unumpy.std_devs(amps), unumpy.std_devs(centers), unumpy.std_devs(shape_params))))
         
-        fwhm_kms = np.abs(calc_fwhm_kms(fwhm, np.array(self.c), centers))
-        cont_vals = Uncertainty(*np.array(
+        fwhm_kms = calc_fwhm_kms(fwhm, np.array(self.c), centers)
+        cont_vals = unumpy.uarray(*np.array(
             evaluate_with_error(self.complex_class.group_by("region")["continuum"].combined_profile,
-                                centers.value, cont_params, centers.error, ucont_params)))
+                                unumpy.nominal_values(centers), cont_params, unumpy.std_devs(centers), ucont_params)))
         
         eqw = flux / cont_vals
         lum_vals = calc_luminosity(np.array(self.d[:, None]), flux)

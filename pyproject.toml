@@ -96,7 +96,7 @@ astropy = ">=7.0"
 matplotlib = ">=3.9.3"
 numpy = ">=2.2.4"
 pandas = "*"
-auto_uncertainties = "*"
+uncertainties = "*"
 tqdm = "*"
 
 # Test: packages imported in test code and packages required for the "test runner"

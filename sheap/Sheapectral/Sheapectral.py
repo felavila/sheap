@@ -359,13 +359,13 @@ class Sheapectral:
         None
         """
         if xmin < 3600:
-            print("add_balmer_continuum")
-        #   add_balmer_continuum = add_balmer_continuum or True
+            #print("add_balmer_continuum")
+            add_balmer_continuum = add_balmer_continuum or True
         
         if 3700 > xmin and 4000 < xmax:    
-            print("add_balmerhighorder_continuum")
+            #print("add_balmerhighorder_continuum")
             add_balmerhighorder_continuum = add_balmerhighorder_continuum or True
-        #print(add_balmer_continuum,add_balmerhighorder_continuum)
+        print("add_balmer_continuum",add_balmer_continuum,"add_balmerhighorder_continuum",add_balmerhighorder_continuum)
         
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
                                         add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
@@ -492,7 +492,7 @@ class Sheapectral:
             # After this point a function inside ComplexAfterFit should be able to call the different sampling methods. 
             if  sampling_method.lower()=="single":
                 print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
-                dic_posterior_params = PM.sample_single()
+                dic_posterior_params = PM.sample_single(summarize=summarize)
                 self.result.posterior = [{"method":sampling_method.lower()},dic_posterior_params]
                 
             elif sampling_method.lower()=="pseudomontecarlo":

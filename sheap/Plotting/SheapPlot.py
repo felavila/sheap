@@ -106,6 +106,8 @@ class SheapPlot:
 
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
+        colors_by_region = {"broad":"#7c2626","narrow":"#b4b21f","outflow":'#ff7f0e',"winds":"#be20cc"}
+        
         for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)
         ):
             #print(profile_name, profile_func, region, idxs)
@@ -119,7 +121,7 @@ class SheapPlot:
             elif "host" in region.region.lower():
                 ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green",label="Host")
             else:
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=filtered_colors[i],label=region.region.capitalize())
+                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=colors_by_region[region.region], label=region.region.capitalize())
                 #ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
