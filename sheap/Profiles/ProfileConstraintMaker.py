@@ -324,7 +324,7 @@ def ProfileConstraintMaker(
         params_names = local_profile.param_names
         #logamplitude
         init = [1.0,np.log10(4000.0), 0.0] 
-        upper = [10.0,np.log10(limits.upper_fwhm), shift] 
+        upper = [2.0,np.log10(limits.upper_fwhm), shift] 
         lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
         #print(init,upper,lower)
         return ProfileConstraintSet(
@@ -336,7 +336,6 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "fetemplate":
-        #print("trying to add balmerhighorder")
         lambda0 = 3675.0 #limits.canonical_wavelengths
         v_shift = 1500.0 
         init_fwhm = 2000.0
@@ -345,7 +344,7 @@ def ProfileConstraintMaker(
         shift = kms_to_wl(v_shift, lambda0)
         params_names = local_profile.param_names
         init= [1.0, np.log10(init_fwhm),0.0]
-        upper= [10.0, np.log10(upper_fwhm), shift]
+        upper= [5.0, np.log10(upper_fwhm), shift]
         lower= [-2.0,np.log10(lower_fwhm) , -shift]
         #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(

@@ -64,7 +64,7 @@ from collections import defaultdict
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
 from sheap.Profiles.Utils import make_integrator
-
+from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
@@ -119,14 +119,15 @@ class ComplexParams:
         Extract line quantities (flux, FWHM, center, etc.) from posterior samples.
         Designed for use with MCMC or MC draws.
         """
+        
         basic_params: Dict[str, Dict[str, np.ndarray]] = {}
-        complexclass_group_by_region = self.complex_class.group_by("region")
-        cont_group = complexclass_group_by_region["continuum"]
+        complex_class_group_by_region = self.complex_class.group_by("region")
+        cont_group = complex_class_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
         cont_params = full_samples[:, idx_cont]
         distances = np.full((full_samples.shape[0],), self.d[idx_obj], dtype=np.float64)
 
-        for region, region_group in complexclass_group_by_region.items():
+        for region, region_group in complex_class_group_by_region.items():
             if region in ("fe", "continuum", "host"):
                 continue
 
@@ -195,7 +196,42 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
 
-        # Monochromatic luminosities
+        basic_params_broad = basic_params["broad"]
+        targets = {'MgIIa', 'MgIIb'}
+        #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
+        # if  targets.issubset(basic_params_broad["lines"]):
+        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+        #     positions = {t: index_map[t] for t in targets if t in index_map}
+        #     fe_maped = vmap(complex_class_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["fe"].params)
+        #     cont_maped =vmap(complex_class_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["host"].params)
+        #     host_maped =vmap(complex_class_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["continuum"].params)
+        #     spectra_wh_nothing = np.clip(self.spec[:,1,:] - (fe_maped+cont_maped+host_maped),0.0, None)
+        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
+        #     _center = basic_params_broad["center"][:,list(positions.values())]
+        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+        #     _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+        #     _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
+        #     _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
+        #     _mask = (self.spec[:,0,:] >= _low[:, None]) & (self.spec[:,0,:] <= _up[:, None])
+        #     W = np.sum(spectra_wh_nothing *  _mask,axis=1)
+        #     M1 = np.sum(spectra_wh_nothing *  _mask * self.spec[:,0,:],axis=1)/W
+        #     M2 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**2,axis=1)/W
+        #     #M3 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**3,axis=1)/W
+        #     sigma_f = c * np.sqrt(M2)/M1
+        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+        #     basic_params["new_params"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+        #  # print(complex_class_group_by_region)
+        
+        # if complex_class_group_by_region["fe"]:
+        #     group_fe = complex_class_group_by_region["fe"]
+        #     combine_profile_fe = group_fe.combined_profile
+        #     params_fe = group_fe.params[:, None, :]
+        #     uparams_fe = group_fe.uncertainty_params[:, None, :]
+        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
+        #     flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
+        #     basic_params["flux_fe"] = {"flux_fe":flux_fe}
+        
         wl_i = self.spec[idx_obj, 0, :]
         mask_i = self.mask[idx_obj, :]
         L_w, L_bol,F_cont = {}, {},{}
@@ -207,9 +243,9 @@ class ComplexParams:
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)
         #TODO ADD fe integral
-        # if complexclass_group_by_region["fe"]:
+        # if complex_class_group_by_region["fe"]:
         # #     #i guess meanwhile MgII is not here it is not necesary run this ?
-        #     group_fe = complexclass_group_by_region["fe"]
+        #     group_fe = complex_class_group_by_region["fe"]
         #     combined_profile_fe = group_fe.combined_profile
         #     integrator_fe = make_integrator(combined_profile_fe, method="vmap")
         #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
@@ -233,13 +269,13 @@ class ComplexParams:
     def _extract_basic_params_single(self):
         basic_params: Dict[str, Dict[str, np.ndarray]] = {}
         distances = self.d.copy()
-        complexclass_group_by_region = self.complex_class.group_by("region")
-        cont_group = complexclass_group_by_region["continuum"]
+        complex_class_group_by_region = self.complex_class.group_by("region")
+        cont_group = complex_class_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
         cont_params = self.params[:, idx_cont]
         ucont_params = self.uncertainty_params[:, idx_cont]
 
-        for region, region_group in complexclass_group_by_region.items():
+        for region, region_group in complex_class_group_by_region.items():
             if region in ("fe", "continuum", "host"):
                 continue
 
@@ -302,21 +338,42 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
+        basic_params_broad = basic_params["broad"]
         targets = {'MgIIa', 'MgIIb'}
-        if  targets.issubset(basic_params["broad"]["lines"]):
-            _flux = basic_params["broad"]["flux"]
-            _center = basic_params["broad"]["center"]
-            index_map = {name: idx for idx, name in enumerate(basic_params["broad"]["lines"])}
+        #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
+        if  targets.issubset(basic_params_broad["lines"]):
+            index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
             positions = {t: index_map[t] for t in targets if t in index_map}
-            # fe_maped =vmap(complexclass_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["fe"].params)
-            # cont_maped =vmap(complexclass_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["host"].params)
-            # host_maped =vmap(complexclass_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complexclass_group_by_region["continuum"].params)
-            # spectra_wh_nothing = self.spec[:,1,:] - (fe_maped+cont_maped+host_maped)
-            # mg_center =  jnp.dot(_center[list(positions.values)],_flux[list(positions.values)])/jnp.sum(_flux[list(positions.values)])
-            # print(mg_center)
-            print(f"time for MgII combined {positions}")
-            #print(basic_params["broad"]["lines"])
-
+            fe_maped = vmap(complex_class_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["fe"].params)
+            cont_maped =vmap(complex_class_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["host"].params)
+            host_maped =vmap(complex_class_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["continuum"].params)
+            spectra_wh_nothing = np.clip(self.spec[:,1,:] - (fe_maped+cont_maped+host_maped),0.0, None)
+            _flux = basic_params_broad["flux"][:,list(positions.values())]
+            _center = basic_params_broad["center"][:,list(positions.values())]
+            _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+            mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+            _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+            _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
+            _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
+            _mask = (self.spec[:,0,:] >= _low[:, None]) & (self.spec[:,0,:] <= _up[:, None])
+            W = np.sum(spectra_wh_nothing *  _mask,axis=1)
+            M1 = np.sum(spectra_wh_nothing *  _mask * self.spec[:,0,:],axis=1)/W
+            M2 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**2,axis=1)/W
+            #M3 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**3,axis=1)/W
+            sigma_f = c * np.sqrt(M2)/M1
+            fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+            basic_params["new_params"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+         # print(complex_class_group_by_region)
+        if complex_class_group_by_region["fe"]:
+            group_fe = complex_class_group_by_region["fe"]
+            combine_profile_fe = group_fe.combined_profile
+            params_fe = group_fe.params[:, None, :]
+            uparams_fe = group_fe.uncertainty_params[:, None, :]
+            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
+            flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
+            basic_params["flux_fe"] = {"flux_fe":flux_fe}
+        #     print(flux_fe)
+        #from here can be the same function only take care on the uncertainty params of the continuum
         L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
@@ -332,18 +389,7 @@ class ComplexParams:
                 Lmono = calc_monochromatic_luminosity(np.array(distances[:, None]), Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
-        # print(complexclass_group_by_region)
-        # if complexclass_group_by_region["fe"]:
-        # #     #i guess meanwhile MgII is not here it is not necesary run this ?
-        #     group_fe = complexclass_group_by_region["fe"]
-        #     idx_fe = cont_group.flat_param_indices_global
-        #     combine_profile_fe = group_fe.combined_profile
-        #     params_fe = self.params[:, idx_fe]
-        #     uparams_fe = self.uncertainty_params[:, idx_fe]
-        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
-        #     flux_fe =  Uncertainty(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
-        #     print(flux_fe)
-        #from here can be the same function only take care on the uncertainty params of the continuum
+       
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=ucont_params)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
         for k in ["basic_params","combine_params"]:

@@ -111,8 +111,7 @@ class MonteCarloSampler:
             shape=(num_samples, param_min.shape[0]),
             minval=param_min,
             maxval=param_max,
-            dtype=jnp.float32,
-        )
+            dtype=jnp.float32,)
 
         
         list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
@@ -124,11 +123,12 @@ class MonteCarloSampler:
         self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
             
         iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
-        
+        #self.initial_params #
         monte_params = []
         _minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
         for n in iterator:    
             p = samples[n]
+            print(p[20])
             p = jnp.tile(p, (norm_spec.shape[0], 1)).astype(jnp.float32)
             raw_init = self.params_obj.phys_to_raw(p)
             #start_time = time.time()
@@ -138,13 +138,20 @@ class MonteCarloSampler:
             monte_params.append(params_m)
             #elapsed = end_time - start_time
             #print(f"Time elapsed for : {n}-{elapsed:.2f} seconds")
-        _monte_params = np.stack(monte_params).reshape(norm_spec.shape[0],num_samples,-1)
+        _monte_params = np.moveaxis(np.stack(monte_params),0,1)
+        print(_monte_params[0][0][20])
         dic_posterior_params = {}
         for n,name_i in enumerate(self.names):
-            dic_posterior_params[name_i] = self.complexparams.extract_params(_monte_params[n],n)
+          if n % 100 == 0:
+            print(f"{n} of {spec.shape[0]}")
+          full_samples = scale_amp(self.params_dict,_monte_params[n],np.array(self.scale[n]))
+          dic_posterior_params[name_i] = {}
+          #dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n)
+          #full_samples n_obj,n_iteraciones,n_params
+          dic_posterior_params[name_i].update({"full_samples":full_samples})
         return dic_posterior_params
     
-        
+
     def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
                     method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
         

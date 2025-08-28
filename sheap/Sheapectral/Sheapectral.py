@@ -337,7 +337,7 @@ class Sheapectral:
         self.spectra_nans = jnp.isnan(self.spectra)
     
     def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,
-                    add_balmer_continuum = None,add_balmerhighorder_continuum = None ,**kwargs):
+                    add_balmer_continuum = True ,add_balmerhighorder_continuum = True ,**kwargs):
         """
         Initialize a ComplexBuilder for later fitting.
 
@@ -358,13 +358,14 @@ class Sheapectral:
         -------
         None
         """
-        if xmin < 3600:
+        if xmin < 3600 and add_balmer_continuum:
             #print("add_balmer_continuum")
-            add_balmer_continuum = add_balmer_continuum or True
+            add_balmer_continuum = add_balmer_continuum
         
-        if 3700 > xmin and 4000 < xmax:    
+        if 3700 > xmin and 4000 < xmax and add_balmerhighorder_continuum:    
             #print("add_balmerhighorder_continuum")
-            add_balmerhighorder_continuum = add_balmerhighorder_continuum or True
+            add_balmerhighorder_continuum = add_balmerhighorder_continuum
+            
         print("add_balmer_continuum",add_balmer_continuum,"add_balmerhighorder_continuum",add_balmerhighorder_continuum)
         
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
@@ -450,7 +451,7 @@ class Sheapectral:
 
         Parameters
         ----------
-        sampling_method : {'single', 'pseudomontecarlo', 'mcmc'}
+        sampling_method : {'single', 'pseudomontecarlo', 'mcmc',"montecarlo"}
             Sampling algorithm to use.
         num_samples : int, optional
             Number of samples to draw.

@@ -148,24 +148,33 @@ def mapping_params(params_dict, params, verbose=False):
 def scale_amp(params_dict, params, scale):
     """
     Scale amplitude and log-amplitude parameters by a multiplicative factor.
+    Works with both NumPy and JAX arrays.
 
     Parameters
     ----------
     params_dict : dict
         Dictionary mapping parameter names to indices.
-    params : jnp.ndarray
+    params : jnp.ndarray or np.ndarray
         Parameter array of shape (N, D).
-    scale : jnp.ndarray
+    scale : jnp.ndarray or np.ndarray
         Scale values of shape (N,).
 
     Returns
     -------
-    jnp.ndarray
+    jnp.ndarray or np.ndarray
         Scaled parameter array.
     """
     idxs = mapping_params(params_dict, [["amplitude"]])
     idxs_log = mapping_params(params_dict, [["logamp"]])
-    params = (params.at[:, idxs].multiply(scale).at[:, idxs_log].add(jnp.log10(scale)))
+
+    if isinstance(params, jnp.ndarray):
+        params = (params.at[:, idxs].multiply(scale).at[:, idxs_log].add(jnp.log10(scale)))
+    elif isinstance(params, np.ndarray):
+        params[:, idxs] *= scale
+        params[:, idxs_log] += np.log10(scale)
+    else:
+        raise TypeError(f"Unsupported array type: {type(params)}")
+
     return params
 
 

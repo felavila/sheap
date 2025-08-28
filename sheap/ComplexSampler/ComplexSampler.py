@@ -73,7 +73,7 @@ from sheap.Profiles.Utils import make_fused_profiles
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,c,cm_per_mpc
 
 
-
+#TODO flat_param_indices_global is super difficult to know what it means.
 #TODO here we have to move the entire subrutines for montecarlosampler/mcmcsampler and ParametersSingle to his respective places bc in general they require different subfunctions. 
 
 class ComplexSampler:
