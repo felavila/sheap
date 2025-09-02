@@ -198,7 +198,17 @@ def descale_amp(params_dict, params, scale):
     """
     idxs = mapping_params(params_dict, [["amplitude"]])
     idxs_log = mapping_params(params_dict, [["logamp"]])
-    params = (params.at[:, idxs].divide(scale).at[:, idxs_log].subtract(jnp.log10(scale)))
+    
+    if isinstance(params, jnp.ndarray):
+        params = (params.at[:, idxs].divide(scale).at[:, idxs_log].subtract(jnp.log10(scale)))
+    
+    elif isinstance(params, np.ndarray):
+        params[:, idxs] /= scale
+        params[:, idxs_log] -= np.log10(scale)
+    
+    else:
+        raise TypeError(f"Unsupported array type: {type(params)}")
+    
     return params
 
 

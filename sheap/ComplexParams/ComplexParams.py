@@ -79,8 +79,7 @@ class ComplexParams:
         self.c = samplerclass.c
         self.dependencies = samplerclass.dependencies
         self.scale = samplerclass.scale
-        self.fluxnorm = samplerclass.fluxnorm
-        self.spec = samplerclass.spec
+        self.spectra= samplerclass.spectra
         self.mask = samplerclass.mask
         self.d = samplerclass.d
         
@@ -195,44 +194,51 @@ class ComplexParams:
                 "luminosity": np.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list) 
             }
-
+        
+        def _region_helper(region_name,full_samples):
+            if region_name not in complex_class_group_by_region.keys():
+                return 0
+            index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
+            _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+            return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
+        
         basic_params_broad = basic_params["broad"]
         targets = {'MgIIa', 'MgIIb'}
-        #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
-        # if  targets.issubset(basic_params_broad["lines"]):
-        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-        #     positions = {t: index_map[t] for t in targets if t in index_map}
-        #     fe_maped = vmap(complex_class_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["fe"].params)
-        #     cont_maped =vmap(complex_class_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["host"].params)
-        #     host_maped =vmap(complex_class_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["continuum"].params)
-        #     spectra_wh_nothing = np.clip(self.spec[:,1,:] - (fe_maped+cont_maped+host_maped),0.0, None)
-        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
-        #     _center = basic_params_broad["center"][:,list(positions.values())]
-        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-        #     _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
-        #     _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
-        #     _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
-        #     _mask = (self.spec[:,0,:] >= _low[:, None]) & (self.spec[:,0,:] <= _up[:, None])
-        #     W = np.sum(spectra_wh_nothing *  _mask,axis=1)
-        #     M1 = np.sum(spectra_wh_nothing *  _mask * self.spec[:,0,:],axis=1)/W
-        #     M2 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**2,axis=1)/W
-        #     #M3 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**3,axis=1)/W
-        #     sigma_f = c * np.sqrt(M2)/M1
-        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-        #     basic_params["new_params"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
-        #  # print(complex_class_group_by_region)
+        if  targets.issubset(basic_params_broad["lines"]):
+            #emission_spectra not good name
+            index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+            positions = {t: index_map[t] for t in targets if t in index_map}
+            _fe = _region_helper("fe",full_samples)
+            _cont = _region_helper("continuum",full_samples)
+            _host = _region_helper("host",full_samples) 
+            emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
+            _flux = basic_params_broad["flux"][:,list(positions.values())]
+            _center = basic_params_broad["center"][:,list(positions.values())]
+            _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+            mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+            _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
+            _low = mgii_2800 - 5*_sigma
+            _up = mgii_2800 + 5*_sigma
+            _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
+            W = np.sum(emission_spectra *  _mask,axis=1)
+            M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
+            M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
+            # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+            sigma_f = c * np.sqrt(M2)/M1
+            fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+            basic_params["mgii_2800"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+            
+        if complex_class_group_by_region["fe"]:
+            group_fe = complex_class_group_by_region["fe"]
+            profile_fe = group_fe.combined_profile
+            idx_fe_params = group_fe.flat_param_indices_global
+            params_fe = full_samples[:,idx_fe_params]
+            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
+            integrator_fe = make_integrator(profile_fe, method="vmap")
+            flux_fe = integrator_fe(wavelength_grid_fe, params_fe[:,None,:])
+            basic_params["flux_fe"] = {"flux_fe":flux_fe}
         
-        # if complex_class_group_by_region["fe"]:
-        #     group_fe = complex_class_group_by_region["fe"]
-        #     combine_profile_fe = group_fe.combined_profile
-        #     params_fe = group_fe.params[:, None, :]
-        #     uparams_fe = group_fe.uncertainty_params[:, None, :]
-        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
-        #     flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
-        #     basic_params["flux_fe"] = {"flux_fe":flux_fe}
-        
-        wl_i = self.spec[idx_obj, 0, :]
+        wl_i = self.spectra[idx_obj, 0, :]
         mask_i = self.mask[idx_obj, :]
         L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
@@ -241,19 +247,7 @@ class ComplexParams:
                 Fcont = vmap(cont_group.combined_profile, in_axes=(None, 0))(jnp.array([wave]), cont_params).squeeze()
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
-                L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)
-        #TODO ADD fe integral
-        # if complex_class_group_by_region["fe"]:
-        # #     #i guess meanwhile MgII is not here it is not necesary run this ?
-        #     group_fe = complex_class_group_by_region["fe"]
-        #     combined_profile_fe = group_fe.combined_profile
-        #     integrator_fe = make_integrator(combined_profile_fe, method="vmap")
-        #     wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #?
-        #     params_fe = self.params[:, idx_fe]
-        #     flux_fe = integrator_fe(wavelength_grid_fe, params_fe)
-        #     idx_fe = cont_group.flat_param_indices_global
-        #     print(flux_fe)
-        
+                L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
         combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=None)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
         for k in ["basic_params","combine_params"]:
@@ -340,14 +334,21 @@ class ComplexParams:
         
         basic_params_broad = basic_params["broad"]
         targets = {'MgIIa', 'MgIIb'}
-        #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
+                
+        def _region_helper(region_name):
+            if region_name not in complex_class_group_by_region.keys():
+                return 0
+            _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+            params = complex_class_group_by_region[region_name].params
+            return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
+         
         if  targets.issubset(basic_params_broad["lines"]):
             index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
             positions = {t: index_map[t] for t in targets if t in index_map}
-            fe_maped = vmap(complex_class_group_by_region["fe"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["fe"].params)
-            cont_maped =vmap(complex_class_group_by_region["host"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["host"].params)
-            host_maped =vmap(complex_class_group_by_region["continuum"].combined_profile,(0,0))(self.spec[:,0,:],complex_class_group_by_region["continuum"].params)
-            spectra_wh_nothing = np.clip(self.spec[:,1,:] - (fe_maped+cont_maped+host_maped),0.0, None)
+            fe_map = _region_helper("fe")
+            cont_map = _region_helper("continuum")
+            host_map = _region_helper("host")
+            emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
             _flux = basic_params_broad["flux"][:,list(positions.values())]
             _center = basic_params_broad["center"][:,list(positions.values())]
             _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
@@ -355,29 +356,29 @@ class ComplexParams:
             _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
             _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
             _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
-            _mask = (self.spec[:,0,:] >= _low[:, None]) & (self.spec[:,0,:] <= _up[:, None])
-            W = np.sum(spectra_wh_nothing *  _mask,axis=1)
-            M1 = np.sum(spectra_wh_nothing *  _mask * self.spec[:,0,:],axis=1)/W
-            M2 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**2,axis=1)/W
-            #M3 = np.sum(spectra_wh_nothing *  _mask * (self.spec[:,0,:] - M1[:,None])**3,axis=1)/W
+            _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
+            W = np.sum(emission_spectra *  _mask,axis=1)
+            M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
+            M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
+            #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
             sigma_f = c * np.sqrt(M2)/M1
             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-            basic_params["new_params"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+            basic_params["mgii_2800"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
          # print(complex_class_group_by_region)
         if complex_class_group_by_region["fe"]:
-            group_fe = complex_class_group_by_region["fe"]
-            combine_profile_fe = group_fe.combined_profile
-            params_fe = group_fe.params[:, None, :]
-            uparams_fe = group_fe.uncertainty_params[:, None, :]
-            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
-            flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
-            basic_params["flux_fe"] = {"flux_fe":flux_fe}
-        #     print(flux_fe)
+             group_fe = complex_class_group_by_region["fe"]
+             combine_profile_fe = group_fe.combined_profile
+             params_fe = group_fe.params[:, None, :]
+             uparams_fe = group_fe.uncertainty_params[:, None, :]
+             wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
+             flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
+             basic_params["flux_fe"] = {"flux_fe":flux_fe}
+
         #from here can be the same function only take care on the uncertainty params of the continuum
         L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, self.BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
-            hits = jnp.isclose(self.spec[:, 0, :], wave, atol=2)
+            hits = jnp.isclose(self.spectra[:, 0, :], wave, atol=2)
             valid = np.array((hits & (~self.mask)).any(axis=1, keepdims=True))
 
             if any(valid):

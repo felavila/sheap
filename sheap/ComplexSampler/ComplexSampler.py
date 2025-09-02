@@ -91,8 +91,6 @@ class ComplexSampler:
         Normalized spectra array, shape (n_objects, 3, n_pixels).
     z : jnp.ndarray, optional
         Redshift array for each object.
-    fluxnorm : array-like, optional
-        Flux normalization factors; defaults to ones.
     cosmo : astropy.cosmology instance, optional
         Cosmology for distance calculations; defaults to FlatLambdaCDM(H0=70, Om0=0.3).
     BOL_CORRECTIONS : dict, optional
@@ -112,8 +110,6 @@ class ComplexSampler:
         Best-fit parameter values.
     uncertainty_params : jnp.ndarray
         Uncertainty estimates for parameters.
-    fluxnorm : array-like
-        Flux normalization factors.
     cosmo : ?
         Cosmology object for computing distances.
     d : ?
@@ -148,7 +144,6 @@ class ComplexSampler:
         complexresult: Optional["ComplexResult"] = None,
         spectra: Optional[jnp.ndarray] = None,
         z: Optional[jnp.ndarray] = None,
-        fluxnorm=None,
         cosmo=None,
         BOL_CORRECTIONS = None,
         SINGLE_EPOCH_ESTIMATORS = None,
@@ -166,8 +161,6 @@ class ComplexSampler:
             Spectra corresponding to `complexresult`.
         z : jnp.ndarray, optional
             Redshifts for each spectrum.
-        fluxnorm : array-like, optional
-            Flux normalization per object.
         cosmo : ?
             Cosmology for computing luminosity distances.
         BOL_CORRECTIONS : dict, optional
@@ -190,16 +183,12 @@ class ComplexSampler:
         self.c = c
         if self.z is None:
             print("None informed redshift, assuming zero.")
-            self.z = np.zeros(self.spec.shape[0])
+            self.z = np.zeros(self.spectra.shape[0])
         if cosmo is None:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         else:
             self.cosmo = cosmo
-        if fluxnorm is None:
-            self.fluxnorm = np.ones(self.spec.shape[0])
-        else:
-            self.fluxnorm = fluxnorm
-
+            
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
        
 
@@ -313,7 +302,7 @@ class ComplexSampler:
         sheap : Sheapectral
             Source of fit results and spectra.
         """
-        self.spec = sheap.spectra
+        self.spectra = sheap.spectra
         self.z = sheap.z
         self.result = sheap.result
 
@@ -352,7 +341,7 @@ class ComplexSampler:
         z : jnp.ndarray
             Redshifts for each spectrum.
         """
-        self.spec = spectra
+        self.spectra = spectra
         self.z = z
         self.params = result.params
         self.uncertainty_params = result.uncertainty_params

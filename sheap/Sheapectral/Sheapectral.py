@@ -415,6 +415,7 @@ class Sheapectral:
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,
                                         smoothness_weight= smoothness_weight,max_weight= max_weight)
 
+            self.spectral_model = self.fitting_class.model 
             
             fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
@@ -485,7 +486,7 @@ class Sheapectral:
         PM = ComplexSampler(sheap = self)
         if sampling_method == "none":
             #maybe in this case return the ParameterEstimation class is to check something?
-            print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=no_sampling")
+            print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=single")
             return PM 
         if self.result.posterior and not overwrite:
             print("Warning already run if you want to run again please put overwrite=True")
@@ -781,3 +782,11 @@ class Sheapectral:
         return ax
 
 
+
+
+# def _region_helper(region_name):
+#             if region_name not in complex_class_group_by_region.keys():
+#                 return 0
+#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+#             params = complex_class_group_by_region[region_name].params
+#             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)

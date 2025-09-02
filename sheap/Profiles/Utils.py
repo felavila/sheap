@@ -115,7 +115,8 @@ def with_param_names(param_names: list[str]):
 
 def make_integrator(profile_fn, method="broadcast"):
     """
-    Create an integrator for profile functions.
+    Create an integrator for profile functions. This works for 1D wavelength  and 3D params 
+    n_sample,n_lines,n_params.
 
     Parameters
     ----------
