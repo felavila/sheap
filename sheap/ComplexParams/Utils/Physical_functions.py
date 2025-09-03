@@ -369,7 +369,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     return (10.0 ** logM)
 
 
-def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None):
+def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
     r"""
     Compute derived parameters (BH masses, Eddington ratios, accretion rates).
 
@@ -452,8 +452,8 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
     - **Pan25 iron term**: additional correction proportional to :math:`R_\mathrm{Fe}`.
     """
 
-    if extras is None:
-        extras = {}
+    #if extras is None:
+    extras = broad_params.get("extras",{})
 
     out = {}
 
@@ -477,26 +477,36 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
 
     for calib_key, est in estimators.items():
         line_name = est.get("line")
-        if not line_name or (line_name not in lines):
-            continue
-
         kind = est.get("kind", "continuum")
         width_def = str(est.get("width_def", "fwhm")).lower()
-
-        idxs = np.where(lines == line_name)[0]
-        comp_here = comps[idxs]
-
-        # choose velocity width
-        if width_def == "sigma":
-            if sigma_all is not None:
-                Vwidth = sigma_all[:, idxs]
-            elif "sigma_kms" in extras:
-                sig = _col(extras["sigma_kms"])
-                Vwidth = sig[:, idxs] if sig.ndim == 2 else sig
+        
+        if line_name == "MgII" and broad_params.get("MgII"):
+            if width_def == "sigma":
+                 Vwidth =  _col(broad_params.get("MgII").get("sigma_kms"))
             else:
-                continue  # no sigma available
+                Vwidth = _col( broad_params.get("MgII").get("fwhm_kms"))
+            #lum_all  = _col( broad_params.get("MgII").get("luminosity"))
+           
+            #print(Vwidth.shape,est.get("kind"),est.get("width_def"))
+            #continue 
+            
         else:
-            Vwidth = fwhm_all[:, idxs]
+            if not line_name or (line_name not in lines):
+                continue
+            idxs = np.where(lines == line_name)[0]
+            comp_here = comps[idxs]
+
+            # choose velocity width
+            if width_def == "sigma":
+                if sigma_all is not None:
+                    Vwidth = sigma_all[:, idxs]
+                elif "sigma_kms" in extras:
+                    sig = _col(extras["sigma_kms"])
+                    Vwidth = sig[:, idxs] if sig.ndim == 2 else sig
+                else:
+                    continue  # no sigma available
+            else:
+                Vwidth = fwhm_all[:, idxs]
 
         # local extras (Le20 / Pan25)
         local_extras = {}
@@ -507,8 +517,9 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c, extras=None)
                 sig = _col(extras["sigma_kms"])
                 local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
         if "R_Fe" in extras:
+            #print("R_fe")
             local_extras["R_Fe"] = extras["R_Fe"]
-
+        
         if kind == "continuum":
             lam = est.get("wavelength", None)
             if lam is None:

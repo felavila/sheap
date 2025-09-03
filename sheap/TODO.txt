@@ -1,10 +1,8 @@
 #########
-# To Do # (SHEAP)
+# To Do # (sheap)
 #########
 # TODO: composite model maybe call the combination of all composite sounds better 
 # TODO: Cleanup
 # TODO: Choice of using skewed Gaussians
 # TODO: Different line models: Gauss Hermite 
 # TODO: The MS is customarily represented by a trend in the
-# TODO: separate complex afterfit -> complexfituncertainties
-	         		  -> complextraproducts.         

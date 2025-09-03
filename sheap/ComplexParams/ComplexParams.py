@@ -226,7 +226,7 @@ class ComplexParams:
             # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
             sigma_f = c * np.sqrt(M2)/M1
             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-            basic_params["mgii_2800"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+            basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}
             
         if complex_class_group_by_region["fe"]:
             group_fe = complex_class_group_by_region["fe"]
@@ -236,7 +236,7 @@ class ComplexParams:
             wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
             integrator_fe = make_integrator(profile_fe, method="vmap")
             flux_fe = integrator_fe(wavelength_grid_fe, params_fe[:,None,:])
-            basic_params["flux_fe"] = {"flux_fe":flux_fe}
+            basic_params["broad"]["extras"] = {"R_Fe":flux_fe}
         
         wl_i = self.spectra[idx_obj, 0, :]
         mask_i = self.mask[idx_obj, :]
@@ -363,7 +363,7 @@ class ComplexParams:
             #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
             sigma_f = c * np.sqrt(M2)/M1
             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-            basic_params["mgii_2800"] = {"fwhm":fwhm_f,"mgii_2800":mgii_2800}
+            basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
          # print(complex_class_group_by_region)
         if complex_class_group_by_region["fe"]:
              group_fe = complex_class_group_by_region["fe"]
@@ -372,7 +372,7 @@ class ComplexParams:
              uparams_fe = group_fe.uncertainty_params[:, None, :]
              wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
              flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
-             basic_params["flux_fe"] = {"flux_fe":flux_fe}
+             basic_params["broad"]["extras"] = {"R_Fe":flux_fe}
 
         #from here can be the same function only take care on the uncertainty params of the continuum
         L_w, L_bol,F_cont = {}, {},{}
