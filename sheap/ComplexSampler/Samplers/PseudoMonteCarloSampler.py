@@ -3,39 +3,9 @@ Pseudo Monte Carlo Sampler
 ==========================
 
 .. note::
-   This method require major updates.
+   the docs require update now.
 
-This module provides the :class:`PseudoMonteCarloSampler`, an approximate
-posterior sampler based on a Laplace (Gaussian) approximation around the
-best-fit parameters.
-
-Main Features
--------------
-- Constructs a local covariance matrix from the Jacobian of residuals
-  using :func:`error_covariance_matrix`.
-- Draws random perturbations in the free-parameter subspace using
-  Cholesky decomposition of the covariance.
-- Reconstructs the full parameter vector for each draw by applying tied
-  and fixed relationships.
-- Rescales amplitudes/log-amplitudes back to original flux units.
-- Summarizes posterior draws into physical line quantities via
-  :class:`ComplexParams`.
-
-Public API
-----------
-- :class:`PseudoMonteCarloSampler`
-    * :meth:`PseudoMonteCarloSampler.sample_params` —
-      run the pseudo Monte Carlo sampler and return posterior parameter
-      dictionaries.
-
-Notes
------
-- This method approximates the posterior distribution as a multivariate
-  Gaussian centered on the best-fit solution (Laplace approximation).
-- It is considerably faster than full MCMC but does not capture
-  non-Gaussian features of the posterior.
-- Dependencies (tied/fixed parameters) are restored via
-  :func:`sheap.Assistants.parser_mapper.apply_tied_and_fixed_params`.
+?
 """
 from __future__ import annotations
 __author__ = 'felavila'
@@ -128,7 +98,7 @@ class PseudoMonteCarloSampler:
             key=key,
             num_samples=num_samples,
             eps=eps,)
-    
+        #bottle neck. 
         dic_posterior_params = {}
         for n,name_i in enumerate(self.names):
           if n % 100 == 0:
@@ -139,10 +109,6 @@ class PseudoMonteCarloSampler:
         
         return dic_posterior_params
         
-        #return out
-
-    # =================== Covariance handling (PHYSICAL) ===================
-
     def _get_cov_phys_broadcast(
         self,
         cov_phys: Optional[jnp.ndarray],
@@ -194,8 +160,6 @@ class PseudoMonteCarloSampler:
             cov = cov + I[None, ...] * jitter
         return cov
 
-    # =================== obj_params wrappers & bounds ===================
-
     def _raw_to_phys(self, x: jnp.ndarray) -> jnp.ndarray:
         return self.obj_params.raw_to_phys(x)
 
@@ -242,7 +206,6 @@ class PseudoMonteCarloSampler:
         N, D = self.mode_phys.shape
         return jnp.broadcast_to(lo, (N, D)), jnp.broadcast_to(hi, (N, D))
 
-    # =================== Stable Laplace core (batched, PHYSICAL) ===================
 
     @staticmethod
     def _make_psd(cov: jnp.ndarray, min_eig: float = 1e-12) -> jnp.ndarray:
@@ -267,7 +230,6 @@ class PseudoMonteCarloSampler:
                     return jnp.linalg.cholesky(C + j * jnp.eye(C.shape[0], dtype=C.dtype))
                 except Exception:
                     j *= 10.0
-            # fallback: PSD + small jitter
             C_psd = PseudoMonteCarloSampler._make_psd(C[None, ...])[0]
             return jnp.linalg.cholesky(C_psd + 1e-8 * jnp.eye(C.shape[0], dtype=C.dtype))
 
@@ -307,7 +269,6 @@ class PseudoMonteCarloSampler:
 
     @staticmethod
     def _reflect_into_bounds(x: jnp.ndarray, lo: jnp.ndarray, hi: jnp.ndarray) -> jnp.ndarray:
-        # x: (S,D), lo/hi: broadcastable to x
         finite_lo = jnp.isfinite(lo)
         finite_hi = jnp.isfinite(hi)
         width = hi - lo
@@ -339,8 +300,6 @@ class PseudoMonteCarloSampler:
     def _sanitize_nonfinite(x: jnp.ndarray, fallback: jnp.ndarray) -> jnp.ndarray:
         bad = ~jnp.isfinite(x)
         return jnp.where(bad, fallback, x)
-
-    # =================== shape/broadcast helpers ===================
 
     @staticmethod
     def _ensure_batched(mode_phys: jnp.ndarray) -> Tuple[jnp.ndarray, bool]:

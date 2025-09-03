@@ -198,9 +198,9 @@ def descale_amp(params_dict, params, scale):
     """
     idxs = mapping_params(params_dict, [["amplitude"]])
     idxs_log = mapping_params(params_dict, [["logamp"]])
-    
+    #print(params.shape)
     if isinstance(params, jnp.ndarray):
-        params = (params.at[:, idxs].divide(scale).at[:, idxs_log].subtract(jnp.log10(scale)))
+        params = (params.at[:, idxs].divide(scale[:, None]).at[:, idxs_log].subtract(jnp.log10(scale[:, None])))
     
     elif isinstance(params, np.ndarray):
         params[:, idxs] /= scale
