@@ -68,7 +68,7 @@ from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexParams.Utils.Combine_profiles import combine_components
+from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
@@ -109,8 +109,8 @@ class ComplexParams:
                 return pivot_and_split(self.names,self._extract_basic_params_single())
             return self._extract_basic_params_single()
         else:
-            if summarize:
-                print("Samples will be summarize")
+            #if summarize:
+                #print("Samples will be summarize")
             return summarize_nested_samples(self._extract_basic_params_sampled(full_samples=full_samples,idx_obj=idx_obj),run_summarize=summarize)
 
     def _extract_basic_params_sampled(self, full_samples, idx_obj):
@@ -195,45 +195,49 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
-        def _region_helper(region_name,full_samples):
-            if region_name not in complex_class_group_by_region.keys():
-                return 0
-            index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
-            _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-            return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
+        # def _region_helper(region_name,full_samples):
+        #     if region_name not in complex_class_group_by_region.keys():
+        #         return 0
+        #     index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
+        #     _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+        #     return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
         
-        basic_params_broad = basic_params["broad"]
-        targets = {'MgIIa', 'MgIIb'}
-        if  targets.issubset(basic_params_broad["lines"]):
-            #emission_spectra not good name
-            index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-            positions = {t: index_map[t] for t in targets if t in index_map}
-            _fe = _region_helper("fe",full_samples)
-            _cont = _region_helper("continuum",full_samples)
-            _host = _region_helper("host",full_samples) 
-            emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
-            _flux = basic_params_broad["flux"][:,list(positions.values())]
-            _center = basic_params_broad["center"][:,list(positions.values())]
-            _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-            mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-            _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
-            _low = mgii_2800 - 5*_sigma
-            _up = mgii_2800 + 5*_sigma
-            _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
-            W = np.sum(emission_spectra *  _mask,axis=1)
-            M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
-            M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
-            # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-            sigma_f = c * np.sqrt(M2)/M1
-            fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-            basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}
+        basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[[idx_obj],0,:],self.spectra[[idx_obj],1,:],full_samples,
+                                                                {"MgII"},basic_params["broad"],
+                                                            complex_class_group_by_region)})
+        #combine_fastspecfit(wavelength_spectra,flux_spectra,params,targets,basic_params_broad,complex_class_group_by_region)
+        # basic_params_broad = basic_params["broad"]
+        # targets = {'MgIIa', 'MgIIb'}
+        # if  targets.issubset(basic_params_broad["lines"]):
+        #     #emission_spectra not good name
+        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+        #     positions = {t: index_map[t] for t in targets if t in index_map}
+        #     _fe = _region_helper("fe",full_samples)
+        #     _cont = _region_helper("continuum",full_samples)
+        #     _host = _region_helper("host",full_samples) 
+        #     emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
+        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
+        #     _center = basic_params_broad["center"][:,list(positions.values())]
+        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+        #     _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
+        #     _low = mgii_2800 - 5*_sigma
+        #     _up = mgii_2800 + 5*_sigma
+        #     _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
+        #     W = np.sum(emission_spectra *  _mask,axis=1)
+        #     M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
+        #     M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
+        #     # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+        #     sigma_f = c * np.sqrt(M2)/M1
+        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+        #     basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}
             
         if complex_class_group_by_region["fe"]:
             group_fe = complex_class_group_by_region["fe"]
             profile_fe = group_fe.combined_profile
             idx_fe_params = group_fe.flat_param_indices_global
             params_fe = full_samples[:,idx_fe_params]
-            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
+            wavelength_grid_fe = jnp.linspace(2200,3090, 1_000) #maybe to small the grid.
             integrator_fe = make_integrator(profile_fe, method="vmap")
             flux_fe = integrator_fe(wavelength_grid_fe, params_fe[:,None,:])
             basic_params["broad"]["extras"] = {"R_Fe":flux_fe}
@@ -332,39 +336,45 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
-        basic_params_broad = basic_params["broad"]
-        targets = {'MgIIa', 'MgIIb'}
+        # basic_params_broad = basic_params["broad"]
+        # targets = {'MgIIa', 'MgIIb'}
                 
-        def _region_helper(region_name):
-            if region_name not in complex_class_group_by_region.keys():
-                return 0
-            _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-            params = complex_class_group_by_region[region_name].params
-            return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
-         
-        if  targets.issubset(basic_params_broad["lines"]):
-            index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-            positions = {t: index_map[t] for t in targets if t in index_map}
-            fe_map = _region_helper("fe")
-            cont_map = _region_helper("continuum")
-            host_map = _region_helper("host")
-            emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
-            _flux = basic_params_broad["flux"][:,list(positions.values())]
-            _center = basic_params_broad["center"][:,list(positions.values())]
-            _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-            mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-            _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
-            _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
-            _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
-            _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
-            W = np.sum(emission_spectra *  _mask,axis=1)
-            M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
-            M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
-            #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-            sigma_f = c * np.sqrt(M2)/M1
-            fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-            basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
+        # def _region_helper(region_name):
+        #     if region_name not in complex_class_group_by_region.keys():
+        #         return 0
+        #     _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+        #     params = complex_class_group_by_region[region_name].params
+        #     return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
+        
+        basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[:,0,:],self.spectra[:,1,:],None,
+                                                                {"MgII"},basic_params["broad"],
+                                                            complex_class_group_by_region)})
+        
+        #["MgII"] = 
+        # if  targets.issubset(basic_params_broad["lines"]):
+        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+        #     positions = {t: index_map[t] for t in targets if t in index_map}
+        #     fe_map = _region_helper("fe")
+        #     cont_map = _region_helper("continuum")
+        #     host_map = _region_helper("host")
+        #     emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
+        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
+        #     _center = basic_params_broad["center"][:,list(positions.values())]
+        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+        #     _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+        #     _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
+        #     _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
+        #     _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
+        #     W = np.sum(emission_spectra *  _mask,axis=1)
+        #     M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
+        #     M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
+        #     #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+        #     sigma_f = c * np.sqrt(M2)/M1
+        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+        #     basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
          # print(complex_class_group_by_region)
+        
         if complex_class_group_by_region["fe"]:
              group_fe = complex_class_group_by_region["fe"]
              combine_profile_fe = group_fe.combined_profile

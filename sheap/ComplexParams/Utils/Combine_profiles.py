@@ -55,18 +55,18 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import jax.numpy as jnp
 from jax import vmap,jit,jacfwd
-#from auto_uncertainties import Uncertainty
 from uncertainties import unumpy
-#from uncertainties.core import AffineScalarFunc
 
 from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosity
+
+c_kms = 299792.458 # this will have to move as the constant in every where 
 
 def combine_components(
     basic_params,
     cont_group,
     cont_params,
     distances,
-    LINES_TO_COMBINE=("Halpha", "Hbeta"),
+    LINES_TO_COMBINE=("Halpha", "Hbeta","MgII"),
     limit_velocity=150.0,
     c=299792.458,
     ucont_params = None 
@@ -142,7 +142,6 @@ def combine_components(
             #is_uncertainty = isinstance(amp_b, Uncertainty)
             is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
-                print("here")
                 from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
                 fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
@@ -156,7 +155,7 @@ def combine_components(
                 #print(fwhm_A.shape)
                 #unumpy.nominal_values,unumpy.std_devs
                 flux_c = calc_flux(amp_c, fwhm_A)
-                cont_c = Uncertainty(*np.array(evaluate_with_error(cont_group.combined_profile,unumpy.nominal_values(mu_c), cont_params,unumpy.std_devs(mu_c), ucont_params)))
+                cont_c = unumpy.uarray(*np.array(evaluate_with_error(cont_group.combined_profile,unumpy.nominal_values(mu_c), cont_params,unumpy.std_devs(mu_c), ucont_params)))
                 #ndim1 * ndim2 requires always a [:,None] to work 
                 L_line = calc_luminosity(np.array(distances)[:,None], flux_c)
                 eqw_c = flux_c / cont_c
@@ -168,8 +167,12 @@ def combine_components(
                 params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
 
                 fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, c=c)
+                if fwhm_c.ndim==1:
+                    fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
+
                 fwhm_A = (fwhm_c / c) * mu_c
                 flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
+                #print(flux_c.shape)
                 cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
                 L_line = calc_luminosity(jnp.array(distances), flux_c)
                 eqw_c = flux_c / cont_c
@@ -389,10 +392,149 @@ def combine_fast_with_jacobian(
     mu_vals, mu_errs     = zip(*results[2])
 
     return (
-        Uncertainty(np.array(fwhm_vals), np.array(fwhm_errs)),
-        Uncertainty(np.array(amp_vals),  np.array(amp_errs)),
-        Uncertainty(np.array(mu_vals),   np.array(mu_errs))
+        unumpy.uarray(np.array(fwhm_vals), np.array(fwhm_errs)),
+        unumpy.uarray(np.array(amp_vals),  np.array(amp_errs)),
+        unumpy.uarray(np.array(mu_vals),   np.array(mu_errs))
     )
 
 
 
+
+
+
+
+
+
+def region_helper(wavelength,region_name,complex_class_group_by_region,params,on_axis_wavelength = None):
+    "?"
+    if region_name not in complex_class_group_by_region.keys():
+        return 0
+    _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+    index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
+    from_complex_params = complex_class_group_by_region[region_name].params
+    params = from_complex_params if on_axis_wavelength == 0 else params[:,index_interest_params]  
+    #params = complex_class_group_by_region[region_name].params
+    return vmap(_combined_profile,(on_axis_wavelength,0))(wavelength,params)
+        
+# def _region_helper(region_name,full_samples):
+#             if region_name not in complex_class_group_by_region.keys():
+#                 return 0
+#             index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
+#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+#             return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
+
+# #  def _region_helper(region_name):
+# #             if region_name not in complex_class_group_by_region.keys():
+#                 return 0
+#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
+#             params = complex_class_group_by_region[region_name].params
+#             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
+
+
+
+
+def combine_fastspecfit(wavelength_spectra,flux_spectra,params,targets,basic_params_broad,complex_class_group_by_region):
+    "?"
+    #self.spectra[[idx_obj],1,:]
+    
+    #on_axis_wavelength=None
+    if  targets.issubset(basic_params_broad["lines"]):
+        on_axis_wavelength = 0 
+        #print(wavelength_spectra.shape, flux_spectra.shape)
+        if wavelength_spectra.shape[0] == flux_spectra.shape[0] == 1:
+            on_axis_wavelength = None
+            #print(on_axis_wavelength,"is none")
+        index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+        positions = {t: index_map[t] for t in targets if t in index_map}
+        fe_map = region_helper(wavelength_spectra,"fe",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
+        cont_map = region_helper(wavelength_spectra,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
+        host_map = region_helper(wavelength_spectra,"host",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
+        
+        emission_spectra = np.clip(flux_spectra - (fe_map + cont_map + host_map),0.0, None)
+        _flux = basic_params_broad["flux"][:,list(positions.values())]
+        _center = basic_params_broad["center"][:,list(positions.values())]
+        _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+        
+        weighted_center = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+        if isinstance(_fwhm, np.ndarray) and _fwhm.dtype == object and _fwhm.size:
+            _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+            _low = unumpy.nominal_values(weighted_center - 5*_sigma)
+            _up = unumpy.nominal_values(weighted_center + 5*_sigma)
+            #_mask = (wavelength_spectra >= _low[:, None]) & (wavelength_spectra <= _up[:, None])
+            #W = np.sum(emission_spectra *  _mask,axis=1)
+            #M1 = np.sum(emission_spectra *  _mask * wavelength_spectra,axis=1)/W
+            #M2 = np.sum(emission_spectra *  _mask * (wavelength_spectra - M1[:,None])**2,axis=1)/W
+            # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+            # sigma_f = c * np.sqrt(M2)/M1
+            # fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+        else:    
+            _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
+            _low = weighted_center - 5*_sigma
+            _up = weighted_center + 5*_sigma
+        
+        _mask = (wavelength_spectra >= _low[:, None]) & (wavelength_spectra  <= _up[:, None])
+        W = np.sum(emission_spectra *  _mask,axis=1)
+        M1 = np.sum(emission_spectra *  _mask * flux_spectra,axis=1)/W
+        M2 = np.sum(emission_spectra *  _mask * (flux_spectra - M1[:,None])**2,axis=1)/W
+        sigma_f = c_kms * np.sqrt(M2)/M1
+        fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+        
+        
+        return {"weighted_center": weighted_center,"sigma_kms":sigma_f,"fwhm_kms":fwhm_f,"W":W,"M1":M1,"M2":M2}
+    else:
+        print(targets, "not a sub set of ",basic_params_broad["lines"] )    
+            
+# basic_params_broad = basic_params["broad"]
+#         targets = {'MgIIa', 'MgIIb'}
+                
+        
+         
+#         if  targets.issubset(basic_params_broad["lines"]):
+#             index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+#             positions = {t: index_map[t] for t in targets if t in index_map}
+#             fe_map = _region_helper("fe")
+#             cont_map = _region_helper("continuum")
+#             host_map = _region_helper("host")
+#             emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
+#             _flux = basic_params_broad["flux"][:,list(positions.values())]
+#             _center = basic_params_broad["center"][:,list(positions.values())]
+#             _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+#             mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+#             _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+#             _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
+#             _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
+#             _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
+#             W = np.sum(emission_spectra *  _mask,axis=1)
+#             M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
+#             M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
+#             #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+#             sigma_f = c * np.sqrt(M2)/M1
+#             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+#             basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
+            
+            
+            
+            
+# if  targets.issubset(basic_params_broad["lines"]):
+#             #emission_spectra not good name
+#             index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
+#             positions = {t: index_map[t] for t in targets if t in index_map}
+#             _fe = _region_helper("fe",full_samples)
+#             _cont = _region_helper("continuum",full_samples)
+#             _host = _region_helper("host",full_samples) 
+#             emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
+#             _flux = basic_params_broad["flux"][:,list(positions.values())]
+#             _center = basic_params_broad["center"][:,list(positions.values())]
+#             _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+#             mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+#             _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
+#             _low = mgii_2800 - 5*_sigma
+#             _up = mgii_2800 + 5*_sigma
+#             _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
+#             W = np.sum(emission_spectra *  _mask,axis=1)
+#             M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
+#             M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
+#             # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
+#             sigma_f = c * np.sqrt(M2)/M1
+#             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+#             basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}

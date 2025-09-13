@@ -38,10 +38,12 @@
 - center: 2733.29
   line_name: HeIIb
   element: Helium
-- center: 2796.352
-  line_name: MgIIa
-- center: 2803.531
-  line_name: MgIIb
+- center: 2799
+  line_name: MgII
+# - center: 2796.352
+#   line_name: MgIIa
+# - center: 2803.531
+#   line_name: MgIIb
 - center: 2945.106
   line_name: HeIa
   element: Helium

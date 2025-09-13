@@ -39,6 +39,29 @@ import numpy as np
 from uncertainties import unumpy as unp
 
 
+def log10(x):
+    """
+    Compute base-10 logarithm for both numpy arrays and
+    uncertainties.unumpy arrays.
+
+    Parameters
+    ----------
+    x : array-like or unumpy uarray
+        Input values.
+
+    Returns
+    -------
+    result : array-like
+        log10(x), using np.log10 if x is a pure numpy object,
+        or unp.log10 if x has uncertainties.
+    """
+    # detect if it's an unumpy uarray by checking dtype or class
+    if isinstance(x, np.ndarray) and x.dtype == object and x.size:
+        return unp.log10(x)
+    else:
+        return np.log10(x)
+
+
 def calc_flux(norm_amplitude, fwhm):
     r"""
     Compute the integrated flux of a Gaussian line profile.
@@ -174,8 +197,8 @@ def calc_black_hole_mass(L_w, fwhm_kms, estimator):
         Black hole mass in solar masses.
     """
     a, b, f = estimator["a"], estimator["b"], estimator["f"]
-    log_L = unp.log10(L_w)
-    log_FWHM = unp.log10(fwhm_kms) - 3  # FWHM in 1000 km/s
+    log_L = log10(L_w)
+    log_FWHM = log10(fwhm_kms) - 3  # FWHM in 1000 km/s
     log_M_BH = a + b * (log_L - 44.0) + 2.0 * log_FWHM
     return (10 ** log_M_BH) / f
 
@@ -200,8 +223,8 @@ def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     MBH : jnp.ndarray
         Black hole mass in solar masses.
     """
-    log_L = unp.log10(L_halpha)
-    log_FWHM = unp.log10(fwhm_kms) - 3
+    log_L = log10(L_halpha)
+    log_FWHM = log10(fwhm_kms) - 3
     log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
     return 10 ** log_M_BH
 
@@ -351,14 +374,14 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     L = _col(L_in)
     V = _col(vwidth_kms)
     #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
-    logM = unp.log10(f) + a + b * (unp.log10(L) - unp.log10(L0)) + beta * (unp.log10(V) - unp.log10(V0))
-
+    #logM = log10(f) + a + b * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
+    logM = log10(f) + a  + b    * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
     # Le20 shape (only if baseline uses FWHM)
     if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
         sigma = extras.get("sigma_kms", None)
         if sigma is not None:
             sigma = _col(sigma)
-            logM += (-1.14 * (unp.log10(V) - unp.log10(sigma)) + 0.33)
+            logM += (-1.14 * (log10(V) - log10(sigma)) + 0.33)
 
     # Pan25 iron term
     if "R_Fe" in extras:
@@ -545,7 +568,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
                 "wavelength": lam,
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
-                "log10_smbh": unp.log10(MBH),
+                "log10_smbh": log10(MBH),
                 "Lwave": Lmono,
                 "Lbol": Lbol,
                 "Ledd": Ledd,
@@ -564,7 +587,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
                 "Lline": L_line,
-                "log10_smbh": unp.log10(MBH),
+                "log10_smbh": log10(MBH),
                 "Ledd": Ledd,
                 "component": comp_here,
             }

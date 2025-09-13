@@ -297,6 +297,7 @@ def summarize_samples(samples) -> Dict[str, np.ndarray]:
     if isinstance(samples, jnp.ndarray):
         samples = np.asarray(samples)
     samples = np.atleast_2d(samples).T
+    #print(type(samples))
     if np.isnan(samples).sum() / samples.size > 0.2:
         warnings.warn("High fraction of NaNs; uncertainty estimates may be biased.")
     if samples.shape[1]<=1:
