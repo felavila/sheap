@@ -68,7 +68,7 @@ from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit
+from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
@@ -195,43 +195,12 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
-        # def _region_helper(region_name,full_samples):
-        #     if region_name not in complex_class_group_by_region.keys():
-        #         return 0
-        #     index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
-        #     _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-        #     return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
+
+
+        # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[[idx_obj],0,:],self.spectra[[idx_obj],1,:],full_samples,
+        #                                                         {"MgII"},basic_params["broad"],
+        #                                                     complex_class_group_by_region)})
         
-        basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[[idx_obj],0,:],self.spectra[[idx_obj],1,:],full_samples,
-                                                                {"MgII"},basic_params["broad"],
-                                                            complex_class_group_by_region)})
-        #combine_fastspecfit(wavelength_spectra,flux_spectra,params,targets,basic_params_broad,complex_class_group_by_region)
-        # basic_params_broad = basic_params["broad"]
-        # targets = {'MgIIa', 'MgIIb'}
-        # if  targets.issubset(basic_params_broad["lines"]):
-        #     #emission_spectra not good name
-        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-        #     positions = {t: index_map[t] for t in targets if t in index_map}
-        #     _fe = _region_helper("fe",full_samples)
-        #     _cont = _region_helper("continuum",full_samples)
-        #     _host = _region_helper("host",full_samples) 
-        #     emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
-        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
-        #     _center = basic_params_broad["center"][:,list(positions.values())]
-        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-        #     _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
-        #     _low = mgii_2800 - 5*_sigma
-        #     _up = mgii_2800 + 5*_sigma
-        #     _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
-        #     W = np.sum(emission_spectra *  _mask,axis=1)
-        #     M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
-        #     M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
-        #     # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-        #     sigma_f = c * np.sqrt(M2)/M1
-        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-        #     basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}
-            
         if complex_class_group_by_region["fe"]:
             group_fe = complex_class_group_by_region["fe"]
             profile_fe = group_fe.combined_profile
@@ -252,15 +221,23 @@ class ComplexParams:
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
-        combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=None)
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
-        for k in ["basic_params","combine_params"]:
+        combined = combine_components(basic_params, cont_group, cont_params, distances,
+                                      LINES_TO_COMBINE=self.LINES_TO_COMBINE,
+                                      limit_velocity=self.limit_velocity,c=self.c,ucont_params=None,flux_fe=flux_fe)
+        
+        combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+        
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined,"combined_pyqso":combined_pyqso}
+        
+        
+        for k in ["basic_params","combine_params","combined_pyqso"]:
             if k == "basic_params":
                 result_local = result[k]["broad"]
             else:
                 result_local = result[k]
             #print(extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c))
-            result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)})
+            result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)}) #extras could be added directly because the are not related to the combination.
+        
         return result
     
     
@@ -336,44 +313,13 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
-        # basic_params_broad = basic_params["broad"]
-        # targets = {'MgIIa', 'MgIIb'}
-                
-        # def _region_helper(region_name):
-        #     if region_name not in complex_class_group_by_region.keys():
-        #         return 0
-        #     _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-        #     params = complex_class_group_by_region[region_name].params
-        #     return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
+ 
+        # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[:,0,:],self.spectra[:,1,:],None,
+        #                                                         {"MgII"},basic_params["broad"],
+        #                                                     complex_class_group_by_region)})
         
-        basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[:,0,:],self.spectra[:,1,:],None,
-                                                                {"MgII"},basic_params["broad"],
-                                                            complex_class_group_by_region)})
+       
         
-        #["MgII"] = 
-        # if  targets.issubset(basic_params_broad["lines"]):
-        #     index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-        #     positions = {t: index_map[t] for t in targets if t in index_map}
-        #     fe_map = _region_helper("fe")
-        #     cont_map = _region_helper("continuum")
-        #     host_map = _region_helper("host")
-        #     emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
-        #     _flux = basic_params_broad["flux"][:,list(positions.values())]
-        #     _center = basic_params_broad["center"][:,list(positions.values())]
-        #     _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-        #     mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-        #     _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
-        #     _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
-        #     _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
-        #     _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
-        #     W = np.sum(emission_spectra *  _mask,axis=1)
-        #     M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
-        #     M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
-        #     #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-        #     sigma_f = c * np.sqrt(M2)/M1
-        #     fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-        #     basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
-         # print(complex_class_group_by_region)
         
         if complex_class_group_by_region["fe"]:
              group_fe = complex_class_group_by_region["fe"]
@@ -401,7 +347,9 @@ class ComplexParams:
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
        
-        combined = combine_components(basic_params, cont_group, cont_params, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,c=self.c,ucont_params=ucont_params)
+        combined = combine_components(basic_params, cont_group, cont_params, distances,
+                                      LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,
+                                      c=self.c,ucont_params=ucont_params)
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
         for k in ["basic_params","combine_params"]:
          #   print(k)

@@ -58,10 +58,45 @@ from sheap.ComplexParams.ComplexParams import ComplexParams
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
 
+
+def phys_trust_region_inits(
+    key, *,
+    params_obj,          # has phys_to_raw / raw_to_phys and knows ties
+    phys_map,            # MAP in physical space (vector of *free* params)
+    phys_bounds,         # [(lo, hi), ...] in physical space (same shape)
+    num_samples=100,
+    sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
+    frac_box_sigma=0.05, # fallback noise size ~5% of (hi-lo)
+    k_sigma=0.7          # multiplier for sigma_phys
+):
+    key = random.PRNGKey(key) if isinstance(key, int) else key
+
+    lo = jnp.array([b[0] for b in phys_bounds], dtype=jnp.float32)
+    hi = jnp.array([b[1] for b in phys_bounds], dtype=jnp.float32)
+    width = hi - lo
+
+    if sigma_phys is None:
+        # fallback: a fraction of the box width (handles fixed params when width==0)
+        sigma_phys = jnp.where(width > 0, frac_box_sigma * width, 0.0)
+
+    keys = random.split(key, num_samples)
+    draws_phys = []
+    for ki in keys:
+        step = k_sigma * sigma_phys * random.normal(ki, shape=phys_map.shape)
+        phys = phys_map + step
+        # project back to physical bounds
+        phys = jnp.clip(phys, lo, hi)
+        draws_phys.append(phys)
+
+    draws_phys = jnp.stack(draws_phys)  # (N, P)
+    # map to raw (so your optimizer can work)
+    draws_raw = jnp.stack([params_obj.phys_to_raw(p) for p in draws_phys])
+    return draws_raw, draws_phys
+
 class MonteCarloSampler:
     """
-    Approximate posterior sampling via local Gaussian (Laplace) expansion
-    BOL_CORRECTIONS, SINGLE_EPOCH_ESTIMATORS should came from ParameterEstimation
+    Montecarlo sampler 
+    still under developmen.
     """
     
     def __init__(self, estimator: "ComplexSampler"):
@@ -89,64 +124,78 @@ class MonteCarloSampler:
         # Normalize spectratra
         scale = self.scale.astype(jnp.float32)
         spectra = self.spectra.astype(jnp.float32)
+        
         norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
         norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
         norm_spectra = norm_spectra.astype(jnp.float32)
-
+      
+        phys_map = descale_amp(self.params_dict,self.params,self.scale)
+        
         param_min = jnp.array([c[0] for c in self.constraints], dtype=jnp.float32)
         param_max = jnp.array([c[1] for c in self.constraints], dtype=jnp.float32)
 
-        print("num_samples =", num_samples)
-
-        # JAX random sampling
-        key = random.PRNGKey(key_seed)
-        samples = random.uniform(
-            key,
-            shape=(num_samples, param_min.shape[0]),
-            minval=param_min,
-            maxval=param_max,
-            dtype=jnp.float32,)
-
-        
         list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
         list_dependencies = parse_dependencies(self._build_tied(self.fitkwargs[-1]["tied"]))
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         
-        #(tied_map,self.params_dict,initial_params,self.constraints)
-        self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+        norm_spectra_T = norm_spectra.transpose(1, 0, 2)
             
-        iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
-        #self.initial_params #
-        monte_params = []
+        self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+
+        draws_raw, _ = phys_trust_region_inits(
+            key_seed,
+            params_obj=self.params_obj,
+            phys_map=phys_map,
+            phys_bounds=self.constraints,
+            num_samples=num_samples)
+        
+        draws_raw = draws_raw.astype(jnp.float32)  # ensure consistent dtype
+
         _minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
-        for n in iterator:    
-            p = samples[n]
-            p = jnp.tile(p, (norm_spectra.shape[0], 1)).astype(jnp.float32)
-            raw_init = self.params_obj.phys_to_raw(p)
-            #start_time = time.time()
-            raw_params, _ = _minimizer(raw_init, *norm_spectra.transpose(1, 0, 2), self.constraints)
-            #end_time = time.time()
+        
+        constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
+        
+        raw_init0 = draws_raw[0]
+        raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
+        # Force the computation to finish so compile time happens here:
+        raw_params0.block_until_ready()
+
+        # --- Sampling loop (now just executes the compiled program) ---
+        from tqdm import tqdm
+        iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
+        
+        monte_params = []
+        for n in iterator:
+            raw_init = draws_raw[n]  # already float32
+            t0 = time.perf_counter()
+            raw_params, _ = _minimizer(raw_init, *norm_spectra_T, constraints_jnp)
+            
+            raw_params.block_until_ready()
+            t1 = time.perf_counter()
+
             params_m = self.params_obj.raw_to_phys(raw_params)
             monte_params.append(params_m)
-            #elapsed = end_time - start_time
-            #print(f"Time elapsed for : {n}-{elapsed:.2f} seconds")
+            iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+        
         _monte_params = np.moveaxis(np.stack(monte_params),0,1)
         dic_posterior_params = {}
-        for n,name_i in enumerate(self.names):
-          if n % 100 == 0:
-            print(f"{n} of {spectra.shape[0]}")
+        
+        iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+
+        for n, name_i in enumerate(iterator):
+          #if n % 100 == 0:
+            #print(f"{n} of {spectra.shape[0]}")
           full_samples = scale_amp(self.params_dict,_monte_params[n],np.array(self.scale[n]))
           dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
-          dic_posterior_params[name_i].update({"full_samples":full_samples})
+          dic_posterior_params[name_i].update({"samples_phys":full_samples})
         return dic_posterior_params
     
 
     def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
                     method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
         
-        #print(tied)
-        num_steps = 5_000
+        num_steps = 1_000
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
                             learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
                             penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)

@@ -492,6 +492,7 @@ class Sheapectral:
             print("Warning already run if you want to run again please put overwrite=True")
         else:
             # After this point a function inside ComplexAfterFit should be able to call the different sampling methods. 
+            
             if  sampling_method.lower()=="single":
                 print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
                 dic_posterior_params = PM.sample_single(summarize=summarize)

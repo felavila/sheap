@@ -54,19 +54,21 @@ __all__ = [
 from typing import Any, Dict, List, Union
 import numpy as np
 import jax.numpy as jnp
-from jax import vmap,jit,jacfwd
+from jax import vmap,jit,jacfwd,lax
 from uncertainties import unumpy
 
 from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosity
 
 c_kms = 299792.458 # this will have to move as the constant in every where 
 
+
 def combine_components(
     basic_params,
     cont_group,
     cont_params,
     distances,
-    LINES_TO_COMBINE=("Halpha", "Hbeta","MgII"),
+    flux_fe=None,
+    LINES_TO_COMBINE=("Halpha", "Hbeta","MgII","CIV"),
     limit_velocity=150.0,
     c=299792.458,
     ucont_params = None 
@@ -203,13 +205,36 @@ def combine_components(
             "amplitude": np.concatenate(amp_parts, axis=1),
             "eqw": np.concatenate(eqw_parts, axis=1),
             "luminosity": np.concatenate(lum_parts, axis=1),
-            }   
+            }
+        #if flux_fe:
+        unique_lines = np.unique(combined["lines"])
+        new_dict = {}
+        for line in unique_lines:
+            # Boolean mask for this line
+            mask = np.where(np.array(combined["lines"]) == line)[0]
+            #print(mask)
+            # Build a sub-dictionary slicing each array along axis=1
+            new_dict[line] = {
+                "component": np.array(combined["component"]),
+                "flux": combined["flux"][:, mask],
+                "fwhm": combined["fwhm"][:, mask],
+                "fwhm_kms": combined["fwhm_kms"][:, mask],
+                "center": combined["center"][:, mask],
+                "amplitude": combined["amplitude"][:, mask],
+                "eqw": combined["eqw"][:, mask],
+                "luminosity": combined["luminosity"][:, mask],
+                "extras":{"R_Fe":flux_fe}
+            }        
+        # combined["extras"] = {}
+        # combined["extras"]["R_Fe"] = flux_fe
         # for key,values in combined.items():
         #     try:
         #         print(key,values.shape)  
         #     except:
         #         print("list",key,values)  
-        return combined
+        
+        
+        return new_dict
     else:
         return combined
 
@@ -399,142 +424,414 @@ def combine_fast_with_jacobian(
 
 
 
-
-
-
-
-
-
 def region_helper(wavelength,region_name,complex_class_group_by_region,params,on_axis_wavelength = None):
     "?"
     if region_name not in complex_class_group_by_region.keys():
-        return 0
+        return np.array([0])
     _combined_profile  = complex_class_group_by_region[region_name].combined_profile
     index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
     from_complex_params = complex_class_group_by_region[region_name].params
     params = from_complex_params if on_axis_wavelength == 0 else params[:,index_interest_params]  
     #params = complex_class_group_by_region[region_name].params
     return vmap(_combined_profile,(on_axis_wavelength,0))(wavelength,params)
+
+class GaussianSum:
+    def __init__(self, n, constraints=None, inequalities=None):
+        """
+        Initialize the GaussianSum with parameter constraints.
+
+        Parameters:
+        - n (int): Number of Gaussian functions.
+        - constraints (dict): Optional equality constraints on parameters.
+            Example:
+                {
+                    'amp': [('amp0', 'amp1')],  # amp0 == amp1
+                    'mu': [('mu2', 'mu3')],
+                    'sigma': [('sigma1', 'sigma2')]
+                }
+        - inequalities (dict): Optional inequality constraints on parameters.
+            Example:
+                {
+                    'sigma': [('sigma1', 'sigma2')]  # sigma2 > sigma1
+                }
+        """
+        self.n = n
+        self.constraints = constraints or {}
+        self.inequalities = inequalities or {}
+        # Determine free parameters based on constraints
+        self.param_mapping = self._build_param_mapping()
+        # Calculate the number of free parameters
+        self.num_free_params = self._count_free_params()
+        # Build the JIT-compiled Gaussian sum function
+        self.sum_gaussians_jit = self._build_gaussian_sum()
+
+    def _build_param_mapping(self):
+        """
+        Build a mapping from free parameters to all parameters,
+        applying constraints as specified.
+        """
+        # Initialize mappings: each parameter maps to itself initially
+        mapping = {
+            'amp': list(range(self.n)),
+            'mu': list(range(self.n)),
+            'sigma': list(range(self.n))
+        }
+
+        # Apply equality constraints
+        for param_type, pairs in self.constraints.items():
+            for (p1, p2) in pairs:
+                idx1 = int(p1.replace(param_type, ''))
+                idx2 = int(p2.replace(param_type, ''))
+                mapping[param_type][idx2] = mapping[param_type][idx1]
+
+        return mapping
+
+    def _count_free_params(self):
+        """
+        Count the number of free parameters after applying constraints.
+        """
+        free_amp = len(set(self.param_mapping['amp']))
+        free_mu = len(set(self.param_mapping['mu']))
+        free_sigma = len(set(self.param_mapping['sigma']))
+        return free_amp + free_mu + free_sigma + self._count_inequality_free_params()
+
+    def _count_inequality_free_params(self):
+        """
+        Count additional free parameters required for inequality constraints.
+        For each inequality, an extra free parameter is needed to define the offset.
+        """
+        count = 0
+        for param_type, pairs in self.inequalities.items():
+            count += len(pairs)
+        return count
+
+    def _apply_constraints(self, params):
+        """
+        Apply equality constraints to the parameter vector to obtain full parameter sets.
+
+        Parameters:
+        - params (jnp.ndarray): Free parameters vector.
+
+        Returns:
+        - amps, mus, sigmas (tuple of jnp.ndarray): Full parameter sets.
+        """
+        free_amp = self.param_mapping['amp']
+        free_mu = self.param_mapping['mu']
+        free_sigma = self.param_mapping['sigma']
+
+        num_free_amp = len(set(free_amp))
+        num_free_mu = len(set(free_mu))
+        num_free_sigma = len(set(free_sigma))
+
+        # Extract free parameters
+        idx = 0
+        amps_free = params[idx:idx + num_free_amp]
+        idx += num_free_amp
+        mus_free = params[idx:idx + num_free_mu]
+        idx += num_free_mu
+        sigmas_free = params[idx:idx + num_free_sigma]
+        idx += num_free_sigma
+
+        # Map free parameters to all parameters using the mapping
+        amps = jnp.array([amps_free[i] for i in self.param_mapping['amp']])
+        mus = jnp.array([mus_free[i] for i in self.param_mapping['mu']])
+        sigmas = jnp.array([sigmas_free[i] for i in self.param_mapping['sigma']])
+
+        return amps, mus, sigmas
+
+    def _apply_inequality_constraints(self, sigmas, params):
+        """
+        Apply inequality constraints to sigmas.
+
+        For example, enforce sigma2 > sigma1 by setting sigma2 = sigma1 + softplus(delta)
+
+        Parameters:
+        - sigmas (jnp.ndarray): Current sigma parameters.
+        - params (jnp.ndarray): Remaining parameters for inequality transformations.
+
+        Returns:
+        - jnp.ndarray: Transformed sigma parameters satisfying inequalities.
+        """
+        if not self.inequalities:
+            return sigmas
+
+        # Assuming all inequality constraints are on 'sigma'
+        for (s1, s2) in self.inequalities.get('sigma', []):
+            idx1 = int(s1.replace('sigma', ''))
+            idx2 = int(s2.replace('sigma', ''))
+            delta = params[0]
+            params = params[1:]
+            transformed_sigma2 = sigmas[idx1] + jax.nn.softplus(delta)
+            sigmas = sigmas.at[idx2].set(transformed_sigma2)
+        return sigmas
+
+    def _build_gaussian_sum(self):
+        """
+        Build the JIT-compiled Gaussian sum function.
+
+        Returns:
+        - sum_gaussians_jit (function): JIT-compiled function.
+        """
+        def gaussian(x, amp, mu, sigma):
+            return amp * jnp.exp(-0.5 * ((x - mu) / sigma) ** 2)
+
+
+        def sum_gaussians(x, params):
+            # Validate parameter length
+            if params.shape[0] != self.num_free_params:
+                raise ValueError(f"Expected {self.num_free_params} parameters, got {params.shape[0]}.")
+
+            # Apply equality constraints
+            amps, mus, sigmas = self._apply_constraints(params)
+            
+            # Apply inequality constraints if any
+            if self.inequalities:
+                # Extract deltas for inequalities
+                delta_params = params[-len(self.inequalities.get('sigma', [])):]
+                sigmas = self._apply_inequality_constraints(sigmas, delta_params)
+
+            # Use a lambda to fix 'x' while vectorizing over amp, mu, sigma
+            gaussians = vmap(lambda amp, mu, sigma: gaussian(x, amp, mu, sigma))(amps, mus, sigmas)
+            
+            return jnp.sum(gaussians, axis=0)
+        self.n_params = self.num_free_params
+        return jit(sum_gaussians)
+
+    def __call__(self, x, params):
+        """
+        Compute the sum of Gaussians at points x with given parameters.
+
+        Parameters:
+        - x (jnp.ndarray): Points at which to evaluate the sum.
+        - params (jnp.ndarray): Free parameters vector.
+
+        Returns:
+        - jnp.ndarray: Sum of Gaussians evaluated at x.
+        """
         
-# def _region_helper(region_name,full_samples):
-#             if region_name not in complex_class_group_by_region.keys():
-#                 return 0
-#             index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
-#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-#             return vmap(_combined_profile,(None,0))(self.spectra[idx_obj,0,:],full_samples[:,index_interest_params])
+        return self.sum_gaussians_jit(x, params)
 
-# #  def _region_helper(region_name):
-# #             if region_name not in complex_class_group_by_region.keys():
-#                 return 0
-#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-#             params = complex_class_group_by_region[region_name].params
-#             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
-
-
-
-
-def combine_fastspecfit(wavelength_spectra,flux_spectra,params,targets,basic_params_broad,complex_class_group_by_region):
-    "?"
-    #self.spectra[[idx_obj],1,:]
+# def combine_pyqsofit(basic_params, complex_class_group_by_region, line, params, distances, flux_fe):
+#     b_lines = np.array(basic_params["lines"])
     
-    #on_axis_wavelength=None
-    if  targets.issubset(basic_params_broad["lines"]):
-        on_axis_wavelength = 0 
-        #print(wavelength_spectra.shape, flux_spectra.shape)
-        if wavelength_spectra.shape[0] == flux_spectra.shape[0] == 1:
-            on_axis_wavelength = None
-            #print(on_axis_wavelength,"is none")
-        index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-        positions = {t: index_map[t] for t in targets if t in index_map}
-        fe_map = region_helper(wavelength_spectra,"fe",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
-        cont_map = region_helper(wavelength_spectra,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
-        host_map = region_helper(wavelength_spectra,"host",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength)
+#     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
+#     params = params.astype(jnp.float32)
+#     gg = GaussianSum(len(idx_b))
+    
+#     # Extract and convert to float32 immediately, avoid intermediate copies
+#     b_mu = jnp.asarray(basic_params["center"][:, idx_b], dtype=jnp.float32)
+#     b_sigma = jnp.asarray(basic_params["fwhm"][:, idx_b], dtype=jnp.float32) / (2*np.sqrt(2)*np.log(2))
+#     b_amp = jnp.asarray(basic_params["amplitude"][:, idx_b], dtype=jnp.float32)
+    
+#     # Compute line_params more efficiently
+#     line_params = jnp.stack([b_amp, b_mu, b_sigma], axis=2).reshape(b_amp.shape[0], -1)
+    
+#     # Compute bounds
+#     left = jnp.min(b_mu - 3*b_sigma, axis=1)
+#     right = jnp.max(b_mu + 3*b_sigma, axis=1)
+    
+#     disp = 1.e-4
+#     npix = int(max((right - left) / disp))
+    
+#     # Create wave grid
+#     wave = jnp.linspace(float(jnp.min(left)), float(jnp.max(right)), npix, dtype=jnp.float32)
+    
+#     # Compute model_sum
+#     model_sum = vmap(gg, in_axes=(None, 0))(wave, line_params)
+    
+#     # Compute continuum - use squeeze to reduce dimensionality
+#     cont_map = region_helper(wave, "continuum", complex_class_group_by_region, 
+#                             params, on_axis_wavelength=None).squeeze()
+    
+#     lambda_ref = {"Halpha": 6564.61, "Hbeta": 4862.68, "MgII": 2798.75, "CIV": 1549.48}[line]
+    
+#     # Find peaks and compute EQW
+#     i_peak = jnp.argmax(model_sum, axis=1)
+#     model_max = jnp.max(model_sum, axis=1)
+#     half = 0.5 * model_max
+#     f = model_sum - half[:, None]
+    
+#     # Compute EQW with safe continuum
+#     cont_safe = jnp.maximum(cont_map, 1e-30)
+#     eqw = jnp.trapezoid(model_sum / cont_safe, wave, axis=1)
+    
+#     # FWHM calculation setup
+#     Nlam = wave.shape[0]
+#     idxs = jnp.arange(Nlam - 1)
+#     eps = 1e-30
+    
+#     def interp_at(k, f_row):
+#         x0, x1 = wave[k], wave[k + 1]
+#         y0, y1 = f_row[k], f_row[k + 1]
+#         t = -y0 / (y1 - y0 + eps)
+#         return x0 + t * (x1 - x0)
+    
+#     def row_fwhm(f_row, i_peak_i):
+#         s_row = jnp.sign(f_row)
+#         cross_mask = (s_row[:-1] * s_row[1:]) < 0
         
-        emission_spectra = np.clip(flux_spectra - (fe_map + cont_map + host_map),0.0, None)
-        _flux = basic_params_broad["flux"][:,list(positions.values())]
-        _center = basic_params_broad["center"][:,list(positions.values())]
-        _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
+#         left_cand = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
+#         left_idx = jnp.max(left_cand)
         
-        weighted_center = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-        if isinstance(_fwhm, np.ndarray) and _fwhm.dtype == object and _fwhm.size:
-            _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
-            _low = unumpy.nominal_values(weighted_center - 5*_sigma)
-            _up = unumpy.nominal_values(weighted_center + 5*_sigma)
-            #_mask = (wavelength_spectra >= _low[:, None]) & (wavelength_spectra <= _up[:, None])
-            #W = np.sum(emission_spectra *  _mask,axis=1)
-            #M1 = np.sum(emission_spectra *  _mask * wavelength_spectra,axis=1)/W
-            #M2 = np.sum(emission_spectra *  _mask * (wavelength_spectra - M1[:,None])**2,axis=1)/W
-            # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-            # sigma_f = c * np.sqrt(M2)/M1
-            # fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-        else:    
-            _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
-            _low = weighted_center - 5*_sigma
-            _up = weighted_center + 5*_sigma
+#         right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
+#         right_idx = jnp.min(right_cand)
         
-        _mask = (wavelength_spectra >= _low[:, None]) & (wavelength_spectra  <= _up[:, None])
-        W = np.sum(emission_spectra *  _mask,axis=1)
-        M1 = np.sum(emission_spectra *  _mask * flux_spectra,axis=1)/W
-        M2 = np.sum(emission_spectra *  _mask * (flux_spectra - M1[:,None])**2,axis=1)/W
-        sigma_f = c_kms * np.sqrt(M2)/M1
-        fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+#         has_left = left_idx >= 0
+#         has_right = right_idx <= (Nlam - 2)
         
+#         lam_L = jnp.where(has_left, interp_at(left_idx, f_row), jnp.nan)
+#         lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
         
-        return {"weighted_center": weighted_center,"sigma_kms":sigma_f,"fwhm_kms":fwhm_f,"W":W,"M1":M1,"M2":M2}
-    else:
-        print(targets, "not a sub set of ",basic_params_broad["lines"] )    
-            
-# basic_params_broad = basic_params["broad"]
-#         targets = {'MgIIa', 'MgIIb'}
+#         return lam_L, lam_R
+    
+#     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f, i_peak)
+    
+#     # Final calculations
+#     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms
+#     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+#     flux = np.sqrt(2.0 * np.pi) * model_max * sigma_kms
+#     luminosity = 4.0 * np.pi * distances**2 * flux
+    
+#     return {
+#         "fwhm_kms": fwhm_kms,
+#         "eqw": eqw,
+#         "lines": line,
+#         "sigma_kms": sigma_kms,
+#         "luminosity": luminosity,
+#         "flux": flux,
+#         "extras": {"R_Fe": flux_fe}
+#     }
+
+#batch_size=32, max_npix=50000
+
+def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,distances,flux_fe):
+    #if isinstance(LINES_TO_COMBINE,str):
+     #   LINES_TO_COMBINE = [LINES_TO_COMBINE]
+    b_lines = np.array(basic_params["lines"])
+    
+    #for line in LINES_TO_COMBINE:
+    # re-interpretation of https://github.com/legolason/PyQSOFit/issues/4?utm_source=chatgpt.com
+    idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
+    params = params.astype(jnp.float32)
+    gg = GaussianSum(len(idx_b))
+    b_mu = jnp.asarray(basic_params["center"])[:,idx_b].astype(jnp.float32)
+    b_sigma = jnp.asarray(basic_params["fwhm"])[:,idx_b].astype(jnp.float32) / (2*np.sqrt(2)*np.log(2))
+    b_amp   = jnp.asarray(basic_params["amplitude"])[:,idx_b].astype(jnp.float32)    # (Nobj, NB)
+    _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
+    line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
+    left = np.min(b_mu - 3*b_sigma,axis=1)
+    right = np.max(b_mu + 3*b_sigma,axis=1)
+
+    disp = 1.e-4 #hyperparam 
+    npix = 50000 #int(max((right-left)/disp))  #(maybe it is 2 much)
+    #npix = int(max((right-left)/disp))  #(maybe it is 2 much)
+    
+    wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
+    model_sum = vmap(gg,in_axes=(None,0))(wave,line_params).astype(jnp.float32)
+    cont_map = region_helper(wave,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = None).squeeze().astype(jnp.float32)
+    lambda_ref = {"Halpha": 6564.61,  "Hbeta": 4862.68,"MgII": 2798.75,"CIV": 1549.48}[line]
+    
+    i_peak     = jnp.argmax(model_sum, axis=1)            
+    #peak_A     = wave[i_peak]                         
+    half       = 0.5 * jnp.max(model_sum, axis=1)     
+    f          = model_sum - half[:, None]                 
+    #s          = jnp.sign(f)                               
+
+
+    cont_safe  = jnp.maximum(cont_map, 1e-30)
+    eqw       = jnp.trapezoid(model_sum / cont_safe, wave, axis=1) 
+
+
+    Nlam   = wave.shape[0]
+    idxs   = jnp.arange(Nlam - 1)                    
+    eps = 1e-30
+
+    def interp_at(k, f_row):
+        # linear interpolation of zero crossing between k and k+1
+        x0, x1 = wave[k],   wave[k + 1]
+        y0, y1 = f_row[k],  f_row[k + 1]
+        t = -y0 / (y1 - y0 + eps)
+        return x0 + t * (x1 - x0)
+
+    def row_fwhm(f_row, i_peak_i):
+        s_row      = jnp.sign(f_row)                  # (Nlam,)
+        cross_mask = (s_row[:-1] * s_row[1:] ) < 0    # (Nlam-1,)
+
+        left_cand  = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
+        left_idx   = jnp.max(left_cand)               # -1 if none
+
+        right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
+        right_idx  = jnp.min(right_cand)              # Nlam if none
+
+        has_left   = left_idx  >= 0
+        has_right  = right_idx <= (Nlam - 2)
+
+        lam_L = jnp.where(has_left,  interp_at(left_idx,  f_row), jnp.nan)
+        lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
+
+        return lam_L, lam_R
+
+    lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f.astype(jnp.float32), i_peak.astype(jnp.float32))   # (Nobj,), (Nobj,)
+
+    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
+    sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    flux = np.sqrt(2.0 * np.pi) * np.max(model_sum, axis=1) * sigma_kms # mmmm
+    luminosity = 4.0 * np.pi * distances**2 * flux
+    #calc_luminosity(jnp.array(distances), flux_c)
+    method_2 = {"fwhm_kms":fwhm_kms,"eqw":eqw,"lines":line,"sigma_kms": sigma_kms,"luminosity":luminosity,"flux":flux}
+    method_2["extras"] = {}
+    method_2["extras"]["R_Fe"] =flux_fe
+    return method_2
+
+
+
+
+def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_broad,complex_class_group_by_region,on_axis_wavelength=None):
+    c_kms = 299792.458 # this will have to move as the constant in every where 
+    if isinstance(targets,str):
+        targets = {"MgII"}
+    #targets = {"MgII"}
+#what happend when you have multiple names on it?
+    index_map = defaultdict(list)
+    for idx, name in enumerate(basic_params_broad["lines"]):
+        index_map[name].append(idx)
+
+    # convert back to normal dict if you don’t want defaultdict
+    index_map = dict(index_map)
+    positions = {t: index_map[t] for t in targets if t in index_map}
+    wavelength_spectra = sheapspectral.spectra[[0],0,:]
+    flux_spectra = sheapspectral.spectra[[0],1,:]
+    #on_axis_wavelength = None 
+    #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
+
+
+    fe_map = region_helper(wavelength_spectra,"fe",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+    cont_map = region_helper(wavelength_spectra,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+    host_map = region_helper(wavelength_spectra,"host",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+
+    emission_spectra = np.clip(flux_spectra - (fe_map + cont_map + host_map),0.0, None).squeeze()
+
+
+    _flux = basic_params_broad["flux"][:,list(*positions.values())]
+    _center = basic_params_broad["center"][:,list(*positions.values())]
+    _fwhm = basic_params_broad["fwhm"][:,list(*positions.values())]
                 
-        
-         
-#         if  targets.issubset(basic_params_broad["lines"]):
-#             index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-#             positions = {t: index_map[t] for t in targets if t in index_map}
-#             fe_map = _region_helper("fe")
-#             cont_map = _region_helper("continuum")
-#             host_map = _region_helper("host")
-#             emission_spectra = np.clip(self.spectra[:,1,:] - (fe_map + cont_map + host_map),0.0, None)
-#             _flux = basic_params_broad["flux"][:,list(positions.values())]
-#             _center = basic_params_broad["center"][:,list(positions.values())]
-#             _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-#             mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-#             _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
-#             _low = unumpy.nominal_values(mgii_2800 - 5*_sigma)
-#             _up = unumpy.nominal_values(mgii_2800 + 5*_sigma)
-#             _mask = (self.spectra[:,0,:] >= _low[:, None]) & (self.spectra[:,0,:] <= _up[:, None])
-#             W = np.sum(emission_spectra *  _mask,axis=1)
-#             M1 = np.sum(emission_spectra *  _mask * self.spectra[:,0,:],axis=1)/W
-#             M2 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**2,axis=1)/W
-#             #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-#             sigma_f = c * np.sqrt(M2)/M1
-#             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-#             basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f} #_2800
-            
-            
-            
-            
-# if  targets.issubset(basic_params_broad["lines"]):
-#             #emission_spectra not good name
-#             index_map = {name: idx for idx, name in enumerate(basic_params_broad["lines"])}
-#             positions = {t: index_map[t] for t in targets if t in index_map}
-#             _fe = _region_helper("fe",full_samples)
-#             _cont = _region_helper("continuum",full_samples)
-#             _host = _region_helper("host",full_samples) 
-#             emission_spectra = np.clip(self.spectra[[idx_obj],1,:] - (_cont+_fe+_host), 0.0, None)
-#             _flux = basic_params_broad["flux"][:,list(positions.values())]
-#             _center = basic_params_broad["center"][:,list(positions.values())]
-#             _fwhm = basic_params_broad["fwhm"][:,list(positions.values())]
-#             mgii_2800 = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
-#             _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
-#             _low = mgii_2800 - 5*_sigma
-#             _up = mgii_2800 + 5*_sigma
-#             _mask = (self.spectra[[idx_obj],0,:] >= _low[:, None]) & (self.spectra[[idx_obj],0,:]  <= _up[:, None])
-#             W = np.sum(emission_spectra *  _mask,axis=1)
-#             M1 = np.sum(emission_spectra *  _mask * self.spectra[[idx_obj],0,:],axis=1)/W
-#             M2 = np.sum(emission_spectra *  _mask * (self.spectra[[idx_obj],0,:] - M1[:,None])**2,axis=1)/W
-#             # #M3 = np.sum(emission_spectra *  _mask * (self.spectra[:,0,:] - M1[:,None])**3,axis=1)/W
-#             sigma_f = c * np.sqrt(M2)/M1
-#             fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
-#             basic_params["broad"]["MgII"] = {"fwhm_kms":fwhm_f,"mgii_2800": mgii_2800,"sigma_kms":sigma_f}
+    weighted_center = np.sum((_center*_flux),axis=1)/np.sum((_flux),axis=1)
+    if isinstance(_fwhm, np.ndarray) and _fwhm.dtype == object and _fwhm.size:
+        _sigma = unumpy.nominal_values(np.mean(_fwhm,axis=1))/(2*np.sqrt(2*np.log(2)))
+        _low = unumpy.nominal_values(weighted_center - 5*_sigma)
+        _up = unumpy.nominal_values(weighted_center + 5*_sigma)
+    else:    
+        _sigma = np.mean(_fwhm,axis=1)/(2*np.sqrt(2*np.log(2)))
+        _low = weighted_center - 5*_sigma
+        _up = weighted_center + 5*_sigma
+
+    _mask = (wavelength_spectra >= _low[:, None]) & (wavelength_spectra  <= _up[:, None])
+    W = np.sum(emission_spectra *  _mask,axis=1)
+    M1 = np.sum(emission_spectra *  _mask * wavelength_spectra,axis=1)/W
+    M2 = np.sum(emission_spectra *  _mask * (wavelength_spectra - M1[:,None])**2,axis=1)/W
+    sigma_f = c_kms * np.sqrt(M2)/M1
+    fwhm_f = 2 * np.sqrt(2 * np.log(2)) * sigma_f
+    
+    method_1 = {"weighted_center": weighted_center,"sigma_kms":sigma_f,"fwhm_kms":fwhm_f,"W":W,"M1":M1,"M2":M2,"targets":targets}
+    return method_1

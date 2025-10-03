@@ -483,14 +483,15 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
     fwhm_all = _col(broad_params.get("fwhm_kms"))
     lum_all  = _col(broad_params.get("luminosity"))
     sigma_all = broad_params.get("sigma_kms", None)
+    
     if sigma_all is not None:
         sigma_all = _col(sigma_all)
 
     lines = np.asarray(broad_params.get("lines", []))
     comps = np.asarray(broad_params.get("component", []))
 
-    if fwhm_all is None or lines.size == 0:
-        return out
+    # if fwhm_all is None or lines.size == 0:
+    #     return out
 
     # constants for mdot (continuum only)
     eta = 0.1
@@ -503,16 +504,23 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
         kind = est.get("kind", "continuum")
         width_def = str(est.get("width_def", "fwhm")).lower()
         
-        if line_name == "MgII" and broad_params.get("MgII"):
+        if broad_params.get(line_name):
             if width_def == "sigma":
-                 Vwidth =  _col(broad_params.get("MgII").get("sigma_kms"))
+                 Vwidth =  _col(broad_params.get(line_name).get("sigma_kms"))
             else:
-                Vwidth = _col( broad_params.get("MgII").get("fwhm_kms"))
-            #lum_all  = _col( broad_params.get("MgII").get("luminosity"))
-           
+                Vwidth = _col( broad_params.get(line_name).get("fwhm_kms"))
+            L_line  = _col( broad_params.get(line_name).get("luminosity"))
+            extras = broad_params.get(line_name).get("extras",{})
+            local_extras = {}
+            if est.get("extras", {}).get("le20_shape", False):
+                local_extras["sigma_kms"] = Vwidth    
+            #print(extras)
+            comp_here = []
             #print(Vwidth.shape,est.get("kind"),est.get("width_def"))
             #continue 
-            
+        
+        
+         
         else:
             if not line_name or (line_name not in lines):
                 continue
@@ -530,15 +538,17 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
                     continue  # no sigma available
             else:
                 Vwidth = fwhm_all[:, idxs]
-
-        # local extras (Le20 / Pan25)
-        local_extras = {}
-        if est.get("extras", {}).get("le20_shape", False):
-            if sigma_all is not None:
-                local_extras["sigma_kms"] = sigma_all[:, idxs]
-            elif "sigma_kms" in extras:
-                sig = _col(extras["sigma_kms"])
-                local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
+            L_line = lum_all[:, idxs]
+            
+            # local extras (Le20 / Pan25)
+            local_extras = {}
+            if est.get("extras", {}).get("le20_shape", False):
+                if sigma_all is not None:
+                    local_extras["sigma_kms"] = sigma_all[:, idxs]
+                elif "sigma_kms" in extras:
+                    sig = _col(extras["sigma_kms"])
+                    local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
+        
         if "R_Fe" in extras:
             #print("R_fe")
             local_extras["R_Fe"] = extras["R_Fe"]
@@ -578,7 +588,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
 
         elif kind == "line":
 
-            L_line = lum_all[:, idxs]
+            #L_line = lum_all[:, idxs]
             MBH = calc_black_hole_mass(L_line, Vwidth, est, extras=local_extras)
             Ledd = 1.26e38 * MBH
 
