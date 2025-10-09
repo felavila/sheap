@@ -206,7 +206,7 @@ def pivot_and_split(obj_names, result):
     """
     Two-pass approach:
       1) Normalize the tree once: replace uarray leaves with {'value': vals, 'error': errs}
-         and plain arrays with {'value': arr, 'error': 0} when leading dim == N.
+         and plain arrays with {'median': arr, 'error': 0} when leading dim == N.
       2) Create per-object slices without calling unumpy again.
     """
     N = len(obj_names)
@@ -231,13 +231,13 @@ def pivot_and_split(obj_names, result):
             try:
                 vals = unumpy.nominal_values(node)
                 errs = unumpy.std_devs(node)
-                out = {'value': vals, 'error': errs}
+                out = {'median': vals, 'error': errs}
             except Exception:
                 out = node  # not an uncertainties array after all
 
         # numeric arrays whose first axis is N -> batch leaf
         elif isinstance(node, np.ndarray) and node.ndim >= 1 and node.shape[0] == N:
-            out = {'value': node, 'error': 0}  # keep a scalar 0 to avoid huge zero arrays
+            out = {'median': node, 'error': 0}  # keep a scalar 0 to avoid huge zero arrays
 
         # lists/tuples -> recurse elementwise (kept shape)
         elif isinstance(node, (list, tuple)):
@@ -254,13 +254,13 @@ def pivot_and_split(obj_names, result):
 
     def _slice_idx(node, idx):
         # If this is a normalized leaf with 'value'/'error', slice only if the first dim is N
-        if isinstance(node, dict) and 'value' in node and 'error' in node:
-            v, e = node['value'], node['error']
+        if isinstance(node, dict) and 'median' in node and 'error' in node:
+            v, e = node['median'], node['error']
             if isinstance(v, np.ndarray) and v.ndim >= 1 and v.shape[0] == N:
                 # e can be 0 (scalar) or an array aligned with v
                 ei = (e[idx].squeeze() if isinstance(e, np.ndarray) and
                       e.ndim >= 1 and e.shape[0] == N else e)
-                return {'value': v[idx].squeeze(), 'error': ei}
+                return {'median': v[idx].squeeze(), 'error': ei}
             # not a batch leaf → recurse normally below
 
         if isinstance(node, dict):

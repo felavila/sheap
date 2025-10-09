@@ -106,31 +106,48 @@ class SheapPlot:
 
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
-        colors_by_region = {"broad":"#7c2626","narrow":"#b4b21f","outflow":'#ff7f0e',"winds":"#be20cc"}
-        
-        for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)
-        ):
+        colors_by_region = {"model":"#d62728","broad":"#0f6fb4","narrow":"#559e46","outflow":"#bcbd22","winds":"#17becf","fe":"#8f220c","host":"#9467bd",
+                            "continuum":"#000000","data":"#808080"}
+        component_ls = {1: "-",2: "--",3: "-.",4: ":", 5: (0, (5, 5)), 6: (0, (3, 5, 1, 5)), 7: (0, (1, 5))}
+        cont_counter = 1 
+        cont_names = {"balmercontinuum":"Balmer Cont.","balmerhighorder":"Higher-order Balmer"}
+        for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)):
             #print(profile_name, profile_func, region, idxs)
             values = params[idxs]
             component_y = profile_func(x_axis, values)
-
+            #print(profile_name)
+            
             if region.region == "continuum":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="blue",label="Continuum")
+                #print(region.line_name)
+                line_name = cont_names.get(region.line_name,"Cont.")
+                #region.line_name
+                #print(region)
+                ax1.plot(x_axis, component_y, zorder=3, label = line_name, color= colors_by_region["continuum"],ls = component_ls[cont_counter])
+                cont_counter += 1
+            
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="grey",label="Fe")
+                ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region[region.region.lower()],label="Fe II", linewidth=3)
+            
             elif "host" in region.region.lower():
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color="green",label="Host")
+                ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region["host"],label="Host", linewidth=3)
             else:
-                ax1.plot(x_axis, component_y, ls='-.', zorder=3, color=colors_by_region[region.region], label=region.region.capitalize())
+                label = region.region.capitalize()
+                #print(region.component)
+                zorder = 0
+                if region.component>1:
+                    label = f"{region.region.capitalize()} {region.component}"
+                if "broad" == region.region:
+                    zorder = 10
+                ax1.plot(x_axis, component_y, ls=component_ls[region.component], zorder=zorder, color=colors_by_region[region.region], label=label, linewidth=3)
                 #ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
-                    idx_shift = [n for n,i in enumerate(profile_func.param_names) if "shift" in i ]
-                    centers = np.array(region.center) + params[*idx_shift]#This is only true for gaussian
-                    #print(centers)
+                    idx_shift = np.where("shift" == np.array(profile_func.param_names))[0]
+                    centers = np.array(region.center) + values[*idx_shift]#This is only true for gaussian
                     for ii,c in enumerate(centers):
                         #ax1.axvline(c)
                         if min(xlim) < c < max(xlim):
+                            #print(f"- {region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " "),c)
                             label = f"- {region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " ")
                             ypos = 0.25 if "broad" in label else 0.75
                             ax1.text(
@@ -141,8 +158,7 @@ class SheapPlot:
                             rotation=90,
                             fontsize=20,
                             zorder=10,
-                            ha = "center"
-                        )
+                            ha = "center")
                 elif add_lines_name and min(xlim) < values[1] < max(xlim):
                     label = f"- {region.line_name}_{region.region}_{region.component}".replace(
                         "_", " "
@@ -159,8 +175,8 @@ class SheapPlot:
                         ha = "center"
                     )
 
-        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color="red",label="Complex")#
-        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color="black", zorder=1,label="Data")
+        ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color=colors_by_region["model"],label="Model")#
+        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color=colors_by_region["data"], zorder=1,label="Obs.")
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
         if isinstance(add_xline,(float,int)):
             ax1.axvline(add_xline,c='#A020F0',linewidth=3)
@@ -169,7 +185,7 @@ class SheapPlot:
         ax1.set_xlim(xlim)
         ax1.text(
             0.75,
-            1.05,
+            1.0,
             f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
             fontsize=35,
             transform=ax1.transAxes,
@@ -180,17 +196,25 @@ class SheapPlot:
         ax1.tick_params(axis='both', labelsize=35)
         ax1.yaxis.offsetText.set_fontsize(35)
         if add_legend:
-            ax1.legend(fontsize=30, markerscale=0.8, labelspacing=0.5,frameon=False)
+            handles, labels = ax1.get_legend_handles_labels()
+            # Remove duplicates while keeping order
+            unique = {}
+            for h, l in zip(handles, labels):
+                if l not in unique:
+                    unique[l] = h
+
+            ax1.legend(handles=list(unique.values()),labels=list(unique.keys()),fontsize=30,
+                markerscale=0.8,labelspacing=0.5,frameon=False,ncol=3,columnspacing=1.5,handletextpad=0.4,)
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
             ax2.axhline(0, ls="--", linewidth=5, color="black")
-            ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="black")
-            ax2.set_ylabel("Normalized \n residuals", fontsize=35)
-            ax2.set_xlabel("Wavelength [Å] (rest frame)", fontsize=35)
+            ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="#4C72B0")
+            ax2.set_ylabel("Norm. Res.", fontsize=35)
+            ax2.set_xlabel("Rest wavelength [Å]", fontsize=35)
             ax2.tick_params(axis='both', labelsize=35, pad=10)
         else:
-            ax1.set_xlabel("Wavelength [Å] (rest frame)", fontsize=35)
+            ax1.set_xlabel("Rest wavelength [Å]", fontsize=35)
 
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')

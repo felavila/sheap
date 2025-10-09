@@ -775,7 +775,7 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
 
     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-    flux = np.sqrt(2.0 * np.pi) * np.max(model_sum, axis=1) * sigma_kms # mmmm
+    flux  = np.trapezoid(model_sum, wave, axis=1)
     luminosity = 4.0 * np.pi * distances**2 * flux
     #calc_luminosity(jnp.array(distances), flux_c)
     method_2 = {"fwhm_kms":fwhm_kms,"eqw":eqw,"lines":line,"sigma_kms": sigma_kms,"luminosity":luminosity,"flux":flux}
@@ -783,6 +783,80 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     method_2["extras"]["R_Fe"] =flux_fe
     return method_2
 
+
+def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,distances,flux_fe):
+    b_lines = np.array(basic_params["lines"])
+    idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
+    gg = GaussianSum(len(idx_b))
+    b_mu = unumpy.nominal_values(np.asarray(basic_params["center"])[:,idx_b]) #.nominal_values #.astype(jnp.float32)
+    b_sigma = unumpy.nominal_values(np.asarray(basic_params["fwhm"])[:,idx_b] / (2*np.sqrt(2)*np.log(2)))
+    b_amp   =  unumpy.nominal_values(np.asarray(basic_params["amplitude"])[:,idx_b])
+    _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
+    line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
+
+    left = np.min(b_mu - 4*b_sigma,axis=1)
+    right = np.max(b_mu + 4*b_sigma,axis=1)
+
+    npix = 100_000 #int(max((right-left)/disp))  #(maybe it is 2 much)
+    wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
+    #disp = wave[1] - wave[0]
+    #print(disp)
+    model_sum = vmap(gg,in_axes=(None,0))(wave,line_params).astype(jnp.float32)
+    ###################################################
+    _combined_profile  = complex_class_group_by_region["continuum"].combined_profile
+    from_complex_params = complex_class_group_by_region["continuum"].params.astype(jnp.float32)
+    continuum_vmap =  vmap(_combined_profile,(None,0))(wave,from_complex_params)
+    lambda_ref = {"Halpha": 6564.61,  "Hbeta": 4862.68,"MgII": 2798.75,"CIV": 1549.48}[line]
+    i_peak     = jnp.argmax(model_sum, axis=1)            
+                       
+    half       = 0.5 * jnp.max(model_sum, axis=1)     
+    f          = model_sum - half[:, None]                                              
+    cont_safe  = jnp.maximum(continuum_vmap, 1e-30)
+    eqw       = jnp.trapezoid(model_sum / cont_safe, wave, axis=1) 
+
+
+    Nlam   = wave.shape[0]
+    idxs   = jnp.arange(Nlam - 1)                    
+    eps = 1e-30
+
+    def interp_at(k, f_row):
+        # linear interpolation of zero crossing between k and k+1
+        x0, x1 = wave[k],   wave[k + 1]
+        y0, y1 = f_row[k],  f_row[k + 1]
+        t = -y0 / (y1 - y0 + eps)
+        return x0 + t * (x1 - x0)
+
+    def row_fwhm(f_row, i_peak_i):
+        s_row      = jnp.sign(f_row)                  # (Nlam,)
+        cross_mask = (s_row[:-1] * s_row[1:] ) < 0    # (Nlam-1,)
+
+        left_cand  = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
+        left_idx   = jnp.max(left_cand)               # -1 if none
+
+        right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
+        right_idx  = jnp.min(right_cand)              # Nlam if none
+
+        has_left   = left_idx  >= 0
+        has_right  = right_idx <= (Nlam - 2)
+
+        lam_L = jnp.where(has_left,  interp_at(left_idx,  f_row), jnp.nan)
+        lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
+
+        return lam_L, lam_R
+
+    lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f.astype(jnp.float32), i_peak.astype(jnp.float32))   # (Nobj,), (Nobj,)
+
+    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
+    sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    flux  = np.trapezoid(model_sum, wave, axis=1)
+    #np.sqrt(2.0 * np.pi) * np.max(model_sum, axis=1) * sigma_kms # mmmm
+    luminosity = 4.0 * np.pi * distances**2 * flux
+    #calc_luminosity(jnp.array(distances), flux_c)
+    
+    method_2 = {"fwhm_kms":unumpy.uarray(fwhm_kms, np.zeros_like(fwhm_kms)) ,"eqw":unumpy.uarray(eqw, np.zeros_like(fwhm_kms)),"lines":line,"sigma_kms": unumpy.uarray(eqw, np.zeros_like(sigma_kms)),"luminosity": unumpy.uarray(luminosity, np.zeros_like(sigma_kms)),"flux":unumpy.uarray(luminosity, np.zeros_like(flux))}
+    method_2["extras"] = {}
+    method_2["extras"]["R_Fe"] =flux_fe
+    return method_2
 
 
 

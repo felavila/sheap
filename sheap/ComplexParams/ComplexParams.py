@@ -68,7 +68,7 @@ from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit
+from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
@@ -200,8 +200,8 @@ class ComplexParams:
         # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[[idx_obj],0,:],self.spectra[[idx_obj],1,:],full_samples,
         #                                                         {"MgII"},basic_params["broad"],
         #                                                     complex_class_group_by_region)})
-        
-        if complex_class_group_by_region["fe"]:
+        flux_fe = 0 
+        if "fe" in complex_class_group_by_region.keys():
             group_fe = complex_class_group_by_region["fe"]
             profile_fe = group_fe.combined_profile
             idx_fe_params = group_fe.flat_param_indices_global
@@ -221,6 +221,8 @@ class ComplexParams:
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
+        
+        
         combined = combine_components(basic_params, cont_group, cont_params, distances,
                                       LINES_TO_COMBINE=self.LINES_TO_COMBINE,
                                       limit_velocity=self.limit_velocity,c=self.c,ucont_params=None,flux_fe=flux_fe)
@@ -313,15 +315,12 @@ class ComplexParams:
                 "shape_params": concat_dicts(shape_params_list) 
             }
         
- 
+        #combine_pyqsofit_single
         # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[:,0,:],self.spectra[:,1,:],None,
         #                                                         {"MgII"},basic_params["broad"],
         #                                                     complex_class_group_by_region)})
-        
-       
-        
-        
-        if complex_class_group_by_region["fe"]:
+        flux_fe = 1.
+        if "fe" in complex_class_group_by_region.keys():
              group_fe = complex_class_group_by_region["fe"]
              combine_profile_fe = group_fe.combined_profile
              params_fe = group_fe.params[:, None, :]
@@ -347,19 +346,25 @@ class ComplexParams:
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
        
+        #maybe is best just combine witouth take in consideration the errors?
         combined = combine_components(basic_params, cont_group, cont_params, distances,
                                       LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,
-                                      c=self.c,ucont_params=ucont_params)
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined}
-        for k in ["basic_params","combine_params"]:
-         #   print(k)
-            if k == "basic_params":
-                result_local = result[k]["broad"]
-            else:
-                result_local = result[k]
-            result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)})
+                                      c=self.c,ucont_params=ucont_params,flux_fe=flux_fe)
+        
+        combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+        
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined,"combined_pyqso":combined_pyqso}
+        
+        
+        for k in ["basic_params","combine_params","combined_pyqso"]:
+             if k == "basic_params":
+                 result_local = result[k]["broad"]
+             else:
+                 result_local = result[k]
+             #print(extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c))
+             result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)}) #extras could be added directly because the are not related to the combination.
         return result
-    
+    ###########################SINGLE########################################
     def _accumulate_spaf_components(self, prof_group, profile_fn, batch_fwhm, cont_params, ucont_params):
         
         all_flux, all_fwhm, all_fwhm_kms = [], [], []
@@ -386,7 +391,7 @@ class ComplexParams:
             all_line_names, all_components, all_flux, all_fwhm, all_fwhm_kms,
             all_centers, all_amps, all_eqws, all_lums, all_shape_dicts
         )
-                    
+                 
     def _build_spaf_param_matrices(self,sp,idx_params,params_names):
         
         full_params_by_line = []

@@ -362,11 +362,13 @@ class Sheapectral:
             #print("add_balmer_continuum")
             add_balmer_continuum = add_balmer_continuum
         
-        if 3700 > xmin and 4000 < xmax and add_balmerhighorder_continuum:    
-            #print("add_balmerhighorder_continuum")
+        if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
+            # print(xmax)
+            # if xmax< 3646:
+            #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
             add_balmerhighorder_continuum = add_balmerhighorder_continuum
             
-        print("add_balmer_continuum",add_balmer_continuum,"add_balmerhighorder_continuum",add_balmerhighorder_continuum)
+        #print("add_balmer_continuum",add_balmer_continuum,"add_balmerhighorder_continuum",add_balmerhighorder_continuum)
         
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
                                         add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
@@ -565,7 +567,8 @@ class Sheapectral:
             source=data.get("source", "pickle"),
             constraints = data.get('constraints'),
             fitting_routine = data.get("fitting_routine"),
-            posterior = data.get("posterior")
+            posterior = data.get("posterior"),
+            chi2_red = data.get("chi2_red")
         )
         obj.plotter = SheapPlot(sheap=obj)
         return obj
@@ -642,7 +645,7 @@ class Sheapectral:
         list of callables
             Profile model functions.
         """
-        from sheap.Profiles.profiles import PROFILE_FUNC_MAP
+        from sheap.Profiles.Profiles import PROFILE_FUNC_MAP
         profile_functions = []
         for _,sp in enumerate(self.complex_region):
             #print(_)

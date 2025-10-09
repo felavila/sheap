@@ -228,8 +228,10 @@ def ProfileConstraintMaker(
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         logamp = -0.25 if sp.region=="narrow" else -2.0
-        fwhm_init =  fwhm_up if sp.region in ["outflow", "winds","narrow"] else fwhm_lo
-        #fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        #the change here change all the results care.
+        #fwhm_init =  fwhm_up if sp.region in ["outflow", "winds","narrow"] else fwhm_lo
+        
+        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))
         init, upper, lower = [], [], []
         for _,p in enumerate(param_names):
             if "logamp" in p:
@@ -324,7 +326,7 @@ def ProfileConstraintMaker(
         params_names = local_profile.param_names
         #logamplitude
         init = [1.0,np.log10(4000.0), 0.0] 
-        upper = [2.0,np.log10(limits.upper_fwhm), shift] 
+        upper = [10.0,np.log10(limits.upper_fwhm), shift] 
         lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
         #print(init,upper,lower)
         return ProfileConstraintSet(
@@ -344,7 +346,7 @@ def ProfileConstraintMaker(
         shift = kms_to_wl(v_shift, lambda0)
         params_names = local_profile.param_names
         init= [1.0, np.log10(init_fwhm),0.0]
-        upper= [5.0, np.log10(upper_fwhm), shift]
+        upper= [10.0, np.log10(upper_fwhm), shift]
         lower= [-2.0,np.log10(lower_fwhm) , -shift]
         #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(

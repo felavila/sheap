@@ -79,7 +79,7 @@ FEII_TEMPLATES: Dict[str, Dict[str, Any]] = {
                 "central_wl": 3675.0
                 }
 }
-
+#We have to change this to something more like "template handler functions"
 def make_feii_template_function(
     name: str,
     x_min: Optional[float] = None,  # Angstroms (linear)
@@ -115,7 +115,7 @@ def make_feii_template_function(
     data = np.loadtxt(path, comments="#").T
     wl   = np.array(data[0], dtype=np.float64)
     flux = np.array(data[1], dtype=np.float64)
-
+    #print(wl[[0,-1]])
     # Optional wavelength cut with ±50 Å margin (like host model)
     if x_min is not None or x_max is not None:
         #print("cutting between",x_min,x_max)
@@ -432,8 +432,8 @@ def make_host_function(
 
     dx = float(wave[1] - wave[0])
     n_Z, n_age, n_pix = cube.shape
-    #if verbose:
-    print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
+    if verbose:
+        print(f"Host added with n_Z: {n_Z} and n_age: {n_age}")
 
     templates_flat = cube.reshape(-1, n_pix)                # numpy array
     grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]

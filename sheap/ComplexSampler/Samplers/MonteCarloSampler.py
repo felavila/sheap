@@ -156,22 +156,22 @@ class MonteCarloSampler:
         
         constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
         
-        raw_init0 = draws_raw[0]
-        raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
+        #raw_init0 = draws_raw[0]
+        #raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
         # Force the computation to finish so compile time happens here:
-        raw_params0.block_until_ready()
+        #raw_params0.block_until_ready()
 
-        # --- Sampling loop (now just executes the compiled program) ---
+        raw_init = self.params_obj.phys_to_raw(phys_map)
         from tqdm import tqdm
         iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
         
         monte_params = []
         for n in iterator:
-            raw_init = draws_raw[n]  # already float32
+            #raw_init = draws_raw[n]  # already float32
             t0 = time.perf_counter()
             raw_params, _ = _minimizer(raw_init, *norm_spectra_T, constraints_jnp)
             
-            raw_params.block_until_ready()
+            #raw_params.block_until_ready()
             t1 = time.perf_counter()
 
             params_m = self.params_obj.raw_to_phys(raw_params)

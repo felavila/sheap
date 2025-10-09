@@ -26,12 +26,12 @@
 - line_name: OIV]
   center: 1402.770
   element: Oxygen
-- center: 1548.187
-  line_name: CIVa
+- center: 1549.4795 #1548.187
+  line_name: CIV
   element: Carbon
-- center: 1550.772
-  line_name: CIVb
-  element: Carbon
+#- center: 1550.772
+#  line_name: CIVb
+#  element: Carbon
 - center: 1640.42
   line_name: HeIIa
   element: Helium

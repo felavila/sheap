@@ -351,6 +351,7 @@ class ComplexBuilder:
             warnings.warn("The addition of BALs to the fit is still in development not well tested yet.")
             
         if fe_mode not in self.available_fe_modes:
+            print(fe_mode)
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             fe_mode = "template"
         if continuum_profile not in self.available_continuum_profiles:
@@ -375,7 +376,9 @@ class ComplexBuilder:
                 self.complex_list.extend(comps)        
         if add_host_miles:
             self._handle_host(add_host_miles,xmin,xmax)
+        #print(fe_mode)
         self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
+        
         self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum,add_balmerhighorder_continuum = add_balmerhighorder_continuum))#here we already are able to create the complex_class
         self.complex_class = ComplexRegion(self.complex_list)
         self._ties = []
@@ -393,6 +396,10 @@ class ComplexBuilder:
                 self._feties = fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied)
                 #self.tied_relations.extend(fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied))
         del self.complex_list
+        
+        
+        # for _,sp in enumerate(self.complex_class.lines):
+        #     print(sp.profile)
         
     def _handle_broad_and_narrow_lines(
         self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ,add_outflow=False) -> List[SpectralLine]:
@@ -601,10 +608,13 @@ class ComplexBuilder:
         - 'model' loads individual FeII lines from YAML.
         """
         fe_comps = []
+        #print(fe_comps)
         if fe_mode == "none":
+            #print("here")
             return fe_comps
+        
         elif fe_mode == "template":
-            #print("Added feuvop template")
+            print("Added feuvop template")
             fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
             # t_c = 0
             # if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
@@ -632,6 +642,7 @@ class ComplexBuilder:
                     base.subregion = pseudo_region_name
                     base.component = 1
                     fe_comps.extend([base])
+        #print(fe_comps)
         return fe_comps
     
     def _continuum_handle(self,continuum_profile,xmin,xmax,add_balmer_continuum=False,add_balmerhighorder_continuum=False):
@@ -655,15 +666,16 @@ class ComplexBuilder:
             Continuum components.
         """
         continuum_comps = []
-        print(add_balmer_continuum,add_balmerhighorder_continuum)
+        #print(add_balmer_continuum,add_balmerhighorder_continuum)
         if add_balmer_continuum:
             #if not xmax< 3646:
              #   warnings.warn(f"Care with the addition of balmer continuum {xmax}")
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
         if add_balmerhighorder_continuum:
-            #if not xmax< 3646:
-             #   warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
-            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='continuum',component=0,profile='fetemplate',template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
+            # if not xmax< 3646:
+            #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
+            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='continuum',component=0,profile='fetemplate'
+                                                ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
         
         
         if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:

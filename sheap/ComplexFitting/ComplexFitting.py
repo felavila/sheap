@@ -292,6 +292,10 @@ class ComplexFitting:
             print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
             start_time = time.time()  # 
+            self.tied = step["tied"]
+            self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
+            #print(self._build_tied(step["tied"]))
+            #print(dependencies)
             params, loss = self._fit(_step,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
                                      penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight,
@@ -306,7 +310,8 @@ class ComplexFitting:
                                             "curvature_weight" : curvature_weight,
                                             "smoothness_weight" : smoothness_weight,
                                             "max_weight" : max_weight})    
-        dependencies = parse_dependencies(self._build_tied(step["tied"]))
+        
+        
         if covariance_error:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 
@@ -316,7 +321,7 @@ class ComplexFitting:
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
             total_time += elapsed            
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
-        self.dependencies = dependencies
+        #self.dependencies = dependencies
         self.mask = mask
         self._postprocess(norm_spec, params, uncertainty_params, scale)
         self.loss = loss
@@ -378,13 +383,14 @@ class ComplexFitting:
         """
         if verbose:
             print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
-        list_dependencies = parse_dependencies(self._build_tied(tied))
+        list_dependencies = self.dependencies
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
-        
+        self.tied_map = tied_map
         params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
-        raw_init = params_obj.phys_to_raw(initial_params)
         
+        raw_init = params_obj.phys_to_raw(initial_params)
+        #print(raw_init.shape)
         self.params_obj = params_obj
         minimizer = Minimizer(
             model,
@@ -550,6 +556,7 @@ class ComplexFitting:
                 self.host_info = host_dict["host_info"] #host info different from fe_template info 
                 #print(local_model.param_names)
             elif sp.profile == "fetemplate":
+                #print(sp.profile)
                 fe_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = fe_dict["model"]
             else:
@@ -609,40 +616,9 @@ class ComplexFitting:
         list[str]
             Dependency expressions for the minimizer.
         """
+        #print(tied_params)
+        #print(build_tied(tied_params,self.get_param_coord_value))
         return build_tied(tied_params,self.get_param_coord_value)
-        
-        # list_tied_params = []
-        # if len(tied_params) > 0:
-        #     for tied in tied_params:
-        #         param1, param2 = tied[:2]
-        #         pos_param1, val_param1, param_1 = self.get_param_coord_value(
-        #             *param1.split("_"))
-                
-        #         pos_param2, val_param2, param_2 = self.get_param_coord_value(
-        #             *param2.split("_"))
-        #         if len(tied) == 2:
-        #             if param_1 == param_2 == "center" and len(tied):
-        #                 delta = val_param1 - val_param2
-        #                 tied_val = "+" + str(delta) if delta > 0 else "-" + str(abs(delta))
-        #             elif param_1 == param_2:
-        #                 tied_val = "*1"
-        #             #elif param_1 == param_2 == "logamp":
-                       
-        #             else:
-        #                 print(f"Define constraints properly. {tied_params}")
-        #         else:
-        #             tied_val = tied[-1]
-        #         if param_1 == param_2 == "logamp":
-        #             tied_val = f"{np.log10(extract_float(tied_val))}"
-        #             #print(tied_val)
-        #         if isinstance(tied_val, str):
-        #             list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
-        #         else:
-        #             print("Define constraints properly.")
-        # else:
-        #     list_tied_params = []
-        # print("Remember move this functions to Assistants and also change it in Montecarlo.")
-        # return list_tied_params
     
     @staticmethod
     def _stack_constraints(low: List[float], high: List[float]) -> jnp.ndarray:
@@ -748,7 +724,7 @@ class ComplexFitting:
     
         region_dict = builder._make_fitting_routine(**builder_kwargs)
 
-        
+        #print(region_dict)
         return cls(region_dict, profile=profile,limits_overrides= limits_overrides)
     
     def init_linear(self,norm_spec,params):
