@@ -388,6 +388,7 @@ class ComplexBuilder:
              self.complex_class = self._apply_group_method(self.complex_class,fe_mode,self.known_tied_relations)
         else:
             #todo add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
+            #print(self.known_tied_relations)
             self._ties,self._known_ties =_maketies(self.complex_class,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
             #self.tied_relations.extend([*_ties,*_known_ties])
             #self._ties = []

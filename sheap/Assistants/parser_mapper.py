@@ -484,7 +484,7 @@ def build_tied(tied_params,get_param_coord_value):
         :func:`parse_dependencies`.
     """
     list_tied_params = []
-    print(len(tied_params))
+    #print(len(tied_params))
     if len(tied_params) > 0:
         for tied in tied_params:
             param1, param2 = tied[:2]
@@ -502,15 +502,17 @@ def build_tied(tied_params,get_param_coord_value):
             else:
                 tied_val = tied[-1]
                 if param_1 == param_2 == "logamp":
+                    #print(tied)
                     tied_val = f"{np.log10(extract_float(tied_val))}"
                     list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
-                    #print(tied_val)
+                    #print(f"{pos_param1} {pos_param2} {tied_val}")
                 if isinstance(tied_val, str):
                     list_tied_params.append(f"{pos_param1} {pos_param2} {tied_val}")
                 else:
                     print("Define constraints properly.")
     else:
         list_tied_params = []
+    #print(list_tied_params)
     return list_tied_params
         #print("Remember move this functions to Assistants and also change it in Montecarlo.")
         

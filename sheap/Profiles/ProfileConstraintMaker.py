@@ -169,12 +169,16 @@ def ProfileConstraintMaker(
         amp_init =  float(sp.amplitude) / 10.0 * (-1.0 if sp.region in ["bal"] else 1.0)
         amp_lo =  limits.max_amplitude * (1.0 if sp.region in ["bal"] else 0.0)
         amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
-        #fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
-        fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        #fwhm_init = (fwhm_lo+fwhm_up)/2 * (1.0 if sp.region in ["outflow", "winds"] else 2.0)
+        ##fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
+        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))
+        logamp = -0.25 if sp.region=="narrow" else -2.0
+        
+        
         init, upper, lower = [], [], []
         for p in param_names:
             if p == "logamp":
-                init.append(np.log10(amp_init))
+                init.append(logamp)
                 upper.append(np.log10(limits.max_amplitude))
                 lower.append(-10.0)
             

@@ -153,6 +153,7 @@ def _maketies(
         List of parameter name ties [dependent, reference].
     """
     # Determine mainline
+    #print(known_tied_relations)
     mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad",]  # this can be disscuss in the future
     mainline_candidates_narrow = ["OIIIc","Halpha","NIIb","MgII","CIII]","SIIb","OIIa",]  # this can be disscuss in the future
     
@@ -224,10 +225,12 @@ def _maketies(
     if known_tied_relations:
         _known_ties = []
         present = {e.line_name for e in local_region_list if isinstance(e.line_name, str)}
+        #print(known_tied_relations)
         for pair, factor in known_tied_relations:
             if all(name in present for name in pair):
                 for k in range(1, n_narrow + 1):
                     #_ties.append([f.replace("component", str(k)) for f in factor])
+                    #print([f.replace("component", str(k)) for f in factor])
                     _known_ties.append([f.replace("component", str(k)) for f in factor])
     #     if only_known:
     #         return local_ties
@@ -235,7 +238,7 @@ def _maketies(
     # for t in ties:
     #     if t not in ties_:
     #         ties_.append(t)
-
+    #print(_known_ties)
     return ties,_known_ties
 
 
