@@ -265,7 +265,7 @@ def ensure_sfd_data(sfd_path: Path = None):
         "SFD_mask_4096_sgp.fits",
     ]
 
-    base_url = "https://github.com/kbarbary/sfddata/raw/master"
+    base_url = "https://github.com/kbarbary/sfddata"
 
     missing = [fname for fname in files if not (sfd_path / fname).exists()]
     if not missing:
