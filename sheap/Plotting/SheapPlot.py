@@ -107,7 +107,7 @@ class SheapPlot:
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
         colors_by_region = {"model":"#d62728","broad":"#0f6fb4","narrow":"#559e46","outflow":"#bcbd22","winds":"#17becf","fe":"#8f220c","host":"#9467bd",
-                            "continuum":"#000000","data":"#808080"}
+                            "continuum":"#000000","data":"#1B1B1B","balmer":"#2C2424"}
         component_ls = {1: "-",2: "--",3: "-.",4: ":", 5: (0, (5, 5)), 6: (0, (3, 5, 1, 5)), 7: (0, (1, 5))}
         cont_counter = 1 
         cont_names = {"balmercontinuum":"Balmer Cont.","balmerhighorder":"Higher-order Balmer"}
@@ -117,7 +117,7 @@ class SheapPlot:
             component_y = profile_func(x_axis, values)
             #print(profile_name)
             
-            if region.region == "continuum":
+            if region.region == "continuum" or region.region=="balmer":
                 #print(region.line_name)
                 line_name = cont_names.get(region.line_name,"Cont.")
                 #region.line_name

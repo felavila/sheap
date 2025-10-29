@@ -671,11 +671,11 @@ class ComplexBuilder:
         if add_balmer_continuum:
             #if not xmax< 3646:
              #   warnings.warn(f"Care with the addition of balmer continuum {xmax}")
-            continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='continuum',component=0,profile='balmercontinuum'))
+            continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='balmer',component=0,profile='balmercontinuum'))
         if add_balmerhighorder_continuum:
             # if not xmax< 3646:
             #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
-            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='continuum',component=0,profile='fetemplate'
+            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='fetemplate'
                                                 ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
         
         
@@ -708,7 +708,7 @@ class ComplexBuilder:
         dict_regions = complex_class.group_by("region")
         new_complex_list = []
         for key,values in dict_regions.items():
-            if key in ["continuum","host"]:
+            if key in ["continuum","host","balmer"]:
                 new_complex_list.extend(values.lines)
             elif key == "fe":
                 #here much more can be done 

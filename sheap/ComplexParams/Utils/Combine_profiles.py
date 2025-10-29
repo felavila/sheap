@@ -214,6 +214,7 @@ def combine_components(
             mask = np.where(np.array(combined["lines"]) == line)[0]
             #print(mask)
             # Build a sub-dictionary slicing each array along axis=1
+            #print(flux_fe/combined["flux"][:, mask])
             new_dict[line] = {
                 "component": np.array(combined["component"]),
                 "flux": combined["flux"][:, mask],
@@ -223,7 +224,7 @@ def combine_components(
                 "amplitude": combined["amplitude"][:, mask],
                 "eqw": combined["eqw"][:, mask],
                 "luminosity": combined["luminosity"][:, mask],
-                "extras":{"R_Fe":flux_fe}
+                "extras":{"R_Fe":flux_fe/combined["flux"][:, mask]}
             }        
         # combined["extras"] = {}
         # combined["extras"]["R_Fe"] = flux_fe
@@ -780,7 +781,8 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     #calc_luminosity(jnp.array(distances), flux_c)
     method_2 = {"fwhm_kms":fwhm_kms,"eqw":eqw,"lines":line,"sigma_kms": sigma_kms,"luminosity":luminosity,"flux":flux}
     method_2["extras"] = {}
-    method_2["extras"]["R_Fe"] =flux_fe
+    print(flux_fe/flux)
+    method_2["extras"]["R_Fe"] = flux_fe/flux
     return method_2
 
 
@@ -794,9 +796,20 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
     _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
     line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
 
-    left = np.min(b_mu - 4*b_sigma,axis=1)
-    right = np.max(b_mu + 4*b_sigma,axis=1)
+    ##########control########
+    finite_mask = (
+        np.all(np.isfinite(b_mu), axis=1)
+        & np.all(np.isfinite(b_sigma), axis=1)
+        & np.all(np.isfinite(b_amp), axis=1)
+    )
+    # optionally also require positive widths
+    finite_mask &= np.all(b_sigma > 0, axis=1)
+    ##########control########
+    left = np.nanmin(b_mu[finite_mask] - 4*b_sigma[finite_mask],axis=1)
+    right = np.nanmax(b_mu[finite_mask] + 4*b_sigma[finite_mask],axis=1)
 
+    
+    
     npix = 100_000 #int(max((right-left)/disp))  #(maybe it is 2 much)
     wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
     #disp = wave[1] - wave[0]
@@ -847,15 +860,17 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f.astype(jnp.float32), i_peak.astype(jnp.float32))   # (Nobj,), (Nobj,)
 
     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
+    
     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
     flux  = np.trapezoid(model_sum, wave, axis=1)
     #np.sqrt(2.0 * np.pi) * np.max(model_sum, axis=1) * sigma_kms # mmmm
     luminosity = 4.0 * np.pi * distances**2 * flux
     #calc_luminosity(jnp.array(distances), flux_c)
     
-    method_2 = {"fwhm_kms":unumpy.uarray(fwhm_kms, np.zeros_like(fwhm_kms)) ,"eqw":unumpy.uarray(eqw, np.zeros_like(fwhm_kms)),"lines":line,"sigma_kms": unumpy.uarray(eqw, np.zeros_like(sigma_kms)),"luminosity": unumpy.uarray(luminosity, np.zeros_like(sigma_kms)),"flux":unumpy.uarray(luminosity, np.zeros_like(flux))}
+    method_2 = {"fwhm_kms":unumpy.uarray(fwhm_kms, np.zeros_like(fwhm_kms)) ,"eqw":unumpy.uarray(eqw, np.zeros_like(fwhm_kms)),"lines":line,"sigma_kms": unumpy.uarray(eqw, np.zeros_like(sigma_kms)),"luminosity": unumpy.uarray(luminosity, np.zeros_like(sigma_kms)),"flux":unumpy.uarray(flux, np.zeros_like(flux))}
     method_2["extras"] = {}
-    method_2["extras"]["R_Fe"] =flux_fe
+    
+    method_2["extras"]["R_Fe"] = flux_fe.squeeze()/flux
     return method_2
 
 

@@ -229,10 +229,10 @@ class ComplexParams:
         
         combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
         
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined,"combined_pyqso":combined_pyqso}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso}
         
         
-        for k in ["basic_params","combine_params","combined_pyqso"]:
+        for k in ["basic_params","combined_params","combined_pyqso"]:
             if k == "basic_params":
                 result_local = result[k]["broad"]
             else:
@@ -253,7 +253,7 @@ class ComplexParams:
         ucont_params = self.uncertainty_params[:, idx_cont]
 
         for region, region_group in complex_class_group_by_region.items():
-            if region in ("fe", "continuum", "host"):
+            if region in ("fe", "continuum", "host","balmer"):
                 continue
 
             line_names, components = [], []
@@ -325,9 +325,10 @@ class ComplexParams:
              combine_profile_fe = group_fe.combined_profile
              params_fe = group_fe.params[:, None, :]
              uparams_fe = group_fe.uncertainty_params[:, None, :]
-             wavelength_grid_fe = jnp.linspace(2200,3090, 1_000)  
-             flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe))) 
-             basic_params["broad"]["extras"] = {"R_Fe":flux_fe}
+             wavelength_grid_fe = jnp.linspace(2250,2650, 1_000)  
+             flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe)))
+             #flux_cont =  unumpy.uarray(*np.array(integrate_batch_with_error(cont_group.combined_profile,wavelength_grid_fe,cont_params,ucont_params)))
+             basic_params["broad"]["extras"] = {"flux_Fe":flux_fe}
 
         #from here can be the same function only take care on the uncertainty params of the continuum
         L_w, L_bol,F_cont = {}, {},{}
@@ -352,11 +353,12 @@ class ComplexParams:
                                       c=self.c,ucont_params=ucont_params,flux_fe=flux_fe)
         
         combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+        #basic_params["broad"]["extras"] = {"flux_Fe":flux_fe}
         
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combine_params": combined,"combined_pyqso":combined_pyqso}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso}
         
         
-        for k in ["basic_params","combine_params","combined_pyqso"]:
+        for k in ["basic_params","combined_params","combined_pyqso"]:
              if k == "basic_params":
                  result_local = result[k]["broad"]
              else:

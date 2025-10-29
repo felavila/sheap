@@ -374,13 +374,13 @@ MR18_CIV_1350_FWHM:
   width_def: fwhm
   enabled: false
 # --------------------------
-# 2020 — Le et al. (Mg II with profile-shape term)
+# 2020 — Le et al. (Mg II with profile-shape term) double check this 
 # --------------------------
 Le20_MgII_3000_FWHM:
   line: MgII
   kind: continuum
   wavelength: 3000
-  a: 6.86
+  a: 7.04
   b: 0.50
   vel_exp: 2.0
   f: 1.0
@@ -389,7 +389,7 @@ Le20_MgII_3000_FWHM:
   ref: 2020ApJ...901...35L
   width_def: fwhm
 # --------------------------
-# 2023 — Yu et al. (continuum)
+# 2023 — Yu et al. (continuum) double check this 
 # --------------------------
 Yu23_Hbeta_5100:
   line: Hbeta
@@ -408,8 +408,8 @@ Yu23_MgII_3000:
   line: MgII
   kind: continuum
   wavelength: 3000
-  a: 6.86
-  b: 0.50
+  a: 7.01
+  b:  0.39
   vel_exp: 2.0
   f: 1.0
   pivots: { L: 1e44, FWHM: 1e3 }
@@ -430,17 +430,17 @@ Yu23_CIV_1350:
   ref: 2023MNRAS.522.4132Y
   width_def: fwhm
 # --------------------------
-# 2025 — Pan et al. (Mg II with iron-strength term)
+# 2025 — Pan et al. (Mg II with iron-strength term) based on values from point 10.
 # --------------------------
 Pan25_MgII_3000_RFe:
   line: MgII
   kind: continuum
   wavelength: 3000
-  a: 6.86
-  b: 0.50
-  vel_exp: 2.0
+  a: 6.91
+  b:  0.36
+  vel_exp: 2.41
   f: 1.0
   pivots: { L: 1e44, FWHM: 1e3 }
-  extras: { pan25_gamma: -0.34 }   # requires extras['R_Fe']
+  extras: { pan25_gamma: -0.21 }   # requires extras['R_Fe']
   ref: 2025ApJ...987...48P
   width_def: fwhm

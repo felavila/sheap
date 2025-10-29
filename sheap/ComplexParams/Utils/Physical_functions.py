@@ -42,24 +42,31 @@ from uncertainties import unumpy as unp
 def log10(x):
     """
     Compute base-10 logarithm for both numpy arrays and
-    uncertainties.unumpy arrays.
+    uncertainties.unumpy arrays, replacing non-positive values with NaN.
 
     Parameters
     ----------
-    x : array-like or unumpy uarray
+    x : array-like or unumpy.uarray
         Input values.
 
     Returns
     -------
     result : array-like
-        log10(x), using np.log10 if x is a pure numpy object,
-        or unp.log10 if x has uncertainties.
+        log10(x), with non-positive values replaced by NaN.
+        Uses np.log10 for pure numpy objects, or unp.log10 if x has uncertainties.
     """
-    # detect if it's an unumpy uarray by checking dtype or class
+   
     if isinstance(x, np.ndarray) and x.dtype == object and x.size:
-        return unp.log10(x)
-    else:
-        return np.log10(x)
+        # convert to unumpy array if not already
+        vals = unp.nominal_values(x)
+        safe = unp.uarray(np.where(vals > 0, vals, np.nan),
+                             unp.std_devs(x))
+        return unp.log10(safe)
+
+    
+    x = np.asarray(x, dtype=float)
+    safe = np.where(x > 0, x, np.nan)
+    return np.log10(safe)
 
 
 def calc_flux(norm_amplitude, fwhm):
@@ -385,10 +392,10 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
 
     # Pan25 iron term
     if "R_Fe" in extras:
-        gamma = estimator.get("extras", {}).get("pan25_gamma", -0.34)
+        gamma = estimator.get("extras", {}).get("pan25_gamma", -0.21)#-0.34)
         RFe = _col(extras["R_Fe"])
+        
         logM += gamma * RFe  # broadcasts across components
-
     return (10.0 ** logM)
 
 
@@ -483,7 +490,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
     fwhm_all = _col(broad_params.get("fwhm_kms"))
     lum_all  = _col(broad_params.get("luminosity"))
     sigma_all = broad_params.get("sigma_kms", None)
-    
+    flux_all = broad_params.get("flux", None)
     if sigma_all is not None:
         sigma_all = _col(sigma_all)
 
@@ -524,6 +531,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
         else:
             if not line_name or (line_name not in lines):
                 continue
+            #print(line_name,calib_key)
             idxs = np.where(lines == line_name)[0]
             comp_here = comps[idxs]
 
@@ -548,11 +556,12 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
                 elif "sigma_kms" in extras:
                     sig = _col(extras["sigma_kms"])
                     local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
-        
+            local_extras["R_Fe"] = extras["flux_Fe"]/flux_all[:, idxs]
+            
         if "R_Fe" in extras:
             #print("R_fe")
             local_extras["R_Fe"] = extras["R_Fe"]
-        
+            
         if kind == "continuum":
             lam = est.get("wavelength", None)
             if lam is None:

@@ -219,6 +219,7 @@ class Sheapectral:
             self.redshift_correction = "done"
 
         self.sheap_set_up()
+        self.default_limits = (float(np.min(self.spectra[:,0,:])),float(np.max(self.spectra[:,0,:])))
 
     def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
         """
@@ -336,17 +337,15 @@ class Sheapectral:
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
     
-    def makecomplex(self,xmin:float,xmax:float,n_narrow: int = 1,n_broad: int = 1,group_method=True,
+    def makecomplex(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
                     add_balmer_continuum = True ,add_balmerhighorder_continuum = True ,**kwargs):
         """
         Initialize a ComplexBuilder for later fitting.
 
         Parameters
         ----------
-        xmin : float
-            Lower wavelength bound.
-        xmax : float
-            Upper wavelength bound.
+        limits : tuple  xmin,xmax
+        
         n_narrow : int, optional
             Number of narrow components per line.
         n_broad : int, optional
@@ -358,6 +357,11 @@ class Sheapectral:
         -------
         None
         """
+        if not limits:
+            print(f"We will use the defualt limits {self.default_limits}")
+            xmin,xmax = self.default_limits
+        else:
+            xmin,xmax = min(limits),max(limits)
         if xmin < 3600 and add_balmer_continuum:
             #print("add_balmer_continuum")
             add_balmer_continuum = add_balmer_continuum
