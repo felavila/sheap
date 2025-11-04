@@ -62,7 +62,7 @@ from uncertainties import unumpy
 
 from collections import defaultdict
 
-from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
 from sheap.Profiles.Utils import make_integrator
 from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
@@ -72,6 +72,9 @@ from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combin
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
+#TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
+
+C_KMS = 299_792.458
 class ComplexParams:
     def __init__(self, samplerclass: "ComplexSampler"):
         self.samplerclass = samplerclass
@@ -141,7 +144,7 @@ class ComplexParams:
             for profile_name, prof_group in region_group_by_profile.items():
                 if "_" in profile_name:
                     _, subprof = profile_name.split("_", 1)
-                    profile_fn = PROFILE_LINE_FUNC_MAP[subprof]
+                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[subprof]
                     batch_fwhm = make_batch_fwhm_split(subprof)
                     integrator = make_integrator(profile_fn, method="vmap")
 
@@ -153,7 +156,7 @@ class ComplexParams:
                     )
 
                 else:
-                    profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
+                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[profile_name]
                     batch_fwhm = make_batch_fwhm_split(profile_name)
                     integrator = make_integrator(profile_fn, method="vmap")
 
@@ -194,12 +197,7 @@ class ComplexParams:
                 "luminosity": np.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list) 
             }
-        
 
-
-        # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[[idx_obj],0,:],self.spectra[[idx_obj],1,:],full_samples,
-        #                                                         {"MgII"},basic_params["broad"],
-        #                                                     complex_class_group_by_region)})
         flux_fe = 0 
         if "fe" in complex_class_group_by_region.keys():
             group_fe = complex_class_group_by_region["fe"]
@@ -266,13 +264,13 @@ class ComplexParams:
             for profile_name, prof_group in region_group_by_profile.items():
                 if "_" in profile_name:  # SPAF or template Fe
                     _, subprof = profile_name.split("_", 1)
-                    profile_fn = PROFILE_LINE_FUNC_MAP[subprof]
+                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[subprof]
                     batch_fwhm = make_batch_fwhm_split_with_error(subprof)
 
                     (_line_names, _components, _flux, _fwhm, _fwhm_kms,_centers, _amps, _eqw, _lum, _shapes) = self._accumulate_spaf_components(prof_group, profile_fn, batch_fwhm, cont_params, ucont_params)
 
                 else:
-                    profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
+                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[profile_name]
                     batch_fwhm = make_batch_fwhm_split_with_error(profile_name)
 
                     idxs = prof_group.flat_param_indices_global
@@ -314,12 +312,8 @@ class ComplexParams:
                 "luminosity": np.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list) 
             }
-        
-        #combine_pyqsofit_single
-        # basic_params["broad"].update({"MgII":combine_fastspecfit(self.spectra[:,0,:],self.spectra[:,1,:],None,
-        #                                                         {"MgII"},basic_params["broad"],
-        #                                                     complex_class_group_by_region)})
-        flux_fe = 1.
+
+        flux_fe = 0.
         if "fe" in complex_class_group_by_region.keys():
              group_fe = complex_class_group_by_region["fe"]
              combine_profile_fe = group_fe.combined_profile
@@ -327,7 +321,6 @@ class ComplexParams:
              uparams_fe = group_fe.uncertainty_params[:, None, :]
              wavelength_grid_fe = jnp.linspace(2250,2650, 1_000)  
              flux_fe =  unumpy.uarray(*np.array(integrate_batch_with_error(combine_profile_fe,wavelength_grid_fe,params_fe,uparams_fe)))
-             #flux_cont =  unumpy.uarray(*np.array(integrate_batch_with_error(cont_group.combined_profile,wavelength_grid_fe,cont_params,ucont_params)))
              basic_params["broad"]["extras"] = {"flux_Fe":flux_fe}
 
         #from here can be the same function only take care on the uncertainty params of the continuum
@@ -395,7 +388,7 @@ class ComplexParams:
         )
                  
     def _build_spaf_param_matrices(self,sp,idx_params,params_names):
-        
+        #given that the center now is a variable here we have to change other stuff to
         full_params_by_line = []
         ufull_params_by_line = []
         _params = self.params[:, idx_params]
@@ -403,27 +396,36 @@ class ComplexParams:
         names = np.array(params_names)[idx_params]
         
         amplitude_relations = sp.amplitude_relations
-        amplitude_index = [i for i, name in enumerate(names) if "logamp" in name]
+        #amplitude_index = [i for i, name in enumerate(names) if "logamp" in name] #keep log in case we endend using it
+        amplitude_index = [i for i, name in enumerate(names) if "amplitude" in name]
         ind_amplitude_index = {i[2] for i in amplitude_relations}
         dic_amp = {i: ii for i, ii in zip(ind_amplitude_index, amplitude_index)}
         idx_shift = max(amplitude_index) + 1
         for i,(_, factor, idx) in enumerate(amplitude_relations):
-            amp = _params[:, [dic_amp[idx]]] + np.log10(factor)
+            amp = _params[:, [dic_amp[idx]]] *factor #+ np.log10(factor)
             uamp = _uncertainty_params[:, [dic_amp[idx]]]
-            center = sp.center[i] + _params[:, [idx_shift]]
+            #center = sp.center[i] + _params[:, [idx_shift]]
+            center = sp.center[i] * (1+_params[:, [idx_shift]]/C_KMS)
             ucenter = _uncertainty_params[:, [idx_shift]]
-            extras = _params[:, idx_shift+1:]
-            uextras = _uncertainty_params[:, idx_shift+1:]
+            extras = (10**_params[:, idx_shift+1:]) * center/C_KMS
+            uextras = _uncertainty_params[:, idx_shift+1:] * center/C_KMS
             full_params_by_line.append(np.column_stack([amp, center, extras]))
             ufull_params_by_line.append(np.column_stack([uamp, ucenter, uextras]))
         return np.moveaxis(np.array(full_params_by_line), 0, 1), np.moveaxis(np.array(ufull_params_by_line), 0, 1)
 
     def _extract_profile_quantities(self, profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params):
-        amps = 10**unumpy.uarray(params_by_line[:,:,0], uparams_by_line[:,:,0])
-        centers = unumpy.uarray(params_by_line[:,:,1], uparams_by_line[:,:,1])
-        shape_params = unumpy.uarray(params_by_line[:,:,2:], uparams_by_line[:,:,2:])
-        flux =  unumpy.uarray(*np.array(integrate_batch_with_error(profile_fn,self.wavelength_grid,params_by_line,uparams_by_line))) 
+        #"amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"
         
+        #amps = 10**unumpy.uarray(params_by_line[:,:,0], uparams_by_line[:,:,0])
+        amps = unumpy.uarray(params_by_line[:,:,0], uparams_by_line[:,:,0])
+        #print(amps[0][0])
+        centers = unumpy.uarray(params_by_line[:,:,1], uparams_by_line[:,:,1]) # centers => lambda0 * (1 + vshift_kms/c)
+        #print(centers[0][0])
+        shape_params = unumpy.uarray(params_by_line[:,:,2:], uparams_by_line[:,:,2:]) 
+        shape_params = unumpy.uarray(params_by_line[:,:,2:], uparams_by_line[:,:,2:]) #* params_by_line[:,:,[1]])/C_KMS
+        #print(shape_params[0][0])
+        flux =  unumpy.uarray(*np.array(integrate_batch_with_error(profile_fn,self.wavelength_grid,params_by_line,uparams_by_line))) 
+        #print("flujo",flux[0])
         fwhm = unumpy.uarray(*np.array(batch_fwhm(unumpy.nominal_values(amps), unumpy.nominal_values(centers), unumpy.nominal_values(shape_params),
                                                   unumpy.std_devs(amps), unumpy.std_devs(centers), unumpy.std_devs(shape_params))))
         

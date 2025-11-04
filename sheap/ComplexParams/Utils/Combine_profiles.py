@@ -869,8 +869,11 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
     
     method_2 = {"fwhm_kms":unumpy.uarray(fwhm_kms, np.zeros_like(fwhm_kms)) ,"eqw":unumpy.uarray(eqw, np.zeros_like(fwhm_kms)),"lines":line,"sigma_kms": unumpy.uarray(eqw, np.zeros_like(sigma_kms)),"luminosity": unumpy.uarray(luminosity, np.zeros_like(sigma_kms)),"flux":unumpy.uarray(flux, np.zeros_like(flux))}
     method_2["extras"] = {}
-    
-    method_2["extras"]["R_Fe"] = flux_fe.squeeze()/flux
+    try:
+        method_2["extras"]["R_Fe"] = flux_fe.squeeze()/flux
+    except:
+        #check on this with more detail
+        method_2["extras"]["R_Fe"] = 0
     return method_2
 
 

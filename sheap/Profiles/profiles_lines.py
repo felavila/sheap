@@ -67,7 +67,7 @@ from jax.scipy.stats import norm #maybe dosent exist xd
 
 from sheap.Profiles.Utils import with_param_names,trapz_jax
 
-@with_param_names(["logamp", "center", "fwhm"])
+@with_param_names(["amplitude", "center", "fwhm"])
 def gaussian_fwhm(x, params):
     r"""
     Standard Gaussian line profile using FWHM.
@@ -95,7 +95,7 @@ def gaussian_fwhm(x, params):
     """
     log_amp, center, fwhm = params
     #center = 10**logcenter
-    amplitude = 10**log_amp 
+    amplitude = log_amp 
     #amplitude = jnp.sign(log_amp) *10 ** jnp.abs(log_amp)
     #amplitude = log_amp 
     sigma = fwhm / 2.355 #fwhm -> logfwhm

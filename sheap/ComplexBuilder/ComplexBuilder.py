@@ -745,13 +745,13 @@ class ComplexBuilder:
         all_args = make_host_function.__code__.co_varnames[:argcount]
         names_for_pos = all_args[-len(pos_defaults):] if pos_defaults else []
         defaults = {name: val for name, val in zip(names_for_pos, pos_defaults)}
-        defaults["x_max"] = xmax
-        defaults["x_min"] = xmin
+        defaults["xmax"] = xmax
+        defaults["xmin"] = xmin
         defaults["verbose"] = False
         if isinstance(add_host_miles,bool):
             _host_model = make_host_function(**defaults)
         elif isinstance(add_host_miles,Dict):
-            add_host_miles.update({"xmax":xmax,"xmin":xmax})
+            add_host_miles.update({"xmax":xmax,"xmin":xmin})
             _host_model = make_host_function(**add_host_miles)
         else:
             Warning("Not accepted type of add_host_moles")

@@ -66,8 +66,6 @@ from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFI
 
 #from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
 
-        
-
 #TODO profile handler is a unclear name we have to change it.
 def ProfileConstraintMaker(
     sp: SpectralLine,
@@ -173,8 +171,6 @@ def ProfileConstraintMaker(
         ##fwhm_init = fwhm_lo * (2.0 if sp.region in ["outflow", "winds"] else 1.0)
         fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))
         logamp = -0.25 if sp.region=="narrow" else -2.0
-        
-        
         init, upper, lower = [], [], []
         for p in param_names:
             if p == "logamp":
@@ -197,7 +193,7 @@ def ProfileConstraintMaker(
                 init.append(fwhm_init)
                 upper.append(fwhm_up)
                 lower.append(fwhm_lo)
-
+            
             elif p == "alpha":
                 # skewness parameter: start symmetric, allow ±5
                 init.append(0.0)
@@ -257,13 +253,13 @@ def ProfileConstraintMaker(
             
             elif "amplitude" in p:
                 if sp.region == "bal":
-                    init.append(-1.0)
+                    init.append(0.0)
                     upper.append(0.0)
-                    lower.append(-100)
+                    lower.append(-10)
                 else:
                     init.append(10**logamp)
                     upper.append(10**1.0)
-                    lower.append(10**-15.0)
+                    lower.append(0.0)
                    
             elif p == "shift":
                 init.append(shift_init)
@@ -275,6 +271,17 @@ def ProfileConstraintMaker(
                 upper.append(limits.v_shift)
                 lower.append(-limits.v_shift)
 
+            elif p == "vshift_kms":
+                init.append(0)
+                upper.append(float(limits.v_shift))
+                lower.append(-float(limits.v_shift))
+                
+            elif p == "fwhm_v_kms":
+                init.append(np.log10(float(limits.lower_fwhm)*(1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))))
+                upper.append(np.log10(float(limits.upper_fwhm)))
+                lower.append(np.log10(float(limits.lower_fwhm)))
+            
+            
             elif p in ("fwhm", "width", "fwhm_g", "fwhm_l"):
                 # both Gaussian & Lorentzian widths share same kinematic bounds
                 init.append(fwhm_init)
@@ -367,9 +374,10 @@ def ProfileConstraintMaker(
         lambda0 = limits.canonical_wavelengths
         shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
-        init = [5.0,np.log10(400.0), 0.0] + [0.0] * len(params_names[3:])
-        upper = [10.0,np.log10(limits.upper_fwhm), shift] + [1.0] * len(params_names[3:])#
-        lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  + [0.0] * len(params_names[3:])
+        #testing limits
+        init = [5.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
+        upper = [10.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
+        lower = [-10.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
         #print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,

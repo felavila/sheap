@@ -556,7 +556,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
                 elif "sigma_kms" in extras:
                     sig = _col(extras["sigma_kms"])
                     local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
-            local_extras["R_Fe"] = extras["flux_Fe"]/flux_all[:, idxs]
+            local_extras["R_Fe"] = extras.get("flux_Fe",0)/flux_all[:, idxs]
             
         if "R_Fe" in extras:
             #print("R_fe")

@@ -1,6 +1,6 @@
 broad:
   upper_fwhm: 10000.0
-  lower_fwhm: 1500.0
+  lower_fwhm: 1000.0
   v_shift: 3000.0
   max_amplitude: 10.0
   canonical_wavelengths: 4861.0

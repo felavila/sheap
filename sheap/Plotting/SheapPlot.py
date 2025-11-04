@@ -107,18 +107,18 @@ class SheapPlot:
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
         colors_by_region = {"model":"#d62728","broad":"#0f6fb4","narrow":"#559e46","outflow":"#bcbd22","winds":"#17becf","fe":"#8f220c","host":"#9467bd",
-                            "continuum":"#000000","data":"#1B1B1B","balmer":"#2C2424"}
+                            "continuum":"#000000","data":"#1B1B1B","balmer":"#2C2424","bal":"#803939"}
         component_ls = {1: "-",2: "--",3: "-.",4: ":", 5: (0, (5, 5)), 6: (0, (3, 5, 1, 5)), 7: (0, (1, 5))}
         cont_counter = 1 
         cont_names = {"balmercontinuum":"Balmer Cont.","balmerhighorder":"Higher-order Balmer"}
         for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)):
             #print(profile_name, profile_func, region, idxs)
             values = params[idxs]
-            component_y = profile_func(x_axis, values)
             #print(profile_name)
             
             if region.region == "continuum" or region.region=="balmer":
                 #print(region.line_name)
+                component_y = profile_func(x_axis, values)
                 line_name = cont_names.get(region.line_name,"Cont.")
                 #region.line_name
                 #print(region)
@@ -126,11 +126,15 @@ class SheapPlot:
                 cont_counter += 1
             
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
+                component_y = profile_func(x_axis, values)
                 ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region[region.region.lower()],label="Fe II", linewidth=3)
             
             elif "host" in region.region.lower():
+                f = 1.0/0.6028481012658228
+                component_y = profile_func(x_axis, values)
                 ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region["host"],label="Host", linewidth=3)
             else:
+                component_y = profile_func(x_axis, values)
                 label = region.region.capitalize()
                 #print(region.component)
                 zorder = 0
@@ -142,8 +146,11 @@ class SheapPlot:
                 #ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
                     import numpy as np 
-                    idx_shift = np.where("shift" == np.array(profile_func.param_names))[0]
-                    centers = np.array(region.center) + values[*idx_shift]#This is only true for gaussian
+                    idx_shift = np.where("vshift_kms" == np.array(profile_func.param_names))[0]
+                    #print(idx_shift)
+                    C_KMS = 299_792.458
+                    centers = np.array(region.center) *(1+values[*idx_shift]/C_KMS)#This is only true for gaussian
+                    
                     for ii,c in enumerate(centers):
                         #ax1.axvline(c)
                         if min(xlim) < c < max(xlim):

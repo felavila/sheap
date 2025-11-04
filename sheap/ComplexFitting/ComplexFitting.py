@@ -497,7 +497,10 @@ class ComplexFitting:
         try:
             idxs = mapping_params(self.params_dict, [["amplitude"]]) #, ["scale"]
             idxs_log = mapping_params(self.params_dict, [["logamp"]])
-            self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
+            if len(idxs_log) == 0:
+                self.params = params.at[:, idxs].multiply(scale[:, None])
+            else:
+                self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
             self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])          
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
             y_model  = vmap(self.model, in_axes=(0,0))(self.spec[:,0,:],self.params)

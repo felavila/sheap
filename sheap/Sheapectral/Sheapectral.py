@@ -709,8 +709,9 @@ class Sheapectral:
         import pandas as pd 
         data = []
         scale = self.result.scale[n]
-        for key, i in self.result.params_dict.items():
+        for n,(key, i) in enumerate(self.result.params_dict.items()):
             param = float(self.result.params[n][i])
+            init_valeu = float(self.result.initial_params[i])
             uncertainty = float(self.result.uncertainty_params[n][i])
             if "amplitude" in key:
                 param /= scale
@@ -719,13 +720,13 @@ class Sheapectral:
                 param -= np.log10(scale)
                 #uncertainty -= np.log10(scale)
             constraints = self.result.constraints[i]
-            data.append([param, uncertainty, constraints[1], constraints[0]])  # max, min
+            data.append([param, uncertainty, constraints[1],init_valeu, constraints[0],n])  # max, min
         
         
 
         df = pd.DataFrame(
             data,
-            columns=["value", "error", "max_constraint", "min_constraint"],
+            columns=["value", "error", "max_constraint","init_valeu", "min_constraint","param_number"],
             index=self.result.params_dict.keys()
         )
 
