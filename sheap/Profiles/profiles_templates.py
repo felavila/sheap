@@ -206,7 +206,11 @@ def make_host_function(
     The third parameter is vshift_kms: a velocity shift in km/s.
     """
     #f = 1.0
-    f = 1#/0.6028481012658228
+    #print(filename)
+    #z_source = 2.16
+    #z_lens = 0.905
+    #f = (1 + z_source) / (1 + z_lens)
+    f = 1.
     data = np.load(filename, mmap_mode="r")
 
     cube = np.asarray(data["cube_log"], dtype=np.float32)   # (n_Z, n_age, n_pix)
@@ -259,7 +263,7 @@ def make_host_function(
     templates_flat = cube.reshape(-1, n_pix)                # numpy array
     grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
 
-    # 5) parameter names: now use vshift_kms instead of shift in Å
+   
     param_names = ["logamp", "logFWHM", "vshiftkms"]
     for Z, age in grid_metadata:
         zstr = str(Z).replace(".", "p")

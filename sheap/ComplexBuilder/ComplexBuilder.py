@@ -175,8 +175,8 @@ class ComplexBuilder:
     """
     
 
-    lines_prone_outflow = ["OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
-    lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
+    lines_prone_outflow = ["CII]","[NeIV]","OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
+    lines_prone_winds = ["CIVa","CIVb","AlIIIa","AlIIIb","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"]
     lines_prone_bal = ["CIVa","CIVb","AlIIIa","AlIIIb","MgIIa","NVa","NVb","SiIV","OIV]","AlIIIa","AlIIIb","MgIIb"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
     
@@ -679,10 +679,10 @@ class ComplexBuilder:
                                                 ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
         
         
-        if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
-            print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
-            continuum_comps.append(SpectralLine(line_name="linear",region='continuum',component=0,profile="linear"))
-            return continuum_comps
+        # if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
+        #     print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
+        #     continuum_comps.append(SpectralLine(line_name="linear",region='continuum',component=0,profile="linear"))
+        #     return continuum_comps
         continuum_comps.append(SpectralLine(line_name=continuum_profile,region='continuum',component=0,profile=continuum_profile))
         return continuum_comps
 

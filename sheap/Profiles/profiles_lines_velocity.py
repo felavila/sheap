@@ -48,14 +48,11 @@ def gaussian_fwhm_loglambda(x_lambda, params):
     """
     amp, vshift_kms, fwhm_v_kms, lambda0 = params
 
-    # --- safe ratio (avoid log of 0 or negative) ---
     ratio = jnp.clip(x_lambda / lambda0, a_min=jnp.finfo(x_lambda.dtype).tiny, a_max=jnp.inf)
     y = C_KMS * jnp.log(ratio)
 
-    # --- convert log10(FWHM) to linear ---
     fwhm_linear = 10.0 ** fwhm_v_kms
     sigma_v = fwhm_linear * FWHM_TO_SIGMA
 
-    # --- vshift stays linear (km/s) ---
     z = (y - vshift_kms) / sigma_v
     return amp * jnp.exp(-0.5 * z * z)

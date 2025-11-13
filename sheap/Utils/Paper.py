@@ -143,7 +143,8 @@ def plot_logdex_agreement(
     label_fontsize=30,
     tick_fontsize=30,
     what = "",
-    label_mode = None
+    label_mode = None,
+    add_numbers = False
 ):
     """
     Plot y vs x in log10 space with a 1:1 line and a ±band (dex) region.
@@ -292,7 +293,10 @@ def plot_logdex_agreement(
             ax.errorbar(x_log[m], y_log[m],
                         fmt=mk, capsize=0, color=col,
                         markersize=markersize, markeredgewidth=1.5, elinewidth=1.5, alpha=alpha)
-
+            if add_numbers:
+                for nn, (xx, yy,_is) in enumerate(zip(x_log, y_log,m)):
+                    if _is:
+                        ax.text(xx, yy, str(nn), fontsize=15, ha='left', va='bottom')
             series_label = rf"{xk} vs {yk}" #(|Δ|≤{band} dex: {n_in}/{n_tot}, {pct:.0f}%)"
             legend_handles.append(
                 mlines.Line2D([], [], linestyle='none', marker=mk, markersize=markersize,
