@@ -223,7 +223,7 @@ def ProfileConstraintMaker(
         #print(limits.canonical_wavelengths)
         lambda0 = limits.canonical_wavelengths
         #CANONICAL_WAVELENGTHS[sp.region]
-        shift_init = 0.0 #if sp.component == 1 else (-1.0 if sp.region=="outflow" else 2*(-1.0) ** (sp.component))
+        shift_init = 0.0 if sp.component == 1 else (-1.0) ** (sp.component)
         shift_limit = kms_to_wl(limits.v_shift, lambda0)
         fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
         fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
@@ -267,12 +267,12 @@ def ProfileConstraintMaker(
                 lower.append(-shift_limit)
                 
             elif p == "v_shift":
-                init.append(0)
+                init.append(0.0 if sp.component == 1 else (-1.0) ** (sp.component))
                 upper.append(limits.v_shift)
                 lower.append(-limits.v_shift)
 
             elif p == "vshift_kms":
-                init.append(0)
+                init.append(0.0 if sp.component == 1 else (-1.0) ** (sp.component))
                 upper.append(float(limits.v_shift))
                 lower.append(-float(limits.v_shift))
                 

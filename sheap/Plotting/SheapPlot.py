@@ -76,7 +76,7 @@ class SheapPlot:
         self.model = jit(make_fused_profiles(self.profile_functions))
 
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
-             flux_unit=r"$10^{-17}\,\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True, **kwargs):
+             flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # TODO is time to update this. 
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -98,7 +98,7 @@ class SheapPlot:
                 2,
                 1,
                 sharex=True,
-                figsize=(35, 15),
+                figsize=(30, 8),
                 gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.1},
             )
         else:
@@ -187,21 +187,21 @@ class SheapPlot:
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
         if isinstance(add_xline,(float,int)):
             ax1.axvline(add_xline,c='#A020F0',linewidth=3)
-        ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=35)
+        ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=25)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)
         ax1.text(
             0.75,
             1.0,
             f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
-            fontsize=35,
+            fontsize=25,
             transform=ax1.transAxes,
             ha='left',
             va='bottom',
         )
         #font_legend =
-        ax1.tick_params(axis='both', labelsize=35)
-        ax1.yaxis.offsetText.set_fontsize(35)
+        ax1.tick_params(axis='both', labelsize=25)
+        ax1.yaxis.offsetText.set_fontsize(25)
         if add_legend:
             handles, labels = ax1.get_legend_handles_labels()
             # Remove duplicates while keeping order
@@ -210,22 +210,22 @@ class SheapPlot:
                 if l not in unique:
                     unique[l] = h
 
-            ax1.legend(handles=list(unique.values()),labels=list(unique.keys()),fontsize=30,
+            ax1.legend(handles=list(unique.values()),labels=list(unique.keys()),fontsize=25,
                 markerscale=0.8,labelspacing=0.5,frameon=False,ncol=3,columnspacing=1.5,handletextpad=0.4,)
         if residual:
             residuals = (fit_y - y_axis) / yerr
             residuals = residuals.at[mask].set(0.0)
             ax2.axhline(0, ls="--", linewidth=5, color="black")
             ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="#4C72B0")
-            ax2.set_ylabel("Norm. Res.", fontsize=35)
-            ax2.set_xlabel("Rest wavelength [Å]", fontsize=35)
-            ax2.tick_params(axis='both', labelsize=35, pad=10)
+            ax2.set_ylabel("Norm. Res.", fontsize=25)
+            ax2.set_xlabel("Rest wavelength [Å]", fontsize=25)
+            ax2.tick_params(axis='both', labelsize=25, pad=10)
         else:
-            ax1.set_xlabel("Rest wavelength [Å]", fontsize=35)
+            ax1.set_xlabel("Rest wavelength [Å]", fontsize=25)
 
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')
-            plt.close()
+            #plt.close()
         else:
             plt.show()
 

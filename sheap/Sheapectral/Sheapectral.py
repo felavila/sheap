@@ -692,46 +692,109 @@ class Sheapectral:
                 raise RuntimeError("No fit result found. Run `fitcomplex()` first.")
         return self.plotter
     
-    def result_panda(self, n: int) -> pd.DataFrame:
+    # def result_panda(self, n: int) -> pd.DataFrame:
+    #     """
+    #     Return a pandas DataFrame of fit parameters for a given spectrum.
+    #     (maybe add another rutine or methods to get all the values for a param?)
+    #     Parameters
+    #     ----------
+    #     n : int
+    #         Index of the spectrum object.
+
+    #     Returns
+    #     -------
+    #     pandas.DataFrame
+    #         Columns: ['value', 'error', 'max_constraint', 'min_constraint'].
+    #     """
+    #     import pandas as pd 
+    #     data = []
+    #     scale = self.result.scale[n]
+    #     for n,(key, i) in enumerate(self.result.params_dict.items()):
+    #         param = float(self.result.params[n][i])
+    #         init_valeu = float(self.result.initial_params[i])
+    #         uncertainty = float(self.result.uncertainty_params[n][i])
+    #         if "amplitude" in key:
+    #             param /= scale
+    #             uncertainty /= scale
+    #         elif "logamp" in key:
+    #             param -= np.log10(scale)
+    #             #uncertainty -= np.log10(scale)
+    #         constraints = self.result.constraints[i]
+    #         data.append([param, uncertainty, constraints[1],init_valeu, constraints[0],n])  # max, min
+        
+        
+
+    #     df = pd.DataFrame(
+    #         data,
+    #         columns=["value", "error", "max_constraint","init_valeu", "min_constraint","param_number"],
+    #         index=self.result.params_dict.keys()
+    #     )
+
+    #     return df
+    def result_panda(self, n: int, param_filter: str | None = None,
+                 regex: bool = False, case: bool = True) -> pd.DataFrame:
         """
         Return a pandas DataFrame of fit parameters for a given spectrum.
-        (maybe add another rutine or methods to get all the values for a param?)
+
         Parameters
         ----------
         n : int
             Index of the spectrum object.
+        param_filter : str, optional
+            If provided, return only rows whose parameter name matches this
+            pattern. Uses pandas .str.contains, so it can be a substring
+            or a regex (see `regex` and `case`).
+        regex : bool, default False
+            If True, `param_filter` is interpreted as a regular expression.
+        case : bool, default True
+            If False, ignore case when matching `param_filter`.
 
         Returns
         -------
         pandas.DataFrame
-            Columns: ['value', 'error', 'max_constraint', 'min_constraint'].
+            Index: parameter name.
+            Columns: ['value', 'error', 'max_constraint',
+                    'init_value', 'min_constraint'].
         """
         import pandas as pd 
         data = []
         scale = self.result.scale[n]
-        for n,(key, i) in enumerate(self.result.params_dict.items()):
+
+        for param_name, i in self.result.params_dict.items():
             param = float(self.result.params[n][i])
-            init_valeu = float(self.result.initial_params[i])
+            init_value = float(self.result.initial_params[i])
             uncertainty = float(self.result.uncertainty_params[n][i])
-            if "amplitude" in key:
+
+            if "amplitude" in param_name:
                 param /= scale
                 uncertainty /= scale
-            elif "logamp" in key:
+            elif "logamp" in param_name:
                 param -= np.log10(scale)
-                #uncertainty -= np.log10(scale)
-            constraints = self.result.constraints[i]
-            data.append([param, uncertainty, constraints[1],init_valeu, constraints[0],n])  # max, min
-        
-        
+                # uncertainty is usually left as-is in log-space
 
-        df = pd.DataFrame(
-            data,
-            columns=["value", "error", "max_constraint","init_valeu", "min_constraint","param_number"],
-            index=self.result.params_dict.keys()
-        )
+            constraints = self.result.constraints[i]
+
+            data.append({
+                "param_name": param_name,
+                "value": param,
+                "error": uncertainty,
+                "max_constraint": constraints[1],
+                "init_value": init_value,
+                "min_constraint": constraints[0],
+            })
+
+        # keep param_name as a normal column
+        df = pd.DataFrame(data)
+
+        # Optional filtering by parameter name (now using the column)
+        if param_filter is not None:
+            mask = df["param_name"].str.contains(
+                param_filter, case=case, regex=regex, na=False
+            )
+            df = df[mask]
 
         return df
-    
+
     def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
         """
         Produce a quick errorbar plot of flux vs. wavelength.

@@ -66,6 +66,7 @@ def fits_reader_desi(file: str):
     hdul = fits.open(file)
     flux_scale = float(hdul[1].header["TUNIT2"].split(" ")[0])
     ivar_scale = float(hdul[1].header["TUNIT3"].split(" ")[0])
+    #print(flux_scale,ivar_scale)
     data = hdul[1].data
     data_array = np.array([
         data["WAVELENGTH"],

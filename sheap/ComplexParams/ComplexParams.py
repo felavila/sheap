@@ -73,9 +73,10 @@ from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_
 
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 #TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
-
+#TODO add the params from continuum
 C_KMS = 299_792.458
 class ComplexParams:
+    
     def __init__(self, samplerclass: "ComplexSampler"):
         self.samplerclass = samplerclass
         self.model = samplerclass.model
@@ -227,7 +228,7 @@ class ComplexParams:
         
         combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
         
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso,"distances":distances}
         
         
         for k in ["basic_params","combined_params","combined_pyqso"]:
@@ -348,7 +349,7 @@ class ComplexParams:
         combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
         #basic_params["broad"]["extras"] = {"flux_Fe":flux_fe}
         
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso,"distances":distances}
         
         
         for k in ["basic_params","combined_params","combined_pyqso"]:
