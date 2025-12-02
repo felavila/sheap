@@ -122,6 +122,16 @@ def agreement_stats(x, y, ci=True, n_boot=5000, rng=None):
     out["ci_ccc"]       = q(3)
     return out
 
+def _pretty_ykey(yk):
+    """
+    Allow tuple keys like ('SHEAP', 'Hα') but show just 'SHEAP' in the legend.
+    Extend as you like.
+    """
+    if isinstance(yk, tuple):
+        # ('SHEAP', 'Hα') -> "SHEAP"
+        return yk[0]
+    return yk
+
 
 def plot_logdex_agreement(
     x_dict,
@@ -135,8 +145,17 @@ def plot_logdex_agreement(
     save_path=None,                # directory or full path; if dir, auto-filename
     dpi=300,
     save_format="pdf",             # preferred format: "pdf" | "png" | "jpg" | "jpeg"
-    markers=('o', '*', 's', 'D', '^', 'v', 'P', 'X'),
-    colors=("#d62728", "#0f6fb4", "#2ca02c", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22"),
+    markers=('o', '*', 'X', 'D', '^', 'v', 'P', 's'),
+    colors =  (
+    "#1f77b4",  # blue
+    "#ff7f0e",  # orange
+    "#2ca02c",  # green
+    "#d62728",  # red
+    "#9467bd",  # purple
+    "#8c564b",  # brown
+    "#e377c2",  # pink
+    "#7f7f7f",  # gray
+),
     markersize=10,
     alpha=0.9,
     legend_fontsize=30,
@@ -297,7 +316,8 @@ def plot_logdex_agreement(
                 for nn, (xx, yy,_is) in enumerate(zip(x_log, y_log,m)):
                     if _is:
                         ax.text(xx, yy, str(nn), fontsize=15, ha='left', va='bottom')
-            series_label = rf"{xk} vs {yk}" #(|Δ|≤{band} dex: {n_in}/{n_tot}, {pct:.0f}%)"
+            #series_label = rf"{xk} vs {yk}" #(|Δ|≤{band} dex: {n_in}/{n_tot}, {pct:.0f}%)"
+            series_label = rf"{xk} vs {_pretty_ykey(yk)}"
             legend_handles.append(
                 mlines.Line2D([], [], linestyle='none', marker=mk, markersize=markersize,
                               markeredgewidth=1.5, color=col, label=series_label)
