@@ -127,12 +127,16 @@ def combine_components(
     center_parts, amp_parts, eqw_parts, lum_parts = [], [], [], []
     for line in LINES_TO_COMBINE:
         broad_lines = basic_params["broad"]["lines"]
-        narrow_lines = basic_params["narrow"]["lines"]
         idx_broad = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
+        narrow_lines = basic_params.get("narrow", {}).get("lines", [])
         idx_narrow = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
-        
+
+
+        # ------------------------------
+        # Case 1: broad + narrow present
+        # ------------------------------
         if len(idx_broad) >= 2 and len(idx_narrow) == 1:
-            _components =  np.array(basic_params["broad"]["component"])[idx_broad]
+            _components = np.array(basic_params["broad"]["component"])[idx_broad]
             amp_b = basic_params["broad"]["amplitude"][:, idx_broad]
             mu_b = basic_params["broad"]["center"][:, idx_broad]
             fwhm_kms_b = basic_params["broad"]["fwhm_kms"][:, idx_broad]
@@ -141,56 +145,160 @@ def combine_components(
             mu_n = basic_params["narrow"]["center"][:, idx_narrow]
             fwhm_kms_n = basic_params["narrow"]["fwhm_kms"][:, idx_narrow]
 
-            #is_uncertainty = isinstance(amp_b, Uncertainty)
-            is_uncertainty = amp_b.dtype== 'O'
+            is_uncertainty = amp_b.dtype == "O"
             if is_uncertainty:
-                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
-                #print("amp_b",amp_b.shape)
-                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
-                
-                if fwhm_c.ndim==1:
-                  #  print("fwhm_c",fwhm_c.shape)
-                    #two objects 1 line 
-                    fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
-                 #   print("fwhm_c",fwhm_c.shape)
+                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error
+                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(
+                    amp_b, mu_b, fwhm_kms_b,
+                    amp_n, mu_n, fwhm_kms_n,
+                    limit_velocity=limit_velocity,
+                    c=c,
+                )
+
+                if fwhm_c.ndim == 1:
+                    fwhm_c = fwhm_c.reshape(-1, 1)
+                    amp_c  = amp_c.reshape(-1, 1)
+                    mu_c   = mu_c.reshape(-1, 1)
+
                 fwhm_A = (fwhm_c / c) * mu_c
-                #print(fwhm_A.shape)
-                #unumpy.nominal_values,unumpy.std_devs
                 flux_c = calc_flux(amp_c, fwhm_A)
-                cont_c = unumpy.uarray(*np.array(evaluate_with_error(cont_group.combined_profile,unumpy.nominal_values(mu_c), cont_params,unumpy.std_devs(mu_c), ucont_params)))
-                #ndim1 * ndim2 requires always a [:,None] to work 
-                L_line = calc_luminosity(np.array(distances)[:,None], flux_c)
-                eqw_c = flux_c / cont_c
-                #
+
+                cont_c = unumpy.uarray(*np.array(
+                    evaluate_with_error(
+                        cont_group.combined_profile,
+                        unumpy.nominal_values(mu_c),
+                        cont_params,
+                        unumpy.std_devs(mu_c),
+                        ucont_params,
+                    )
+                ))
+
+                L_line = calc_luminosity(np.array(distances)[:, None], flux_c)
+                eqw_c  = flux_c / cont_c
 
             else:
                 N = amp_b.shape[0]
-                params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
-                params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
+                params_broad = jnp.stack(
+                    [amp_b, mu_b, fwhm_kms_b], axis=-1
+                ).reshape(N, -1)
+                params_narrow = jnp.concatenate(
+                    [amp_n, mu_n, fwhm_kms_n], axis=1
+                )
 
-                fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, c=c)
-                if fwhm_c.ndim==1:
-                    fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
+                fwhm_c, amp_c, mu_c = combine_fast(
+                    params_broad,
+                    params_narrow,
+                    limit_velocity=limit_velocity,
+                    c=c,
+                )
+
+                if fwhm_c.ndim == 1:
+                    fwhm_c = fwhm_c.reshape(-1, 1)
+                    amp_c  = amp_c.reshape(-1, 1)
+                    mu_c   = mu_c.reshape(-1, 1)
 
                 fwhm_A = (fwhm_c / c) * mu_c
                 flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
-                #print(flux_c.shape)
                 cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
                 L_line = calc_luminosity(jnp.array(distances), flux_c)
-                eqw_c = flux_c / cont_c
-            
-            line_names.extend([line])
-            components.extend([_components])
-            #print(flux_c)
-            
-            
-            flux_parts.extend([flux_c])
-            fwhm_parts.extend([fwhm_A])
-            fwhm_kms_parts.extend([fwhm_c])
-            center_parts.extend([mu_c])
-            amp_parts.extend([amp_c])
-            eqw_parts.extend([eqw_c])
-            lum_parts.extend([L_line])
+                eqw_c  = flux_c / cont_c
+
+            line_names.append(line)
+            components.append(_components)
+            flux_parts.append(flux_c)
+            fwhm_parts.append(fwhm_A)
+            fwhm_kms_parts.append(fwhm_c)
+            center_parts.append(mu_c)
+            amp_parts.append(amp_c)
+            eqw_parts.append(eqw_c)
+            lum_parts.append(L_line)
+
+
+        elif len(idx_broad) >= 1 and len(idx_narrow) == 0:
+            _components = np.array(basic_params["broad"]["component"])[idx_broad]
+            amp_b = basic_params["broad"]["amplitude"][:, idx_broad]
+            mu_b = basic_params["broad"]["center"][:, idx_broad]
+            fwhm_kms_b = basic_params["broad"]["fwhm_kms"][:, idx_broad]
+
+            is_uncertainty = amp_b.dtype == "O"
+            if is_uncertainty:
+                # Broad-only combination with uncertainties:
+                # use unumpy to do amplitude-weighted moments
+                from uncertainties import unumpy
+
+                amp_b_u = amp_b
+                mu_b_u = mu_b
+                fwhm_b_u = fwhm_kms_b
+
+                total_amp_u = np.sum(amp_b_u, axis=1)
+                mu_eff_u    = np.sum(amp_b_u * mu_b_u, axis=1) / total_amp_u
+
+                invf = 1.0 / 2.35482
+                sigma_i_u = fwhm_b_u * invf
+                var_i_u   = sigma_i_u ** 2
+                dif2_u    = (mu_b_u - mu_eff_u[:, None]) ** 2
+                var_eff_u = np.sum(
+                    amp_b_u * (var_i_u + dif2_u), axis=1
+                ) / total_amp_u
+                fwhm_eff_u = unumpy.sqrt(var_eff_u) * 2.35482
+
+                # reshape to (N,1) to keep the same interface
+                if fwhm_eff_u.ndim == 1:
+                    fwhm_c = fwhm_eff_u.reshape(-1, 1)
+                    amp_c  = total_amp_u.reshape(-1, 1)
+                    mu_c   = mu_eff_u.reshape(-1, 1)
+                else:
+                    fwhm_c = fwhm_eff_u
+                    amp_c  = total_amp_u
+                    mu_c   = mu_eff_u
+
+                fwhm_A = (fwhm_c / c) * mu_c
+                flux_c = calc_flux(amp_c, fwhm_A)
+
+                from sheap.ComplexParams.Utils.After_fit_profile_helpers import (
+                    evaluate_with_error,
+                )
+                cont_c = unumpy.uarray(*np.array(
+                    evaluate_with_error(
+                        cont_group.combined_profile,
+                        unumpy.nominal_values(mu_c),
+                        cont_params,
+                        unumpy.std_devs(mu_c),
+                        ucont_params,
+                    )
+                ))
+                L_line = calc_luminosity(np.array(distances)[:, None], flux_c)
+                eqw_c  = flux_c / cont_c
+
+            else:
+                N = amp_b.shape[0]
+                params_broad = jnp.stack(
+                    [amp_b, mu_b, fwhm_kms_b], axis=-1
+                ).reshape(N, -1)
+
+                # <-- this is the new broad-only combiner
+                fwhm_c, amp_c, mu_c = combine_broad_moments(params_broad)
+
+                if fwhm_c.ndim == 1:
+                    fwhm_c = fwhm_c.reshape(-1, 1)
+                    amp_c  = amp_c.reshape(-1, 1)
+                    mu_c   = mu_c.reshape(-1, 1)
+
+                fwhm_A = (fwhm_c / c) * mu_c
+                flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
+                cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
+                L_line = calc_luminosity(jnp.array(distances), flux_c)
+                eqw_c  = flux_c / cont_c
+
+            line_names.append(line)
+            components.append(_components)
+            flux_parts.append(flux_c)
+            fwhm_parts.append(fwhm_A)
+            fwhm_kms_parts.append(fwhm_c)
+            center_parts.append(mu_c)
+            amp_parts.append(amp_c)
+            eqw_parts.append(eqw_c)
+            lum_parts.append(L_line)
             
     if len(line_names)>0:
         #print("combination",np.concatenate(flux_parts, axis=1).shape)
@@ -240,6 +348,47 @@ def combine_components(
         return combined
 
 
+@jit
+def combine_broad_moments(
+    params_broad: jnp.ndarray,
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """
+    Combine multiple broad components into a single effective Gaussian
+    using amplitude-weighted moments, without any virial filtering.
+
+    Parameters
+    ----------
+    params_broad : ndarray, shape (N, 3*n_broad)
+        Broad component parameters grouped as [amp_i, mu_i, fwhm_i, ...].
+
+    Returns
+    -------
+    fwhm_eff : ndarray, shape (N,)
+        Effective FWHM (same units as input fwhm_i).
+    amp_eff : ndarray, shape (N,)
+        Total effective amplitude (sum of amplitudes).
+    mu_eff : ndarray, shape (N,)
+        Effective line center (amplitude-weighted mean).
+    """
+    N = params_broad.shape[0]
+    n_broad = params_broad.shape[1] // 3
+
+    broad = params_broad.reshape(N, n_broad, 3)
+    amp_b, mu_b, fwhm_b = broad[..., 0], broad[..., 1], broad[..., 2]
+
+    # Total amplitude and amplitude-weighted center
+    total_amp = jnp.sum(amp_b, axis=1)              # (N,)
+    mu_eff    = jnp.sum(amp_b * mu_b, axis=1) / total_amp
+
+    # Effective variance from mixture of Gaussians
+    invf = 1.0 / 2.35482
+    var_i   = (fwhm_b * invf) ** 2                  # σ_i^2
+    dif2    = (mu_b - mu_eff[:, None]) ** 2
+    var_eff = jnp.sum(amp_b * (var_i + dif2), axis=1) / total_amp
+
+    fwhm_eff = jnp.sqrt(var_eff) * 2.35482          # back to FWHM
+
+    return fwhm_eff, total_amp, mu_eff
 
 
 @jit
@@ -612,98 +761,6 @@ class GaussianSum:
         
         return self.sum_gaussians_jit(x, params)
 
-# def combine_pyqsofit(basic_params, complex_class_group_by_region, line, params, distances, flux_fe):
-#     b_lines = np.array(basic_params["lines"])
-    
-#     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
-#     params = params.astype(jnp.float32)
-#     gg = GaussianSum(len(idx_b))
-    
-#     # Extract and convert to float32 immediately, avoid intermediate copies
-#     b_mu = jnp.asarray(basic_params["center"][:, idx_b], dtype=jnp.float32)
-#     b_sigma = jnp.asarray(basic_params["fwhm"][:, idx_b], dtype=jnp.float32) / (2*np.sqrt(2)*np.log(2))
-#     b_amp = jnp.asarray(basic_params["amplitude"][:, idx_b], dtype=jnp.float32)
-    
-#     # Compute line_params more efficiently
-#     line_params = jnp.stack([b_amp, b_mu, b_sigma], axis=2).reshape(b_amp.shape[0], -1)
-    
-#     # Compute bounds
-#     left = jnp.min(b_mu - 3*b_sigma, axis=1)
-#     right = jnp.max(b_mu + 3*b_sigma, axis=1)
-    
-#     disp = 1.e-4
-#     npix = int(max((right - left) / disp))
-    
-#     # Create wave grid
-#     wave = jnp.linspace(float(jnp.min(left)), float(jnp.max(right)), npix, dtype=jnp.float32)
-    
-#     # Compute model_sum
-#     model_sum = vmap(gg, in_axes=(None, 0))(wave, line_params)
-    
-#     # Compute continuum - use squeeze to reduce dimensionality
-#     cont_map = region_helper(wave, "continuum", complex_class_group_by_region, 
-#                             params, on_axis_wavelength=None).squeeze()
-    
-#     lambda_ref = {"Halpha": 6564.61, "Hbeta": 4862.68, "MgII": 2798.75, "CIV": 1549.48}[line]
-    
-#     # Find peaks and compute EQW
-#     i_peak = jnp.argmax(model_sum, axis=1)
-#     model_max = jnp.max(model_sum, axis=1)
-#     half = 0.5 * model_max
-#     f = model_sum - half[:, None]
-    
-#     # Compute EQW with safe continuum
-#     cont_safe = jnp.maximum(cont_map, 1e-30)
-#     eqw = jnp.trapezoid(model_sum / cont_safe, wave, axis=1)
-    
-#     # FWHM calculation setup
-#     Nlam = wave.shape[0]
-#     idxs = jnp.arange(Nlam - 1)
-#     eps = 1e-30
-    
-#     def interp_at(k, f_row):
-#         x0, x1 = wave[k], wave[k + 1]
-#         y0, y1 = f_row[k], f_row[k + 1]
-#         t = -y0 / (y1 - y0 + eps)
-#         return x0 + t * (x1 - x0)
-    
-#     def row_fwhm(f_row, i_peak_i):
-#         s_row = jnp.sign(f_row)
-#         cross_mask = (s_row[:-1] * s_row[1:]) < 0
-        
-#         left_cand = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
-#         left_idx = jnp.max(left_cand)
-        
-#         right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
-#         right_idx = jnp.min(right_cand)
-        
-#         has_left = left_idx >= 0
-#         has_right = right_idx <= (Nlam - 2)
-        
-#         lam_L = jnp.where(has_left, interp_at(left_idx, f_row), jnp.nan)
-#         lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
-        
-#         return lam_L, lam_R
-    
-#     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f, i_peak)
-    
-#     # Final calculations
-#     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms
-#     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-#     flux = np.sqrt(2.0 * np.pi) * model_max * sigma_kms
-#     luminosity = 4.0 * np.pi * distances**2 * flux
-    
-#     return {
-#         "fwhm_kms": fwhm_kms,
-#         "eqw": eqw,
-#         "lines": line,
-#         "sigma_kms": sigma_kms,
-#         "luminosity": luminosity,
-#         "flux": flux,
-#         "extras": {"R_Fe": flux_fe}
-#     }
-
-#batch_size=32, max_npix=50000
 
 def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,distances,flux_fe):
     #if isinstance(LINES_TO_COMBINE,str):
@@ -716,7 +773,7 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     params = params.astype(jnp.float32)
     gg = GaussianSum(len(idx_b))
     b_mu = jnp.asarray(basic_params["center"])[:,idx_b].astype(jnp.float32)
-    b_sigma = jnp.asarray(basic_params["fwhm"])[:,idx_b].astype(jnp.float32) / (2*np.sqrt(2)*np.log(2))
+    b_sigma = jnp.asarray(basic_params["fwhm"])[:,idx_b].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
     b_amp   = jnp.asarray(basic_params["amplitude"])[:,idx_b].astype(jnp.float32)    # (Nobj, NB)
     _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
     line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
@@ -791,7 +848,7 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
     gg = GaussianSum(len(idx_b))
     b_mu = unumpy.nominal_values(np.asarray(basic_params["center"])[:,idx_b]) #.nominal_values #.astype(jnp.float32)
-    b_sigma = unumpy.nominal_values(np.asarray(basic_params["fwhm"])[:,idx_b] / (2*np.sqrt(2)*np.log(2)))
+    b_sigma = unumpy.nominal_values(np.asarray(basic_params["fwhm"])[:,idx_b] /  (2.0 * np.sqrt(2.0 * np.log(2.0))))
     b_amp   =  unumpy.nominal_values(np.asarray(basic_params["amplitude"])[:,idx_b])
     _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
     line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
@@ -927,3 +984,99 @@ def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_bro
     
     method_1 = {"weighted_center": weighted_center,"sigma_kms":sigma_f,"fwhm_kms":fwhm_f,"W":W,"M1":M1,"M2":M2,"targets":targets}
     return method_1
+
+
+
+
+# def combine_pyqsofit(basic_params, complex_class_group_by_region, line, params, distances, flux_fe):
+#     b_lines = np.array(basic_params["lines"])
+    
+#     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
+#     params = params.astype(jnp.float32)
+#     gg = GaussianSum(len(idx_b))
+    
+#     # Extract and convert to float32 immediately, avoid intermediate copies
+#     b_mu = jnp.asarray(basic_params["center"][:, idx_b], dtype=jnp.float32)
+#     b_sigma = jnp.asarray(basic_params["fwhm"][:, idx_b], dtype=jnp.float32) / (2*np.sqrt(2)*np.log(2))
+#     b_amp = jnp.asarray(basic_params["amplitude"][:, idx_b], dtype=jnp.float32)
+    
+#     # Compute line_params more efficiently
+#     line_params = jnp.stack([b_amp, b_mu, b_sigma], axis=2).reshape(b_amp.shape[0], -1)
+    
+#     # Compute bounds
+#     left = jnp.min(b_mu - 3*b_sigma, axis=1)
+#     right = jnp.max(b_mu + 3*b_sigma, axis=1)
+    
+#     disp = 1.e-4
+#     npix = int(max((right - left) / disp))
+    
+#     # Create wave grid
+#     wave = jnp.linspace(float(jnp.min(left)), float(jnp.max(right)), npix, dtype=jnp.float32)
+    
+#     # Compute model_sum
+#     model_sum = vmap(gg, in_axes=(None, 0))(wave, line_params)
+    
+#     # Compute continuum - use squeeze to reduce dimensionality
+#     cont_map = region_helper(wave, "continuum", complex_class_group_by_region, 
+#                             params, on_axis_wavelength=None).squeeze()
+    
+#     lambda_ref = {"Halpha": 6564.61, "Hbeta": 4862.68, "MgII": 2798.75, "CIV": 1549.48}[line]
+    
+#     # Find peaks and compute EQW
+#     i_peak = jnp.argmax(model_sum, axis=1)
+#     model_max = jnp.max(model_sum, axis=1)
+#     half = 0.5 * model_max
+#     f = model_sum - half[:, None]
+    
+#     # Compute EQW with safe continuum
+#     cont_safe = jnp.maximum(cont_map, 1e-30)
+#     eqw = jnp.trapezoid(model_sum / cont_safe, wave, axis=1)
+    
+#     # FWHM calculation setup
+#     Nlam = wave.shape[0]
+#     idxs = jnp.arange(Nlam - 1)
+#     eps = 1e-30
+    
+#     def interp_at(k, f_row):
+#         x0, x1 = wave[k], wave[k + 1]
+#         y0, y1 = f_row[k], f_row[k + 1]
+#         t = -y0 / (y1 - y0 + eps)
+#         return x0 + t * (x1 - x0)
+    
+#     def row_fwhm(f_row, i_peak_i):
+#         s_row = jnp.sign(f_row)
+#         cross_mask = (s_row[:-1] * s_row[1:]) < 0
+        
+#         left_cand = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
+#         left_idx = jnp.max(left_cand)
+        
+#         right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
+#         right_idx = jnp.min(right_cand)
+        
+#         has_left = left_idx >= 0
+#         has_right = right_idx <= (Nlam - 2)
+        
+#         lam_L = jnp.where(has_left, interp_at(left_idx, f_row), jnp.nan)
+#         lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
+        
+#         return lam_L, lam_R
+    
+#     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f, i_peak)
+    
+#     # Final calculations
+#     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms
+#     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+#     flux = np.sqrt(2.0 * np.pi) * model_max * sigma_kms
+#     luminosity = 4.0 * np.pi * distances**2 * flux
+    
+#     return {
+#         "fwhm_kms": fwhm_kms,
+#         "eqw": eqw,
+#         "lines": line,
+#         "sigma_kms": sigma_kms,
+#         "luminosity": luminosity,
+#         "flux": flux,
+#         "extras": {"R_Fe": flux_fe}
+#     }
+
+#batch_size=32, max_npix=50000

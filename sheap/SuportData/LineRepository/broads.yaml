@@ -1,9 +1,13 @@
 # Broad-only lines (no significant narrow counterpart)
-- center: 1854.716
-  line_name: AlIIIa
-  element: Aluminum
-- center: 1862.79
-  line_name: AlIIIb
+# - center: 1854.716
+#   line_name: AlIIIa
+#   element: Aluminum
+# - center: 1862.79
+#   line_name: AlIIIb
+#   element: Aluminum
+
+- center: 1858.753   # simple mean of 1854.716 and 1862.79
+  line_name: AlIII
   element: Aluminum
 - center: 5890
   line_name: NaIa

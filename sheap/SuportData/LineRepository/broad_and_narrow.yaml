@@ -15,12 +15,17 @@
 - center: 1215.67
   line_name: Lyalpha
   element: Hydrogen
-- line_name: NVa
-  center: 1238.821
+# - line_name: NVa
+#   center: 1238.821
+#   element: Nitrogen
+# - line_name: NVb
+#   center: 1242.804
+#   element: Nitrogen
+
+- line_name: NV
+  center: 1240.8125
   element: Nitrogen
-- line_name: NVb
-  center: 1242.804
-  element: Nitrogen
+
 - center: 1908.73
   line_name: CIII]
   element: Carbon

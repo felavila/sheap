@@ -66,7 +66,6 @@ def fits_reader_desi(file: str):
     hdul = fits.open(file)
     flux_scale = float(hdul[1].header["TUNIT2"].split(" ")[0])
     ivar_scale = float(hdul[1].header["TUNIT3"].split(" ")[0])
-    #print(flux_scale,ivar_scale)
     data = hdul[1].data
     data_array = np.array([
         data["WAVELENGTH"],
@@ -140,6 +139,7 @@ def fits_reader_sdss(file: str):
     """
     hdul = fits.open(file)
     flux_scale = float(hdul[0].header["BUNIT"].split(" ")[0])
+   
     data = hdul[1].data
     data_array = np.array([
         10 ** data["loglam"],
@@ -147,6 +147,7 @@ def fits_reader_sdss(file: str):
         flux_scale / np.sqrt(data["ivar"]),
         data["wdisp"]
     ])
+    
     data_array[np.isinf(data_array)] = 1e20
     header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])
     return data_array, header_array

@@ -272,7 +272,7 @@ def ProfileConstraintMaker(
                 lower.append(-limits.v_shift)
 
             elif p == "vshift_kms":
-                init.append(0.0 if sp.component == 1 else (-1.0) ** (sp.component))
+                init.append(0.0 if sp.component == 1 else (-1.5) ** (sp.component))
                 upper.append(float(limits.v_shift))
                 lower.append(-float(limits.v_shift))
                 
