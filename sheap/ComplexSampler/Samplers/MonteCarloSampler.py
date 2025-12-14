@@ -67,7 +67,7 @@ def phys_trust_region_inits(
     num_samples=100,
     sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
     frac_box_sigma=0.05, # fallback noise size ~5% of (hi-lo)
-    k_sigma=0.7          # multiplier for sigma_phys
+    k_sigma= 0.5          # multiplier for sigma_phys
 ):
     key = random.PRNGKey(key) if isinstance(key, int) else key
 
@@ -94,133 +94,134 @@ def phys_trust_region_inits(
     return draws_raw, draws_phys
 
 class MonteCarloSampler:
-    """
-    Montecarlo sampler 
-    still under developmen.
-    """
+	"""
+	Montecarlo sampler 
+	still under developmen.
+	"""
     
-    def __init__(self, estimator: "ComplexSampler"):
-        
-        self.estimator = estimator  # ParameterEstimation instance
-        self.complexparams = ComplexParams(estimator)
-        self.model = estimator.model
-        self.dependencies = estimator.dependencies
-        self.scale = estimator.scale
-        self.spectra = estimator.spectra
-        self.mask = estimator.mask
-        self.params = estimator.params
-        self.params_dict = estimator.params_dict
-        self.names = estimator.names 
-        self.complex_class = estimator.complex_class
-        self.fitkwargs = estimator.fitkwargs
-        self.constraints = estimator.constraints
-        self.initial_params  = estimator.initial_params
-        self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
+	def __init__(self, estimator: "ComplexSampler"):
+		self.estimator = estimator  # ParameterEstimation instance
+		self.complexparams = ComplexParams(estimator)
+		self.model = estimator.model
+		self.dependencies = estimator.dependencies
+		self.scale = estimator.scale
+		self.spectra = estimator.spectra
+		self.mask = estimator.mask
+		self.params = estimator.params
+		self.params_dict = estimator.params_dict
+		self.names = estimator.names 
+		self.complex_class = estimator.complex_class
+		self.fitkwargs = estimator.fitkwargs
+		self.constraints = estimator.constraints
+		self.initial_params  = estimator.initial_params
+		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
+	
+	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True) -> jnp.ndarray:
+			from tqdm import tqdm
+			print("Running Monte Carlo with JAX.")
+			model = jit(self.model)
+			# Normalize spectratra
+			scale = np.atleast_1d(self.scale.astype(jnp.float32))
+			#print(scale.shape)
+			spectra = self.spectra.astype(jnp.float32)
 
-    def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True) -> jnp.ndarray:
-        from tqdm import tqdm
-        print("Running Monte Carlo with JAX.")
-        model = jit(self.model)
-        # Normalize spectratra
-        scale = self.scale.astype(jnp.float32)
-        spectra = self.spectra.astype(jnp.float32)
-        
-        norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
-        norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
-        norm_spectra = norm_spectra.astype(jnp.float32)
-      
-        phys_map = descale_amp(self.params_dict,self.params,self.scale)
-        
-        param_min = jnp.array([c[0] for c in self.constraints], dtype=jnp.float32)
-        param_max = jnp.array([c[1] for c in self.constraints], dtype=jnp.float32)
+			norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+			norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
+			norm_spectra = norm_spectra.astype(jnp.float32)
 
-        list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
-        list_dependencies = parse_dependencies(self._build_tied(self.fitkwargs[-1]["tied"]))
-        tied_map = {T[1]: T[2:] for  T in list_dependencies}
-        tied_map = flatten_tied_map(tied_map)
-        
-        norm_spectra_T = norm_spectra.transpose(1, 0, 2)
-            
-        self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+			#print(self.params_dict,self.params,self.scale)
+			phys_map = descale_amp(self.params_dict,self.params,self.scale)
 
-        draws_raw, _ = phys_trust_region_inits(
-            key_seed,
-            params_obj=self.params_obj,
-            phys_map=phys_map,
-            phys_bounds=self.constraints,
-            num_samples=num_samples)
-        
-        draws_raw = draws_raw.astype(jnp.float32)  # ensure consistent dtype
+			# param_min = jnp.array([c[0] for c in self.constraints], dtype=jnp.float32)
+			# param_max = jnp.array([c[1] for c in self.constraints], dtype=jnp.float32)
 
-        _minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
-        
-        constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
-        
-        #raw_init0 = draws_raw[0]
-        #raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
-        # Force the computation to finish so compile time happens here:
-        #raw_params0.block_until_ready()
+			list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
+			list_dependencies = parse_dependencies(self._build_tied(self.fitkwargs[-1]["tied"]))
+			tied_map = {T[1]: T[2:] for  T in list_dependencies}
+			tied_map = flatten_tied_map(tied_map)
 
-        raw_init = self.params_obj.phys_to_raw(phys_map)
-        from tqdm import tqdm
-        iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
-        
-        monte_params = []
-        for n in iterator:
-            #raw_init = draws_raw[n]  # already float32
-            t0 = time.perf_counter()
-            raw_params, _ = _minimizer(raw_init, *norm_spectra_T, constraints_jnp)
-            
-            #raw_params.block_until_ready()
-            t1 = time.perf_counter()
+			norm_spectra_T = norm_spectra.transpose(1, 0, 2)
 
-            params_m = self.params_obj.raw_to_phys(raw_params)
-            monte_params.append(params_m)
-            iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
-        
-        _monte_params = np.moveaxis(np.stack(monte_params),0,1)
-        dic_posterior_params = {}
-        
-        iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+			self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
 
-        for n, name_i in enumerate(iterator):
-          #if n % 100 == 0:
-            #print(f"{n} of {spectra.shape[0]}")
-          full_samples = scale_amp(self.params_dict,_monte_params[n],np.array(self.scale[n]))
-          dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
-          dic_posterior_params[name_i].update({"samples_phys":full_samples})
-        return dic_posterior_params
-    
+			draws_raw, draws_phys = phys_trust_region_inits(
+			key_seed,
+			params_obj=self.params_obj,
+			phys_map=phys_map,
+			phys_bounds=self.constraints,
+			num_samples=num_samples)
 
-    def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
-                    method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
-        
-        num_steps = 1_000
-        minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
-                            learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
-                            penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
-        
-        
-        #print(raw_params)
-        return minimizer
-        
-        
-        
-    def _build_tied(self, tied_params):
-        """
-        Convert tied‑parameter specifications into dependency strings.
+			draws_raw = draws_raw.astype(jnp.float32)  # ensure consistent dtype
+			#print(self.fitkwargs)
+			_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
 
-        Parameters
-        ----------
-        tied_params : list of list
-            Each inner list is `[param_target, param_source, ..., optional_value]`.
+			constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
 
-        Returns
-        -------
-        list[str]
-            Dependency expressions for the minimizer.
-        """
-        return build_tied(tied_params,self.get_param_coord_value)
+			#raw_init0 = draws_raw[0]
+			#raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
+			# Force the computation to finish so compile time happens here:
+			#raw_params0.block_until_ready()
+
+			raw_init = self.params_obj.phys_to_raw(phys_map)
+
+			iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
+
+			monte_params = []
+			for n in iterator:
+				raw_init = draws_raw[n]  # already float32
+				t0 = time.perf_counter()
+				params_m, _ = _minimizer(raw_init, *norm_spectra_T, constraints_jnp)
+				t1 = time.perf_counter()
+
+				monte_params.append(params_m)
+				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+	
+			_monte_params = np.moveaxis(np.stack(monte_params),0,1)
+			_draws_phys = np.moveaxis(draws_phys,0,1)
+			
+			#print(draws_raw[n])
+			dic_posterior_params = {}
+
+			iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+			
+			for n, name_i in enumerate(iterator):
+				full_samples = scale_amp(self.params_dict,_monte_params[n],scale[n])
+				draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),scale[n])
+				dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+				dic_posterior_params[name_i].update({"samples_phys":full_samples,"draws_phys":draws_phys_n})
+
+			return dic_posterior_params
+
+
+	def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
+					method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
+		
+		num_steps = 2_000
+		minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
+							learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
+							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+		
+		
+		#print(raw_params)
+		return minimizer
+        
+        
+        
+	def _build_tied(self, tied_params):
+		"""
+		Convert tied‑parameter specifications into dependency strings.
+
+		Parameters
+		----------
+		tied_params : list of list
+			Each inner list is `[param_target, param_source, ..., optional_value]`.
+
+		Returns
+		-------
+		list[str]
+			Dependency expressions for the minimizer.
+		"""
+		return build_tied(tied_params,self.get_param_coord_value)
     
     
     

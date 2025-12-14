@@ -7,7 +7,7 @@ from sheap.Profiles.profiles import (
     PROFILE_FUNC_MAP
 )
 from sheap.Profiles.profiles_templates import (
-    make_feii_template_function,
+    make_template_function,
     make_host_function
 )
 
@@ -35,7 +35,7 @@ def test_profilefunc_type_compliance(profile_func_fixture):
 
 @pytest.mark.parametrize("template_name", ["feop", "feuv"])
 def test_feii_template_profile_runs(template_name):
-    wrapper = make_feii_template_function(template_name)
+    wrapper = make_template_function(template_name)
     model = wrapper["model"]
     assert callable(model)
     x = jnp.linspace(1000, 8000, 1000)

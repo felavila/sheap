@@ -168,10 +168,16 @@ def scale_amp(params_dict, params, scale):
     idxs_log = mapping_params(params_dict, [["logamp"]])
 
     if isinstance(params, jnp.ndarray):
-        params = (params.at[:, idxs].multiply(scale).at[:, idxs_log].add(jnp.log10(scale)))
+        if len(idxs_log) == 0:
+            params = params.at[:, idxs].multiply(scale[:, None])
+        else:
+            params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
     elif isinstance(params, np.ndarray):
-        params[:, idxs] *= scale
-        params[:, idxs_log] += np.log10(scale)
+        if len(idxs_log) == 0:
+            params[:, idxs] *=  scale
+        else:
+            params[:, idxs] *=  scale
+            params[:, idxs_log] += np.log10(scale)
     else:
         raise TypeError(f"Unsupported array type: {type(params)}")
 
@@ -198,14 +204,19 @@ def descale_amp(params_dict, params, scale):
     """
     idxs = mapping_params(params_dict, [["amplitude"]])
     idxs_log = mapping_params(params_dict, [["logamp"]])
+    
     #print(params.shape)
     if isinstance(params, jnp.ndarray):
-        params = (params.at[:, idxs].divide(scale[:, None]).at[:, idxs_log].subtract(jnp.log10(scale[:, None])))
-    
+        if len(idxs_log) == 0:
+            params = params.at[:, idxs].divide(scale[:, None])
+        else:
+            params = (params.at[:, idxs].divide(scale[:, None]).at[:, idxs_log].subtract(jnp.log10(scale[:, None])))
     elif isinstance(params, np.ndarray):
-        params[:, idxs] /= scale
-        params[:, idxs_log] -= np.log10(scale)
-    
+        if len(idxs_log) == 0:
+            params[:, idxs] /= scale
+        else:
+            params[:, idxs] /= scale
+            params[:, idxs_log] -= np.log10(scale)
     else:
         raise TypeError(f"Unsupported array type: {type(params)}")
     
@@ -386,8 +397,8 @@ def make_get_param_coord_value(
         region: str,
         verbose: bool = False,
     ) -> Tuple[int, float, str]:
-        if param == "amplitude":
-            param = "logamp" #this is assuming all the profiles in sheap use logamp but what happen in the cases where this doesn't happen :c
+        # if param == "amplitude":
+        #     param = "logamp" #this is assuming all the profiles in sheap use logamp but what happen in the cases where this doesn't happen :c
         key = f"{param}_{line_name}_{component}_{region}"
         pos = params_dict.get(key)
         if pos is None:

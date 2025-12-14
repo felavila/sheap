@@ -55,13 +55,13 @@ import optax
 from jax import jit, vmap, lax, value_and_grad
 
 from sheap.Assistants.parser_mapper import parse_dependencies, project_params
-from .loss_builder import build_loss_function
+from .loss_builder import build_loss_function,build_varpro_loss_function
 
 
 class Minimizer:
     """
     Handles constrained optimization for a given model function using JAX and Optax.
-
+    #TODO maybe for one object remove the JIT
     Attributes
     ----------
     func : Callable
@@ -112,6 +112,7 @@ class Minimizer:
         self.num_steps = num_steps
         self.learning_rate = learning_rate or 1e-2
         self.list_dependencies = list_dependencies
+        self.param_converter = param_converter
         self.method = method.lower()
         self.lbfgs_options = lbfgs_options or {}
         #self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
@@ -123,7 +124,7 @@ class Minimizer:
             weighted=weighted,
             penalty_function=penalty_function,
             penalty_weight=penalty_weight,
-            param_converter=param_converter,
+            param_converter=self.param_converter,
             curvature_weight=curvature_weight,
             learning_rate = learning_rate,
             smoothness_weight=smoothness_weight,
@@ -173,14 +174,19 @@ class Minimizer:
         vmap_optimize_model = vmap(
             self.optimize_model, in_axes=optimize_in_axis, out_axes=0
         )
-
-        return vmap_optimize_model(
-            initial_params,
-            y,
-            x,
-            yerror,
-            constraints,
-        )
+        if self.param_converter:
+            initial_params = self.param_converter.phys_to_raw(initial_params)
+            raw_params,loss = vmap_optimize_model(initial_params,y,x,yerror,constraints,)
+            
+            return self.param_converter.raw_to_phys(raw_params),loss
+        else:
+            return vmap_optimize_model(
+                initial_params,
+                y,
+                x,
+                yerror,
+                constraints,
+            )
 
     @staticmethod
     def minimization_function(
@@ -242,6 +248,7 @@ class Minimizer:
         loss_function = jit(loss_function)
 
         def optimize_model(initial_params, xs, y, y_uncertainties, constraints):
+            #Why this works slow?
             loss_history = []
 
             if method == "lbfgs":
@@ -298,6 +305,6 @@ class Minimizer:
                 )
 
             return final_params, loss_history
-
+        optimize_model = jit(optimize_model) #powerfull when we apply montecarlo-but in 1-2 objects sample not much +3 sec
         return loss_function, optimize_model
 

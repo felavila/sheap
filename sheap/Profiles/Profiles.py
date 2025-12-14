@@ -51,15 +51,17 @@ from sheap.Core import ProfileFunc
 
 from sheap.Profiles.profiles_continuum import (linear, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,polynomial)
 from sheap.Profiles.profiles_lines import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
-from sheap.Profiles.profiles_templates import make_feii_template_function,make_host_function
-from sheap.Profiles.Combine import SPAF,PROFILE_LINE_FUNC_MAP
-from sheap.Profiles.Combine2 import SPAF_loglambda
 
+from sheap.Profiles.profiles_templates import make_template_function,make_host_function
+
+from sheap.Profiles.Combine import SPAF_loglambda
 from sheap.Profiles.balmercontinuum import balmercontinuum
 
 
+# from sheap.sheap.Profiles.depreted.Combine import SPAF
+
 # # Low-level line profiles (require center+amplitude inside param vector)
-PROFILE_LINE_FUNC_MAP_classical: Dict[str, ProfileFunc] = {
+PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {
      'gaussian': gaussian_fwhm,
      'lorentzian': lorentzian_fwhm,
      'voigt_pseudo': voigt_pseudo,
@@ -81,7 +83,7 @@ PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {
 # Full profile registry (for spectral modeling)
 PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {
     'balmercontinuum': balmercontinuum,
-    'fetemplate': make_feii_template_function,
+    'template': make_template_function,
     'SPAF': SPAF_loglambda,
     "hostmiles": make_host_function} #
 

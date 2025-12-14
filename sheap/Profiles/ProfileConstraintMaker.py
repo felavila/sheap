@@ -120,9 +120,9 @@ def ProfileConstraintMaker(
         
         if selected_profile == "brokenpowerlaw":
             return ProfileConstraintSet(
-                init=[0.1,-1.5, -2.5, 5500.0],
-                upper=[10.0,0.0, 0.0, 8000.0],
-                lower=[0.0,-5.0, -5.0, 3000.0],
+                init=[0.0,-1.5, -2.5, 5500.0],
+                upper=[5.0,0.0, 0.0, 8000.0],
+                lower=[-5.0,-5.0, -5.0, 3000.0],
                 profile=selected_profile,
                 param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
                 profile_fn = local_profile)
@@ -173,15 +173,15 @@ def ProfileConstraintMaker(
         logamp = -0.25 if sp.region=="narrow" else -2.0
         init, upper, lower = [], [], []
         for p in param_names:
-            if p == "logamp":
-                init.append(logamp)
-                upper.append(np.log10(limits.max_amplitude))
-                lower.append(-10.0)
+            if p == "amplitude":
+                init.append(10**logamp)
+                upper.append(limits.max_amplitude)
+                lower.append(0.0)
             
-            elif p == "amp":
-                init.append(amp_init)
-                upper.append(amp_up)
-                lower.append(amp_lo)
+            # elif p == "amp":
+            #     init.append(amp_init)
+            #     upper.append(amp_up)
+            #     lower.append(amp_lo)
                 
             elif p == "center":
                 init.append(center0 + shift0)
@@ -331,7 +331,7 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
 
-    if selected_profile == "fetemplate" and sp.region == "fe":
+    if selected_profile == "template" and sp.region == "fe":
         #maybe add a warning here
         lambda0 = limits.canonical_wavelengths
         shift = kms_to_wl(limits.v_shift, lambda0)
@@ -349,7 +349,7 @@ def ProfileConstraintMaker(
             param_names= params_names,
             profile_fn = local_profile
         )
-    if sp.line_name == "balmerhighorder" and sp.profile == "fetemplate":
+    if sp.line_name == "balmerhighorder" and sp.profile == "template":
         lambda0 = 3675.0 #limits.canonical_wavelengths
         v_shift = 1500.0 
         init_fwhm = 2000.0
@@ -376,9 +376,9 @@ def ProfileConstraintMaker(
         shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
         #testing limits
-        init = [5.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
-        upper = [10.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
-        lower = [-10.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
+        init = [0.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
+        upper = [5.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
+        lower = [-5.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
         #print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,

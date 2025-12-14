@@ -11,27 +11,7 @@ from sheap.Profiles.Utils import with_param_names,trapz_jax
 C_KMS = 299_792.458
 FWHM_TO_SIGMA = 1.0 / 2.355
 
-
-# @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
-# def gaussian_fwhm_loglambda(x_lambda, params):
-#     """
-#     Velocity-symmetric Gaussian in log(lambda) space.
-
-#     Parameters
-#     ----------
-#     x_lambda : jnp.ndarray
-#         Wavelength grid.
-#     params : [amp, vshift_kms, fwhm_v_kms, lambda0]
-#         amp : Linear amplitude
-#         vshift_kms : Centroid velocity shift [km/s]
-#         fwhm_v_kms : FWHM [km/s]
-#         lambda0 : Rest wavelength of the line (required, fixed)
-#     """
-#     amp, vshift_kms, fwhm_v_kms, lambda0 = params
-#     y = C_KMS * jnp.log(x_lambda / lambda0)
-#     sigma_v = (10**fwhm_v_kms) * FWHM_TO_SIGMA
-#     return amp * jnp.exp(-0.5 * ((y - 10**vshift_kms) / sigma_v) ** 2)
-with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
+@with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
 def gaussian_fwhm_loglambda(x_lambda, params):
     """
     Velocity-symmetric Gaussian in log(lambda) space.

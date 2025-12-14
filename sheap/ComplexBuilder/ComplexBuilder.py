@@ -616,7 +616,7 @@ class ComplexBuilder:
         
         elif fe_mode == "template":
             print("Added feuvop template")
-            fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="fetemplate",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
+            fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="template",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
             # t_c = 0
             # if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
             #     if self.verbose:
@@ -675,7 +675,7 @@ class ComplexBuilder:
         if add_balmerhighorder_continuum:
             # if not xmax< 3646:
             #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
-            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='fetemplate'
+            continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='template'
                                                 ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
         
         

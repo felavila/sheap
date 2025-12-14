@@ -26,8 +26,8 @@ Notes
 -----
 - All profiles are decorated with ``@with_param_names`` to provide
     consistent parameter naming across the codebase.
-- Amplitudes are expressed in base-10 logarithmic form (``logamp``),
-    so physical scaling is applied as ``10**logamp``.
+- Amplitudes are expressed in base-10 logarithmic form (``amplitude``),
+    so physical scaling is applied as ``amplitude``.
 - Functions are written in JAX and fully differentiable, suitable for
     gradient-based fitting and uncertainty propagation.
 
@@ -76,7 +76,7 @@ def gaussian_fwhm(x, params):
         f(x) = A \cdot \exp\left( -\frac{1}{2} \left( \frac{x - \mu}{\sigma} \right)^2 \right)
 
     where:
-    - :math:`A = 10^{\mathrm{logamp}}`
+    - :math:`A = 10^{\mathrm{amplitude}}`
     - :math:`\sigma = \mathrm{fwhm} / 2.355`
 
     Parameters
@@ -84,7 +84,7 @@ def gaussian_fwhm(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Line center.
         - `fwhm`: Full width at half maximum.
 
@@ -94,7 +94,7 @@ def gaussian_fwhm(x, params):
         Profile evaluated at `x`.
     """
     log_amp, center, fwhm = params
-    #center = 10**logcenter
+    #center = logcenter
     amplitude = log_amp 
     #amplitude = jnp.sign(log_amp) *10 ** jnp.abs(log_amp)
     #amplitude = log_amp 
@@ -102,7 +102,7 @@ def gaussian_fwhm(x, params):
     return amplitude * jnp.exp(-0.5 * ((x - center) / sigma) ** 2)
 
 
-@with_param_names(["logamp", "center", "fwhm"])
+@with_param_names(["amplitude", "center", "fwhm"])
 def lorentzian_fwhm(x, params):
     r"""
     Lorentzian line profile using FWHM.
@@ -111,7 +111,7 @@ def lorentzian_fwhm(x, params):
         f(x) = \frac{A}{1 + \left( \frac{x - \mu}{\gamma} \right)^2 }
 
     where:
-    - :math:`A = 10^{\mathrm{logamp}}`
+    - :math:`A = 10^{\mathrm{amplitude}}`
     - :math:`\gamma = \mathrm{fwhm} / 2`
 
     Parameters
@@ -119,7 +119,7 @@ def lorentzian_fwhm(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Line center.
         - `fwhm`: Full width at half maximum.
 
@@ -129,12 +129,12 @@ def lorentzian_fwhm(x, params):
         Profile evaluated at `x`.
     """
     log_amp, center, fwhm = params
-    amplitude = 10**log_amp
+    amplitude = log_amp
     gamma = fwhm / 2.0
     return amplitude / (1.0 + ((x - center) / gamma) ** 2)
 
 #################### Exotic ##############
-@with_param_names(["logamp", "center", "fwhm_g", "fwhm_l"])
+@with_param_names(["amplitude", "center", "fwhm_g", "fwhm_l"])
 def voigt_pseudo(x, params):
     r"""
     Pseudo-Voigt profile (weighted sum of Gaussian and Lorentzian).
@@ -143,7 +143,7 @@ def voigt_pseudo(x, params):
         f(x) = A \cdot \left[ \eta \cdot L(x) + (1 - \eta) \cdot G(x) \right]
 
     where:
-    - :math:`A = 10^{\mathrm{logamp}}`
+    - :math:`A = 10^{\mathrm{amplitude}}`
     - :math:`\sigma = \mathrm{fwhm_g} / 2.355`
     - :math:`\gamma = \mathrm{fwhm_l} / 2`
     - :math:`\eta` is an empirical function of :math:`\gamma` and :math:`\sigma`
@@ -153,7 +153,7 @@ def voigt_pseudo(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Line center.
         - `fwhm_g`: Gaussian FWHM.
         - `fwhm_l`: Lorentzian FWHM.
@@ -164,7 +164,7 @@ def voigt_pseudo(x, params):
         Profile evaluated at `x`.
     """
     log_amp, center, fwhm_g, fwhm_l = params
-    amplitude = 10**log_amp
+    amplitude = log_amp
     sigma = fwhm_g / 2.355
     gamma = fwhm_l / 2.0
 
@@ -179,7 +179,7 @@ def voigt_pseudo(x, params):
     return amplitude * (eta * lorentz + (1.0 - eta) * gauss)
 
 
-@with_param_names(["logamp", "center", "fwhm", "alpha"])
+@with_param_names(["amplitude", "center", "fwhm", "alpha"])
 def skewed_gaussian(x, params):
     r"""
     Skewed Gaussian profile using the Azzalini formulation.
@@ -198,7 +198,7 @@ def skewed_gaussian(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Mean of the Gaussian.
         - `fwhm`: Full width at half maximum.
         - `alpha`: Skewness parameter.
@@ -209,14 +209,14 @@ def skewed_gaussian(x, params):
         Profile evaluated at `x`.
     """
     log_amp, center, fwhm, alpha = params  # alpha = skewness
-    amplitude = 10**log_amp
+    amplitude = log_amp
     sigma = fwhm / 2.355
     t = (x - center) / sigma
     return 2 * amplitude * norm.pdf(t) * norm.cdf(alpha * t)
 
 
 
-@with_param_names(["logamp", "center", "fwhm", "lambda"])
+@with_param_names(["amplitude", "center", "fwhm", "lambda"])
 def emg_fwhm(x, params):
     r"""
     Exponentially Modified Gaussian (EMG) profile.
@@ -225,7 +225,7 @@ def emg_fwhm(x, params):
         f(x) = \frac{A \cdot \lambda}{2} \cdot \exp\left( \frac{\lambda}{2}(2\mu + \lambda\sigma^2 - 2x) \right) \cdot \mathrm{erfc}\left( \frac{\mu + \lambda\sigma^2 - x}{\sqrt{2}\sigma} \right)
 
     where:
-    - :math:`A = 10^{\mathrm{logamp}}`
+    - :math:`A = 10^{\mathrm{amplitude}}`
     - :math:`\sigma = \mathrm{fwhm} / 2.355`
 
     Parameters
@@ -233,7 +233,7 @@ def emg_fwhm(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Gaussian mean (μ).
         - `fwhm`: Gaussian full width at half maximum.
         - `lambda`: Exponential decay rate (1/τ).
@@ -244,14 +244,14 @@ def emg_fwhm(x, params):
         Profile evaluated at `x`.
     """
     log_amp, mu, fwhm, lambda_ = params
-    amplitude = 10**log_amp
+    amplitude = log_amp
     sigma = fwhm / 2.355
     arg1 = 0.5 * lambda_ * (2 * mu + lambda_ * sigma**2 - 2 * x)
     arg2 = (mu + lambda_ * sigma**2 - x) / (jnp.sqrt(2) * sigma)
     return amplitude * 0.5 * lambda_ * jnp.exp(arg1) * erfc(arg2)
 
 
-@with_param_names(["logamp", "center", "width"])
+@with_param_names(["amplitude", "center", "width"])
 def top_hat(x, params):
     r"""
     Rectangular (top-hat) function.
@@ -260,7 +260,7 @@ def top_hat(x, params):
         f(x) = A \quad \text{if } |x - \mu| \leq \frac{w}{2}; \quad 0 \text{ otherwise}
 
     where:
-    - :math:`A = 10^{\mathrm{logamp}}`
+    - :math:`A = 10^{\mathrm{amplitude}}`
     - :math:`\mu = \text{center}`
     - :math:`w = \text{width}`
 
@@ -269,7 +269,7 @@ def top_hat(x, params):
     x : jnp.ndarray
         Input wavelength array.
     params : array-like
-        - `logamp`: Log base-10 amplitude.
+        - `amplitude`: Log base-10 amplitude.
         - `center`: Center of the box.
         - `width`: Width of the top-hat.
 
@@ -279,7 +279,7 @@ def top_hat(x, params):
         Profile evaluated at `x`.
     """
     log_amp, center, width = params
-    amplitude = 10**log_amp
+    amplitude = log_amp
     half_width = width / 2.0
     return amplitude * ((x >= (center - half_width)) & (x <= (center + half_width))).astype(jnp.float32)
 

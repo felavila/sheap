@@ -201,7 +201,7 @@ class Sheapectral:
         self.ebv = ebv
         self.z = self._prepare_z(z, self.spectra.shape[0])
 
-        self.names = (names if names is not None else np.arange(self.spectra.shape[0]).astype(str))
+        self.names = (np.atleast_1d(names) if names is not None else np.arange(self.spectra.shape[0]).astype(str))
 
         if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
             
@@ -363,25 +363,19 @@ class Sheapectral:
         else:
             xmin,xmax = min(limits),max(limits)
         if xmin < 3600 and add_balmer_continuum:
-            #print("add_balmer_continuum")
             add_balmer_continuum = add_balmer_continuum
         
         if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
-            # print(xmax)
-            # if xmax< 3646:
-            #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
             add_balmerhighorder_continuum = add_balmerhighorder_continuum
             
-        #print("add_balmer_continuum",add_balmer_continuum,"add_balmerhighorder_continuum",add_balmerhighorder_continuum)
-        
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
                                         add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
                                            **kwargs)
     
 
     def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
-                ,add_penalty_function=False,method="adam",penalty_weight: float = 0.01
-                ,curvature_weight: float = 1e5,smoothness_weight: float = 0.0,max_weight: float = 0.1):
+                ,add_penalty_function=False,method="adam",penalty_weight: float = 0.00
+                ,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0):
         """
         Execute fitting of the prepared region on the spectra.
 
@@ -421,7 +415,9 @@ class Sheapectral:
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,
                                         smoothness_weight= smoothness_weight,max_weight= max_weight)
 
-            self.spectral_model = self.fitting_class.model 
+            self.spectral_model = self.fitting_class.model #the actual model is
+            self.params_obj = self.fitting_class.params_obj
+            #build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
             
             fit_output = self.fitting_class.complexresult
             fit_output.source = "computed"
@@ -513,7 +509,7 @@ class Sheapectral:
                 dic_posterior_params = PM.montecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize)     
                 self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
                                         "summarize":summarize},dic_posterior_params]
-            
+                
             elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
                 dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize)
                 self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"n_random":n_random,
@@ -534,6 +530,8 @@ class Sheapectral:
         Sheapectral
             Restored object with loaded spectra and results.
         """
+        from sheap.Profiles.Utils import make_fused_profiles
+        
         filepath = Path(filepath)
         with open(filepath, "rb") as f:
             data = pickle.load(f)
@@ -553,7 +551,7 @@ class Sheapectral:
         profile_names = data.get("profile_names", [])
         obj.result = ComplexResult(
             params=jnp.array(data.get("params")),
-            uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))),
+            uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))), 
             initial_params=jnp.array(data.get("initial_params")),
             mask=jnp.array(data.get("mask")),
             profile_functions= obj.profile_functions_from_complex_region(),
@@ -575,6 +573,7 @@ class Sheapectral:
             chi2_red = data.get("chi2_red")
         )
         obj.plotter = SheapPlot(sheap=obj)
+        obj.spectral_model = make_fused_profiles(obj.result.profile_functions)
         return obj
     
     def _save(self):
@@ -652,7 +651,6 @@ class Sheapectral:
         from sheap.Profiles.Profiles import PROFILE_FUNC_MAP
         profile_functions = []
         for _,sp in enumerate(self.complex_region):
-            #print(_)
             holder_profile = getattr(sp, "profile") # cant be none 
             if "SPAF" in holder_profile:
                 if len(sp.profile.split("_")) == 2:
@@ -662,7 +660,7 @@ class Sheapectral:
                 sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,subprofile)
             elif sp.profile == "hostmiles":
                 sm = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
-            elif sp.profile == "fetemplate":
+            elif sp.profile == "template":
                 sm =PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
             else:
                 sm = PROFILE_FUNC_MAP.get(holder_profile)
@@ -692,48 +690,12 @@ class Sheapectral:
                 raise RuntimeError("No fit result found. Run `fitcomplex()` first.")
         return self.plotter
     
-    # def result_panda(self, n: int) -> pd.DataFrame:
-    #     """
-    #     Return a pandas DataFrame of fit parameters for a given spectrum.
-    #     (maybe add another rutine or methods to get all the values for a param?)
-    #     Parameters
-    #     ----------
-    #     n : int
-    #         Index of the spectrum object.
-
-    #     Returns
-    #     -------
-    #     pandas.DataFrame
-    #         Columns: ['value', 'error', 'max_constraint', 'min_constraint'].
-    #     """
-    #     import pandas as pd 
-    #     data = []
-    #     scale = self.result.scale[n]
-    #     for n,(key, i) in enumerate(self.result.params_dict.items()):
-    #         param = float(self.result.params[n][i])
-    #         init_valeu = float(self.result.initial_params[i])
-    #         uncertainty = float(self.result.uncertainty_params[n][i])
-    #         if "amplitude" in key:
-    #             param /= scale
-    #             uncertainty /= scale
-    #         elif "logamp" in key:
-    #             param -= np.log10(scale)
-    #             #uncertainty -= np.log10(scale)
-    #         constraints = self.result.constraints[i]
-    #         data.append([param, uncertainty, constraints[1],init_valeu, constraints[0],n])  # max, min
-        
-        
-
-    #     df = pd.DataFrame(
-    #         data,
-    #         columns=["value", "error", "max_constraint","init_valeu", "min_constraint","param_number"],
-    #         index=self.result.params_dict.keys()
-    #     )
-
-    #     return df
+   
     def result_panda(self, n: int, param_filter: str | None = None,
                  regex: bool = False, case: bool = True) -> pd.DataFrame:
         """
+        #TODO update this part to be able to show the actual name of the parameter lets say line with 0,1,2,3,4 is easier for code reason but for visualitation could be messy 
+        #TODO say if the paramters are at scale or not.
         Return a pandas DataFrame of fit parameters for a given spectrum.
 
         Parameters

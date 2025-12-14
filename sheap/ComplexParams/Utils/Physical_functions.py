@@ -395,7 +395,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
         gamma = estimator.get("extras", {}).get("pan25_gamma", -0.21)#-0.34)
         RFe = _col(extras["R_Fe"])
         
-        logM += gamma * RFe  # broadcasts across components
+        #logM += gamma * RFe  # broadcasts across components
     return (10.0 ** logM)
 
 

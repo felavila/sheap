@@ -294,8 +294,6 @@ class ComplexFitting:
             start_time = time.time()  # 
             self.tied = step["tied"]
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
-            #print(self._build_tied(step["tied"]))
-            #print(dependencies)
             params, loss = self._fit(_step,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
                                      penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight,
@@ -387,11 +385,8 @@ class ComplexFitting:
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         self.tied_map = tied_map
-        params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints)
+        self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
         
-        raw_init = params_obj.phys_to_raw(initial_params)
-        #print(raw_init.shape)
-        self.params_obj = params_obj
         minimizer = Minimizer(
             model,
             non_optimize_in_axis=non_optimize_in_axis,
@@ -399,13 +394,13 @@ class ComplexFitting:
             list_dependencies=list_dependencies,
             weighted=weighted,
             learning_rate=learning_rate,
-            param_converter=params_obj,
+            param_converter=self.params_obj,
             penalty_function = penalty_function,
         method=method,
         penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         try:
-            raw_params, loss = minimizer(raw_init, *norm_spec.transpose(1, 0, 2), self.constraints)
-            params = params_obj.raw_to_phys(raw_params)
+            params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+            #params = params_obj.raw_to_phys(raw_params)
             
         except Exception as e:
             logger.exception("Fitting failed")
@@ -544,6 +539,7 @@ class ComplexFitting:
         idx = 0  # parameter_position
         complex_region = []
         for _,sp in enumerate(self.complex_class.lines):
+            #print(_,sp)
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
             if "SPAF" in holder_profile:
@@ -558,7 +554,7 @@ class ComplexFitting:
                 profile_fn = host_dict["model"]
                 self.host_info = host_dict["host_info"] #host info different from fe_template info 
                 #print(local_model.param_names)
-            elif sp.profile == "fetemplate":
+            elif sp.profile == "template":
                 #print(sp.profile)
                 fe_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = fe_dict["model"]

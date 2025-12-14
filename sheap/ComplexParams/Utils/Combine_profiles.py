@@ -61,7 +61,6 @@ from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosi
 
 c_kms = 299792.458 # this will have to move as the constant in every where 
 
-
 def combine_components(
     basic_params,
     cont_group,
@@ -127,16 +126,12 @@ def combine_components(
     center_parts, amp_parts, eqw_parts, lum_parts = [], [], [], []
     for line in LINES_TO_COMBINE:
         broad_lines = basic_params["broad"]["lines"]
+        narrow_lines = basic_params["narrow"]["lines"]
         idx_broad = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
-        narrow_lines = basic_params.get("narrow", {}).get("lines", [])
         idx_narrow = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
-
-
-        # ------------------------------
-        # Case 1: broad + narrow present
-        # ------------------------------
+        
         if len(idx_broad) >= 2 and len(idx_narrow) == 1:
-            _components = np.array(basic_params["broad"]["component"])[idx_broad]
+            _components =  np.array(basic_params["broad"]["component"])[idx_broad]
             amp_b = basic_params["broad"]["amplitude"][:, idx_broad]
             mu_b = basic_params["broad"]["center"][:, idx_broad]
             fwhm_kms_b = basic_params["broad"]["fwhm_kms"][:, idx_broad]
@@ -145,160 +140,56 @@ def combine_components(
             mu_n = basic_params["narrow"]["center"][:, idx_narrow]
             fwhm_kms_n = basic_params["narrow"]["fwhm_kms"][:, idx_narrow]
 
-            is_uncertainty = amp_b.dtype == "O"
+            #is_uncertainty = isinstance(amp_b, Uncertainty)
+            is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
-                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error
-                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(
-                    amp_b, mu_b, fwhm_kms_b,
-                    amp_n, mu_n, fwhm_kms_n,
-                    limit_velocity=limit_velocity,
-                    c=c,
-                )
-
-                if fwhm_c.ndim == 1:
-                    fwhm_c = fwhm_c.reshape(-1, 1)
-                    amp_c  = amp_c.reshape(-1, 1)
-                    mu_c   = mu_c.reshape(-1, 1)
-
+                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
+                #print("amp_b",amp_b.shape)
+                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
+                
+                if fwhm_c.ndim==1:
+                  #  print("fwhm_c",fwhm_c.shape)
+                    #two objects 1 line 
+                    fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
+                 #   print("fwhm_c",fwhm_c.shape)
                 fwhm_A = (fwhm_c / c) * mu_c
+                #print(fwhm_A.shape)
+                #unumpy.nominal_values,unumpy.std_devs
                 flux_c = calc_flux(amp_c, fwhm_A)
-
-                cont_c = unumpy.uarray(*np.array(
-                    evaluate_with_error(
-                        cont_group.combined_profile,
-                        unumpy.nominal_values(mu_c),
-                        cont_params,
-                        unumpy.std_devs(mu_c),
-                        ucont_params,
-                    )
-                ))
-
-                L_line = calc_luminosity(np.array(distances)[:, None], flux_c)
-                eqw_c  = flux_c / cont_c
+                cont_c = unumpy.uarray(*np.array(evaluate_with_error(cont_group.combined_profile,unumpy.nominal_values(mu_c), cont_params,unumpy.std_devs(mu_c), ucont_params)))
+                #ndim1 * ndim2 requires always a [:,None] to work 
+                L_line = calc_luminosity(np.array(distances)[:,None], flux_c)
+                eqw_c = flux_c / cont_c
+                #
 
             else:
                 N = amp_b.shape[0]
-                params_broad = jnp.stack(
-                    [amp_b, mu_b, fwhm_kms_b], axis=-1
-                ).reshape(N, -1)
-                params_narrow = jnp.concatenate(
-                    [amp_n, mu_n, fwhm_kms_n], axis=1
-                )
+                params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
+                params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
 
-                fwhm_c, amp_c, mu_c = combine_fast(
-                    params_broad,
-                    params_narrow,
-                    limit_velocity=limit_velocity,
-                    c=c,
-                )
-
-                if fwhm_c.ndim == 1:
-                    fwhm_c = fwhm_c.reshape(-1, 1)
-                    amp_c  = amp_c.reshape(-1, 1)
-                    mu_c   = mu_c.reshape(-1, 1)
+                fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, c=c)
+                if fwhm_c.ndim==1:
+                    fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
 
                 fwhm_A = (fwhm_c / c) * mu_c
                 flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
+                #print(flux_c.shape)
                 cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
                 L_line = calc_luminosity(jnp.array(distances), flux_c)
-                eqw_c  = flux_c / cont_c
-
-            line_names.append(line)
-            components.append(_components)
-            flux_parts.append(flux_c)
-            fwhm_parts.append(fwhm_A)
-            fwhm_kms_parts.append(fwhm_c)
-            center_parts.append(mu_c)
-            amp_parts.append(amp_c)
-            eqw_parts.append(eqw_c)
-            lum_parts.append(L_line)
-
-
-        elif len(idx_broad) >= 1 and len(idx_narrow) == 0:
-            _components = np.array(basic_params["broad"]["component"])[idx_broad]
-            amp_b = basic_params["broad"]["amplitude"][:, idx_broad]
-            mu_b = basic_params["broad"]["center"][:, idx_broad]
-            fwhm_kms_b = basic_params["broad"]["fwhm_kms"][:, idx_broad]
-
-            is_uncertainty = amp_b.dtype == "O"
-            if is_uncertainty:
-                # Broad-only combination with uncertainties:
-                # use unumpy to do amplitude-weighted moments
-                from uncertainties import unumpy
-
-                amp_b_u = amp_b
-                mu_b_u = mu_b
-                fwhm_b_u = fwhm_kms_b
-
-                total_amp_u = np.sum(amp_b_u, axis=1)
-                mu_eff_u    = np.sum(amp_b_u * mu_b_u, axis=1) / total_amp_u
-
-                invf = 1.0 / 2.35482
-                sigma_i_u = fwhm_b_u * invf
-                var_i_u   = sigma_i_u ** 2
-                dif2_u    = (mu_b_u - mu_eff_u[:, None]) ** 2
-                var_eff_u = np.sum(
-                    amp_b_u * (var_i_u + dif2_u), axis=1
-                ) / total_amp_u
-                fwhm_eff_u = unumpy.sqrt(var_eff_u) * 2.35482
-
-                # reshape to (N,1) to keep the same interface
-                if fwhm_eff_u.ndim == 1:
-                    fwhm_c = fwhm_eff_u.reshape(-1, 1)
-                    amp_c  = total_amp_u.reshape(-1, 1)
-                    mu_c   = mu_eff_u.reshape(-1, 1)
-                else:
-                    fwhm_c = fwhm_eff_u
-                    amp_c  = total_amp_u
-                    mu_c   = mu_eff_u
-
-                fwhm_A = (fwhm_c / c) * mu_c
-                flux_c = calc_flux(amp_c, fwhm_A)
-
-                from sheap.ComplexParams.Utils.After_fit_profile_helpers import (
-                    evaluate_with_error,
-                )
-                cont_c = unumpy.uarray(*np.array(
-                    evaluate_with_error(
-                        cont_group.combined_profile,
-                        unumpy.nominal_values(mu_c),
-                        cont_params,
-                        unumpy.std_devs(mu_c),
-                        ucont_params,
-                    )
-                ))
-                L_line = calc_luminosity(np.array(distances)[:, None], flux_c)
-                eqw_c  = flux_c / cont_c
-
-            else:
-                N = amp_b.shape[0]
-                params_broad = jnp.stack(
-                    [amp_b, mu_b, fwhm_kms_b], axis=-1
-                ).reshape(N, -1)
-
-                # <-- this is the new broad-only combiner
-                fwhm_c, amp_c, mu_c = combine_broad_moments(params_broad)
-
-                if fwhm_c.ndim == 1:
-                    fwhm_c = fwhm_c.reshape(-1, 1)
-                    amp_c  = amp_c.reshape(-1, 1)
-                    mu_c   = mu_c.reshape(-1, 1)
-
-                fwhm_A = (fwhm_c / c) * mu_c
-                flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
-                cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
-                L_line = calc_luminosity(jnp.array(distances), flux_c)
-                eqw_c  = flux_c / cont_c
-
-            line_names.append(line)
-            components.append(_components)
-            flux_parts.append(flux_c)
-            fwhm_parts.append(fwhm_A)
-            fwhm_kms_parts.append(fwhm_c)
-            center_parts.append(mu_c)
-            amp_parts.append(amp_c)
-            eqw_parts.append(eqw_c)
-            lum_parts.append(L_line)
+                eqw_c = flux_c / cont_c
+            
+            line_names.extend([line])
+            components.extend([_components])
+            #print(flux_c)
+            
+            
+            flux_parts.extend([flux_c])
+            fwhm_parts.extend([fwhm_A])
+            fwhm_kms_parts.extend([fwhm_c])
+            center_parts.extend([mu_c])
+            amp_parts.extend([amp_c])
+            eqw_parts.extend([eqw_c])
+            lum_parts.extend([L_line])
             
     if len(line_names)>0:
         #print("combination",np.concatenate(flux_parts, axis=1).shape)
@@ -322,7 +213,6 @@ def combine_components(
             mask = np.where(np.array(combined["lines"]) == line)[0]
             #print(mask)
             # Build a sub-dictionary slicing each array along axis=1
-            #print(flux_fe/combined["flux"][:, mask])
             new_dict[line] = {
                 "component": np.array(combined["component"]),
                 "flux": combined["flux"][:, mask],
@@ -332,7 +222,7 @@ def combine_components(
                 "amplitude": combined["amplitude"][:, mask],
                 "eqw": combined["eqw"][:, mask],
                 "luminosity": combined["luminosity"][:, mask],
-                "extras":{"R_Fe":flux_fe/combined["flux"][:, mask]}
+                "extras":{"R_Fe":flux_fe}
             }        
         # combined["extras"] = {}
         # combined["extras"]["R_Fe"] = flux_fe
@@ -346,6 +236,7 @@ def combine_components(
         return new_dict
     else:
         return combined
+
 
 
 @jit
@@ -775,13 +666,14 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     b_mu = jnp.asarray(basic_params["center"])[:,idx_b].astype(jnp.float32)
     b_sigma = jnp.asarray(basic_params["fwhm"])[:,idx_b].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
     b_amp   = jnp.asarray(basic_params["amplitude"])[:,idx_b].astype(jnp.float32)    # (Nobj, NB)
+    #print(b_amp)
     _ = np.stack([b_amp, b_mu,b_sigma], axis=2)
     line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
     left = np.min(b_mu - 3*b_sigma,axis=1)
     right = np.max(b_mu + 3*b_sigma,axis=1)
 
     disp = 1.e-4 #hyperparam 
-    npix = 50000 #int(max((right-left)/disp))  #(maybe it is 2 much)
+    npix = 50_000 #int(max((right-left)/disp))  #(maybe it is 2 much)
     #npix = int(max((right-left)/disp))  #(maybe it is 2 much)
     
     wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
@@ -833,12 +725,13 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
 
     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    #print(fwhm_kms)
     flux  = np.trapezoid(model_sum, wave, axis=1)
     luminosity = 4.0 * np.pi * distances**2 * flux
     #calc_luminosity(jnp.array(distances), flux_c)
     method_2 = {"fwhm_kms":fwhm_kms,"eqw":eqw,"lines":line,"sigma_kms": sigma_kms,"luminosity":luminosity,"flux":flux}
     method_2["extras"] = {}
-    print(flux_fe/flux)
+    #print(flux_fe/flux)
     method_2["extras"]["R_Fe"] = flux_fe/flux
     return method_2
 

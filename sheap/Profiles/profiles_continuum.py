@@ -110,7 +110,7 @@ def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     return A * x ** alpha
 
 
-@with_param_names(["amplitude", "alpha1", "alpha2", "x_break"])
+@with_param_names(["logamp", "alpha1", "alpha2", "x_break"])
 def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     r"""
     Broken power-law continuum profile.
@@ -140,8 +140,8 @@ def brokenpowerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     A, alpha1, alpha2, xbr = params
     x = xs / delta0
     xbr = xbr / delta0
-    low = A * x ** alpha1
-    high = A * (xbr ** (alpha1 - alpha2)) * x ** alpha2
+    low = 10**A * x ** alpha1
+    high = 10**A * (xbr ** (alpha1 - alpha2)) * x ** alpha2
     return jnp.where(x < xbr, low, high)
 
 

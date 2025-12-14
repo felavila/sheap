@@ -62,7 +62,7 @@ from uncertainties import unumpy
 
 from collections import defaultdict
 
-from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP#,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
 from sheap.Profiles.Utils import make_integrator
 from sheap.Utils.Constants import c
 from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
@@ -75,8 +75,9 @@ from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_
 #TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
 #TODO add the params from continuum
 C_KMS = 299_792.458
+
 class ComplexParams:
-    
+    ##print("xd")
     def __init__(self, samplerclass: "ComplexSampler"):
         self.samplerclass = samplerclass
         self.model = samplerclass.model
@@ -131,7 +132,7 @@ class ComplexParams:
         distances = np.full((full_samples.shape[0],), self.d[idx_obj], dtype=np.float64)
 
         for region, region_group in complex_class_group_by_region.items():
-            if region in ("fe", "continuum", "host"):
+            if region in ("fe", "continuum", "host","balmer"):
                 continue
 
             line_names, components = [], []
@@ -145,7 +146,7 @@ class ComplexParams:
             for profile_name, prof_group in region_group_by_profile.items():
                 if "_" in profile_name:
                     _, subprof = profile_name.split("_", 1)
-                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[subprof]
+                    profile_fn = PROFILE_LINE_FUNC_MAP[subprof]
                     batch_fwhm = make_batch_fwhm_split(subprof)
                     integrator = make_integrator(profile_fn, method="vmap")
 
@@ -157,7 +158,7 @@ class ComplexParams:
                     )
 
                 else:
-                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[profile_name]
+                    profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
                     batch_fwhm = make_batch_fwhm_split(profile_name)
                     integrator = make_integrator(profile_fn, method="vmap")
 
@@ -265,13 +266,13 @@ class ComplexParams:
             for profile_name, prof_group in region_group_by_profile.items():
                 if "_" in profile_name:  # SPAF or template Fe
                     _, subprof = profile_name.split("_", 1)
-                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[subprof]
+                    profile_fn = PROFILE_LINE_FUNC_MAP[subprof]
                     batch_fwhm = make_batch_fwhm_split_with_error(subprof)
 
                     (_line_names, _components, _flux, _fwhm, _fwhm_kms,_centers, _amps, _eqw, _lum, _shapes) = self._accumulate_spaf_components(prof_group, profile_fn, batch_fwhm, cont_params, ucont_params)
 
                 else:
-                    profile_fn = PROFILE_LINE_FUNC_MAP_classical[profile_name]
+                    profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
                     batch_fwhm = make_batch_fwhm_split_with_error(profile_name)
 
                     idxs = prof_group.flat_param_indices_global
@@ -471,28 +472,29 @@ class ComplexParams:
             all_centers, all_amps, all_eqws, all_lums, all_shape_dicts
         )           
     def _build_spaf_sampled_params(self,sp,idx_param,params_names, full_samples):
-    
+        "moving from velocity to ANGSTROMS"
         params = full_samples[:, idx_param]
         names = np.array(params_names)[idx_param]
         
         amplitude_relations = sp.amplitude_relations
-        idx_pos = np.where(["logamp" in n for n in names])[0]
-        amplitude_index = [i for i, name in enumerate(names) if "logamp" in name]
+        amplitude_index = [i for i, name in enumerate(names) if "amplitude" in name]
         ind_amplitude_index = {i[2] for i in amplitude_relations}
         dic_amp = {i: ii for i, ii in zip(ind_amplitude_index, amplitude_index)}
-        idx_shift = idx_pos.max() + 1
-
+        idx_shift = max(amplitude_index) + 1
         full_params_by_line = []
         for i,(_,factor,idx) in enumerate(amplitude_relations):
-            amp = params[:, [dic_amp[idx]]] + np.log10(factor)
-            center = (sp.center[i]+params[:,[idx_shift]])
-            extras = (params[:,idx_shift+1:])
+            #amp = params[:, [dic_amp[idx]]] + np.log10(factor)
+            #print( params[:, [dic_amp[idx]]])
+            amp = params[:, [dic_amp[idx]]] *factor #+ np.log10(factor)
+            center = sp.center[i] * (1+params[:, [idx_shift]]/C_KMS)
+            extras = (10**params[:, idx_shift+1:]) * center/C_KMS
             full_params_by_line.append(np.column_stack([amp, center, extras]))
 
         return np.moveaxis(np.array(full_params_by_line), 0, 1)
     
     def _extract_sampled_profile_quantities(self, profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params, distances):
-        amps = 10**params_by_line[:, :, 0]
+        amps = params_by_line[:, :, 0]
+        #print(amps)
         centers = params_by_line[:, :, 1]
         shape_params = jnp.abs(params_by_line[:, :, 2:])
 

@@ -79,6 +79,7 @@ class Parameter:
         max: float = default_inf,
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
+        is_linear: Optional[bool] = None, 
     ):
         self.name  = name
         # allow scalar or array initial values for fixed parameters
@@ -91,6 +92,14 @@ class Parameter:
         self.tie   = tie   # (target, source, op, operand)
         self.fixed = fixed
 
+        if is_linear is None:
+            lname = name.lower()
+            is_linear = (
+                ("amp"    in lname) or
+                ("weight" in lname)
+            )
+        self.is_linear = bool(is_linear)
+        
         # Choose transform based on bounds (ignored if fixed=True)
         if math.isfinite(self.min) and math.isfinite(self.max):
             self.transform = 'logistic'
@@ -125,6 +134,9 @@ class Parameters:
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
 
+        self._linear_raw_idx = None
+        self._nonlinear_raw_idx = None
+        
     def add(
         self,
         name: str,
@@ -178,6 +190,19 @@ class Parameters:
         self._raw_list = [p for p in self._list if p.tie is None and not p.fixed]
         self._tied_list = [p for p in self._list if p.tie is not None and not p.fixed]
         self._fixed_list = [p for p in self._list if p.fixed]
+        
+        
+        linear_raw_idx = []
+        nonlinear_raw_idx = []
+        for i, p in enumerate(self._raw_list):
+            if getattr(p, "is_linear", False):
+                linear_raw_idx.append(i)
+            else:
+                nonlinear_raw_idx.append(i)
+
+        self._linear_raw_idx    = jnp.array(linear_raw_idx, dtype=int)
+        self._nonlinear_raw_idx = jnp.array(nonlinear_raw_idx, dtype=int)
+        
         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
 
@@ -343,6 +368,70 @@ class Parameters:
             return invert_one(phys)
         else:
             return jax.vmap(invert_one)(phys)
+        
+    def split_raw_linear_nonlinear(self, raw: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Split raw parameter vector(s) into non-linear and linear parts.
+
+        Parameters
+        ----------
+        raw : jnp.ndarray
+            Raw parameter array of shape (n_free,) or (n_batch, n_free).
+
+        Returns
+        -------
+        Tuple[jnp.ndarray, jnp.ndarray]
+            (raw_nonlinear, raw_linear)
+        """
+        if self._jit_raw_to_phys is None:
+            self._finalize()
+
+        lin_idx = self._linear_raw_idx
+        nl_idx  = self._nonlinear_raw_idx
+
+        if raw.ndim == 1:
+            raw_lin = raw[lin_idx]
+            raw_nl  = raw[nl_idx]
+        else:
+            raw_lin = raw[:, lin_idx]
+            raw_nl  = raw[:, nl_idx]
+        return raw_nl, raw_lin
+
+    def merge_raw_linear_nonlinear(
+        self, raw_nl: jnp.ndarray, raw_lin: jnp.ndarray
+    ) -> jnp.ndarray:
+        """
+        Merge separate non-linear and linear raw parameter vectors back into a single vector.
+
+        Parameters
+        ----------
+        raw_nl : jnp.ndarray
+            Non-linear raw parameters, shape (n_nl,) or (n_batch, n_nl).
+        raw_lin : jnp.ndarray
+            Linear raw parameters, shape (n_lin,) or (n_batch, n_lin).
+
+        Returns
+        -------
+        jnp.ndarray
+            Full raw parameter array, shape (n_free,) or (n_batch, n_free).
+        """
+        if self._jit_raw_to_phys is None:
+            self._finalize()
+
+        n_free = len(self._raw_list)
+        lin_idx = self._linear_raw_idx
+        nl_idx  = self._nonlinear_raw_idx
+
+        if raw_nl.ndim == 1:
+            full = jnp.zeros((n_free,), dtype=raw_nl.dtype)
+            full = full.at[nl_idx].set(raw_nl)
+            full = full.at[lin_idx].set(raw_lin)
+        else:
+            n_batch = raw_nl.shape[0]
+            full = jnp.zeros((n_batch, n_free), dtype=raw_nl.dtype)
+            full = full.at[:, nl_idx].set(raw_nl)
+            full = full.at[:, lin_idx].set(raw_lin)
+        return full
 
     @property
     def specs(self) -> List[Tuple[str, float, float, float, str, bool]]:
@@ -358,7 +447,20 @@ class Parameters:
             (p.name, p.value, p.min, p.max, p.transform, p.fixed)
             for p in self._list
         ]
+    
+    @property
+    def linear_raw_indices(self) -> jnp.ndarray:
+        """Indices in the raw free-parameter vector that are linear-in-the-model."""
+        if self._jit_raw_to_phys is None:
+            self._finalize()
+        return self._linear_raw_idx
 
+    @property
+    def nonlinear_raw_indices(self) -> jnp.ndarray:
+        """Indices in the raw free-parameter vector that are non-linear-in-the-model."""
+        if self._jit_raw_to_phys is None:
+            self._finalize()
+        return self._nonlinear_raw_idx
 
 def build_Parameters(
     tied_map: Dict[int, Tuple[int, str, float]],

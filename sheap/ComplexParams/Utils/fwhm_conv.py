@@ -43,11 +43,9 @@ import warnings
 from functools import partial
 from jax import vmap,jit
 import jax.numpy as jnp
-from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP_classical
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
 
 from jax import jacfwd
-
-PROFILE_LINE_FUNC_MAP = PROFILE_LINE_FUNC_MAP_classical
 
 def compute_fwhm_split(profile: str,
                        amp:   jnp.ndarray,
