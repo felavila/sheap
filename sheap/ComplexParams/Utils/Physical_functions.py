@@ -90,27 +90,6 @@ def calc_flux(norm_amplitude, fwhm):
     """
     return np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
 
-def calc_luminosity(distance, flux):
-    r"""
-    Compute line luminosity from flux and luminosity distance.
-
-    .. math::
-        L = 4 \pi D^2 \, F
-
-    Parameters
-    ----------
-    distance : float or array
-        Luminosity distance in cm.
-    flux : float or array
-        Integrated line flux.
-
-    Returns
-    -------
-    luminosity : jnp.ndarray
-        Line luminosity in erg/s.
-    """
-    return 4.0 * np.pi * distance**2 * flux #* center
-
 def calc_fwhm_kms(fwhm, c, center):
     r"""
     Convert FWHM in Å to velocity width in km/s.
@@ -133,6 +112,28 @@ def calc_fwhm_kms(fwhm, c, center):
         Velocity width in km/s.
     """
     return (fwhm * c) / center
+
+
+def calc_luminosity(distance, flux):
+    r"""
+    Compute line luminosity from flux and luminosity distance.
+
+    .. math::
+        L = 4 \pi D^2 \, F
+
+    Parameters
+    ----------
+    distance : float or array
+        Luminosity distance in cm.
+    flux : float or array
+        Integrated line flux.
+
+    Returns
+    -------
+    luminosity : jnp.ndarray
+        Line luminosity in erg/s.
+    """
+    return 4.0 * np.pi * distance**2 * flux #* center
 
 def calc_monochromatic_luminosity(distance, flux_at_wavelength, wavelength):
     r"""
