@@ -125,7 +125,7 @@ class Sheapectral:
     fitcomplex(...)
         Perform spectral model fitting using the configured complex.
     
-    posteriors(...)
+    estimate_posteriors(...)
         Estimate posterior distributions using MC or MCMC or just give and estimation of the params.
 
     save_to_pickle(filepath)
@@ -447,7 +447,7 @@ class Sheapectral:
 
             self.plotter = SheapPlot(sheap=self)
     
-    def posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
+    def estimate_posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
                         num_warmup=500,n_random=1_000):
         """
         Estimate or sample posterior distributions of fit parameters.
@@ -487,33 +487,63 @@ class Sheapectral:
         #TODO ADD break in case sampling method is not recognize 
         PM = ComplexSampler(sheap = self)
         if sampling_method == "none":
-            #maybe in this case return the ParameterEstimation class is to check something?
-            print("Nothing will run if you dont choose between sampling_method=montecarlo or sampling_method=mcmc or sampling_method=single")
+            print("Nothing will run if you dont choose between sampling_method [montecarlo or sampling_method=mcmc or sampling_method=single")
             return PM 
-        if self.result.posterior and not overwrite:
-            print("Warning already run if you want to run again please put overwrite=True")
+        
         else:
-            # After this point a function inside ComplexAfterFit should be able to call the different sampling methods. 
-            
-            if  sampling_method.lower()=="single":
-                print("You choose no_sampling this will perform the parameter estimation used only the error obtained from fitting")
+            if self.result.posterior is None:
+                self.result.posterior = {}
+
+            method = sampling_method.lower()
+
+            # --- Protection against overwriting ---
+            if method in self.result.posterior and not overwrite:
+                raise RuntimeError(f"Posterior for method '{method}' already exists. " "Use overwrite=True to recompute it.")
+            # ------------------------------------------------------------------
+            # SINGLE (no sampling)
+            # ------------------------------------------------------------------
+            if method == "single":
+                print("You chose no_sampling: parameter estimation using " "only fitting uncertainties.")
+
                 dic_posterior_params = PM.sample_single(summarize=summarize)
-                self.result.posterior = [{"method":sampling_method.lower()},dic_posterior_params]
-                
-            elif sampling_method.lower()=="pseudomontecarlo":
-                dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize)     
-                self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"key_seed":key_seed,
-                                        "summarize":summarize},dic_posterior_params]
-            
-            elif sampling_method.lower() == "montecarlo":
-                dic_posterior_params = PM.montecarlosampler(num_samples = num_samples,key_seed = key_seed ,summarize=summarize)     
-                self.result.posterior = [{"method":"montecarlo","num_samples":num_samples,"key_seed":key_seed,
-                                        "summarize":summarize},dic_posterior_params]
-                
-            elif sampling_method.lower()=="mcmc":#,n_random = 0,num_warmup=500,num_samples=1000
-                dic_posterior_params = PM.sample_mcmc(num_samples = num_samples,n_random = n_random ,num_warmup=num_warmup,summarize=summarize)
-                self.result.posterior = [{"method":sampling_method.lower(),"num_samples":num_samples,"n_random":n_random,
-                                        "summarize":summarize,"num_warmup":num_warmup},dic_posterior_params]
+
+                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
+            # ------------------------------------------------------------------
+            # PSEUDO MONTE CARLO
+            # ------------------------------------------------------------------
+            elif method == "pseudomontecarlo":
+
+                dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
+
+                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
+            # ------------------------------------------------------------------
+            # MONTE CARLO
+            # ------------------------------------------------------------------
+            elif method == "montecarlo":
+
+                dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
+
+                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
+            # ------------------------------------------------------------------
+            # MCMC
+            # ------------------------------------------------------------------
+            elif method == "mcmc":
+
+                dic_posterior_params = PM.sample_mcmc(num_samples=num_samples,n_random=n_random,num_warmup=num_warmup,summarize=summarize,)
+
+                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"num_warmup": num_warmup,"n_random": n_random,"summarize": summarize,}
+
+            # ------------------------------------------------------------------
+            # UNKNOWN METHOD
+            # ------------------------------------------------------------------
+            else:
+                raise ValueError(
+                    f"Unknown sampling method '{sampling_method}'. "
+                    "Available methods: single, pseudomontecarlo, montecarlo, mcmc."
+                )
+
+
+                                        
     
     @classmethod
     def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
@@ -815,7 +845,25 @@ class Sheapectral:
 
         return ax
 
+    def redshift_signal2noise_distribution(self):
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
+        axes[0].hist(self.z, bins=20, color="#214994", edgecolor='black', alpha=0.8)
+        axes[0].set_xlabel("Redshift (z)", fontsize=16)
+        axes[0].set_ylabel("Number of objects", fontsize=16)
+        #axes[0].set_title("Redshift Distribution", fontsize=18)
+        axes[0].tick_params(axis='both', which='major', labelsize=14)
+
+        snr = np.nanmean(self.spectra[:, 1, :] / self.spectra[:, 2, :], axis=1)
+        axes[1].hist(snr, bins=20, color="#f5b041", edgecolor='black', alpha=0.8)
+        axes[1].set_xlabel("Mean Signal-to-Noise Ratio", fontsize=16)
+        #axes[1].set_title("S/N Distribution", fontsize=18)
+        axes[1].tick_params(axis='both', which='major', labelsize=14)
+        plt.tight_layout()
+        return axes
+        #plt.tight_layout()
+        #plt.show()
 
 
 # def _region_helper(region_name):

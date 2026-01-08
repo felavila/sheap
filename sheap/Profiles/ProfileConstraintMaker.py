@@ -377,8 +377,8 @@ def ProfileConstraintMaker(
         params_names = local_profile.param_names
         #testing limits
         init = [0.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
-        upper = [5.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
-        lower = [-5.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
+        upper = [2.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
+        lower = [-2.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
         #print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,

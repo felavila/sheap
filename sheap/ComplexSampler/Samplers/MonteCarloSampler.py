@@ -66,7 +66,7 @@ def phys_trust_region_inits(
     phys_bounds,         # [(lo, hi), ...] in physical space (same shape)
     num_samples=100,
     sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
-    frac_box_sigma=0.05, # fallback noise size ~5% of (hi-lo)
+    frac_box_sigma=0.5, # fallback noise size ~5% of (hi-lo)
     k_sigma= 0.5          # multiplier for sigma_phys
 ):
     key = random.PRNGKey(key) if isinstance(key, int) else key
