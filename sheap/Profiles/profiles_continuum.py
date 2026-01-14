@@ -85,7 +85,7 @@ def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     return intercept + slope * x
 
 
-@with_param_names(["alpha", "amplitude"])
+@with_param_names(["alpha", "logamp"])
 def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     r"""
     Power-law continuum profile.
@@ -107,7 +107,7 @@ def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     """
     alpha, A = params
     x = xs / delta0
-    return A * x ** alpha
+    return 10**A * x ** alpha
 
 
 @with_param_names(["logamp", "alpha1", "alpha2", "x_break"])

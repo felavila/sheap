@@ -52,7 +52,7 @@ __author__ = 'felavila'
 __all__ = [
     "ComplexParams",
 ]
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 import numpy as np 
 import jax.numpy as jnp 
@@ -71,44 +71,56 @@ from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_
 from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
 from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
+from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS,cm_per_mpc
+
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 #TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
 #TODO add the params from continuum
-C_KMS = 299_792.458
 
 class ComplexParams:
-    ##print("xd")
-    def __init__(self, samplerclass: "ComplexSampler"):
-        self.samplerclass = samplerclass
-        self.model = samplerclass.model
-        self.c = samplerclass.c
-        self.dependencies = samplerclass.dependencies
-        self.scale = samplerclass.scale
-        self.spectra= samplerclass.spectra
-        self.mask = samplerclass.mask
-        self.d = samplerclass.d
-        
-        
-        self.names = samplerclass.names 
-        self.complex_class = samplerclass.complex_class
-        self.constraints = samplerclass.constraints
-        
-        self.params_dict = samplerclass.params_dict
-        self.params = samplerclass.params
-        self.uncertainty_params = samplerclass.uncertainty_params
-        self.method = samplerclass.method
-        if not self.method:
-            print("Not found method sampler")
-            self.method = "single"
-        
-        self.BOL_CORRECTIONS = samplerclass.BOL_CORRECTIONS
-        self.SINGLE_EPOCH_ESTIMATORS = samplerclass.SINGLE_EPOCH_ESTIMATORS
+    _BASE_REQUIRED = (
+        "model", "dependencies", "spectra", "mask", "complex_class", "method", "d"
+    )
+
+    def __init__(
+        self,
+        *,samplerclass: Optional[object] = None,model=None,dependencies=None,spectra=None,mask=None,complex_class=None,method=None,d=None,
+        BOL_CORRECTIONS=None,SINGLE_EPOCH_ESTIMATORS=None,C_KMS=None,
+        **extra,   # <- allows passing arbitrary fields if you want
+    ):
+        # defaults
+        self.BOL_CORRECTIONS = DEFAULT_BOL_CORRECTIONS if BOL_CORRECTIONS is None else BOL_CORRECTIONS
+        self.SINGLE_EPOCH_ESTIMATORS = (
+            DEFAULT_SINGLE_EPOCH_ESTIMATORS if SINGLE_EPOCH_ESTIMATORS is None else SINGLE_EPOCH_ESTIMATORS
+        )
+        self.C_KMS = DEFAULT_C_KMS if C_KMS is None else C_KMS
+
+        # 1) load from sampler if present
+        if samplerclass is not None:
+            self._from_any(samplerclass)
+
+        # 2) manual args should fill missing (and can override if you want)
+        manual = dict(model=model,dependencies=dependencies,spectra=spectra,mask=mask,complex_class=complex_class,method=method,d=d,)
+        manual.update(extra)
+
+        for name, value in manual.items():
+            if value is None:
+                continue
+            # choose precedence:
+            # - if you want manual to OVERRIDE sampler always: just setattr
+            # - if you want manual only fill MISSING: guard with getattr(..., None) is None
+            if getattr(self, name, None) is None:
+                setattr(self, name, value)
+
+        self._require(self._BASE_REQUIRED)
+       
         self.wavelength_grid = jnp.linspace(0, 20_000, 20_000)
         self.LINES_TO_COMBINE = ["Halpha", "Hbeta","MgII","CIV"]
         self.limit_velocity = 150.
     
-    def extract_params(self,full_samples=None,idx_obj=None,summarize=False):
+    def extract_params(self,full_samples=None,idx_obj=None,summarize=False,d = None):
         #Add the filtering an separation of the params for params_single and the sample reduction for params_sampled
+        self.d = d if d is not None else self.d
         if self.method == "single":
             if summarize:
                 return pivot_and_split(self.names,self._extract_basic_params_single())
@@ -223,22 +235,27 @@ class ComplexParams:
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
         
         
-        combined = combine_components(basic_params, cont_group, cont_params, distances,
-                                      LINES_TO_COMBINE=self.LINES_TO_COMBINE,
-                                      limit_velocity=self.limit_velocity,c=self.c,ucont_params=None,flux_fe=flux_fe)
+        list_to_get_extra_params = ["basic_params"]
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances}
+        if max(basic_params["broad"]["component"]) >1:
+            #TODO add condition to avoid this method in the case with no-narrow
+            combined = combine_components(basic_params, cont_group, cont_params, distances,
+                                        LINES_TO_COMBINE=self.LINES_TO_COMBINE,
+                                        limit_velocity=self.limit_velocity,c=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
+            list_to_get_extra_params.append("combined_params")
+            result["combined_params"] = combined
+            combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+            list_to_get_extra_params.append("combined_pyqso")
+            result["combined_pyqso"] = combined_pyqso
         
-        combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
-        
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso,"distances":distances}
         
         
-        for k in ["basic_params","combined_params","combined_pyqso"]:
+        for k in list_to_get_extra_params:
             if k == "basic_params":
                 result_local = result[k]["broad"]
             else:
                 result_local = result[k]
-            #print(extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c))
-            result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)}) #extras could be added directly because the are not related to the combination.
+            result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)}) #extras could be added directly because the are not related to the combination.
         
         return result
     
@@ -342,24 +359,27 @@ class ComplexParams:
                 Lbolval = calc_bolometric_luminosity(Lmono, self.BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = Lmono, Lbolval,Fcont
        
-        #maybe is best just combine witouth take in consideration the errors?
-        combined = combine_components(basic_params, cont_group, cont_params, distances,
+        
+        
+        list_to_get_extra_params = ["basic_params"]
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances}
+        if max(basic_params["broad"]["component"]) >1:
+            #TODO add condition to avoid this method in the case with no-narrow
+            combined = combine_components(basic_params, cont_group, cont_params, distances,
                                       LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,
-                                      c=self.c,ucont_params=ucont_params,flux_fe=flux_fe)
-        
-        combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
-        #basic_params["broad"]["extras"] = {"flux_Fe":flux_fe}
-        
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont, "combined_params": combined,"combined_pyqso":combined_pyqso,"distances":distances}
-        
-        
-        for k in ["basic_params","combined_params","combined_pyqso"]:
+                                      c=self.C_KMS,ucont_params=ucont_params,flux_fe=flux_fe)
+            list_to_get_extra_params.append("combined_params")
+            result["combined_params"] = combined
+            combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+            list_to_get_extra_params.append("combined_pyqso")
+            result["combined_pyqso"] = combined_pyqso
+            
+        for k in list_to_get_extra_params:
              if k == "basic_params":
                  result_local = result[k]["broad"]
              else:
                  result_local = result[k]
-             #print(extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c))
-             result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.c)}) #extras could be added directly because the are not related to the combination.
+             result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)}) #extras could be added directly because the are not related to the combination.
         return result
     ###########################SINGLE########################################
     def _accumulate_spaf_components(self, prof_group, profile_fn, batch_fwhm, cont_params, ucont_params):
@@ -407,10 +427,10 @@ class ComplexParams:
             amp = _params[:, [dic_amp[idx]]] *factor #+ np.log10(factor)
             uamp = _uncertainty_params[:, [dic_amp[idx]]]
             #center = sp.center[i] + _params[:, [idx_shift]]
-            center = sp.center[i] * (1+_params[:, [idx_shift]]/C_KMS)
+            center = sp.center[i] * (1+_params[:, [idx_shift]]/self.C_KMS)
             ucenter = _uncertainty_params[:, [idx_shift]]
-            extras = (10**_params[:, idx_shift+1:]) * center/C_KMS
-            uextras = _uncertainty_params[:, idx_shift+1:] * center/C_KMS
+            extras = (10**_params[:, idx_shift+1:]) * center/self.C_KMS
+            uextras = _uncertainty_params[:, idx_shift+1:] * center/self.C_KMS
             full_params_by_line.append(np.column_stack([amp, center, extras]))
             ufull_params_by_line.append(np.column_stack([uamp, ucenter, uextras]))
         return np.moveaxis(np.array(full_params_by_line), 0, 1), np.moveaxis(np.array(ufull_params_by_line), 0, 1)
@@ -431,7 +451,7 @@ class ComplexParams:
         fwhm = unumpy.uarray(*np.array(batch_fwhm(unumpy.nominal_values(amps), unumpy.nominal_values(centers), unumpy.nominal_values(shape_params),
                                                   unumpy.std_devs(amps), unumpy.std_devs(centers), unumpy.std_devs(shape_params))))
         
-        fwhm_kms = calc_fwhm_kms(fwhm, np.array(self.c), centers)
+        fwhm_kms = calc_fwhm_kms(fwhm, np.array(self.C_KMS), centers)
         cont_vals = unumpy.uarray(*np.array(
             evaluate_with_error(self.complex_class.group_by("region")["continuum"].combined_profile,
                                 unumpy.nominal_values(centers), cont_params, unumpy.std_devs(centers), ucont_params)))
@@ -455,7 +475,7 @@ class ComplexParams:
             amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = self._extract_sampled_profile_quantities(
                 profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params, np.full((full_samples.shape[0],), self.d[0])
             )
-
+            
             all_flux.append(flux)
             all_fwhm.append(fwhm)
             all_fwhm_kms.append(fwhm_kms)
@@ -485,9 +505,17 @@ class ComplexParams:
         for i,(_,factor,idx) in enumerate(amplitude_relations):
             #amp = params[:, [dic_amp[idx]]] + np.log10(factor)
             #print( params[:, [dic_amp[idx]]])
+            line_name = sp.region_lines[i]
             amp = params[:, [dic_amp[idx]]] *factor #+ np.log10(factor)
-            center = sp.center[i] * (1+params[:, [idx_shift]]/C_KMS)
-            extras = (10**params[:, idx_shift+1:]) * center/C_KMS
+            center = sp.center[i] * (1+params[:, [idx_shift]]/self.C_KMS)
+            extras = (10**params[:, idx_shift+1:]) * center/self.C_KMS
+            # if line_name == "Halpha" and "broad" in sp.line_name:
+            #     import matplotlib.pyplot as plt
+            #     plt.hist(center)
+            #     plt.show()
+            #     #print(sp.region_lines[i],sp.center[i] - center)
+            #     plt.hist(10**params[:, idx_shift+1:])
+            #     plt.show()           
             full_params_by_line.append(np.column_stack([amp, center, extras]))
 
         return np.moveaxis(np.array(full_params_by_line), 0, 1)
@@ -500,7 +528,7 @@ class ComplexParams:
 
         flux = integrator_fn(self.wavelength_grid, params_by_line)
         fwhm = batch_fwhm(amps, centers, shape_params)
-        fwhm_kms = jnp.abs(calc_fwhm_kms(fwhm, self.c, centers))
+        fwhm_kms = jnp.abs(calc_fwhm_kms(fwhm, self.C_KMS, centers))
 
         cont_vals = vmap(self.complex_class.group_by("region")["continuum"].combined_profile, in_axes=(0, 0))(centers, cont_params)
         eqw = flux / cont_vals
@@ -508,3 +536,20 @@ class ComplexParams:
 
         return amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals
 
+    def _from_any(self, src: object) -> None:
+        for name in self._BASE_REQUIRED:
+            setattr(self, name, getattr(src, name, None))
+
+        if hasattr(src, "BOL_CORRECTIONS"):
+            self.BOL_CORRECTIONS = src.BOL_CORRECTIONS
+        if hasattr(src, "SINGLE_EPOCH_ESTIMATORS"):
+            self.SINGLE_EPOCH_ESTIMATORS = src.SINGLE_EPOCH_ESTIMATORS
+        if hasattr(src, "C_KMS"):
+            self.C_KMS = src.C_KMS
+
+    def _require(self, names: Iterable[str]) -> None:
+        missing = [n for n in names if getattr(self, n, None) is None]
+        if missing:
+            raise ValueError(f"ComplexParams is missing required fields: {missing}")
+
+            

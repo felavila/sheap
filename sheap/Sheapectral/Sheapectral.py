@@ -205,16 +205,12 @@ class Sheapectral:
 
         if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
             
-            print(
-                "extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step"
-            )
+            print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
             self._apply_extinction()
             self.extinction_correction = "done"
 
         if self.redshift_correction == "pending" and self.z is not None:
-            print(
-                "redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step"
-            )
+            print("redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step")
             self._apply_redshift()
             self.redshift_correction = "done"
 
@@ -447,8 +443,7 @@ class Sheapectral:
 
             self.plotter = SheapPlot(sheap=self)
     
-    def estimate_posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False,
-                        num_warmup=500,n_random=1_000):
+    def estimate_posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3):
         """
         Estimate or sample posterior distributions of fit parameters.
 
@@ -512,25 +507,19 @@ class Sheapectral:
             # PSEUDO MONTE CARLO
             # ------------------------------------------------------------------
             elif method == "pseudomontecarlo":
-
                 dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
-
                 self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
             # ------------------------------------------------------------------
             # MONTE CARLO
             # ------------------------------------------------------------------
             elif method == "montecarlo":
-
-                dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
-
-                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
+                dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
+                self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize}
             # ------------------------------------------------------------------
             # MCMC
             # ------------------------------------------------------------------
             elif method == "mcmc":
-
                 dic_posterior_params = PM.sample_mcmc(num_samples=num_samples,n_random=n_random,num_warmup=num_warmup,summarize=summarize,)
-
                 self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"num_warmup": num_warmup,"n_random": n_random,"summarize": summarize,}
 
             # ------------------------------------------------------------------
@@ -600,7 +589,8 @@ class Sheapectral:
             constraints = data.get('constraints'),
             fitting_routine = data.get("fitting_routine"),
             posterior = data.get("posterior"),
-            chi2_red = data.get("chi2_red")
+            chi2_red = data.get("chi2_red"),
+            fitkwargs = data.get("fitkwargs")
         )
         obj.plotter = SheapPlot(sheap=obj)
         obj.spectral_model = make_fused_profiles(obj.result.profile_functions)
@@ -643,7 +633,8 @@ class Sheapectral:
             'residuals' : np.array(self.result.residuals),
             'free_params' : self.result.free_params,
             'chi2_red' : np.array(self.result.chi2_red),
-            "posterior" : self.result.posterior
+            "posterior" : self.result.posterior,
+            "fitkwargs":self.result.fitkwargs
         }
 
         estimated_size = sys.getsizeof(pickle.dumps(dic_))
@@ -752,7 +743,7 @@ class Sheapectral:
         data = []
         scale = self.result.scale[n]
 
-        for param_name, i in self.result.params_dict.items():
+        for param_index,(param_name, i) in enumerate(self.result.params_dict.items()):
             param = float(self.result.params[n][i])
             init_value = float(self.result.initial_params[i])
             uncertainty = float(self.result.uncertainty_params[n][i])
@@ -766,23 +757,13 @@ class Sheapectral:
 
             constraints = self.result.constraints[i]
 
-            data.append({
-                "param_name": param_name,
-                "value": param,
-                "error": uncertainty,
-                "max_constraint": constraints[1],
-                "init_value": init_value,
-                "min_constraint": constraints[0],
-            })
+            data.append({"param_index":param_index,"param_name": param_name, "value": param, "error": uncertainty, "max_constraint": constraints[1], "init_value": init_value,"min_constraint": constraints[0],})
 
-        # keep param_name as a normal column
         df = pd.DataFrame(data)
 
         # Optional filtering by parameter name (now using the column)
         if param_filter is not None:
-            mask = df["param_name"].str.contains(
-                param_filter, case=case, regex=regex, na=False
-            )
+            mask = df["param_name"].str.contains(param_filter, case=case, regex=regex, na=False)
             df = df[mask]
 
         return df
@@ -845,7 +826,9 @@ class Sheapectral:
 
         return ax
 
-    def redshift_signal2noise_distribution(self):
+    #extra plots
+    @property
+    def plot_redshift_signal2noise_distribution(self):
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=True)
 
@@ -862,6 +845,58 @@ class Sheapectral:
         axes[1].tick_params(axis='both', which='major', labelsize=14)
         plt.tight_layout()
         return axes
+    @property
+    def plot_chi2(self):
+        import matplotlib.pyplot as plt
+        if not hasattr(self, "result"):
+            raise RuntimeError("self.result should exist to run this.")
+        chi2_model = self.result.chi2_red  # or whatever your model object is
+
+        # --- Compute fraction in (0,5) ---
+        mask_range_model = (chi2_model > 0.) & (chi2_model < 5.)
+        frac_model_0_5 = np.mean(mask_range_model) * 100.0
+
+        # --- Define bins from model only ---
+        chi2_min = chi2_model.min()
+        chi2_max = chi2_model.max()
+        bins = np.linspace(chi2_min, chi2_max, 40)
+
+        # --- Plot ---
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        ax.hist(
+            chi2_model,
+            bins=bins,
+            alpha=0.7,
+            color="#d62728",
+            label=fr"Model chi2 (median = {np.median(chi2_model):.2f})"
+        )
+
+        ax.set_xlabel(r"Reduced $\chi^2$", fontsize=18)
+        ax.set_ylabel("Number of spectra", fontsize=18)
+        ax.legend(fontsize=14, frameon=False)
+        ax.tick_params(axis="both", labelsize=14)
+
+        # Optional: vertical line at chi2=5
+        ax.axvline(1.85, linestyle="--", linewidth=1)
+
+        # --- Annotate fraction ---
+        textstr = (
+            fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
+            fr"Model: {frac_model_0_5:.1f}%"
+        )
+
+        ax.text(
+            0.3, 0.5,
+            textstr,
+            transform=ax.transAxes,
+            fontsize=20,
+            va="top",
+            bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
+        )
+
+        fig.tight_layout()
+        plt.show()
         #plt.tight_layout()
         #plt.show()
 

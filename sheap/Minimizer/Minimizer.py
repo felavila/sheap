@@ -119,29 +119,11 @@ class Minimizer:
         #print(method,penalty_weight,curvature_weight,smoothness_weight,max_weight)
         #self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
 
-        self.loss_function, self.optimize_model = Minimizer.minimization_function(
-            self.func,
-            weighted=weighted,
-            penalty_function=penalty_function,
-            penalty_weight=penalty_weight,
-            param_converter=self.param_converter,
-            curvature_weight=curvature_weight,
-            learning_rate = learning_rate,
-            smoothness_weight=smoothness_weight,
-            max_weight=max_weight,
-            method=self.method,
-            lbfgs_options=self.lbfgs_options,
-            num_steps = num_steps
-        )
+        self.loss_function, self.optimize_model = Minimizer.minimization_function(self.func, weighted=weighted, penalty_function=penalty_function, penalty_weight=penalty_weight,param_converter=self.param_converter,
+            curvature_weight=curvature_weight, learning_rate = learning_rate, smoothness_weight=smoothness_weight, max_weight=max_weight,
+            method=self.method, lbfgs_options=self.lbfgs_options, num_steps = num_steps)
 
-    def __call__(
-        self,
-        initial_params,
-        y,
-        x,
-        yerror,
-        constraints,
-    ):
+    def __call__(self, initial_params, y, x, yerror, constraints,):
         """
         Execute the optimization process across batches.
 
@@ -171,22 +153,14 @@ class Minimizer:
             else (0, 0, 0, 0, None)
         )
 
-        vmap_optimize_model = vmap(
-            self.optimize_model, in_axes=optimize_in_axis, out_axes=0
-        )
+        vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
         if self.param_converter:
             initial_params = self.param_converter.phys_to_raw(initial_params)
             raw_params,loss = vmap_optimize_model(initial_params,y,x,yerror,constraints,)
             
             return self.param_converter.raw_to_phys(raw_params),loss
         else:
-            return vmap_optimize_model(
-                initial_params,
-                y,
-                x,
-                yerror,
-                constraints,
-            )
+            return vmap_optimize_model(initial_params,y,x,yerror,constraints,)
 
     @staticmethod
     def minimization_function(
@@ -235,16 +209,7 @@ class Minimizer:
             The compiled loss function and optimization routine.
         """
 
-        loss_function = build_loss_function(
-            func,
-            weighted,
-            penalty_function,
-            penalty_weight,
-            param_converter,
-            curvature_weight,
-            smoothness_weight,
-            max_weight,
-        )
+        loss_function = build_loss_function(func,weighted,penalty_function,penalty_weight,param_converter,curvature_weight,smoothness_weight,max_weight,)
         loss_function = jit(loss_function)
 
         def optimize_model(initial_params, xs, y, y_uncertainties, constraints):
@@ -305,6 +270,6 @@ class Minimizer:
                 )
 
             return final_params, loss_history
-        optimize_model = jit(optimize_model) #powerfull when we apply montecarlo-but in 1-2 objects sample not much +3 sec
+        optimize_model = jit(optimize_model) #powerfull when we apply montecarlo-in in 1-2 objects sample not much impact +3 sec
         return loss_function, optimize_model
 

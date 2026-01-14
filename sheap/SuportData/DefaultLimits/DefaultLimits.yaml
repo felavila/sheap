@@ -2,7 +2,7 @@ broad:
   upper_fwhm: 10000.0
   lower_fwhm: 1000.0
   v_shift: 3000.0
-  max_amplitude: 10.0
+  max_amplitude: 1.0
   canonical_wavelengths: 4861.0
   references:
     - 2011ApJS..194...45S
@@ -12,7 +12,7 @@ narrow:
   upper_fwhm: 600.0
   lower_fwhm: 100.0
   v_shift: 500.0
-  max_amplitude: 10.0
+  max_amplitude: 1.0
   canonical_wavelengths: 5007.0  # anchor at [O III]
   references:
     - 2013MNRAS.433..622M
@@ -22,7 +22,7 @@ outflow:
   upper_fwhm: 2000.0
   lower_fwhm: 600.0
   v_shift: 500.0
-  max_amplitude: 10.0
+  max_amplitude: 1.0
   canonical_wavelengths: 5007.0
   references:
     - 2013MNRAS.433..622M
@@ -33,7 +33,7 @@ winds:
   upper_fwhm: 15000.0
   lower_fwhm: 3000.0
   v_shift: 8000.0
-  max_amplitude: 10.0
+  max_amplitude: 1.0
   canonical_wavelengths: 1549.0  # anchor at C IV
   references:
     - 2011AJ....141..167R
@@ -65,7 +65,7 @@ fe_narrow:
 host:
   upper_fwhm: 1000.0
   lower_fwhm: 100.0
-  v_shift: 500
+  v_shift: 500.0
   max_amplitude: 0.0
   canonical_wavelengths: 5175.0
   references:
@@ -77,7 +77,7 @@ bal:
   upper_fwhm: 20000.0
   lower_fwhm: 2000.0
   v_shift: 30000.0
-  max_amplitude: 10.0
+  max_amplitude: 1.0
   canonical_wavelengths: 1549.0
   references:
     - 1991ApJ...373...23W
@@ -94,3 +94,11 @@ fe:
     - 2004A&A...417..515V
     - 2001ApJS..134....1V
     - 2010ApJS..189...15K
+balmerhighorder:
+  upper_fwhm: 8000.0
+  lower_fwhm: 800.0
+  v_shift: 1500.0 
+  max_amplitude: 0.07
+  canonical_wavelengths: 5007.0  # anchor at [O III]
+  references:
+    - xx

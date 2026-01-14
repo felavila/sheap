@@ -66,7 +66,7 @@ def phys_trust_region_inits(
     phys_bounds,         # [(lo, hi), ...] in physical space (same shape)
     num_samples=100,
     sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
-    frac_box_sigma=0.5, # fallback noise size ~5% of (hi-lo)
+    frac_box_sigma=0.05, # fallback noise size ~5% of (hi-lo)
     k_sigma= 0.5          # multiplier for sigma_phys
 ):
     key = random.PRNGKey(key) if isinstance(key, int) else key
@@ -101,7 +101,7 @@ class MonteCarloSampler:
     
 	def __init__(self, estimator: "ComplexSampler"):
 		self.estimator = estimator  # ParameterEstimation instance
-		self.complexparams = ComplexParams(estimator)
+		self.complexparams = ComplexParams(samplerclass=estimator)
 		self.model = estimator.model
 		self.dependencies = estimator.dependencies
 		self.scale = estimator.scale
@@ -116,10 +116,10 @@ class MonteCarloSampler:
 		self.initial_params  = estimator.initial_params
 		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
 	
-	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True) -> jnp.ndarray:
+	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
 			from tqdm import tqdm
-			print("Running Monte Carlo with JAX.")
-			model = jit(self.model)
+			print(f"Running Monte Carlo with JAX.,frac_box_sigma={frac_box_sigma},k_sigma={k_sigma}")
+			model = jit(self.model)#this should be the case in the case the model is not already jit
 			# Normalize spectratra
 			scale = np.atleast_1d(self.scale.astype(jnp.float32))
 			#print(scale.shape)
@@ -149,10 +149,18 @@ class MonteCarloSampler:
 			params_obj=self.params_obj,
 			phys_map=phys_map,
 			phys_bounds=self.constraints,
-			num_samples=num_samples)
+			num_samples=num_samples, frac_box_sigma= frac_box_sigma,k_sigma=k_sigma )
 
 			draws_raw = draws_raw.astype(jnp.float32)  # ensure consistent dtype
-			#print(self.fitkwargs)
+			if return_only_draws:
+				iterator = tqdm(self.names, total=len(self.names), desc="Getting draws")
+				_draws_phys = np.moveaxis(draws_phys,0,1)
+				dic_posterior_params = {}
+				for n, name_i in enumerate(iterator):
+					draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),scale[n])
+					dic_posterior_params[name_i]=({"draws_phys":draws_phys_n})
+				return dic_posterior_params
+   			#print(self.fitkwargs)
 			_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
 
 			constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
@@ -195,8 +203,8 @@ class MonteCarloSampler:
 
 	def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
 					method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
-		
-		num_steps = 2_000
+		print(num_steps)
+		#num_steps = 2_000
 		minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
 							learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
 							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)

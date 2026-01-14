@@ -188,9 +188,9 @@ class ComplexSampler:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         else:
             self.cosmo = cosmo
-            
+        #depending on the version this could change after 7.0.0 this change    
+        #self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
         self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
-       
 
     def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True):
         """
@@ -219,7 +219,7 @@ class ComplexSampler:
             print("The samples will be summarize is you want to keep the samples summarize=False")
         return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize)
     
-    def montecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True):
+    def montecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True,return_only_draws=False,frac_box_sigma=0.02,k_sigma=0.3):
         """
         Run montecarlosampler sampling.
 
@@ -244,7 +244,7 @@ class ComplexSampler:
         sampler = MonteCarloSampler(self)
         if summarize:
             print("The samples will be summarize is you want to keep the samples summarize=False")
-        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize)
+        return sampler.sample_params(num_samples=num_samples, key_seed=key_seed,summarize=summarize,return_only_draws=return_only_draws,frac_box_sigma=frac_box_sigma, k_sigma= k_sigma)
     
     def sample_mcmc(self,n_random = 0,num_warmup=500,num_samples=1000,summarize=True):
         """

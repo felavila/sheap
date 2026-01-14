@@ -61,31 +61,13 @@ from sheap.Profiles.balmercontinuum import balmercontinuum
 # from sheap.sheap.Profiles.depreted.Combine import SPAF
 
 # # Low-level line profiles (require center+amplitude inside param vector)
-PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {
-     'gaussian': gaussian_fwhm,
-     'lorentzian': lorentzian_fwhm,
-     'voigt_pseudo': voigt_pseudo,
-     'skewed_gaussian': skewed_gaussian,
-     'emg_fwhm': emg_fwhm,
-     'top_hat': top_hat
- }
+PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {'gaussian': gaussian_fwhm,'lorentzian': lorentzian_fwhm,'voigt_pseudo': voigt_pseudo,'skewed_gaussian': skewed_gaussian,'emg_fwhm': emg_fwhm,'top_hat': top_hat}
 
-PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {
-    'linear': linear,
-    'powerlaw': powerlaw,
-    'brokenpowerlaw': brokenpowerlaw,
-    'logparabola': logparabola,
-    'exp_cutoff': exp_cutoff,
-    'polynomial': polynomial
-}
+PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {'linear': linear,'powerlaw': powerlaw,'brokenpowerlaw': brokenpowerlaw,'logparabola': logparabola,'exp_cutoff': exp_cutoff,'polynomial': polynomial}
 
 
 # Full profile registry (for spectral modeling)
-PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {
-    'balmercontinuum': balmercontinuum,
-    'template': make_template_function,
-    'SPAF': SPAF_loglambda,
-    "hostmiles": make_host_function} #
+PROFILE_FUNC_MAP: Dict[str, ProfileFunc] = {'balmercontinuum': balmercontinuum,'template': make_template_function,'SPAF': SPAF_loglambda,"hostmiles": make_host_function} #
 
 PROFILE_FUNC_MAP.update(PROFILE_LINE_FUNC_MAP)
 PROFILE_FUNC_MAP.update(PROFILE_CONTINUUM_FUNC_MAP)

@@ -182,25 +182,25 @@ def plot_logdex_agreement_xd(
     if label_mode:
        xlabel, ylabel = {
                             "fwhm": (
-                                r'$\log_{10}(\mathrm{FWHM}_{\mathrm{ref}}\ [\mathrm{km\ s^{-1}}])$',
+                                r'$\log_{10}(\mathrm{FWHM}_{\mathrm{Literature}}\ [\mathrm{km\ s^{-1}}])$',
                                 r'$\log_{10}(\mathrm{FWHM}_{\mathrm{SHEAP}}\ [\mathrm{km\ s^{-1}}])$'
                             ),
                             "lcont": (
-                                r'$\log_{10}(\lambda L_{\lambda,\mathrm{ref}}\ [\mathrm{erg\ s^{-1}}])$',
+                                r'$\log_{10}(\lambda L_{\lambda,\mathrm{Literature}}\ [\mathrm{erg\ s^{-1}}])$',
                                 r'$\log_{10}(\lambda L_{\lambda,\mathrm{SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
                             ),
                             "lline": (
-                                r'$\log_{10}(L_{\mathrm{line,ref}}\ [\mathrm{erg\ s^{-1}}])$',
+                                r'$\log_{10}(L_{\mathrm{line,Literature}}\ [\mathrm{erg\ s^{-1}}])$',
                                 r'$\log_{10}(L_{\mathrm{line,SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
                             ),
                             "smbh": (
-                                r'$\log_{10}(M_{\mathrm{BH,ref}}\ [M_{\odot}])$',
+                                r'$\log_{10}(M_{\mathrm{BH,Literature}}\ [M_{\odot}])$',
                                 r'$\log_{10}(M_{\mathrm{BH,SHEAP}}\ [M_{\odot}])$'),
                              "smbh_c": (
                                 r'$\log_{10}(M_{\mathrm{BH,line}}\ [M_{\odot}])$',
                                 r'$\log_{10}(M_{\mathrm{BH,continuum}}\ [M_{\odot}])$'),
                              
-                            "rfe": (r'$R_{\mathrm{FeII,ref}}$ (dimensionless)',r'$R_{\mathrm{FeII,SHEAP}}$ (dimensionless)')
+                            "rfe": (r'$R_{\mathrm{FeII,Literature}}$ (dimensionless)',r'$R_{\mathrm{FeII,SHEAP}}$ (dimensionless)')
                         }.get(label_mode.lower())
     # ---------- Build pairs ----------
     x_keys = list(x_dict.keys())
@@ -384,8 +384,8 @@ def plot_logdex_agreement(
     save_format="pdf",
     markers=('o', '*', 'X', 'D', '^', 'v', 'P', 's'),
     colors=(
-        "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728",
-        "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
+        "#d62728", "#6b67bd", "#2ca02c", "#d62728",
+        "#6b67bd", "#8c564b", "#e377c2", "#7f7f7f",
     ),
     markersize=10,
     alpha=0.9,
@@ -563,7 +563,7 @@ def plot_logdex_agreement(
     # 1:1 line and band
     x_fill = np.linspace(lims_use[0], lims_use[1], 200)
     ax.fill_between(x_fill, x_fill - band, x_fill + band, alpha=0.10, color='gray', label=f'±{band} dex band')
-    ax.plot(lims_use, lims_use, 'k--', linewidth=1.8, label='1:1 line')
+    ax.plot(lims_use, lims_use, 'k--', linewidth=1.8, label='1:1 line',zorder=10)
     
     # Styling
     ax.set_xlabel(xlabel, fontsize=label_fontsize)
@@ -662,7 +662,7 @@ def plot_logdex_agreement(
     if len(yticks) > 1:
         ax.set_yticks(yticks[1:])
     
-    ax.legend(handles=legend_handles, fontsize=legend_fontsize, frameon=False, markerscale=1.0, ncol=1)
+    ax.legend(handles=legend_handles, fontsize=legend_fontsize, frameon=False, markerscale=1.0, ncol=1, loc='lower right')
     
     plt.tight_layout()
     

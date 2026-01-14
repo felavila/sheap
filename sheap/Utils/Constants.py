@@ -41,13 +41,19 @@ __all__ = [
     "c",
     "cm_per_mpc",
     "read_yaml",
+    "DEFAULT_C_KMS",
+    "C_KMS",
+    "FWHM_TO_SIGMA"
 ]
 
 # ---------------------------------------------------------------------
 # Physical constants
 # ---------------------------------------------------------------------
 c: float = 299792.458       #: Speed of light in km/s
+DEFAULT_C_KMS: float = 299_792.458       #: Speed of light in km/s
 cm_per_mpc: float = 3.08568e24  #: Megaparsec in centimeters
+C_KMS = 299_792.458
+FWHM_TO_SIGMA = 1.0 / 2.355
 # ---------------------------------------------------------------------
 # Paths to YAML configuration files
 # ---------------------------------------------------------------------

@@ -64,7 +64,6 @@ from sheap.Core import ProfileConstraintSet, FittingLimits, SpectralLine
 from sheap.Utils.BasicFunctions import kms_to_wl
 from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
-#from sheap.Utils.Constants import CANONICAL_WAVELENGTHS
 
 #TODO profile handler is a unclear name we have to change it.
 def ProfileConstraintMaker(
@@ -96,14 +95,12 @@ def ProfileConstraintMaker(
             raise ValueError(f"SPAF profile requires a defined subprofile avalaible options are {list(PROFILE_LINE_FUNC_MAP.keys())}.")
         if not isinstance(sp.amplitude, list):
             raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
-        #if sp.region not in CANONICAL_WAVELENGTHS:
-         #   raise KeyError(f"Missing canonical wavelength for region='{sp.region}' in CANONICAL_WAVELENGTHS.")
     if selected_profile in PROFILE_CONTINUUM_FUNC_MAP:  
         if selected_profile == 'powerlaw':
             return ProfileConstraintSet(
-                init=[-1.7, 0.1],
-                upper=[0.0, 10.0],
-                lower=[-5.0, 0.0],
+                init=[-1.7, -1],
+                upper=[0.0, 0.0],
+                lower=[-5.0, -5],
                 profile=selected_profile,
                 param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names,
                 profile_fn = local_profile)#['index', 'scale'],
@@ -220,18 +217,15 @@ def ProfileConstraintMaker(
     if selected_profile == "SPAF":
         #func = PROFILE_LINE_FUNC_MAP[subprofile]
         param_names = local_profile.param_names
-        #print(limits.canonical_wavelengths)
-        lambda0 = limits.canonical_wavelengths
-        #CANONICAL_WAVELENGTHS[sp.region]
         shift_init = 0.0 if sp.component == 1 else (-1.0) ** (sp.component)
-        shift_limit = kms_to_wl(limits.v_shift, lambda0)
-        fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
-        fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
+        #shift_limit = kms_to_wl(limits.v_shift, lambda0)
+        #fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
+        #fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         logamp = -0.25 if sp.region=="narrow" else -2.0
         #the change here change all the results care.
         #fwhm_init =  fwhm_up if sp.region in ["outflow", "winds","narrow"] else fwhm_lo
         
-        fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))
+        #fwhm_init = fwhm_lo * (1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))
         init, upper, lower = [], [], []
         for _,p in enumerate(param_names):
             if "logamp" in p:
@@ -261,10 +255,10 @@ def ProfileConstraintMaker(
                     upper.append(10**1.0)
                     lower.append(0.0)
                    
-            elif p == "shift":
-                init.append(shift_init)
-                upper.append(shift_limit)
-                lower.append(-shift_limit)
+            # elif p == "shift":
+            #     init.append(shift_init)
+            #     upper.append(shift_limit)
+            #     lower.append(-shift_limit)
                 
             elif p == "v_shift":
                 init.append(0.0 if sp.component == 1 else (-1.0) ** (sp.component))
@@ -333,13 +327,12 @@ def ProfileConstraintMaker(
 
     if selected_profile == "template" and sp.region == "fe":
         #maybe add a warning here
-        lambda0 = limits.canonical_wavelengths
-        shift = kms_to_wl(limits.v_shift, lambda0)
+        #shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
         #logamplitude
         init = [1.0,np.log10(4000.0), 0.0] 
-        upper = [10.0,np.log10(limits.upper_fwhm), shift] 
-        lower = [-2.0,np.log10(limits.lower_fwhm), -shift]  
+        upper = [2.0,np.log10(limits.upper_fwhm), limits.v_shift] 
+        lower = [-2.0,np.log10(limits.lower_fwhm), -limits.v_shift]  
         #print(init,upper,lower)
         return ProfileConstraintSet(
             init= init,
@@ -350,16 +343,15 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "template":
-        lambda0 = 3675.0 #limits.canonical_wavelengths
         v_shift = 1500.0 
-        init_fwhm = 2000.0
+        #init_fwhm = 2000.0
         upper_fwhm =  8000.0
         lower_fwhm =  800.0
-        shift = kms_to_wl(v_shift, lambda0)
+        print(limits)
         params_names = local_profile.param_names
-        init= [1.0, np.log10(init_fwhm),0.0]
-        upper= [10.0, np.log10(upper_fwhm), shift]
-        lower= [-2.0,np.log10(lower_fwhm) , -shift]
+        init= [1.0, np.log10( 2000.0),0.0]
+        upper= [2.0, np.log10(upper_fwhm), v_shift]
+        lower= [-2.0,np.log10(lower_fwhm) , -v_shift]
         #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(
             init= init,
@@ -372,13 +364,12 @@ def ProfileConstraintMaker(
         
     if selected_profile == "hostmiles":
         params_names = local_profile.param_names
-        lambda0 = limits.canonical_wavelengths
-        shift = kms_to_wl(limits.v_shift, lambda0)
+        #shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
         #testing limits
         init = [0.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
-        upper = [2.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
-        lower = [-2.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
+        upper = [4.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
+        lower = [-4.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
         #print(init,upper,lower)
         return ProfileConstraintSet(
                 init=init,

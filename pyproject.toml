@@ -94,11 +94,13 @@ numpy = ">=2.0,<2.3"
 pandas = ">=2.2"
 scipy = ">=1.11"
 # Astronomy / plotting
-astropy = ">=6.0"
+astropy = ">=6.0,<=7.0""
 matplotlib = ">=3.8"
 # JAX stack (keep jax/jaxlib aligned)
-jax = ">=0.6,<0.8"
-jaxlib = ">=0.6,<0.8"
+#jax = ">=0.6,<0.8"
+#jaxlib = ">=0.6,<0.8"
+jax = "0.4.38"
+jaxlib = "0.4.38"
 optax = ">=0.2.3,<0.3"
 # Utilities
 tqdm = ">=4.66"

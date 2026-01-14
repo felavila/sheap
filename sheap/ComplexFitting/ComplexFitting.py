@@ -197,15 +197,14 @@ class ComplexFitting:
         self.params_dict: Dict[str, int] = {}
         self.initial_params: jnp.ndarray = jnp.array([])
         self.profile_functions: List[Any] = []
-        # self.profile_params_index: List[List[int]] = []
         self.profile_names: List[str] = []
         self.profile_params_index_list: List[List[int]] = []
-        # self.list_dependencies: List[str] = []
         self.constraints: Optional[jnp.ndarray] = None
         self.params: Optional[jnp.ndarray] = None
         self.loss: Optional[float] = None
         self._build_fit_components(profile = profile)
-        self.model = jit(make_fused_profiles(self.profile_functions))
+        self.model = jit(make_fused_profiles(self.profile_functions)) #TODO we should change all the "model" to spectral_model or similars to make it more explicit
+        self.model_vmap = vmap(self.model, in_axes=(0,0))
         self.host_info = {}
     
     def __call__(
@@ -218,7 +217,7 @@ class ComplexFitting:
         inner_limits: Optional[Tuple[float, float]] = None, 
         outer_limits: Optional[Tuple[float, float]] = None,
         add_penalty_function = False,
-        method = "adam",
+        method = "adam", #optmization method
         penalty_weight: float = 0.01,
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
@@ -291,14 +290,10 @@ class ComplexFitting:
                 step["num_steps"] = list_num_steps[_step]
             print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
-            start_time = time.time()  # 
-            self.tied = step["tied"]
+            start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
-            params, loss = self._fit(_step,norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,
-                                     penalty_weight = penalty_weight,
-                                        curvature_weight = curvature_weight,
-                                        smoothness_weight = smoothness_weight,
-                                        max_weight = max_weight)
+            params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
+                                        curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight)
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
             elapsed = end_time - start_time
@@ -308,12 +303,10 @@ class ComplexFitting:
                                             "curvature_weight" : curvature_weight,
                                             "smoothness_weight" : smoothness_weight,
                                             "max_weight" : max_weight})    
-        
-        
         if covariance_error:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 
-            uncertainty_params = Errorfromloop(self.model,norm_spec,params,dependencies)
+            uncertainty_params = Errorfromloop(self.model,norm_spec,params,self.dependencies)
             end_time = time.time()  # 
             
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
@@ -329,38 +322,17 @@ class ComplexFitting:
         self.to_result()
     
     
-    def _fit(
-        self,
-        iteration_number: int,
-        norm_spec: jnp.ndarray,
-        model,
-        initial_params,
-        tied: List[List[str]],
-        learning_rate=1e-1,
-        weighted: bool = True,
-        num_steps: int = 1000,
-        non_optimize_in_axis=3,
-        penalty_function = None,
-        method = None,
-        penalty_weight: float = 0.01,
-        curvature_weight: float = 1e5,
-        smoothness_weight: float = 0.0,
-        max_weight: float = 0.1,
-        verbose = True
-    ) -> Tuple[jnp.ndarray, list]:
+    def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
+            method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1, verbose = True) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX‑based minimization using Minimizer.
 
         Parameters
         ----------
-        iteration_number : int
-            Index of the current fitting step.
         norm_spec : jnp.ndarray
             Normalized spectra array.
         model : callable
         initial_params : jnp.ndarray
-        tied : list of list[str]
-            Groups of parameter names to tie together.
         learning_rate : float, optional
         weighted : bool, optional
         num_steps : int, optional
@@ -387,17 +359,8 @@ class ComplexFitting:
         self.tied_map = tied_map
         self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
         
-        minimizer = Minimizer(
-            model,
-            non_optimize_in_axis=non_optimize_in_axis,
-            num_steps=num_steps,
-            list_dependencies=list_dependencies,
-            weighted=weighted,
-            learning_rate=learning_rate,
-            param_converter=self.params_obj,
-            penalty_function = penalty_function,
-        method=method,
-        penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+        minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
+            penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         try:
             params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
             #params = params_obj.raw_to_phys(raw_params)
@@ -408,14 +371,8 @@ class ComplexFitting:
         return params, loss
 
 
-    def _prep_data(
-        self,
-        spectra: Union[List[Any], jnp.ndarray],
-        inner_limits: Optional[Tuple[float, float]],
-        outer_limits: Optional[Tuple[float, float]],
-        force_cut: bool,
-        #exp_factor,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    def _prep_data(self, spectra: Union[List[Any], jnp.ndarray], inner_limits: Optional[Tuple[float, float]], outer_limits: Optional[Tuple[float, float]], force_cut: bool,
+        ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         """
         Preprocess spectra for fitting.
 
@@ -466,13 +423,7 @@ class ComplexFitting:
 
         return spec, mask, scale, norm_spec
     
-    def _postprocess(
-        self,
-        norm_spec: jnp.ndarray,
-        params: jnp.ndarray,
-        uncertainty_params: jnp.ndarray,
-        scale: jnp.ndarray,
-        ) -> None:
+    def _postprocess(self, norm_spec: jnp.ndarray, params: jnp.ndarray,uncertainty_params: jnp.ndarray,scale: jnp.ndarray,) -> None:
         """
         Scale parameters back to original flux units and compute diagnostics.
 
@@ -490,7 +441,7 @@ class ComplexFitting:
         """
         
         try:
-            idxs = mapping_params(self.params_dict, [["amplitude"]]) #, ["scale"]
+            idxs = mapping_params(self.params_dict, [["amplitude"]])
             idxs_log = mapping_params(self.params_dict, [["logamp"]])
             if len(idxs_log) == 0:
                 self.params = params.at[:, idxs].multiply(scale[:, None])
@@ -498,14 +449,13 @@ class ComplexFitting:
                 self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
             self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])          
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
-            y_model  = vmap(self.model, in_axes=(0,0))(self.spec[:,0,:],self.params)
+            y_model  = self.model_vmap(self.spec[:,0,:],self.params)
             y_data  = self.spec[:,1,:]
             mask = self.mask
             y_error = self.spec[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
             self.residuals = (y_model-y_data)/y_error
-            self.free_params = np.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
-            
-            self.chi2_red = np.sum(self.residuals**2,axis=1)/self.free_params
+            self.free_params = jnp.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
+            self.chi2_red = jnp.sum(self.residuals**2,axis=1)/self.free_params
             
         except Exception as e:
             logger.exception("Renormalization failed")
@@ -534,12 +484,11 @@ class ComplexFitting:
         self.params_dict.clear()
         self.profile_names.clear()
         self.profile_params_index_list.clear()
-        self.list = []
+        #self.list = []
         add_linear = True
         idx = 0  # parameter_position
         complex_region = []
         for _,sp in enumerate(self.complex_class.lines):
-            #print(_,sp)
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
             if "SPAF" in holder_profile:
@@ -547,15 +496,12 @@ class ComplexFitting:
                     sp.profile,sp.subprofile = sp.profile.split("_")
                 elif not sp.subprofile:
                     sp.subprofile = profile
-                #print(sp.center,sp.amplitude_relations,sp.subprofile)
                 profile_fn = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,sp.subprofile)
             elif sp.profile == "hostmiles":
                 host_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = host_dict["model"]
-                self.host_info = host_dict["host_info"] #host info different from fe_template info 
-                #print(local_model.param_names)
+                self.host_info = host_dict["host_info"] 
             elif sp.profile == "template":
-                #print(sp.profile)
                 fe_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = fe_dict["model"]
             else:
@@ -579,12 +525,8 @@ class ComplexFitting:
                 for i, name in enumerate(constraints.param_names):
                     key = f"{name}_{sp.line_name}_{sp.component}_{sp.region}"
                     self.params_dict[key] = idx + i
-            # self.profile_params_index.append([idx,idx + len(constraints.param_names)])
-            self.profile_params_index_list.append(
-                np.arange(idx, idx + len(constraints.param_names))
-            )
+            self.profile_params_index_list.append(np.arange(idx, idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
-            #profile="gaussian"
 
         if add_linear:
             print("Continuum profile not found a linear profile will be added")
@@ -615,8 +557,6 @@ class ComplexFitting:
         list[str]
             Dependency expressions for the minimizer.
         """
-        #print(tied_params)
-        #print(build_tied(tied_params,self.get_param_coord_value))
         return build_tied(tied_params,self.get_param_coord_value)
     
     @staticmethod
@@ -638,6 +578,7 @@ class ComplexFitting:
     def _add_linear(self,idx):
         """
         Append a linear continuum component when none is present.
+        
 
         Parameters
         ----------
@@ -695,13 +636,7 @@ class ComplexFitting:
             fitkwargs = self._fitkwargs)
         
     @classmethod
-    def from_builder(
-        cls,
-        builder: "ComplexBuilder",
-        *,
-        profile: str = "gaussian",limits_overrides = None,
-        **builder_kwargs,
-    ) -> "ComplexFitting":
+    def from_builder(cls,builder: "ComplexBuilder",*,profile: str = "gaussian",limits_overrides = None,**builder_kwargs,) -> "ComplexFitting":
         
         """
         Construct ComplexFitting directly from a ComplexBuilder.

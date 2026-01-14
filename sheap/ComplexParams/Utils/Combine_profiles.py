@@ -125,8 +125,8 @@ def combine_components(
     flux_parts, fwhm_parts, fwhm_kms_parts = [], [], []
     center_parts, amp_parts, eqw_parts, lum_parts = [], [], [], []
     for line in LINES_TO_COMBINE:
-        broad_lines = basic_params["broad"]["lines"]
-        narrow_lines = basic_params["narrow"]["lines"]
+        broad_lines = basic_params.get("broad", {}).get("lines",[])
+        narrow_lines = basic_params.get("narrow", {}).get("lines",[])
         idx_broad = [i for i, L in enumerate(broad_lines) if L.lower() == line.lower()]
         idx_narrow = [i for i, L in enumerate(narrow_lines) if L.lower() == line.lower()]
         
