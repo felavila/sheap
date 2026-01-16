@@ -155,11 +155,13 @@ class Minimizer:
 
         vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
         if self.param_converter:
+            #print("")
             initial_params = self.param_converter.phys_to_raw(initial_params)
             raw_params,loss = vmap_optimize_model(initial_params,y,x,yerror,constraints,)
             
             return self.param_converter.raw_to_phys(raw_params),loss
         else:
+            #print warning sayng about no param class is defined
             return vmap_optimize_model(initial_params,y,x,yerror,constraints,)
 
     @staticmethod

@@ -137,7 +137,7 @@ class SpectralLine:
         """
         return asdict(self)
 
-
+#this still require a few changes 
 @dataclass
 class ComplexRegion:
     
@@ -469,24 +469,23 @@ class ProfileConstraintSet:
                 f"lower[{len(self.lower)}], param_names[{len(self.param_names)}]"
             )
 
-#This have to be a more flexible 
+
 @dataclass
 class FittingLimits:
     """
     Stores FWHM and shift limits for a line component kind.
 
     Attributes:
-        upper_fwhm (float): Maximum velocity FWHM (km/s).
-        lower_fwhm (float): Minimum velocity FWHM (km/s).
-        v_shift (float): Maximum velocity shift (km/s).
+        upper_fwhm_kms (float): Maximum velocity FWHM (km/s).
+        lower_fwhm_kms (float): Minimum velocity FWHM (km/s).
+        vshift_kms (float): Maximum velocity shift (km/s).
         max_amplitude (float): Maximum allowed amplitude.
     """
 
-    upper_fwhm: float
-    lower_fwhm: float
-    v_shift: Optional[float] = None
+    upper_fwhm_kms: float
+    lower_fwhm_kms: float
+    vshift_kms: Optional[float] = None
     max_amplitude:  Optional[float] = None
-    canonical_wavelengths: Optional[float] = None 
     references: Optional[list] = None 
     @classmethod
     def from_dict(cls, d: Dict[str, float]) -> "FittingLimits":
@@ -495,7 +494,7 @@ class FittingLimits:
 
         Args:
             d (Dict[str, float]): Dictionary with keys:
-                'upper_fwhm', 'lower_fwhm', 'center_shift', 'v_shift', 'max_amplitude'.
+                'upper_fwhm_kms', 'lower_fwhm_kms', 'vshift_kms', 'max_amplitude'.
 
         Returns:
             FittingLimits: Instance created from the dictionary.
@@ -503,16 +502,15 @@ class FittingLimits:
         Raises:
             ValueError: If any required key is missing from the dictionary.
         """
-        required_keys = {'upper_fwhm', 'lower_fwhm', 'v_shift', 'max_amplitude'}
+        required_keys = {'upper_fwhm_kms', 'lower_fwhm_kms', 'vshift_kms', 'max_amplitude'}
         missing = required_keys - d.keys()
         if missing:
             raise ValueError(f"Missing keys for FittingLimits: {missing}")
 
         return cls(
-            upper_fwhm=d['upper_fwhm'],
-            lower_fwhm=d['lower_fwhm'],
-            v_shift=d['v_shift'],
+            upper_fwhm_kms=d['upper_fwhm_kms'],lower_fwhm_kms=d['lower_fwhm_kms'],
+            vshift_kms =d['vshift_kms'],
             max_amplitude=d['max_amplitude'],
-            canonical_wavelengths = d["canonical_wavelengths"]
+            references=d.get('references'),
         )
 

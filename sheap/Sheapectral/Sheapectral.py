@@ -363,10 +363,8 @@ class Sheapectral:
         
         if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
             add_balmerhighorder_continuum = add_balmerhighorder_continuum
-            
         self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
-                                        add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
-                                           **kwargs)
+                                        add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
     
 
     def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
@@ -405,7 +403,8 @@ class Sheapectral:
         self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile) #until here only uses the things that it knows from complexbuild
 
         spectra = self.spectra.astype(jnp.float32)
-        if run_fit:    
+        if run_fit:
+            Warning(f"You selected run_fit = {run_fit}, if you want run the fit change to True")
             self.fitting_class(spectra,list_num_steps = list_num_steps,list_learning_rate =list_learning_rate,
                             covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
                                 penalty_weight= penalty_weight, curvature_weight= curvature_weight,

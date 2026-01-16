@@ -38,8 +38,8 @@ Examples
     sp = SpectralLine(line_name="Halpha", center=6563.0,
                     region="narrow", component=1,
                     amplitude=1.0, profile="gaussian")
-    limits = FittingLimits(upper_fwhm=5000, lower_fwhm=200,
-                        v_shift=600, max_amplitude=100)
+    limits = FittingLimits(upper_fwhm_kms=5000, lower_fwhm_kms=200,
+                        vshift_kms=600, max_amplitude=100)
     constraints = ProfileConstraintMaker(sp, limits)
 
     print(constraints.init, constraints.upper, constraints.lower)
@@ -65,7 +65,8 @@ from sheap.Utils.BasicFunctions import kms_to_wl
 from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
 
 
-#TODO profile handler is a unclear name we have to change it.
+#TODO vshift -> vshift_kms in all the place  fwhm -> fwhm_v_kms in where we are using it.
+
 def ProfileConstraintMaker(
     sp: SpectralLine,
     limits: FittingLimits,
@@ -84,13 +85,11 @@ def ProfileConstraintMaker(
         ProfileConstraintSet: Contains initial values, bounds, profile type, and parameter param_names.
     """
     selected_profile = sp.profile
-    #print("########",selected_profile,"##################")
     if selected_profile not in PROFILE_FUNC_MAP:
         raise ValueError(
             f"Profile '{selected_profile}' is not defined. "
         f"Available for continuum are : {list(PROFILE_CONTINUUM_FUNC_MAP.keys())+['balmercontinuum']} and for the profiles are {list(PROFILE_LINE_FUNC_MAP.keys())+ ['SPAF']}")
     if selected_profile == "SPAF":
-        # ---- SPAF: Sum of Profiles with Free Amplitudes ----
         if not subprofile:
             raise ValueError(f"SPAF profile requires a defined subprofile avalaible options are {list(PROFILE_LINE_FUNC_MAP.keys())}.")
         if not isinstance(sp.amplitude, list):
@@ -98,12 +97,12 @@ def ProfileConstraintMaker(
     if selected_profile in PROFILE_CONTINUUM_FUNC_MAP:  
         if selected_profile == 'powerlaw':
             return ProfileConstraintSet(
-                init=[-1.7, -1],
+                init=[ -1,-1.7],
                 upper=[0.0, 0.0],
-                lower=[-5.0, -5],
+                lower=[-5.0, -5.0],
                 profile=selected_profile,
                 param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names,
-                profile_fn = local_profile)#['index', 'scale'],
+                profile_fn = local_profile)
 
         if selected_profile == 'linear':
             return ProfileConstraintSet(
@@ -157,10 +156,10 @@ def ProfileConstraintMaker(
         param_names = func.param_names 
         center0   = sp.center
         shift0    = -1.0 if sp.region in ["outflow"] else 0.0
-        cen_up    = center0 + kms_to_wl(limits.v_shift, center0)
-        cen_lo    = center0 - kms_to_wl(limits.v_shift, center0)
-        fwhm_lo   = kms_to_wl(limits.lower_fwhm,    center0)
-        fwhm_up   = kms_to_wl(limits.upper_fwhm,    center0)
+        cen_up    = center0 + kms_to_wl(limits.vshift_kms, center0)
+        cen_lo    = center0 - kms_to_wl(limits.vshift_kms, center0)
+        fwhm_lo   = kms_to_wl(limits.lower_fwhm_kms,    center0)
+        fwhm_up   = kms_to_wl(limits.upper_fwhm_kms,    center0)
         amp_init =  float(sp.amplitude) / 10.0 * (-1.0 if sp.region in ["bal"] else 1.0)
         amp_lo =  limits.max_amplitude * (1.0 if sp.region in ["bal"] else 0.0)
         amp_up = limits.max_amplitude * (0.0 if sp.region in ["bal"] else 1.0)
@@ -215,12 +214,7 @@ def ProfileConstraintMaker(
         )
         
     if selected_profile == "SPAF":
-        #func = PROFILE_LINE_FUNC_MAP[subprofile]
         param_names = local_profile.param_names
-        shift_init = 0.0 if sp.component == 1 else (-1.0) ** (sp.component)
-        #shift_limit = kms_to_wl(limits.v_shift, lambda0)
-        #fwhm_up   = kms_to_wl(limits.upper_fwhm,    lambda0)
-        #fwhm_lo   = kms_to_wl(limits.lower_fwhm,    lambda0)
         logamp = -0.25 if sp.region=="narrow" else -2.0
         #the change here change all the results care.
         #fwhm_init =  fwhm_up if sp.region in ["outflow", "winds","narrow"] else fwhm_lo
@@ -254,65 +248,49 @@ def ProfileConstraintMaker(
                     init.append(10**logamp)
                     upper.append(10**1.0)
                     lower.append(0.0)
-                   
-            # elif p == "shift":
-            #     init.append(shift_init)
-            #     upper.append(shift_limit)
-            #     lower.append(-shift_limit)
-                
-            elif p == "v_shift":
-                init.append(0.0 if sp.component == 1 else (-1.0) ** (sp.component))
-                upper.append(limits.v_shift)
-                lower.append(-limits.v_shift)
-
+            
             elif p == "vshift_kms":
                 init.append(0.0 if sp.component == 1 else (-1.5) ** (sp.component))
-                upper.append(float(limits.v_shift))
-                lower.append(-float(limits.v_shift))
+                upper.append(float(limits.vshift_kms))
+                lower.append(-float(limits.vshift_kms))
                 
             elif p == "fwhm_v_kms":
-                init.append(np.log10((limits.lower_fwhm+limits.upper_fwhm)/2))
+                init.append(np.log10((limits.lower_fwhm_kms+limits.upper_fwhm_kms)/2))
                 #init.append(np.log10(float(limits.lower_fwhm)*(1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))))
-                upper.append(np.log10(float(limits.upper_fwhm)))
-                lower.append(np.log10(float(limits.lower_fwhm)))
+                upper.append(np.log10(float(limits.upper_fwhm_kms)))
+                lower.append(np.log10(float(limits.lower_fwhm_kms)))
             
-            
-            elif p in ("fwhm", "width", "fwhm_g", "fwhm_l"):
-                # both Gaussian & Lorentzian widths share same kinematic bounds
-                init.append(fwhm_init)
-                upper.append(fwhm_up)
-                lower.append(fwhm_lo)
+            # elif p in ("fwhm", "width", "fwhm_g", "fwhm_l"):
+            #     # both Gaussian & Lorentzian widths share same kinematic bounds
+            #     init.append(fwhm_init)
+            #     upper.append(fwhm_up)
+            #     lower.append(fwhm_lo)
                    
-            elif p in ("logfwhm", "logwidth", "logfwhm_g", "logfwhm_l"):
-                # both Gaussian & Lorentzian widths share same kinematic bounds
-                init.append(np.log10(fwhm_init))
-                upper.append(np.log10(fwhm_up))
-                lower.append(np.log10(fwhm_lo))
+            # elif p in ("logfwhm", "logwidth", "logfwhm_g", "logfwhm_l"):
+            #     # both Gaussian & Lorentzian widths share same kinematic bounds
+            #     init.append(np.log10(fwhm_init))
+            #     upper.append(np.log10(fwhm_up))
+            #     lower.append(np.log10(fwhm_lo))
 
-            elif p == "alpha":
-                # skewness parameter: start symmetric, allow ±5
-                init.append(0.0)
-                upper.append(5.0)
-                lower.append(-5.0)
+            # elif p == "alpha":
+            #     # skewness parameter: start symmetric, allow ±5
+            #     init.append(0.0)
+            #     upper.append(5.0)
+            #     lower.append(-5.0)
 
-            elif p in ("lambda", "lambda_"):
-                # EMG decay: start at 1, allow up to 1/tau ~ 1e3
-                init.append(1.0)
-                upper.append(1e3)
-                lower.append(0.0)
+            # elif p in ("lambda", "lambda_"):
+            #     # EMG decay: start at 1, allow up to 1/tau ~ 1e3
+            #     init.append(1.0)
+            #     upper.append(1e3)
+            #     lower.append(0.0)
             
-            elif p == "p_shift":
-                init.append(0)
-                upper.append(1.)
-                lower.append(-1.)
+            # elif p == "p_shift":
+            #     init.append(0)
+            #     upper.append(1.)
+            #    lower.append(-1.)
             else:
                 raise ValueError(f"Unknown profile parameter '{p}' for '{selected_profile}' check ProfileeConstraintMaker or the define profile param_names {param_names}")
-            #  elif p == "logshift":
-            #     init.append(0.0+(sp.component-1.0)*1e-3)
-            #     upper.append(np.log10( (lambda0 + 2*shift_upper) / lambda0 ))
-            #     lower.append(np.log10( (lambda0 - 2*shift_upper) / lambda0 ))
-                
-        #print("n total params",len(init))
+
         if not (len(init) == len(upper) == len(lower) == len(param_names)):
             raise RuntimeError(f"Builder mismatch for '{selected_profile}_{subprofile}': {param_names}")
         
@@ -326,13 +304,11 @@ def ProfileConstraintMaker(
         )
 
     if selected_profile == "template" and sp.region == "fe":
-        #maybe add a warning here
-        #shift = kms_to_wl(limits.v_shift, lambda0)
         params_names = local_profile.param_names
         #logamplitude
         init = [1.0,np.log10(4000.0), 0.0] 
-        upper = [2.0,np.log10(limits.upper_fwhm), limits.v_shift] 
-        lower = [-2.0,np.log10(limits.lower_fwhm), -limits.v_shift]  
+        upper = [2.0,np.log10(limits.upper_fwhm_kms), limits.vshift_kms] 
+        lower = [-2.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  
         #print(init,upper,lower)
         return ProfileConstraintSet(
             init= init,
@@ -343,15 +319,10 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "template":
-        v_shift = 1500.0 
-        #init_fwhm = 2000.0
-        upper_fwhm =  8000.0
-        lower_fwhm =  800.0
-        print(limits)
         params_names = local_profile.param_names
         init= [1.0, np.log10( 2000.0),0.0]
-        upper= [2.0, np.log10(upper_fwhm), v_shift]
-        lower= [-2.0,np.log10(lower_fwhm) , -v_shift]
+        upper= [2.0, np.log10(limits.upper_fwhm_kms), limits.vshift_kms]
+        lower= [-2.0,np.log10(limits.lower_fwhm_kms) , -limits.vshift_kms]
         #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(
             init= init,
@@ -364,13 +335,10 @@ def ProfileConstraintMaker(
         
     if selected_profile == "hostmiles":
         params_names = local_profile.param_names
-        #shift = kms_to_wl(limits.v_shift, lambda0)
-        params_names = local_profile.param_names
         #testing limits
         init = [0.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
-        upper = [4.0,3.5, limits.v_shift] + [1.0] * len(params_names[3:])#
-        lower = [-4.0,np.log10(limits.lower_fwhm), -limits.v_shift]  + [0.0] * len(params_names[3:])
-        #print(init,upper,lower)
+        upper = [4.0,3.5, limits.vshift_kms] + [1.0] * len(params_names[3:]) # ? 
+        lower = [-4.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  + [0.0] * len(params_names[3:])
         return ProfileConstraintSet(
                 init=init,
                 upper=upper,
@@ -388,13 +356,3 @@ def ProfileConstraintMaker(
             profile = selected_profile,
             param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
             profile_fn = local_profile)
-    
-#   "init":  [1e-2,  9.0,   -1.0],   # amplitude ~ 0.01 (in normalized units), T ≈ 4000+softplus(9) ~ 13k, tau0 ~ 0.31
-#     "lower": [0.0,  -10.0,  -10.0],  # keep amplitude >= 0; T_raw, tau_raw unconstrained but reasonable
-#     "upper": [10.0,  20.0,   20.0],  
-
-# balmer_highorder:
-#   upper_fwhm: 8000.0      # km/s
-#   lower_fwhm: 800.0       # km/s
-#   v_shift: 1500.0         # km/s (±)
-#   max_amplitude: 10.0     # dimensionless scaling

@@ -61,8 +61,8 @@ from sheap.Minimizer.Minimizer import Minimizer
 
 def phys_trust_region_inits(
     key, *,
-    params_obj,          # has phys_to_raw / raw_to_phys and knows ties
-    phys_map,            # MAP in physical space (vector of *free* params)
+    params_class,          # has phys_to_raw / raw_to_phys and knows ties
+    best_params,            # MAP in physical space (vector of *free* params)
     phys_bounds,         # [(lo, hi), ...] in physical space (same shape)
     num_samples=100,
     sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
@@ -82,16 +82,95 @@ def phys_trust_region_inits(
     keys = random.split(key, num_samples)
     draws_phys = []
     for ki in keys:
-        step = k_sigma * sigma_phys * random.normal(ki, shape=phys_map.shape)
-        phys = phys_map + step
+        step = k_sigma * sigma_phys * random.normal(ki, shape=best_params.shape)
+        phys = best_params + step
         # project back to physical bounds
         phys = jnp.clip(phys, lo, hi)
         draws_phys.append(phys)
 
     draws_phys = jnp.stack(draws_phys)  # (N, P)
     # map to raw (so your optimizer can work)
-    draws_raw = jnp.stack([params_obj.phys_to_raw(p) for p in draws_phys])
+    draws_raw = jnp.stack([params_class.phys_to_raw(p) for p in draws_phys])
     return draws_raw, draws_phys
+
+# def phys_trust_region_inits(
+#     key, *,
+#     params_class,
+#     best_params,
+#     phys_bounds,
+#     num_samples=100,
+#     sigma_raw=None,        # std in raw space
+#     frac_box_sigma=0.05,
+#     k_sigma=0.5,
+# ):
+#     key = random.PRNGKey(key) if isinstance(key, int) else key
+
+#     lo = jnp.array([b[0] for b in phys_bounds], dtype=jnp.float32)
+#     hi = jnp.array([b[1] for b in phys_bounds], dtype=jnp.float32)
+
+#     # map MAP -> raw
+#     phys_map = best_params
+#     raw_map = params_class.phys_to_raw(phys_map)
+
+#     if sigma_raw is None:
+#         # approximate raw sigma via a physical width mapped through the transform
+#         width = hi - lo
+#         sigma_phys = jnp.where(width > 0, frac_box_sigma * width, 0.0)
+#         # finite-diff local jacobian diag: d(raw)/d(phys)
+#         eps = 1e-4
+#         raw_plus  = params_class.phys_to_raw(jnp.clip(phys_map + eps, lo, hi))
+#         raw_minus = params_class.phys_to_raw(jnp.clip(phys_map - eps, lo, hi))
+#         jac_diag = (raw_plus - raw_minus) / (2 * eps)
+#         sigma_raw = jnp.abs(jac_diag) * sigma_phys
+
+#     keys = random.split(key, num_samples)
+#     draws_raw = []
+#     for ki in keys:
+#         step = k_sigma * sigma_raw * random.normal(ki, shape=raw_map.shape)
+#         r = raw_map + step
+#         # convert back to phys and enforce bounds
+#         p = jnp.clip(params_class.raw_to_phys(r), lo, hi)
+#         draws_raw.append(params_class.phys_to_raw(p))
+
+#     draws_raw = jnp.stack(draws_raw)
+#     draws_phys = jnp.stack([params_class.raw_to_phys(r) for r in draws_raw])
+#     return draws_raw, draws_phys
+
+
+def resample_spec_all(key, spec):
+    """
+    Resample flux for all objects in `spec` using their per-pixel errors.
+
+    Assumes `spec` has shape (C, N_obj, X) with:
+      spec[0, :, :] = wavelength (unchanged)
+      spec[1, :, :] = flux (resampled)
+      spec[2, :, :] = 1-sigma error (used for noise)
+
+    Parameters
+    ----------
+    key : jax.random.PRNGKey
+    spec : array-like, shape (3, N_obj, X)
+
+    Returns
+    -------
+    spec_out : jnp.ndarray, shape (3, N_obj, X), dtype float32
+        Same as input but with resampled flux channel.
+    """
+    spec = jnp.asarray(spec, dtype=jnp.float32)
+
+    wave  = spec[0]  # (N_obj, X)
+    flux  = spec[1]  # (N_obj, X)
+    sigma = spec[2]  # (N_obj, X)
+
+
+    eps = random.normal(key, shape=flux.shape, dtype=jnp.float32)
+
+    flux_new = flux + sigma * eps
+
+    spec_out = spec.at[1].set(flux_new)
+
+    return spec_out
+
 
 class MonteCarloSampler:
 	"""
@@ -102,83 +181,94 @@ class MonteCarloSampler:
 	def __init__(self, estimator: "ComplexSampler"):
 		self.estimator = estimator  # ParameterEstimation instance
 		self.complexparams = ComplexParams(samplerclass=estimator)
-		self.model = estimator.model
-		self.dependencies = estimator.dependencies
+		self.names = estimator.names 
+		self.model = jit(estimator.model)
+		#####norm_spectra####
 		self.scale = estimator.scale
 		self.spectra = estimator.spectra
 		self.mask = estimator.mask
-		self.params = estimator.params
+		self.norm_spectra = self._normalize_spectra()
+		########
+		self.params = estimator.params # are this in the normal scale
+		####
+		self.dependencies = estimator.dependencies
 		self.params_dict = estimator.params_dict
-		self.names = estimator.names 
+		
 		self.complex_class = estimator.complex_class
 		self.fitkwargs = estimator.fitkwargs
-		self.constraints = estimator.constraints
 		self.initial_params  = estimator.initial_params
 		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
+		self.tied_params = self.fitkwargs[-1]["tied"] #the tied params of the last iteration.
+		self.constraints = jnp.asarray(estimator.constraints, dtype=jnp.float32) #this will be moved
+		self.params_class = self._build_params_class()
+		self.best_params = descale_amp(self.params_dict,self.params,self.scale).astype(jnp.float32) #thescaled
+
 	
-	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
+	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
+		
+		from tqdm import tqdm
+		print(f"Running Monte Carlo with JAX.,sample over the spectra")
+		norm_spectra = self.norm_spectra
+		model = self.model 
+		
+		_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
+
+		iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
+		key = random.PRNGKey(key_seed)
+		monte_params = []
+		for n in iterator:
+			key, ki = random.split(key)
+			norm_spectra_local = resample_spec_all(ki,norm_spectra)
+			t0 = time.perf_counter()
+			params_m, _ = _minimizer(self.best_params, *norm_spectra_local, self.constraints)
+			t1 = time.perf_counter()
+			monte_params.append(params_m)
+			iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+
+		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
+
+  
+		dic_posterior_params = {}
+		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+		for n, name_i in enumerate(iterator):
+			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
+			dic_posterior_params[name_i] = {"samples_phys":full_samples}
+			dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+			dic_posterior_params[name_i].update({"samples_phys":full_samples})
+
+		return dic_posterior_params
+
+ 
+	def sample_params_vs(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
+			#it looks like this only work for frac_box_sigma=0.02,k_sigma=0.3 limits 
 			from tqdm import tqdm
 			print(f"Running Monte Carlo with JAX.,frac_box_sigma={frac_box_sigma},k_sigma={k_sigma}")
-			model = jit(self.model)#this should be the case in the case the model is not already jit
-			# Normalize spectratra
-			scale = np.atleast_1d(self.scale.astype(jnp.float32))
-			#print(scale.shape)
-			spectra = self.spectra.astype(jnp.float32)
+			model = self.model 
+			norm_spectra = self.norm_spectra
+			best_params = self.best_params 
 
-			norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
-			norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
-			norm_spectra = norm_spectra.astype(jnp.float32)
-
-			#print(self.params_dict,self.params,self.scale)
-			phys_map = descale_amp(self.params_dict,self.params,self.scale)
-
-			# param_min = jnp.array([c[0] for c in self.constraints], dtype=jnp.float32)
-			# param_max = jnp.array([c[1] for c in self.constraints], dtype=jnp.float32)
-
-			list_dependencies = self._build_tied(self.fitkwargs[-1]["tied"])
-			list_dependencies = parse_dependencies(self._build_tied(self.fitkwargs[-1]["tied"]))
-			tied_map = {T[1]: T[2:] for  T in list_dependencies}
-			tied_map = flatten_tied_map(tied_map)
-
-			norm_spectra_T = norm_spectra.transpose(1, 0, 2)
-
-			self.params_obj = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
-
-			draws_raw, draws_phys = phys_trust_region_inits(
-			key_seed,
-			params_obj=self.params_obj,
-			phys_map=phys_map,
-			phys_bounds=self.constraints,
-			num_samples=num_samples, frac_box_sigma= frac_box_sigma,k_sigma=k_sigma )
-
-			draws_raw = draws_raw.astype(jnp.float32)  # ensure consistent dtype
+			_, draws_phys = phys_trust_region_inits(key_seed, params_class=self.params_class, best_params=best_params, phys_bounds=self.constraints, num_samples=num_samples, frac_box_sigma= frac_box_sigma,k_sigma=k_sigma )
+			
+			draws_phys = draws_phys.astype(jnp.float32)  # ensure consistent dtype
 			if return_only_draws:
 				iterator = tqdm(self.names, total=len(self.names), desc="Getting draws")
 				_draws_phys = np.moveaxis(draws_phys,0,1)
 				dic_posterior_params = {}
 				for n, name_i in enumerate(iterator):
-					draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),scale[n])
+					draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),self.scale[n])
 					dic_posterior_params[name_i]=({"draws_phys":draws_phys_n})
 				return dic_posterior_params
-   			#print(self.fitkwargs)
+   			
 			_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
 
-			constraints_jnp = jnp.asarray(self.constraints, dtype=jnp.float32)
-
-			#raw_init0 = draws_raw[0]
-			#raw_params0, _ = _minimizer(raw_init0, *norm_spectra_T, constraints_jnp)
-			# Force the computation to finish so compile time happens here:
-			#raw_params0.block_until_ready()
-
-			raw_init = self.params_obj.phys_to_raw(phys_map)
 
 			iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
 
 			monte_params = []
 			for n in iterator:
-				raw_init = draws_raw[n]  # already float32
+				draws_phys_local = draws_phys[n]  # already float32
 				t0 = time.perf_counter()
-				params_m, _ = _minimizer(raw_init, *norm_spectra_T, constraints_jnp)
+				params_m, _ = _minimizer(draws_phys_local, *norm_spectra, self.constraints)
 				t1 = time.perf_counter()
 
 				monte_params.append(params_m)
@@ -186,15 +276,13 @@ class MonteCarloSampler:
 	
 			_monte_params = np.moveaxis(np.stack(monte_params),0,1)
 			_draws_phys = np.moveaxis(draws_phys,0,1)
-			
-			#print(draws_raw[n])
 			dic_posterior_params = {}
 
 			iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
 			
 			for n, name_i in enumerate(iterator):
-				full_samples = scale_amp(self.params_dict,_monte_params[n],scale[n])
-				draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),scale[n])
+				full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
+				draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),self.scale[n])
 				dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
 				dic_posterior_params[name_i].update({"samples_phys":full_samples,"draws_phys":draws_phys_n})
 
@@ -203,45 +291,51 @@ class MonteCarloSampler:
 
 	def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
 					method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
-		print(num_steps)
-		#num_steps = 2_000
 		minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
-							learning_rate=learning_rate,param_converter= self.params_obj,penalty_function = penalty_function,method=method,
+							learning_rate=learning_rate,param_converter= self.params_class,penalty_function = penalty_function,method=method,
 							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
 		
 		
-		#print(raw_params)
 		return minimizer
         
         
         
-	def _build_tied(self, tied_params):
-		"""
-		Convert tied‑parameter specifications into dependency strings.
+	# def _build_tied(self, tied_params):
+	# 	"""
+	# 	Convert tied‑parameter specifications into dependency strings.
 
-		Parameters
-		----------
-		tied_params : list of list
-			Each inner list is `[param_target, param_source, ..., optional_value]`.
+	# 	Parameters
+	# 	----------
+	# 	tied_params : list of list
+	# 		Each inner list is `[param_target, param_source, ..., optional_value]`.
 
-		Returns
-		-------
-		list[str]
-			Dependency expressions for the minimizer.
-		"""
-		return build_tied(tied_params,self.get_param_coord_value)
-    
-    
-    
-    # for n,p in enumerate(iterator):
-    #         start_time = time.time()  # 
-    #         p = jnp.tile(p, (norm_spec.shape[0], 1))
-    #         #result.configfittr?
-    #         raw_init = self.params_obj.phys_to_raw(p)
-    #         raw_params, _ = jit(_minimizer(raw_init, *norm_spec.transpose(1, 0, 2), self.constraints))
-    #         params_m = self.params_obj.raw_to_phys(raw_params)
-    #         #params_m, _ = self._fit(norm_spec=norm_spec,model = self.model,initial_params=p,**self.fitkwargs[-1])
-    #         monte_params.append(params_m)
-    #         end_time = time.time()  # 
-    #         elapsed = end_time - start_time
-    #         print(f"Time elapsed for : {n}-{elapsed:.2f} seconds")
+	# 	Returns
+	# 	-------
+	# 	list[str]
+	# 		Dependency expressions for the minimizer.
+	# 	"""
+	# 	return build_tied(tied_params,self.get_param_coord_value)
+
+	def _normalize_spectra(self):
+		"from the clasical shape to the one that is use during the fitting"
+		scale = jnp.atleast_1d(self.scale.astype(jnp.float32))
+		spectra = self.spectra.astype(jnp.float32)
+		norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+		norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
+		return norm_spectra.astype(jnp.float32).transpose(1, 0, 2)
+
+ 
+	def _build_params_class(self):
+		dependencies = build_tied(self.tied_params,self.get_param_coord_value)
+		list_dependencies = parse_dependencies(dependencies)
+		tied_map = {T[1]: T[2:] for  T in list_dependencies}
+		tied_map = flatten_tied_map(tied_map)
+		params_class = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+		return params_class
+  
+ 		#list_dependencies = self.dependencies
+        #tied_map = {T[1]: T[2:] for  T in list_dependencies}
+        #tied_map = flatten_tied_map(tied_map)
+        #self.tied_map = tied_map
+        #self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
+        

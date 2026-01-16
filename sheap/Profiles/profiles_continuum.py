@@ -57,7 +57,7 @@ delta0 : Reference wavelength (5500 Å) used for continuum scaling.
 
 delta0 = 5500.0  #: Normalization wavelength in Ångström used for continuum models (λ/λ₀)
 
-
+#TODO Check in the profiles with only one amplitude -> move all to logamp
 
 @with_param_names(["amplitude_slope", "amplitude_intercept"])
 def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
@@ -85,7 +85,8 @@ def linear(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     return intercept + slope * x
 
 
-@with_param_names(["alpha", "logamp"])
+
+@with_param_names(["logamp","alpha"])
 def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     r"""
     Power-law continuum profile.
@@ -105,7 +106,7 @@ def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
     jnp.ndarray
         Evaluated flux.
     """
-    alpha, A = params
+    A, alpha = params
     x = xs / delta0
     return 10**A * x ** alpha
 

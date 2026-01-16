@@ -186,12 +186,12 @@ class ComplexFitting:
         for key, val in region_dict.items():
             setattr(self, key, val)
         self.limits_map: Dict[str, FittingLimits] = {}
-        for kind, cfg in DEFAULT_LIMITS.items():
+        for region, cfg in DEFAULT_LIMITS.items():
             default_lim = FittingLimits.from_dict(cfg)
             # Use override if provided, else default
-            self.limits_map[kind] = (
-                limits_overrides[kind]
-                if limits_overrides and kind in limits_overrides
+            self.limits_map[region] = (
+                limits_overrides[region]
+                if limits_overrides and region in limits_overrides
                 else default_lim
             )
         self.params_dict: Dict[str, int] = {}
@@ -489,6 +489,7 @@ class ComplexFitting:
         idx = 0  # parameter_position
         complex_region = []
         for _,sp in enumerate(self.complex_class.lines):
+            region_name = sp.region
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
             if "SPAF" in holder_profile:
@@ -502,11 +503,14 @@ class ComplexFitting:
                 profile_fn = host_dict["model"]
                 self.host_info = host_dict["host_info"] 
             elif sp.profile == "template":
-                fe_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
-                profile_fn = fe_dict["model"]
+                if sp.line_name == "balmerhighorder":
+                    region_name = sp.line_name
+                template_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
+                profile_fn = template_dict["model"]
             else:
                 profile_fn =  PROFILE_FUNC_MAP.get(holder_profile, PROFILE_FUNC_MAP["gaussian"])#?
-            constraints = ProfileConstraintMaker(sp, self.limits_map.get(sp.region), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
+            
+            constraints = ProfileConstraintMaker(sp, self.limits_map.get(region_name), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
             sp.profile = constraints.profile
             complex_region.append(sp)
             init_list.extend(constraints.init)

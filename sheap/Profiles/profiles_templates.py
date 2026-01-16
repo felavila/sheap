@@ -79,7 +79,7 @@ TEMPLATES: Dict[str, Dict[str, Any]] = {
                 "central_wl": 3675.0
                 }
 }
-#We have to change this to something more like "template handler functions"
+
 def make_template_function(
     name: str,
     x_min: Optional[float] = None,  # Angstroms (linear)
@@ -280,7 +280,7 @@ def make_host_function(
     grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
 
    
-    param_names = ["logamp", "logFWHM", "vshiftkms"]
+    param_names = ["logamp", "logFWHM", "vshift_kms"]
     for Z, age in grid_metadata:
         zstr = str(Z).replace(".", "p")
         astr = str(age).replace(".", "p")
@@ -318,13 +318,11 @@ def make_host_function(
         base_fft = jnp.fft.fft(base)
         conv = jnp.real(jnp.fft.ifft(base_fft * gauss_tf))
 
-        # --- velocity shift ---
-        # positive vshift_kms -> redder wavelengths (features move to the red)
+
         beta = vshift_kms / C_KMS
-        xp = wave_jax * (1.0 + beta)  # model wavelengths after applying velocity shift
+        xp = wave_jax * (1.0 + beta)  
 
         return amplitude * jnp.interp(x*f, xp, conv, left=0.0, right=0.0)
-        #return amplitude * jnp.interp(x, xp, conv, left=0.0, right=0.0)
 
     return {
         "model": model,
@@ -338,107 +336,3 @@ def make_host_function(
         },
     }
     
-    
-def make_template_function_clasiccal(
-    name: str,
-    x_min: Optional[float] = None,  # Angstroms (linear)
-    x_max: Optional[float] = None,
-) -> Dict[str, Any]:
-    """
-    Factory for a FeII template model by name, with optional wavelength cuts.
-
-    Looks up path, central_wl, sigmatemplate, and optional fixed_dispersion in FEII_TEMPLATES.
-
-    If x_min/x_max are provided, the template spectrum is cut to [x_min, x_max]
-    with a ±50 Å guard band to reduce boundary artifacts in the FFT broadening, and
-    then re-normalized to unit sum.
-
-    Returns:
-      {
-        'model': Callable(x, params) -> flux,  # has .param_names, .n_params
-        'template_info': {
-            'name', 'file', 'central_wl', 'sigmatemplate',
-            'fixed_dispersion', 'x_min', 'x_max', 'dl'
-        }
-      }
-    """
-    cfg = TEMPLATES.get(name)
-    if cfg is None:
-        raise KeyError(f"No such template: {name}")
-
-    path          = cfg["file"]
-    central_wl    = cfg["central_wl"]
-    sigmatemplate = cfg["sigmatemplate"]
-    user_fd       = cfg.get("fixed_dispersion", None)
-
-    data = np.loadtxt(path, comments="#").T
-    wl   = np.array(data[0], dtype=np.float64)
-    flux = np.array(data[1], dtype=np.float64)
-    #print(wl[[0,-1]])
-    # Optional wavelength cut with ±50 Å margin (like host model)
-    if x_min is not None or x_max is not None:
-        #print("cutting between",x_min,x_max)
-        mask = np.ones_like(wl, dtype=bool)
-        if x_min is not None:
-            mask &= wl >= max(x_min - 50.0, wl.min())
-        if x_max is not None:
-            mask &= wl <= min(x_max + 50.0, wl.max())
-        if not np.any(mask):
-            raise ValueError("No wavelength values left after applying x_min/x_max cut.")
-        wl   = wl[mask]
-        flux = flux[mask]
-
-    # Ensure equally spaced grid
-    if wl.size < 3:
-        raise ValueError("Template too short after cutting; need at least 3 points.")
-    dl = float(wl[1] - wl[0])
-
-    # Re-normalize to unit sum AFTER any cut
-    unit_flux = flux / np.clip(np.sum(flux), 1e-10, np.inf)
-
-    # km/s per pixel ≈ (dλ/λ) * c  (c ~ 3e5 km/s)
-    if user_fd is None:
-        fixed_dispersion = (dl / central_wl) * 3e5
-    else:
-        fixed_dispersion = float(user_fd)
-
-    param_names = ["logamp", "logFWHM", "shift"]
-
-    @with_param_names(param_names)
-    def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
-        logamp, logFWHM, shift = params
-        amp   = 10.0 ** logamp
-        FWHM  = 10.0 ** logFWHM
-        sigma_model = FWHM / 2.355
-        # quadratic subtraction of the template's intrinsic sigma
-        delta_sigma = jnp.sqrt(jnp.maximum(sigma_model**2 - sigmatemplate**2, 1e-12))
-
-        # Convert km/s → Å (at central λ), then → pixels
-        sigma_lambda = delta_sigma * central_wl / 3e5  # Å
-        sigma_pix    = sigma_lambda / dl               # pixels
-
-        n_pix = unit_flux.shape[0]
-        #freq     = jnp.fft.fftfreq(n_pix, d=dl)
-        freq     = jnp.fft.fftfreq(n_pix, d=1.0)
-        gauss_tf = jnp.exp(-2.0 * (jnp.pi * freq * sigma_pix) ** 2)
-        spec_fft = jnp.fft.fft(jnp.asarray(unit_flux))
-        broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
-
-        
-        shifted_wl = jnp.asarray(wl) + shift
-        interp = jnp.interp(x, shifted_wl, broadened, left=0.0, right=0.0)
-        return amp * interp
-
-    return {
-        "model": model,
-        "template_info": {
-            "name": name,
-            "file": str(path),
-            "central_wl": float(central_wl),
-            "sigmatemplate": float(sigmatemplate),
-            "fixed_dispersion": float(fixed_dispersion),
-            "x_min": None if x_min is None else float(x_min),
-            "x_max": None if x_max is None else float(x_max),
-            "dl": dl,
-        },
-    }

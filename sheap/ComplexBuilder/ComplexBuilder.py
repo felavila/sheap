@@ -211,8 +211,8 @@ class ComplexBuilder:
         n_max_component_bal = 1,
         #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
         #fe_tied_params=('center', 'fwhm'),
-        verbose=True,
-        ) -> None:
+        #verbose=True,
+        **kwargs) -> None:
         """
         Initialize the ComplexBuilder with region bounds and options.
 
@@ -258,7 +258,7 @@ class ComplexBuilder:
         self.add_winds = add_winds
         self.add_uncommon_narrow = add_uncommon_narrow
         self.add_balmerhighorder_continuum = add_balmerhighorder_continuum
-        self.verbose = verbose
+        self.verbose = kwargs.get("verbose",False)
         self.add_host_miles = add_host_miles
         self.tied_broad_to = tied_broad_to
         self.tied_narrow_to = tied_narrow_to
@@ -615,7 +615,8 @@ class ComplexBuilder:
             return fe_comps
         
         elif fe_mode == "template":
-            print("Added feuvop template")
+            if self.verbose:
+                print("Added fe template")
             fe_comps.extend([SpectralLine(line_name="feuvop",region="fe",component=1,profile="template",template_info = {"name":"feuvop","x_min":xmin,"x_max":xmax})])
             # t_c = 0
             # if max(0, min(xmax, 7484) - max(xmin, 3686)) >= 1000:
@@ -634,6 +635,8 @@ class ComplexBuilder:
             #     print("The covered range is not valid for template use. Switching to model mode. Work in progress, if no Fe wanted put fe_mode = none.")#this have to be a warning
             #     fe_mode = "model"
         elif fe_mode == "model":      
+            if self.verbose:
+                print("Added model fe")
             for pseudo_region_name,list_dict in self.lines_available.items():
                 for raw_line in list_dict:
                     center = float(raw_line.get('center', -np.inf))
@@ -667,12 +670,15 @@ class ComplexBuilder:
             Continuum components.
         """
         continuum_comps = []
-        #print(add_balmer_continuum,add_balmerhighorder_continuum)
         if add_balmer_continuum:
             #if not xmax< 3646:
              #   warnings.warn(f"Care with the addition of balmer continuum {xmax}")
+            if self.verbose:
+                print("added balmer continuum")
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='balmer',component=0,profile='balmercontinuum'))
         if add_balmerhighorder_continuum:
+            if self.verbose:
+                print("added balmer high order continuum")
             # if not xmax< 3646:
             #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
             continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='template'
