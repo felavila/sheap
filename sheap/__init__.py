@@ -5,6 +5,8 @@ from sheap.Core import (SpectralLine,ComplexRegion,ComplexResult,ProfileConstrai
 
 from sheap.Sheapectral.Sheapectral import Sheapectral
 
+__version__ = "0.0.7"
+
 __all__ = [
     "Assistants",
     "ComplexAfterFit",

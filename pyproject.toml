@@ -10,7 +10,7 @@ build-backend = "poetry.core.masonry.api"
 ## Also renders on pypi as 'subtitle'
 [tool.poetry]
 name = "sheap"
-version = "0.0.6"
+version = "0.0.7"
 description = "sheap: Spectral Handling and Estimation of AGN Parameters"
 authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
 maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
@@ -94,7 +94,7 @@ numpy = ">=2.0,<2.3"
 pandas = ">=2.2"
 scipy = ">=1.11"
 # Astronomy / plotting
-astropy = ">=6.0,<=7.0""
+astropy = ">=6.0,<=7.0"
 matplotlib = ">=3.8"
 # JAX stack (keep jax/jaxlib aligned)
 #jax = ">=0.6,<0.8"
