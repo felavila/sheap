@@ -202,7 +202,11 @@ class Sheapectral:
         self.z = self._prepare_z(z, self.spectra.shape[0])
 
         self.names = (np.atleast_1d(names) if names is not None else np.arange(self.spectra.shape[0]).astype(str))
-
+        if self.names.shape[0] !=self.spectra.shape[0]:
+            print(f"The number of names ({len(self.names.shape[0])}) is different from the number of spectra ({self.spectra.shape[0]}) the code will use the inner names")
+            self.names = np.arange(self.spectra.shape[0]).astype(str)
+        #print(self.names.shape,self.spectra.shape)
+        
         if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
             
             print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
@@ -850,10 +854,16 @@ class Sheapectral:
         if not hasattr(self, "result"):
             raise RuntimeError("self.result should exist to run this.")
         chi2_model = self.result.chi2_red  # or whatever your model object is
+        chi2_model = np.asarray(chi2_model)
 
+        nan_mask = ~np.isfinite(chi2_model)
+        nan_idx = np.where(nan_mask)[0]
+        chi2_model = chi2_model[~nan_mask]
+        print(f"NaN / non-finite entries at indices: {nan_idx.tolist()}")
+        print(f"Number of NaNs / non-finite values: {nan_idx.size}")
         # --- Compute fraction in (0,5) ---
         mask_range_model = (chi2_model > 0.) & (chi2_model < 5.)
-        frac_model_0_5 = np.mean(mask_range_model) * 100.0
+        frac_model_0_5 = np.nanmean(mask_range_model) * 100.0
 
         # --- Define bins from model only ---
         chi2_min = chi2_model.min()
@@ -868,7 +878,7 @@ class Sheapectral:
             bins=bins,
             alpha=0.7,
             color="#d62728",
-            label=fr"Model chi2 (median = {np.median(chi2_model):.2f})"
+            label=fr"Model chi2 (median = {np.nanmedian(chi2_model):.2f})"
         )
 
         ax.set_xlabel(r"Reduced $\chi^2$", fontsize=18)

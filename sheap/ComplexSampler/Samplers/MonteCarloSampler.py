@@ -39,9 +39,7 @@ Notes
 
 __author__ = 'felavila'
 
-__all__ = [
-    "MonteCarloSampler",
-]
+__all__ = ["MonteCarloSampler",]
 
 from typing import Tuple, Dict, List
 
@@ -53,123 +51,11 @@ import numpy as np
 import time
 
 
-from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
+from sheap.Assistants.parser_mapper import descale_amp,scale_amp,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
 from sheap.ComplexParams.ComplexParams import ComplexParams
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
-
-
-def phys_trust_region_inits(
-    key, *,
-    params_class,          # has phys_to_raw / raw_to_phys and knows ties
-    best_params,            # MAP in physical space (vector of *free* params)
-    phys_bounds,         # [(lo, hi), ...] in physical space (same shape)
-    num_samples=100,
-    sigma_phys=None,     # per-parameter std in physical space; if None use frac of box
-    frac_box_sigma=0.05, # fallback noise size ~5% of (hi-lo)
-    k_sigma= 0.5          # multiplier for sigma_phys
-):
-    key = random.PRNGKey(key) if isinstance(key, int) else key
-
-    lo = jnp.array([b[0] for b in phys_bounds], dtype=jnp.float32)
-    hi = jnp.array([b[1] for b in phys_bounds], dtype=jnp.float32)
-    width = hi - lo
-
-    if sigma_phys is None:
-        # fallback: a fraction of the box width (handles fixed params when width==0)
-        sigma_phys = jnp.where(width > 0, frac_box_sigma * width, 0.0)
-
-    keys = random.split(key, num_samples)
-    draws_phys = []
-    for ki in keys:
-        step = k_sigma * sigma_phys * random.normal(ki, shape=best_params.shape)
-        phys = best_params + step
-        # project back to physical bounds
-        phys = jnp.clip(phys, lo, hi)
-        draws_phys.append(phys)
-
-    draws_phys = jnp.stack(draws_phys)  # (N, P)
-    # map to raw (so your optimizer can work)
-    draws_raw = jnp.stack([params_class.phys_to_raw(p) for p in draws_phys])
-    return draws_raw, draws_phys
-
-# def phys_trust_region_inits(
-#     key, *,
-#     params_class,
-#     best_params,
-#     phys_bounds,
-#     num_samples=100,
-#     sigma_raw=None,        # std in raw space
-#     frac_box_sigma=0.05,
-#     k_sigma=0.5,
-# ):
-#     key = random.PRNGKey(key) if isinstance(key, int) else key
-
-#     lo = jnp.array([b[0] for b in phys_bounds], dtype=jnp.float32)
-#     hi = jnp.array([b[1] for b in phys_bounds], dtype=jnp.float32)
-
-#     # map MAP -> raw
-#     phys_map = best_params
-#     raw_map = params_class.phys_to_raw(phys_map)
-
-#     if sigma_raw is None:
-#         # approximate raw sigma via a physical width mapped through the transform
-#         width = hi - lo
-#         sigma_phys = jnp.where(width > 0, frac_box_sigma * width, 0.0)
-#         # finite-diff local jacobian diag: d(raw)/d(phys)
-#         eps = 1e-4
-#         raw_plus  = params_class.phys_to_raw(jnp.clip(phys_map + eps, lo, hi))
-#         raw_minus = params_class.phys_to_raw(jnp.clip(phys_map - eps, lo, hi))
-#         jac_diag = (raw_plus - raw_minus) / (2 * eps)
-#         sigma_raw = jnp.abs(jac_diag) * sigma_phys
-
-#     keys = random.split(key, num_samples)
-#     draws_raw = []
-#     for ki in keys:
-#         step = k_sigma * sigma_raw * random.normal(ki, shape=raw_map.shape)
-#         r = raw_map + step
-#         # convert back to phys and enforce bounds
-#         p = jnp.clip(params_class.raw_to_phys(r), lo, hi)
-#         draws_raw.append(params_class.phys_to_raw(p))
-
-#     draws_raw = jnp.stack(draws_raw)
-#     draws_phys = jnp.stack([params_class.raw_to_phys(r) for r in draws_raw])
-#     return draws_raw, draws_phys
-
-
-def resample_spec_all(key, spec):
-    """
-    Resample flux for all objects in `spec` using their per-pixel errors.
-
-    Assumes `spec` has shape (C, N_obj, X) with:
-      spec[0, :, :] = wavelength (unchanged)
-      spec[1, :, :] = flux (resampled)
-      spec[2, :, :] = 1-sigma error (used for noise)
-
-    Parameters
-    ----------
-    key : jax.random.PRNGKey
-    spec : array-like, shape (3, N_obj, X)
-
-    Returns
-    -------
-    spec_out : jnp.ndarray, shape (3, N_obj, X), dtype float32
-        Same as input but with resampled flux channel.
-    """
-    spec = jnp.asarray(spec, dtype=jnp.float32)
-
-    wave  = spec[0]  # (N_obj, X)
-    flux  = spec[1]  # (N_obj, X)
-    sigma = spec[2]  # (N_obj, X)
-
-
-    eps = random.normal(key, shape=flux.shape, dtype=jnp.float32)
-
-    flux_new = flux + sigma * eps
-
-    spec_out = spec.at[1].set(flux_new)
-
-    return spec_out
+from sheap.ComplexSampler.Samplers.Utils.montecarlo_utils import phys_trust_region_inits,resample_spec_all 
 
 
 class MonteCarloSampler:
@@ -190,7 +76,7 @@ class MonteCarloSampler:
 		self.norm_spectra = self._normalize_spectra()
 		########
 		self.params = estimator.params # are this in the normal scale
-		####
+		########
 		self.dependencies = estimator.dependencies
 		self.params_dict = estimator.params_dict
 		
@@ -212,7 +98,6 @@ class MonteCarloSampler:
 		model = self.model 
 		
 		_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
-
 		iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
 		key = random.PRNGKey(key_seed)
 		monte_params = []
@@ -229,6 +114,7 @@ class MonteCarloSampler:
 
   
 		dic_posterior_params = {}
+  
 		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
@@ -239,7 +125,7 @@ class MonteCarloSampler:
 		return dic_posterior_params
 
  
-	def sample_params_vs(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
+	def sample_params_experimental(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
 			#it looks like this only work for frac_box_sigma=0.02,k_sigma=0.3 limits 
 			from tqdm import tqdm
 			print(f"Running Monte Carlo with JAX.,frac_box_sigma={frac_box_sigma},k_sigma={k_sigma}")
@@ -296,26 +182,7 @@ class MonteCarloSampler:
 							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
 		
 		
-		return minimizer
-        
-        
-        
-	# def _build_tied(self, tied_params):
-	# 	"""
-	# 	Convert tied‑parameter specifications into dependency strings.
-
-	# 	Parameters
-	# 	----------
-	# 	tied_params : list of list
-	# 		Each inner list is `[param_target, param_source, ..., optional_value]`.
-
-	# 	Returns
-	# 	-------
-	# 	list[str]
-	# 		Dependency expressions for the minimizer.
-	# 	"""
-	# 	return build_tied(tied_params,self.get_param_coord_value)
-
+		return minimizer  
 	def _normalize_spectra(self):
 		"from the clasical shape to the one that is use during the fitting"
 		scale = jnp.atleast_1d(self.scale.astype(jnp.float32))
@@ -339,3 +206,18 @@ class MonteCarloSampler:
         #self.tied_map = tied_map
         #self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
         
+    	# def _build_tied(self, tied_params):
+	# 	"""
+	# 	Convert tied‑parameter specifications into dependency strings.
+
+	# 	Parameters
+	# 	----------
+	# 	tied_params : list of list
+	# 		Each inner list is `[param_target, param_source, ..., optional_value]`.
+
+	# 	Returns
+	# 	-------
+	# 	list[str]
+	# 		Dependency expressions for the minimizer.
+	# 	"""
+	# 	return build_tied(tied_params,self.get_param_coord_value)

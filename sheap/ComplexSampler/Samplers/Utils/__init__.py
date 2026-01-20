@@ -3,9 +3,7 @@ __author__ = 'felavila'
 
 
 
-__all__ = [
-    "numpyro_utils",
-]
+__all__ = ["numpyro_utils", "montecarlo_utils"]
 
 
 
