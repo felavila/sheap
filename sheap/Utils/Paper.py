@@ -4,10 +4,22 @@ Docstring for sheap.Utils.Paper
 This requiere alot of cleaning
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, Optional, Tuple
+
 import numpy as np 
 import matplotlib.pyplot as plt 
 import pandas as pd
 from collections.abc import Mapping
+import jax.numpy as jnp
+from jax import jit, vmap
+
+
+from sheap.Profiles.Utils import make_fused_profiles
+
+
 
 
 def median_with_errors(x, low=0.16, high=0.84, ignore_nan=True, axis=None):
@@ -794,6 +806,54 @@ def plot_logdex_agreement(
 
 
 
+def errors_to_logspace(vals, err_minus, err_plus, *, fill_value=0.30103):
+    """
+    Convert linear errors on vals to log10-space errors.
+
+    If the log-error is undefined (e.g. v - err_minus <= 0),
+    replace NaN with a conservative 100% error (log10(2) ≈ 0.301 dex).
+
+    Parameters
+    ----------
+    vals : array-like
+        Central values (linear space).
+    err_minus, err_plus : array-like
+        Lower and upper 1-sigma errors (linear space).
+    fill_value : float, optional
+        Replacement value in log10-space for invalid errors.
+        Default is log10(2) ≈ 0.301 dex.
+
+    Returns
+    -------
+    err_minus_log, err_plus_log : ndarray
+        Log10-space asymmetric errors.
+    """
+    if err_minus is None or err_plus is None:
+        return None, None
+
+    v  = np.asarray(vals, dtype=float)
+    em = np.asarray(err_minus, dtype=float)
+    ep = np.asarray(err_plus, dtype=float)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        base = np.log10(v)
+
+        err_m = base - np.log10(v - em)
+        err_p = np.log10(v + ep) - base
+
+    # replace invalid values with "100% error"
+    bad_plus = np.where(~np.isfinite(err_p))[0]
+    bad_minus = np.where(~np.isfinite(err_m))[0]
+    if len(bad_plus)>0:
+        print(f"Bad errors plus in index {bad_plus}, replacing per 100% error")
+    if len(bad_minus)>0:
+        print(f"Bad errors minus in index {bad_minus} 100% error")
+    err_m = np.where(np.isfinite(err_m), err_m, fill_value)
+    err_p = np.where(np.isfinite(err_p), err_p, fill_value)
+
+    return err_m, err_p
+
+
 def plot_logdex_agreement_v2(
     data_dict,
     xlabel=r'$\log_{10}(\mathrm{FWHM}_{\mathrm{ref}}\ [\mathrm{km\ s^{-1}}])$',
@@ -818,7 +878,8 @@ def plot_logdex_agreement_v2(
     what="",
     label_mode=None,
     add_numbers=False,
-    name_line ="line"
+    name_line ="line",
+    legend_loc = "lower right",
 ):
     """
     Plot y vs x in log10 space with a 1:1 line and a ±band (dex) region, for
@@ -949,32 +1010,7 @@ def plot_logdex_agreement_v2(
         e_minus = np.abs(e_minus)
         return vals, e_minus, e_plus
 
-    def errors_to_logspace(vals, err_minus, err_plus):
-        """
-        Convert linear errors on vals to log10-space errors.
-
-        Returns (err_minus_log, err_plus_log), each 1D array or (None, None).
-        """
-        if err_minus is None or err_plus is None:
-            return None, None
-
-        v = np.asarray(vals, dtype=float)
-        em = np.asarray(err_minus, dtype=float)
-        ep = np.asarray(err_plus, dtype=float)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            # guard against non-positive in (v - em) and (v + ep)
-            low_ok = (v - em) > 0
-            up_ok  = (v + ep) > 0
-            base   = np.log10(v)
-
-            err_m = np.full_like(v, np.nan, dtype=float)
-            err_p = np.full_like(v, np.nan, dtype=float)
-
-            err_m[low_ok] = base[low_ok] - np.log10(v[low_ok] - em[low_ok])
-            err_p[up_ok]  = np.log10(v[up_ok] + ep[up_ok]) - base[up_ok]
-
-        return err_m, err_p
+   
 
     def _finite_log_values_from_series(series):
         xv, _, _ = extract_data(series["x"])
@@ -1076,13 +1112,14 @@ def plot_logdex_agreement_v2(
             xerr = [x_err_m_log[m], x_err_p_log[m]]
         if y_err_m_log is not None and y_err_p_log is not None:
             yerr = [y_err_m_log[m], y_err_p_log[m]]
-
+        
+        
         ax.errorbar(
             x_log[m], y_log[m],
             xerr=xerr, yerr=yerr,
             fmt=mk, capsize=3, color=col,
             markersize=markersize, markeredgewidth=1.5,
-            elinewidth=1.5, alpha=alpha
+            elinewidth=2, alpha=alpha
         )
 
         if add_numbers:
@@ -1108,7 +1145,7 @@ def plot_logdex_agreement_v2(
         frameon=False,
         markerscale=1.0,
         ncol=1,
-        loc="lower right",
+        loc=legend_loc,
     )
     if lims:
         ax.set_xlim(lims)
@@ -1144,14 +1181,6 @@ def plot_logdex_agreement_v2(
     return fig, ax, stats
 
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Tuple
-from sheap.Profiles.Utils import make_fused_profiles
-
-import jax.numpy as jnp
-from jax import jit, vmap
 
 
 @dataclass
@@ -1560,4 +1589,208 @@ class ResultAnalysis:
 		out["flux_region_sum_draws"] = region_sum_draws
 
 		return out
-	
+
+	def fe_integrated_flux(
+		self,
+		*,
+		x_min: float = 2250,
+		x_max: float = 2650,
+		n_grid: int = 2_000,
+		region_name: str = "fe",
+		all_samples: Optional[jnp.ndarray] = None,
+		include_bestfit: bool = True,
+		attach_to_posterior: bool = False,
+		attach_component: str = "broad",
+		attach_key: str = "R_Fe",
+	) -> Dict[str, Any]:
+		"""
+		Integrate the Fe-region component flux over a wavelength window.
+
+		This evaluates the region's `combined_profile` on a linear wavelength grid and
+		integrates with a trapezoidal rule:
+
+		    I_Fe = ∫ F_Fe(λ) dλ
+
+		By default, this is computed for posterior samples of all objects:
+		    samples -> shape (N_obj, N_samp)
+
+		Optionally, it also computes the best-fit integral:
+		    bestfit -> shape (N_obj,)
+
+		Optionally, it can attach the per-object sample integrals into the posterior
+		dict under:
+		    posterior_result[obj_key]["basic_params"][attach_component]["extras"][attach_key]
+        TODO add a coment on the values from Pan+25
+		Parameters
+		----------
+		x_min, x_max : float
+			Integration bounds in Å.
+		n_grid : int
+			Number of wavelength points for the integration grid.
+		region_name : str
+			Name of the region in the registry (default "fe").
+		all_samples : jnp.ndarray, optional
+			Posterior samples array (N_obj, N_samp, N_global). If None, uses cached
+			`self.samples`.
+		include_bestfit : bool
+			Also compute best-fit integral from `self.obj.result.params`.
+		attach_to_posterior : bool
+			If True, store the sample integrals in the posterior dict.
+		attach_component : str
+			Which basic_params component to attach to (default "broad").
+		attach_key : str
+			Key name inside extras (default "R_Fe").
+
+		Returns
+		-------
+		dict
+			{
+			  "wavelength_grid": (N_wave,),
+			  "samples": (N_obj, N_samp),
+			  "bestfit": (N_obj,) or None,
+			}
+		"""
+		# grid (float32, consistent with your other helpers)
+		x_grid = jnp.linspace(
+			float(x_min), float(x_max), int(n_grid), dtype=jnp.float32
+		)
+
+		# region info + slice samples to region param space
+		info = self.get_region_info(region_name)
+		S = self._require_samples(all_samples)  # (N_obj, N_samp, N_global)
+		reg_params = S[:, :, info.idx_global]   # (N_obj, N_samp, N_reg)
+
+		# batched eval over (obj, samp) -> flux(λ)
+		f = info.combined_profile
+		f_batched = vmap(vmap(f, in_axes=(None, 0)), in_axes=(None, 0))
+		flux = f_batched(x_grid, reg_params)  # (N_obj, N_samp, N_wave)
+
+		# integrate over wavelength axis
+		int_samples = jnp.trapezoid(flux, x_grid, axis=-1)  # (N_obj, N_samp)
+
+		out: Dict[str, Any] = {
+			"wavelength_grid": x_grid,
+			"samples": int_samples,
+			"bestfit": None,
+		}
+
+		if include_bestfit:
+			p_best = self.obj.result.params[:, info.idx_global]  # (N_obj, N_reg)
+			flux_best = vmap(f, in_axes=(None, 0))(x_grid, p_best)  # (N_obj, N_wave)
+			out["bestfit"] = jnp.trapezoid(flux_best, x_grid, axis=-1)   # (N_obj,)
+
+		if attach_to_posterior:
+			# attach sample integrals per object into posterior dict
+			d = self._posterior_dict()
+			keys = list(d.keys())  # keep same iteration order as _collect_field
+			for i, k in enumerate(keys):
+				entry = d[k]
+				basic = entry.setdefault("basic_params", {})
+				comp = basic.setdefault(attach_component, {})
+				extras = comp.setdefault("extras", {})
+				extras[attach_key] = int_samples[i]  # (N_samp,)
+			# note: if you want bestfit attached too, you can store out["bestfit"][i] similarly.
+
+		return out
+
+
+
+
+def log10_to_linear(
+	logval,
+	logerr,
+):
+	"""
+	Convert log10(x) with uncertainty to linear x with asymmetric errors.
+
+	Parameters
+	----------
+	logval : float or ndarray
+		log10(x)
+	logerr : float or ndarray
+		1-sigma uncertainty in log10 space
+
+	Returns
+	-------
+	val : ndarray
+		Linear value x
+	err_minus : ndarray
+		Lower uncertainty (x - x_low)
+	err_plus : ndarray
+		Upper uncertainty (x_high - x)
+	"""
+	logval = np.asarray(logval, dtype=float)
+	logerr = np.asarray(logerr, dtype=float)
+
+	val = 10.0 ** logval
+	err_plus = 10.0 ** (logval + logerr) - val
+	err_minus = val - 10.0 ** (logval - logerr)
+
+	return val, err_minus, err_plus
+
+
+
+def get_sample_params(posterior, region, main_key, line_name, param):
+    """
+    Extract a parameter for a given emission line within a region
+    from a posterior dictionary, for all objects.
+    main_key = "basic_params"
+    region = "narrow"
+
+
+    posterior = sheapspectral.result.posterior["montecarlo"]["posterior_result"]
+
+    import numpy as np
+    Returns
+    -------
+    np.ndarray
+        Array with shape (N_obj, N_samples, N_match)
+    """
+    # reference object (structure check)
+    first_key = next(iter(posterior))
+    regions = posterior[first_key].get(main_key, {})
+
+    if region not in regions:
+        raise KeyError(
+            f"Region '{region}' is not available. "
+            f"Available regions: {list(regions.keys())}"
+        )
+
+    region_data = regions[region]
+
+    lines = region_data.get("lines", [])
+    if line_name not in lines:
+        raise KeyError(
+            f"Line '{line_name}' is not available in region '{region}'. "
+            f"Available lines: {list(lines)}"
+        )
+
+    if param not in region_data:
+        available_params = [k for k in region_data.keys() if k != "lines"]
+        raise KeyError(
+            f"Parameter '{param}' is not available in region '{region}'. "
+            f"Available parameters: {available_params}"
+        )
+
+    # index of requested line(s)
+    line_idx = np.where(np.asarray(lines) == line_name)[0]
+
+    # collect samples for all objects
+    param_samples = []
+    for _, post in posterior.items():
+        region_post = post[main_key][region]
+        param_samples.append(
+            np.asarray(region_post[param])[:, line_idx]
+        )
+
+    return np.stack(param_samples, axis=0)
+
+
+
+
+def get_multiple_sample_params(posterior, region, main_key, line_name, param):
+    dic_params = {}
+    for p in param:
+        dic_params[p] = get_sample_params(posterior, region, main_key, line_name,p)
+    return dic_params
+        

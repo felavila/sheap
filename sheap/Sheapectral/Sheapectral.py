@@ -861,9 +861,8 @@ class Sheapectral:
         chi2_model = chi2_model[~nan_mask]
         print(f"NaN / non-finite entries at indices: {nan_idx.tolist()}")
         print(f"Number of NaNs / non-finite values: {nan_idx.size}")
-        # --- Compute fraction in (0,5) ---
-        mask_range_model = (chi2_model > 0.) & (chi2_model < 5.)
-        frac_model_0_5 = np.nanmean(mask_range_model) * 100.0
+        #mask_range_model = (chi2_model > 0.) & (chi2_model < 5.)
+        #frac_model_0_5 = np.nanmean(mask_range_model) * 100.0
 
         # --- Define bins from model only ---
         chi2_min = chi2_model.min()
@@ -878,41 +877,111 @@ class Sheapectral:
             bins=bins,
             alpha=0.7,
             color="#d62728",
-            label=fr"Model chi2 (median = {np.nanmedian(chi2_model):.2f})"
+           # label=fr"Model chi2 (median = {np.nanmedian(chi2_model):.2f})"
         )
 
         ax.set_xlabel(r"Reduced $\chi^2$", fontsize=18)
         ax.set_ylabel("Number of spectra", fontsize=18)
-        ax.legend(fontsize=14, frameon=False)
+        
         ax.tick_params(axis="both", labelsize=14)
 
-        # Optional: vertical line at chi2=5
-        ax.axvline(1.85, linestyle="--", linewidth=1)
+        ax.axvline(np.nanmedian(chi2_model), linestyle="--",label=fr"Reduced $\chi^2$ median = {np.nanmedian(chi2_model):.2f}",c="k")
 
-        # --- Annotate fraction ---
-        textstr = (
-            fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
-            fr"Model: {frac_model_0_5:.1f}%"
-        )
+        #textstr = (
+        #    fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
+         #   fr"Model: {frac_model_0_5:.1f}%"
+        #)
 
-        ax.text(
-            0.3, 0.5,
-            textstr,
-            transform=ax.transAxes,
-            fontsize=20,
-            va="top",
-            bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
-        )
-
+        # ax.text(
+        #     0.3, 0.5,
+        #     textstr,
+        #     transform=ax.transAxes,
+        #     fontsize=20,
+        #     va="top",
+        #     bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
+        # )
+        ax.legend(fontsize=14, frameon=False)
         fig.tight_layout()
         plt.show()
         #plt.tight_layout()
         #plt.show()
 
+    def get_param_distribution(self,param_name):
+        params_keys = self.result.params_dict.keys()
+        if param_name not in params_keys:
+            raise KeyError(
+                f"param_name '{param_name}' is not available. "
+                f"Available param names: {list(params_keys)}"
+            )
+        import pandas as pd
+        import matplotlib.pyplot as plt
+        data = []
+        scale = self.result.scale
+        param_index = self.result.params_dict[param_name]
+        param_values = self.result.params[:,param_index]
+        init_value = float(self.result.initial_params[param_index])
+        if "amplitude" in param_name:
+                param_values /= scale
+        elif "logamp" in param_name:
+                param_values -= np.log10(scale)
+        
+        constraints = self.result.constraints[param_index]
+        bins = np.linspace(np.min(param_values),np.max(param_values), 40)
+        fig, ax = plt.subplots(figsize=(10, 6))
 
+        ax.hist(
+            param_values,
+            bins=bins,
+            alpha=0.7,
+            color="#2781d65c",
+           # label=fr"Model chi2 (median = {np.nanmedian(chi2_model):.2f})"
+        )
+
+        ax.set_xlabel(param_name, fontsize=18)
+        ax.set_ylabel("Number of spectra", fontsize=18)
+        
+        ax.tick_params(axis="both", labelsize=14)
+        ax.axvline(init_value, linestyle="--",label="init value",c="r")
+        ax.axvline(constraints[0], linestyle="--",label="min value",c="k")
+        ax.axvline(constraints[1], linestyle="--",label="max value",c="k")
+        #textstr = (
+        #    fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
+         #   fr"Model: {frac_model_0_5:.1f}%"
+        #)
+
+        # ax.text(
+        #     0.3, 0.5,
+        #     textstr,
+        #     transform=ax.transAxes,
+        #     fontsize=20,
+        #     va="top",
+        #     bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
+        # )
+        ax.legend(fontsize=14, frameon=False)
+        fig.tight_layout()
+        plt.show()
+        
+        # for param_index,(param_name, i) in enumerate(self.result.params_dict.items()):
+        #     param = float(self.result.params[n][i])
+        #     init_value = float(self.result.initial_params[i])
+        #     uncertainty = float(self.result.uncertainty_params[n][i])
+
+        #     if "amplitude" in param_name:
+        #         param /= scale
+        #         uncertainty /= scale
+        #     elif "logamp" in param_name:
+        #         param -= np.log10(scale)
+   
+                
 # def _region_helper(region_name):
 #             if region_name not in complex_class_group_by_region.keys():
 #                 return 0
 #             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
 #             params = complex_class_group_by_region[region_name].params
 #             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
+
+# if "amplitude" in param_name:
+#                 param /= scale
+#                 uncertainty /= scale
+#             elif "logamp" in param_name:
+#                 param -= np.log10(scale)

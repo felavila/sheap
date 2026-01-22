@@ -49,9 +49,7 @@ Notes
 
 __author__ = 'felavila'
 
-__all__ = [
-    "ComplexParams",
-]
+__all__ = ["ComplexParams",]
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 import numpy as np 
@@ -73,9 +71,11 @@ from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_
 
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS,cm_per_mpc
 
+
 #TODO add hyper parameter "raw" that gives exactly the params like dict params. 
 #TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
 #TODO add the params from continuum
+#TODO this have to be called ExtraProducts
 
 class ComplexParams:
     _BASE_REQUIRED = (

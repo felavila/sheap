@@ -115,7 +115,7 @@ def balmercontinuum(x, pars):
     f_norm = planck_ratio * tau_ratio
     
 
-    rolloff_width = 50.0  # Angstroms - adjust this to control softness
+    rolloff_width = 120.0  # Angstroms - adjust this to control softness
     soft_edge = jnp.exp(-jnp.clip((x_eff - lambda_BE) / rolloff_width, 0.0, 20.0))
     
     f_norm = f_norm * soft_edge 

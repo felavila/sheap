@@ -26,14 +26,11 @@
 - line_name: "[NeV]b"
   center: 3426.85
   element: Neon
-- center: 3726.032
-  line_name: OIIa
+#blend double
+- center: 3728
+  line_name: "[OII]"
   element: Oxygen
   rarity: common
-- center: 3728.815
-  line_name: OIIb
-  element: Oxygen
-  rarity: uncommon
 - center: 6300.304
   line_name: OIa
   element: Oxygen
@@ -43,7 +40,7 @@
   element: Oxygen
   rarity: common
 - center: 3868.760
-  line_name: NeIIIa
+  line_name: "[NeIII]"
   element: Neon
   rarity: common
 - center: 4958.896072

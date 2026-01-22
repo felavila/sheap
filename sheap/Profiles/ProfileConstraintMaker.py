@@ -116,6 +116,7 @@ def ProfileConstraintMaker(
         
         if selected_profile == "brokenpowerlaw":
             return ProfileConstraintSet(
+                #we need to work in this a little more onthis and is degeneracies with he balmer continuum
                 init=[0.0,-1.5, -2.5, 5500.0],
                 upper=[5.0,0.0, 0.0, 8000.0],
                 lower=[-5.0,-5.0, -5.0, 3000.0],

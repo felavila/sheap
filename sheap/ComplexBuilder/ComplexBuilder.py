@@ -175,7 +175,7 @@ class ComplexBuilder:
     """
     
 
-    lines_prone_outflow = ["CII]","[NeIV]","OIIIc","OIIIb","NeIIIa","OIIb","OIIa"]#,"NIIb","NIIa","SIIb","SIIa",]
+    lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["Lyalpha","CIV","AlIII","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"] Lyα
     lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
