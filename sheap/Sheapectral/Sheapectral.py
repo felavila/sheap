@@ -9,8 +9,8 @@ Contents
 --------
 - **Spectral I/O**: load spectra from arrays or files.
 - **Corrections**: apply Galactic extinction and redshift corrections.
-- **Modeling**: build complex spectral regions via `ComplexBuilder`.
-- **Fitting**: run JAX-based optimization with `ComplexFitting`.
+- **Modeling**: build complex spectral regions via `SheapModelBuilder`.
+- **Fitting**: run JAX-based optimization with `SheapModelFitting`.
 - **Posterior Sampling**: estimate parameters using single, pseudo-MC, MC, or MCMC.
 - **Persistence**: save/load full state with pickle.
 - **Visualization**: quicklook plotting and model visualization with `SheapPlot`.
@@ -25,11 +25,11 @@ Notes
   .. code-block:: python
 
      sheap = Sheapectral("spectrum.fits", z=0.5, coords=(l, b))
-     sheap.makecomplex(6500, 6600, n_narrow=1, n_broad=2)
-     sheap.fitcomplex()
-     sheap.posteriors(sampling_method="mcmc")
+     sheap.makemodel(6500, 6600, n_narrow=1, n_broad=2)
+     sheap.fitmodel()
+     sheap.posteriors(sampling_method="montecarlo")
 
-- Results are stored in `self.result` (`ComplexResult`).
+- Results are stored in `self.result` (`SheapResult`).
 """
 
 from __future__ import annotations
@@ -37,10 +37,7 @@ from __future__ import annotations
 __author__ = 'felavila'
 
 
-__all__ = [
-    "Sheapectral",
-    "logger",
-]
+__all__ = ["Sheapectral","logger",]
 
 import logging
 import pickle
@@ -52,13 +49,13 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.Core import SpectralLine,ComplexResult,ArrayLike
+from sheap.Core import SpectralLine,SheapResult,ArrayLike
 
 from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
-from sheap.ComplexFitting.ComplexFitting import ComplexFitting
-from sheap.ComplexBuilder.ComplexBuilder import ComplexBuilder
+from sheap.SheapModelFitting.SheapModelFitting import SheapModelFitting
+from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
 from sheap.Plotting.SheapPlot import SheapPlot
-from sheap.Utils.Constants  import c
+from sheap.Utils.Constants  import DEFAULT_C_KMS
 
 
 
@@ -110,20 +107,21 @@ class Sheapectral:
         Instrumental resolution in Angstroms, if `wdisp` provided.
     fwhm_kms : jnp.ndarray
         Instrumental resolution in km/s.
-    result : ComplexResult
+    result : SheapResult
+        #TODO maybe change this name
         Output of the fitting routine, including parameters and metadata.
-    complexbuild : ComplexBuilder
+    modelbuild : SheapModelBuilder
         Configuration used to build the model region.
     plotter : SheapPlot
         Plotting backend object.
 
     Methods
     -------
-    complexmaker(xmin, xmax, n_narrow=1, n_broad=1, **kwargs)
-        Create a model complex from line and continuum definitions.
+    makemodel(xmin, xmax, n_narrow=1, n_broad=1, **kwargs)
+        Create a model from line and continuum definitions.
     
-    fitcomplex(...)
-        Perform spectral model fitting using the configured complex.
+    fitmodel(...)
+        Perform spectral model fitting using the configured model.
     
     estimate_posteriors(...)
         Estimate posterior distributions using MC or MCMC or just give and estimation of the params.
@@ -191,10 +189,10 @@ class Sheapectral:
             #Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
             #This aprouch only is usseful for log sample spectra
             # Resolution fwhm_lambda of every pixel, in Angstroms
-            self.velscale = np.log(np.atleast_2d(self.spectra[:,0,-1]/self.spectra[:,0,0]).T)/(self.spectra.shape[2]- 1 ) * c
+            self.velscale = np.log(np.atleast_2d(self.spectra[:,0,-1]/self.spectra[:,0,0]).T)/(self.spectra.shape[2]- 1 ) * DEFAULT_C_KMS
             self.dlam = np.gradient(self.spectra[:,0,:],axis=1)   
             self.fwhm_lambda = 2.355 * self.wdisp * self.dlam #A
-            self.fwhm_kms = self.fwhm_lambda / self.spectra[:,0,:] * c
+            self.fwhm_kms = self.fwhm_lambda / self.spectra[:,0,:] * DEFAULT_C_KMS
             # in cases without wdisp 
             #     
         self.coords = coords  # may be None – handle carefully downstream
@@ -220,7 +218,7 @@ class Sheapectral:
 
         self.sheap_set_up()
         self.default_limits = (float(np.min(self.spectra[:,0,:])),float(np.max(self.spectra[:,0,:])))
-
+        self.snr = np.nanmean(self.spectra[:, 1, :] / self.spectra[:, 2, :], axis=1) #signal to noise
     def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
         """
         Load spectra from file or array.
@@ -337,10 +335,10 @@ class Sheapectral:
         self.spectra_shape = self.spectra.shape  # ?
         self.spectra_nans = jnp.isnan(self.spectra)
     
-    def makecomplex(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
+    def makemodel(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
                     add_balmer_continuum = True ,add_balmerhighorder_continuum = True ,**kwargs):
         """
-        Initialize a ComplexBuilder for later fitting.
+        Initialize a SheapModelBuilder for later fitting.
 
         Parameters
         ----------
@@ -351,7 +349,7 @@ class Sheapectral:
         n_broad : int, optional
             Number of broad components per line.
         **kwargs : ?
-            Additional ComplexBuilder options.
+            Additional SheapModelBuilder options.
 
         Returns
         -------
@@ -364,14 +362,13 @@ class Sheapectral:
             xmin,xmax = min(limits),max(limits)
         if xmin < 3600 and add_balmer_continuum:
             add_balmer_continuum = add_balmer_continuum
-        
         if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
             add_balmerhighorder_continuum = add_balmerhighorder_continuum
-        self.complexbuild = ComplexBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
+        self.modelbuild = SheapModelBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
                                         add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
     
 
-    def fitcomplex(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
+    def fitmodel(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
                 ,add_penalty_function=False,method="adam",penalty_weight: float = 0.00
                 ,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0):
         """
@@ -388,23 +385,23 @@ class Sheapectral:
         list_learning_rate : list of float, optional
             Learning rates for each stage.
         run_fit : bool, optional
-            If False, construct the ComplexFitting object without fitting.
+            If False, construct the SheapModelFitting object without fitting.
         add_penalty_function : bool, optional
             If True, include host-model penalty.
 
         Raises
         ------
         RuntimeError
-            If make_region() was not called first.
+            If makemodel() was not called first.
 
         Returns
         -------
         None
         """
-        if not hasattr(self, "complexbuild"):
-            raise RuntimeError("makecomplex() must be called before fitcomplex()")
+        if not hasattr(self, "modelbuild"):
+            raise RuntimeError("makemodel() must be called before fitmodel()")
 
-        self.fitting_class = ComplexFitting.from_builder(self.complexbuild,limits_overrides=None,profile=profile) #until here only uses the things that it knows from complexbuild
+        self.fitting_class = SheapModelFitting.from_builder(self.modelbuild,limits_overrides=None,profile=profile) #until here only uses the things that it knows from modelbuild
 
         spectra = self.spectra.astype(jnp.float32)
         if run_fit:
@@ -418,9 +415,9 @@ class Sheapectral:
             self.params_obj = self.fitting_class.params_obj
             #build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
             
-            fit_output = self.fitting_class.complexresult
+            fit_output = self.fitting_class.sheapresult
             fit_output.source = "computed"
-            self.result = ComplexResult(
+            self.result = SheapResult(
                 params=fit_output.params.astype(jnp.float64),
                 uncertainty_params=fit_output.uncertainty_params,
                 mask=fit_output.mask,
@@ -431,7 +428,7 @@ class Sheapectral:
                 initial_params=fit_output.initial_params.astype(jnp.float32),
                 scale=fit_output.scale,
                 params_dict=fit_output.params_dict,
-                complex_region=fit_output.complex_region,
+                region_list=fit_output.region_list,
                 outer_limits=fit_output.outer_limits,
                 inner_limits=fit_output.inner_limits,
                 model_keywords= fit_output.model_keywords,
@@ -446,7 +443,7 @@ class Sheapectral:
 
             self.plotter = SheapPlot(sheap=self)
     
-    def estimate_posteriors(self,sampling_method="single", num_samples: int = 2000, key_seed: int = 0,summarize=True,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3):
+    def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=True,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3):
         """
         Estimate or sample posterior distributions of fit parameters.
 
@@ -479,11 +476,11 @@ class Sheapectral:
         RuntimeError
             If fit has not been run (`self.result` missing).
         """
-        from sheap.ComplexSampler.ComplexSampler import ComplexSampler
+        from sheap.MasterSampler.MasterSampler import MasterSampler
         if not hasattr(self, "result"):
             raise RuntimeError("self.result should exist to run this.")
         #TODO ADD break in case sampling method is not recognize 
-        PM = ComplexSampler(sheap = self)
+        PM = MasterSampler(sheap = self)
         if sampling_method == "none":
             print("Nothing will run if you dont choose between sampling_method [montecarlo or sampling_method=mcmc or sampling_method=single")
             return PM 
@@ -567,23 +564,23 @@ class Sheapectral:
             redshift_correction=data["redshift_correction"],
         )
 
-        complex_region = data.get("complex_region", [])
-        obj.complex_region = [SpectralLine(**i) for i in complex_region]
+        region_list = data.get("region_list", [])
+        obj.region_list = [SpectralLine(**i) for i in region_list]
 
         profile_names = data.get("profile_names", [])
-        obj.result = ComplexResult(
+        obj.result = SheapResult(
             params=jnp.array(data.get("params")),
             uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))), 
             initial_params=jnp.array(data.get("initial_params")),
             mask=jnp.array(data.get("mask")),
-            profile_functions= obj.profile_functions_from_complex_region(),
+            profile_functions= obj.profile_functions_from_region_list(),
             #obj.profile_functions,
             profile_names=profile_names,
             loss=None,  # Not saved currently, could be added if needed
             profile_params_index_list=data.get("profile_params_index_list"),
             scale=data.get("scale"),  # Not saved currently, could be added if needed
             params_dict=data.get("params_dict"),
-            complex_region=obj.complex_region,
+            region_list=obj.region_list,
             outer_limits=data.get("outer_limits"),
             inner_limits=data.get("inner_limits"),
             model_keywords=data.get("model_keywords"),
@@ -608,7 +605,7 @@ class Sheapectral:
         dict
             Keys/values for spectra, results, and metadata.
         """
-        _complex_region = [i.to_dict() for i in self.result.complex_region]
+        _region_list = [i.to_dict() for i in self.result.region_list]
 
         dic_ = {
             "names": self.names,
@@ -622,7 +619,7 @@ class Sheapectral:
             "initial_params": np.array(self.result.initial_params),  # explicitly saved
             "params_dict": self.result.params_dict,
             "mask": np.array(self.result.mask),
-            "complex_region": _complex_region,
+            "region_list": _region_list,
             "profile_params_index_list": self.result.profile_params_index_list,
             "profile_names": self.result.profile_names,
             "fitting_routine": self.result.fitting_routine,
@@ -663,7 +660,7 @@ class Sheapectral:
             pickle.dump(self._save(), f)
 
     
-    def profile_functions_from_complex_region(self):
+    def profile_functions_from_region_list(self):
         """
         Recreate profile functions for each region component.
 
@@ -674,7 +671,7 @@ class Sheapectral:
         """
         from sheap.Profiles.Profiles import PROFILE_FUNC_MAP
         profile_functions = []
-        for _,sp in enumerate(self.complex_region):
+        for _,sp in enumerate(self.region_list):
             holder_profile = getattr(sp, "profile") # cant be none 
             if "SPAF" in holder_profile:
                 if len(sp.profile.split("_")) == 2:
@@ -711,7 +708,7 @@ class Sheapectral:
             if hasattr(self, "result"):
                 self.plotter = SheapPlot(sheap=self)
             else:
-                raise RuntimeError("No fit result found. Run `fitcomplex()` first.")
+                raise RuntimeError("No fit result found. Run `fitmodel()` first.")
         return self.plotter
     
    
@@ -974,10 +971,10 @@ class Sheapectral:
    
                 
 # def _region_helper(region_name):
-#             if region_name not in complex_class_group_by_region.keys():
+#             if region_name not in sheapmodel_group_by_region.keys():
 #                 return 0
-#             _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-#             params = complex_class_group_by_region[region_name].params
+#             _combined_profile  = sheapmodel_group_by_region[region_name].combined_profile
+#             params = sheapmodel_group_by_region[region_name].params
 #             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
 
 # if "amplitude" in param_name:

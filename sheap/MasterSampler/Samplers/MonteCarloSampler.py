@@ -15,7 +15,7 @@ Main Features
   dependency flattening utilities.
 - Reconstructs physical parameters from optimized raw vectors.
 - Computes physical quantities (fluxes, FWHM, luminosities, etc.)
-  for each draw using :class:`ComplexParams`.
+  for each draw using :class:`SheaProducts`.
 
 Public API
 ----------
@@ -52,10 +52,10 @@ import time
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
-from sheap.ComplexParams.ComplexParams import ComplexParams
+from sheap.SheaProducts.SheaProducts import SheaProducts
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
-from sheap.ComplexSampler.Samplers.Utils.montecarlo_utils import phys_trust_region_inits,resample_spec_all 
+from sheap.MasterSampler.Samplers.Utils.montecarlo_utils import phys_trust_region_inits,resample_spec_all 
 
 
 class MonteCarloSampler:
@@ -64,9 +64,9 @@ class MonteCarloSampler:
 	still under developmen.
 	"""
     
-	def __init__(self, estimator: "ComplexSampler"):
+	def __init__(self, estimator: "MasterSampler"):
 		self.estimator = estimator  # ParameterEstimation instance
-		self.complexparams = ComplexParams(samplerclass=estimator)
+		self.SheaProducts = SheaProducts(samplerclass=estimator)
 		self.names = estimator.names 
 		self.model = jit(estimator.model)
 		#####norm_spectra####
@@ -80,7 +80,7 @@ class MonteCarloSampler:
 		self.dependencies = estimator.dependencies
 		self.params_dict = estimator.params_dict
 		
-		self.complex_class = estimator.complex_class
+		self.sheapmodel = estimator.sheapmodel
 		self.fitkwargs = estimator.fitkwargs
 		self.initial_params  = estimator.initial_params
 		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
@@ -119,7 +119,7 @@ class MonteCarloSampler:
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
-			dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+			dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
 			dic_posterior_params[name_i].update({"samples_phys":full_samples})
 
 		return dic_posterior_params
@@ -169,7 +169,7 @@ class MonteCarloSampler:
 			for n, name_i in enumerate(iterator):
 				full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 				draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),self.scale[n])
-				dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+				dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
 				dic_posterior_params[name_i].update({"samples_phys":full_samples,"draws_phys":draws_phys_n})
 
 			return dic_posterior_params

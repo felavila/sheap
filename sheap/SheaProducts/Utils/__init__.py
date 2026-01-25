@@ -9,6 +9,7 @@ __all__ = [
     "fwhm_conv",
     "Physical_functions",
     "Sample_handlers",
+    "MoldelSpectraReconstruction"
 ]
 
 

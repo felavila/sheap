@@ -9,9 +9,9 @@ and per‑kind fitting limits.
 Exposed classes
 ---------------
 - :class:`SpectralLine` — a single (or composite) emission/absorption component.
-- :class:`ComplexRegion` — a container of lines with profile functions, parameter
+- :class:`SheapModel` — a container of lines with profile functions, parameter
   maps, and convenient subsetting/grouping utilities.
-- :class:`ComplexResult` — a structured record of a completed fit (parameters,
+- :class:`SheapResult` — a structured record of a completed fit (parameters,
   uncertainties, residuals, χ², etc.).
 - :class:`ProfileConstraintSet` — per‑profile initial values and bounds.
 - :class:`FittingLimits` — canonical velocity/shift/amplitude limits by kind.
@@ -36,8 +36,8 @@ __author__ = 'felavila'
 
 
 __all__ = [
-    "ComplexRegion",
-    "ComplexResult",
+    "SheapModel",
+    "SheapResult",
     "FittingLimits",
     "ProfileConstraintSet",
     "SpectralLine",
@@ -139,7 +139,7 @@ class SpectralLine:
 
 #this still require a few changes 
 @dataclass
-class ComplexRegion:
+class SheapModel:
     
     """
     Holds SpectralLines + (optionally) their profile functions & parameters.
@@ -263,7 +263,7 @@ class ComplexRegion:
         """Local‐index DataFrame with columns including orig_idx, kind, component, etc."""
         return self._df.copy()
 
-    def filter(self, **conds) -> "ComplexRegion":
+    def filter(self, **conds) -> "SheapModel":
         mask = np.ones(len(self.lines), dtype=bool)
         for k, v in conds.items():
             if k not in self._df.columns:
@@ -272,7 +272,7 @@ class ComplexRegion:
             mask &= np.isin(col, v) if isinstance(v, (list,tuple,np.ndarray)) else (col == v)
         return self._subset(mask)
 
-    def _subset(self, mask: np.ndarray) -> "ComplexRegion":
+    def _subset(self, mask: np.ndarray) -> "SheapModel":
         # slice the lines + original indices
         lines2    = [ln for ln, keep in zip(self.lines, mask) if keep]
         orig2     = [oi for oi, keep in zip(self.original_idx, mask) if keep]
@@ -284,7 +284,7 @@ class ComplexRegion:
 
         # if no profiles attached, return minimal
         if not self.profile_functions:
-            new = ComplexRegion(lines=lines2)
+            new = SheapModel(lines=lines2)
             new.original_idx = orig2
             new._df = df2
             return new
@@ -314,7 +314,7 @@ class ComplexRegion:
         filtered_dict2 = { nm: i for i, nm in enumerate(names_global) }
 
         # assemble the child
-        new = ComplexRegion(
+        new = SheapModel(
             lines=lines2,
             profile_functions=funcs2,
             profile_names=names2,
@@ -330,13 +330,13 @@ class ComplexRegion:
         new._combined_func                   = make_fused_profiles(funcs2)
         return new
 
-    def __getitem__(self, key: Union[int, slice, np.ndarray, List[int]]) -> "ComplexRegion":
+    def __getitem__(self, key: Union[int, slice, np.ndarray, List[int]]) -> "SheapModel":
         mask = (np.zeros(len(self.lines), bool) if not isinstance(key,int)
                 else np.zeros(len(self.lines), bool))
         mask[key] = True
         return self._subset(mask)
 
-    def group_by(self, field: str) -> Dict[Any, "ComplexRegion"]:
+    def group_by(self, field: str) -> Dict[Any, "SheapModel"]:
         if field not in self._df.columns:
             raise KeyError(f"No metadata column {field!r}")
         return {
@@ -389,12 +389,12 @@ class ComplexRegion:
         
 #still useffull? 
 @dataclass
-class ComplexResult:
+class SheapResult:
     """
     Data class to store results from spectral region fitting.
 
     Attributes:
-        complex_region (List[SpectralLine]): List of spectral line configurations.
+        region_list (List[SpectralLine]): List of spectral line configurations.
         params (Optional[jnp.ndarray]): Optimized parameters from fitting.
         uncertainty_params (Optional[jnp.ndarray]): Estimated uncertainties for each parameter.
         mask (Optional[jnp.ndarray]): Mask used during the fitting process.
@@ -411,7 +411,7 @@ class ComplexResult:
         kind_list (List[str]): Unique types of spectral lines (computed post-init).
         constraints same as constrains from fit 
     """
-    complex_region: List[SpectralLine] # can be mode to complex_class at the moment after reading.
+    region_list: List[SpectralLine] # can be mode to sheapmodel at the moment after reading.
     fitting_routine: Optional[dict] = None
     params: Optional[jnp.ndarray] = None
     uncertainty_params: Optional[jnp.ndarray] = None
@@ -434,11 +434,11 @@ class ComplexResult:
     chi2_red:Optional[jnp.ndarray] = None 
     posterior:Optional[dict] = None 
     fitkwargs:Optional[List[Dict]] = None 
-    # list tuple in reality
-    #kind_list: List[str] = field(init=False)
+    
     def __post_init__(self):
-        self.complex_class = ComplexRegion(self.complex_region)
-        self.complex_class.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
+        #this should be an intermediate step in some cases it should be already done 
+        self.sheapmodel = SheapModel(self.region_list)
+        self.sheapmodel.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
                                     ,self.profile_params_index_list,self.params_dict)
 
     def to_dict(self) -> dict:

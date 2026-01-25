@@ -1,11 +1,11 @@
 """
-ComplexParams Handling
+SheaProducts Handling
 ============================
 
 Routines to post-process fitted or sampled parameter sets and compute
 derived physical quantities.
 
-This module provides the :class:`ComplexParams` class, which acts as a
+This module provides the :class:`SheaProducts` class, which acts as a
 bridge between raw fitting/sampling outputs (parameter vectors) and
 scientifically useful quantities such as line fluxes, widths, equivalent
 widths, luminosities, and single-epoch black hole mass estimators.
@@ -26,7 +26,7 @@ Main Features
 
 Public API
 ----------
-- :class:`ComplexParams`:
+- :class:`SheaProducts`:
     High-level handler that connects a :class:`ComplexSampler` result
     to physical parameter extraction.
 
@@ -34,8 +34,8 @@ Typical Workflow
 ----------------
 1. Fit or sample spectra with :class:`RegionFitting` or a sampler.
 2. Wrap the result in a :class:`ComplexSampler` instance.
-3. Construct :class:`ComplexParams(samplerclass)` from it.
-4. Call :meth:`ComplexParams.extract_params` to obtain dictionaries
+3. Construct :class:`SheaProducts(samplerclass)` from it.
+4. Call :meth:`SheaProducts.extract_params` to obtain dictionaries
     of physical line quantities, optionally summarized across samples.
 
 Notes
@@ -49,7 +49,7 @@ Notes
 
 __author__ = 'felavila'
 
-__all__ = ["ComplexParams",]
+__all__ = ["SheaProducts",]
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 import numpy as np 
@@ -62,12 +62,11 @@ from collections import defaultdict
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP#,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
 from sheap.Profiles.Utils import make_integrator
-from sheap.Utils.Constants import c
-from sheap.ComplexParams.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
-from sheap.ComplexParams.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
-from sheap.ComplexParams.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-from sheap.ComplexParams.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
-from sheap.ComplexParams.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
+from sheap.SheaProducts.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
+from sheap.SheaProducts.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
+from sheap.SheaProducts.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
+from sheap.SheaProducts.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
+from sheap.SheaProducts.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS,cm_per_mpc
 
@@ -77,14 +76,14 @@ from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_
 #TODO add the params from continuum
 #TODO this have to be called ExtraProducts
 
-class ComplexParams:
+class SheaProducts:
     _BASE_REQUIRED = (
-        "model", "dependencies", "spectra", "mask", "complex_class", "method", "d"
+        "model", "dependencies", "spectra", "mask", "sheapmodel", "method", "d"
     )
 
     def __init__(
         self,
-        *,samplerclass: Optional[object] = None,model=None,dependencies=None,spectra=None,mask=None,complex_class=None,method=None,d=None,
+        *,samplerclass: Optional[object] = None,model=None,dependencies=None,spectra=None,mask=None,sheapmodel=None,method=None,d=None,
         BOL_CORRECTIONS=None,SINGLE_EPOCH_ESTIMATORS=None,C_KMS=None,
         **extra,   # <- allows passing arbitrary fields if you want
     ):
@@ -100,7 +99,7 @@ class ComplexParams:
             self._from_any(samplerclass)
 
         # 2) manual args should fill missing (and can override if you want)
-        manual = dict(model=model,dependencies=dependencies,spectra=spectra,mask=mask,complex_class=complex_class,method=method,d=d,)
+        manual = dict(model=model,dependencies=dependencies,spectra=spectra,mask=mask,sheapmodel=sheapmodel,method=method,d=d,)
         manual.update(extra)
 
         for name, value in manual.items():
@@ -137,13 +136,13 @@ class ComplexParams:
         """
         
         basic_params: Dict[str, Dict[str, np.ndarray]] = {}
-        complex_class_group_by_region = self.complex_class.group_by("region")
-        cont_group = complex_class_group_by_region["continuum"]
+        sheapmodel_group_by_region = self.sheapmodel.group_by("region")
+        cont_group = sheapmodel_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
         cont_params = full_samples[:, idx_cont]
         distances = np.full((full_samples.shape[0],), self.d[idx_obj], dtype=np.float64)
 
-        for region, region_group in complex_class_group_by_region.items():
+        for region, region_group in sheapmodel_group_by_region.items():
             if region in ("fe", "continuum", "host","balmer"):
                 continue
 
@@ -213,8 +212,8 @@ class ComplexParams:
             }
 
         flux_fe = 0 
-        if "fe" in complex_class_group_by_region.keys():
-            group_fe = complex_class_group_by_region["fe"]
+        if "fe" in sheapmodel_group_by_region.keys():
+            group_fe = sheapmodel_group_by_region["fe"]
             profile_fe = group_fe.combined_profile
             idx_fe_params = group_fe.flat_param_indices_global
             params_fe = full_samples[:,idx_fe_params]
@@ -244,7 +243,7 @@ class ComplexParams:
                                         limit_velocity=self.limit_velocity,c=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
             list_to_get_extra_params.append("combined_params")
             result["combined_params"] = combined
-            combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],complex_class_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+            combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],sheapmodel_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
             list_to_get_extra_params.append("combined_pyqso")
             result["combined_pyqso"] = combined_pyqso
         
@@ -263,13 +262,13 @@ class ComplexParams:
     def _extract_basic_params_single(self):
         basic_params: Dict[str, Dict[str, np.ndarray]] = {}
         distances = self.d.copy()
-        complex_class_group_by_region = self.complex_class.group_by("region")
-        cont_group = complex_class_group_by_region["continuum"]
+        sheapmodel_group_by_region = self.sheapmodel.group_by("region")
+        cont_group = sheapmodel_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
         cont_params = self.params[:, idx_cont]
         ucont_params = self.uncertainty_params[:, idx_cont]
 
-        for region, region_group in complex_class_group_by_region.items():
+        for region, region_group in sheapmodel_group_by_region.items():
             if region in ("fe", "continuum", "host","balmer"):
                 continue
 
@@ -333,8 +332,8 @@ class ComplexParams:
             }
 
         flux_fe = 0.
-        if "fe" in complex_class_group_by_region.keys():
-             group_fe = complex_class_group_by_region["fe"]
+        if "fe" in sheapmodel_group_by_region.keys():
+             group_fe = sheapmodel_group_by_region["fe"]
              combine_profile_fe = group_fe.combined_profile
              params_fe = group_fe.params[:, None, :]
              uparams_fe = group_fe.uncertainty_params[:, None, :]
@@ -367,10 +366,10 @@ class ComplexParams:
             #TODO add condition to avoid this method in the case with no-narrow
             combined = combine_components(basic_params, cont_group, cont_params, distances,
                                       LINES_TO_COMBINE=self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity,
-                                      c=self.C_KMS,ucont_params=ucont_params,flux_fe=flux_fe)
+                                      C_KMS=self.C_KMS,ucont_params=ucont_params,flux_fe=flux_fe)
             list_to_get_extra_params.append("combined_params")
             result["combined_params"] = combined
-            combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],complex_class_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
+            combined_pyqso = {line: combine_pyqsofit_single(basic_params["broad"],sheapmodel_group_by_region,line,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
             list_to_get_extra_params.append("combined_pyqso")
             result["combined_pyqso"] = combined_pyqso
             
@@ -453,7 +452,7 @@ class ComplexParams:
         
         fwhm_kms = calc_fwhm_kms(fwhm, np.array(self.C_KMS), centers)
         cont_vals = unumpy.uarray(*np.array(
-            evaluate_with_error(self.complex_class.group_by("region")["continuum"].combined_profile,
+            evaluate_with_error(self.sheapmodel.group_by("region")["continuum"].combined_profile,
                                 unumpy.nominal_values(centers), cont_params, unumpy.std_devs(centers), ucont_params)))
         
         eqw = flux / cont_vals
@@ -530,7 +529,7 @@ class ComplexParams:
         fwhm = batch_fwhm(amps, centers, shape_params)
         fwhm_kms = jnp.abs(calc_fwhm_kms(fwhm, self.C_KMS, centers))
 
-        cont_vals = vmap(self.complex_class.group_by("region")["continuum"].combined_profile, in_axes=(0, 0))(centers, cont_params)
+        cont_vals = vmap(self.sheapmodel.group_by("region")["continuum"].combined_profile, in_axes=(0, 0))(centers, cont_params)
         eqw = flux / cont_vals
         lum_vals = calc_luminosity(distances[:, None], flux)
 
@@ -550,6 +549,6 @@ class ComplexParams:
     def _require(self, names: Iterable[str]) -> None:
         missing = [n for n in names if getattr(self, n, None) is None]
         if missing:
-            raise ValueError(f"ComplexParams is missing required fields: {missing}")
+            raise ValueError(f"SheaProducts is missing required fields: {missing}")
 
             

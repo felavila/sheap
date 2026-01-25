@@ -8,10 +8,10 @@ vacuum ↔ air wavelength corrections.
 
 Functions
 ---------
-kms_to_wl(kms, line_center, c=c)
+kms_to_wl(kms, line_center, C_KMS=DEFAULT_DEFAULT_C_KMS)
     Convert velocity in km/s to a wavelength shift at a given line center.
 
-wl_to_kms(wl, line_center, c=c)
+wl_to_kms(wl, line_center, C_KMS=DEFAULT_DEFAULT_C_KMS)
     Convert wavelength shift to velocity in km/s at a given line center.
 
 vac_to_air(lam_vac)
@@ -32,9 +32,9 @@ from typing import Callable, Dict, Optional, Tuple
 import jax.numpy as jnp
 import numpy as np
 
-from sheap.Utils.Constants  import c
+from sheap.Utils.Constants  import DEFAULT_C_KMS
 
-def kms_to_wl(kms, line_center, c=c):
+def kms_to_wl(kms, line_center, C_KMS=DEFAULT_C_KMS):
     """
     Convert a velocity in km/s to a wavelength shift based on the line center.
 
@@ -44,7 +44,7 @@ def kms_to_wl(kms, line_center, c=c):
         The velocity value(s) in kilometers per second.
     line_center : float
         The central (reference) wavelength of the spectral line.
-    c : float, optional
+    C_KMS : float, optional
         The speed of light in km/s. The default value is 2.99792458e5 km/s.
 
     Returns:
@@ -52,11 +52,11 @@ def kms_to_wl(kms, line_center, c=c):
     wl : float or array-like
         The calculated wavelength shift corresponding to the input velocity.
     """
-    wl = kms * line_center / c
+    wl = kms * line_center / C_KMS
     return wl
 
 
-def wl_to_kms(wl, line_center, c=c):
+def wl_to_kms(wl, line_center, C_KMS=DEFAULT_C_KMS):
     """
     Convert a velocity in km/s to a wavelength shift based on the line center.
 
@@ -67,7 +67,7 @@ def wl_to_kms(wl, line_center, c=c):
 
     line_center : float
         The central (reference) wavelength of the spectral line.
-    c : float, optional
+    C_KMS : float, optional
         The speed of light in km/s. The default value is 2.99792458e5 km/s.
 
     Returns:
@@ -75,7 +75,7 @@ def wl_to_kms(wl, line_center, c=c):
     kms : float or array-like
         The velocity value(s) in kilometers per second.
     """
-    kms = (wl * c) / line_center
+    kms = (wl * C_KMS) / line_center
     return kms
 
 

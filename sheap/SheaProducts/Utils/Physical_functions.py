@@ -90,18 +90,18 @@ def calc_flux(norm_amplitude, fwhm):
     """
     return np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
 
-def calc_fwhm_kms(fwhm, c, center):
+def calc_fwhm_kms(fwhm, C_KMS, center):
     r"""
     Convert FWHM in Å to velocity width in km/s.
 
     .. math::
-        v = \frac{\mathrm{FWHM}}{\lambda_0} \, c
+        v = \frac{\mathrm{FWHM}}{\lambda_0} \, C_KMS
 
     Parameters
     ----------
     fwhm : float or array
         Full width at half maximum in Å.
-    c : float
+    C_KMS : float
         Speed of light in km/s.
     center : float or array
         Line center wavelength in Å.
@@ -111,7 +111,7 @@ def calc_fwhm_kms(fwhm, c, center):
     v_kms : jnp.ndarray
         Velocity width in km/s.
     """
-    return (fwhm * c) / center
+    return (fwhm * C_KMS) / center
 
 
 def calc_luminosity(distance, flux):
@@ -400,7 +400,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     return (10.0 ** logM)
 
 
-def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
+def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
     r"""
     Compute derived parameters (BH masses, Eddington ratios, accretion rates).
 
@@ -418,7 +418,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
         Bolometric luminosities keyed by wavelength.
     estimators : dict
         Single-epoch estimators for both continuum and line calibrations.
-    c : float
+    C_KMS : float
         Speed of light in km/s.
     extras : dict, optional
         Extra quantities for corrections (e.g., ``sigma_kms``, ``R_Fe``).
@@ -503,7 +503,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, c):
 
     # constants for mdot (continuum only)
     eta = 0.1
-    c_cm = c * 1e5
+    c_cm = C_KMS * 1e5
     M_sun_g = 1.98847e33
     sec_yr = 3.15576e7
 

@@ -1,7 +1,7 @@
 import pytest
 import jax.numpy as jnp
 import numpy as np
-from sheap.Core import SpectralLine, ComplexRegion, ComplexResult, FittingLimits, ProfileConstraintSet
+from sheap.Core import SpectralLine, SheapModel, SheapResult, FittingLimits, ProfileConstraintSet
 
 
 def test_spectral_line_to_dict():
@@ -36,19 +36,19 @@ def test_profile_constraint_set_valid():
     assert pcs.init[0] == 1.0
 
 
-def test_complex_region_init_and_df():
+def test_region_list_init_and_df():
     lines = [SpectralLine("Halpha", center=6563.0, region="narrow", component=1)]
-    cr = ComplexRegion(lines=lines)
+    cr = SheapModel(lines=lines)
     df = cr.as_df()
     assert "line_name" in df.columns
     assert df.iloc[0]["line_name"] == "Halpha"
 
 
-def test_complex_result_to_dict():
+def test_sheap_result_to_dict():
     lines = [SpectralLine("Halpha", center=6563.0, region="narrow", component=1)]
     dummy_params = jnp.ones((1, 2))
-    cr = ComplexResult(
-        complex_region=lines,
+    cr = SheapResult(
+        region_list=lines,
         params=dummy_params,
         uncertainty_params=dummy_params * 0.1,
         mask=np.zeros((1, 2), dtype=bool),
@@ -70,4 +70,4 @@ def test_complex_result_to_dict():
         chi2_red=jnp.array([1.1])
     )
     assert isinstance(cr.to_dict(), dict)
-    assert isinstance(cr.complex_class, ComplexRegion)
+    assert isinstance(cr.sheapmodel, SheapModel)

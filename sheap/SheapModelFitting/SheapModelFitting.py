@@ -2,7 +2,7 @@
 Complex Fitting
 ===============
 
-This module defines :class:`ComplexFitting`, the main driver for fitting
+This module defines :class:`SheapModelFitting`, the main driver for fitting
 multi-component spectral regions with JAX-based minimization.
 
 Main Features
@@ -11,7 +11,7 @@ Main Features
 - Performs iterative optimization using custom JAX minimizers.
 - Supports tied parameters, penalties, and continuum fitting.
 - Computes uncertainties via covariance matrices or samplers.
-- Packages results into :class:`ComplexResult`.
+- Packages results into :class:`SheapResult`.
 
 Notes
 -----
@@ -24,7 +24,7 @@ __author__ = 'felavila'
 
 
 __all__ = [
-    "ComplexFitting",
+    "SheapModelFitting",
     "logger",
 ]
 
@@ -38,7 +38,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax import jit,vmap
 
-from sheap.Core import FittingLimits, SpectralLine,ComplexResult
+from sheap.Core import FittingLimits, SpectralLine,SheapResult
 
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value,build_tied,flatten_tied_map,parse_dependencies
@@ -59,8 +59,8 @@ from sheap.Utils.UncertaintyFunction import Errorfromloop
 # Configure module-level logger
 logger = logging.getLogger(__name__)
 
-
-class ComplexFitting:
+#SheapModelFitting
+class SheapModelFitting:
     """
     Fits a spectral region containing multiple emission lines.
 
@@ -69,13 +69,13 @@ class ComplexFitting:
       - JAX‑based fitting (with optional penalty functions)
       - Uncertainty estimation via covariance or sampling
       - Post‑processing (renormalization, χ² calculation)
-      - Packaging results into a ComplexResult object
+      - Packaging results into a SheapResult object
 
     Parameters
     ----------
     region_dict : dict
         Dictionary of attributes produced by a ComplexBuilder, including:
-        - `complex_class` (with `.lines` list)
+        - `sheapmodel` (with `.lines` list)
         - `fitting_routine` (dict of fit steps and ties)
         - any other metadata needed for fitting
     profile : str, optional
@@ -102,7 +102,7 @@ class ComplexFitting:
         Fused, jit‑compiled model combining all profile_functions.
     host_info : dict
         Extra metadata (e.g. stellar‑population grid) for penalty construction.
-    complexresult : ComplexResult
+    sheapesult : SheapResult
         Final results (parameters, uncertainties, residuals, χ², etc.), set after fitting.
 
     Methods
@@ -129,7 +129,7 @@ class ComplexFitting:
 
     _build_fit_components(profile="gaussian", **kwargs)
         Build parameter initialization lists, constraints, and profile functions
-        from `complex_class.lines`.
+        from `sheapmodel.lines`.
 
     _build_tied(tied_params)
         Convert user‑specified tie lists into dependency strings for the minimizer.
@@ -141,7 +141,7 @@ class ComplexFitting:
         Add a linear continuum component if none was found in the region.
 
     to_result()
-        Assemble a `ComplexResult` object from the final attributes.
+        Assemble a `SheapResult` object from the final attributes.
 
     from_builder(builder, *, profile='gaussian', limits_overrides=None, **builder_kwargs)
         Alternate constructor: build region_dict via ComplexBuilder and return
@@ -159,7 +159,7 @@ class ComplexFitting:
     Examples
     --------
     >>> builder = ComplexBuilder(xmin=6500, xmax=6600, lines=['Halpha', 'NII'])
-    >>> rf = ComplexFitting.from_builder(builder, profile='SPAF')
+    >>> rf = SheapModelFitting.from_builder(builder, profile='SPAF')
     >>> rf(spectra_array, inner_limits=(6520, 6580), outer_limits=(6500, 6600))
     >>> df = rf.pandas_params()
     >>> print(df.head())
@@ -168,7 +168,7 @@ class ComplexFitting:
     def __init__(self, region_dict: dict, *, profile: str = "gaussian",limits_overrides: Optional[Dict[str, FittingLimits]] = None):
         
         """
-        Initialize ComplexFitting with builder output and optional limits.
+        Initialize SheapModelFitting with builder output and optional limits.
 
         Parameters
         ----------
@@ -487,8 +487,8 @@ class ComplexFitting:
         #self.list = []
         add_linear = True
         idx = 0  # parameter_position
-        complex_region = []
-        for _,sp in enumerate(self.complex_class.lines):
+        region_list = []
+        for _,sp in enumerate(self.sheapmodel.lines):
             region_name = sp.region
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
@@ -512,7 +512,7 @@ class ComplexFitting:
             
             constraints = ProfileConstraintMaker(sp, self.limits_map.get(region_name), subprofile= sp.subprofile,local_profile=profile_fn) #this should give the sp.updated?
             sp.profile = constraints.profile
-            complex_region.append(sp)
+            region_list.append(sp)
             init_list.extend(constraints.init)
             high_list.extend(constraints.upper)
             low_list.extend(constraints.lower)
@@ -539,12 +539,12 @@ class ComplexFitting:
             high_list.extend(upper_)
             low_list.extend(lower_)
             
-            complex_region.append(spl)
+            region_list.append(spl)
             
         self.initial_params = jnp.array(init_list).astype(jnp.float32)
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
-        self.complex_region = complex_region #complex_region_list?
+        self.region_list = region_list #region_list_list?
     
 
     def _build_tied(self, tied_params):
@@ -608,15 +608,15 @@ class ComplexFitting:
         self.profile_params_index_list.append(np.arange(idx, idx + 2))
         return [0.1e-4, 0.5],[10.0, 10.0],[-10.0, -10.0],SpectralLine(line_name='linear',region='continuum',component=0,profile='linear')
     
-    def to_result(self) -> ComplexResult:
+    def to_result(self) -> SheapResult:
         """
-        Assemble and store the ComplexResult object.
+        Assemble and store the SheapResult object.
 
         Returns
         -------
         None
         """
-        self.complexresult= ComplexResult(
+        self.sheapresult= SheapResult(
             params=self.params,
             uncertainty_params=self.uncertainty_params,
             constraints=self.constraints,
@@ -625,7 +625,7 @@ class ComplexFitting:
             profile_names=self.profile_names,
             scale=self.scale,
             params_dict=self.params_dict,
-            complex_region=self.complex_region,
+            region_list=self.region_list,
             loss = self.loss,
             initial_params = self.initial_params,
             profile_params_index_list = self.profile_params_index_list,
@@ -640,10 +640,10 @@ class ComplexFitting:
             fitkwargs = self._fitkwargs)
         
     @classmethod
-    def from_builder(cls,builder: "ComplexBuilder",*,profile: str = "gaussian",limits_overrides = None,**builder_kwargs,) -> "ComplexFitting":
+    def from_builder(cls,builder: "ComplexBuilder",*,profile: str = "gaussian",limits_overrides = None,**builder_kwargs,) -> "SheapModelFitting":
         
         """
-        Construct ComplexFitting directly from a ComplexBuilder.
+        Construct SheapModelFitting directly from a ComplexBuilder.
 
         Parameters
         ----------
@@ -657,7 +657,7 @@ class ComplexFitting:
 
         Returns
         -------
-        ComplexFitting
+        SheapModelFitting
         """
     
         region_dict = builder._make_fitting_routine(**builder_kwargs)

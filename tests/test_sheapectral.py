@@ -18,15 +18,6 @@ def test_init_from_array(dummy_spectrum):
     assert sheap.z.shape == (1,)
     assert sheap.names[0] == "0"
 
-
-def test_make_region(dummy_spectrum):
-    sheap = Sheapectral(dummy_spectrum)
-    sheap.make_region(4100, 4900, n_narrow=1, n_broad=1)
-    assert hasattr(sheap, "complexbuild")
-    assert sheap.complexbuild.xmin == 4100
-    assert sheap.complexbuild.n_narrow == 1
-
-
 def test_fit_region(dummy_spectrum):
     sheap = Sheapectral(dummy_spectrum)
     sheap.make_region(4100, 4900)

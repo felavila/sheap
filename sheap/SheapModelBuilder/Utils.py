@@ -1,9 +1,9 @@
 """
-ComplexBuilder Utilities
+SheapModelBuilder Utilities
 =======================
 
 Helpers for constructing parameter ties and grouping spectral lines
-into composite (SPAF) profiles used by the ComplexBuilder pipeline.
+into composite (SPAF) profiles used by the SheapModelBuilder pipeline.
 
 Main Features
 -------------
@@ -125,7 +125,7 @@ def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
     return ties
 
 def _maketies(
-    complex_class,
+    sheapmodel,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
     tied_broad_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
     known_tied_relations: Optional[List[Tuple[Tuple[str, ...], List[str]]]] = None,
@@ -136,7 +136,7 @@ def _maketies(
 
     Parameters
     ----------
-    complex_class : ComplexRegion
+    sheapmodel : ComplexRegion
         Region containing spectral line definitions.
     tied_narrow_to : str or dict, optional
         Line name or component mapping to tie narrow lines to.
@@ -157,10 +157,10 @@ def _maketies(
     mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad",]  # this can be disscuss in the future
     mainline_candidates_narrow = ["OIIIc","Halpha","NIIb","MgII","CIII]","SIIb","OIIa",]  # this can be disscuss in the future
     
-    n_components_per_region = complex_class.characteristics()["n_components_per_region"]
+    n_components_per_region = sheapmodel.characteristics()["n_components_per_region"]
     n_broad = n_components_per_region["broad"]
     n_narrow = n_components_per_region["narrow"]
-    dict_region = complex_class.group_by("region")
+    dict_region = sheapmodel.group_by("region")
     local_region_list = dict_region["broad"].lines + dict_region["narrow"].lines
     
     if isinstance(mainline_candidates_broad, (list, tuple)):

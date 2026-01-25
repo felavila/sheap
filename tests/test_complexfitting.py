@@ -1,9 +1,9 @@
 import pytest
 import jax.numpy as jnp
 import numpy as np
-from sheap.ComplexBuilder import ComplexBuilder
-from sheap.ComplexFitting import ComplexFitting
-from sheap.Core import ComplexResult
+from sheap.SheapModelBuilder import SheapModelBuilder
+from sheap.SheapModelFitting import SheapModelFitting
+from sheap.Core import SheapResult
 
 @pytest.fixture
 def dummy_spectrum():
@@ -13,32 +13,32 @@ def dummy_spectrum():
     return jnp.stack([wl, flux, err])[None, :, :]
 
 def test_init_from_builder(dummy_spectrum):
-    builder = ComplexBuilder(xmin=4000, xmax=5000)
-    cf = ComplexFitting.from_builder(builder)
+    builder = SheapModelBuilder(xmin=4000, xmax=5000)
+    cf = SheapModelFitting.from_builder(builder)
     assert isinstance(cf.model, type(jnp.sin))  # jitted function
 
 def test_basic_fit_and_result(dummy_spectrum):
-    builder = ComplexBuilder(xmin=4000, xmax=5000)
-    cf = ComplexFitting.from_builder(builder)
+    builder = SheapModelBuilder(xmin=4000, xmax=5000)
+    cf = SheapModelFitting.from_builder(builder)
     cf(dummy_spectrum, list_learning_rate=[1e-2], run_uncertainty_params=False)
-    assert isinstance(cf.complexresult, ComplexResult)
+    assert isinstance(cf.SheapResult, SheapResult)
     assert cf.params.shape[0] == 1
 
 def test_profile_names_and_dict(dummy_spectrum):
-    builder = ComplexBuilder(xmin=4000, xmax=5000)
-    cf = ComplexFitting.from_builder(builder)
+    builder = SheapModelBuilder(xmin=4000, xmax=5000)
+    cf = SheapModelFitting.from_builder(builder)
     assert len(cf.profile_names) > 0
     assert isinstance(cf.params_dict, dict)
 
 def test_fit_with_penalty(dummy_spectrum):
-    builder = ComplexBuilder(xmin=3500, xmax=7000, add_host_miles=True)
-    cf = ComplexFitting.from_builder(builder)
+    builder = SheapModelBuilder(xmin=3500, xmax=7000, add_host_miles=True)
+    cf = SheapModelFitting.from_builder(builder)
     cf(dummy_spectrum, list_learning_rate=[1e-2], run_uncertainty_params=False, add_penalty_function=True)
     assert hasattr(cf, "params")
 
 def test_to_result_call(dummy_spectrum):
-    builder = ComplexBuilder(xmin=4000, xmax=5000)
-    cf = ComplexFitting.from_builder(builder)
+    builder = SheapModelBuilder(xmin=4000, xmax=5000)
+    cf = SheapModelFitting.from_builder(builder)
     cf(dummy_spectrum, list_learning_rate=[1e-2], run_uncertainty_params=False)
     result = cf.to_result()
-    assert isinstance(cf.complexresult, ComplexResult)
+    assert isinstance(cf.SheapResult, SheapResult)

@@ -8,7 +8,7 @@ and bolometric corrections.
 
 Attributes
 ----------
-c : float
+DEFAULT_C_KMS : float
     Speed of light in km/s (``299792.458``).
 cm_per_mpc : float
     Conversion factor from megaparsecs to centimeters (``3.08568e24``).
@@ -38,21 +38,17 @@ __all__ = [
     "BOL_CORRECTIONS",
     "DEFAULT_LIMITS",
     "SINGLE_EPOCH_ESTIMATORS",
-    "c",
     "cm_per_mpc",
     "read_yaml",
     "DEFAULT_C_KMS",
-    "C_KMS",
     "FWHM_TO_SIGMA"
 ]
-
+#TODO remove c and C_KMS and move to DEFAULT_C_KMS
 # ---------------------------------------------------------------------
 # Physical constants
 # ---------------------------------------------------------------------
-c: float = 299792.458       #: Speed of light in km/s
 DEFAULT_C_KMS: float = 299_792.458       #: Speed of light in km/s
 cm_per_mpc: float = 3.08568e24  #: Megaparsec in centimeters
-C_KMS = 299_792.458
 FWHM_TO_SIGMA = 1.0 / 2.355
 # ---------------------------------------------------------------------
 # Paths to YAML configuration files

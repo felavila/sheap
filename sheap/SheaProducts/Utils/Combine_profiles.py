@@ -1,7 +1,7 @@
 """
 Line Component Combination Utilities
 ====================================
-
+#TODO cleaning 
 This module provides functions to merge multiple spectral line
 components (e.g., broad and narrow Gaussians) into an effective
 single representation, with optional uncertainty propagation.
@@ -45,11 +45,7 @@ Notes
 
 __author__ = 'felavila'
 
-__all__ = [
-    "combine_components",
-    "combine_fast",
-    "combine_fast_with_jacobian",
-]
+__all__ = ["combine_components","combine_fast","combine_fast_with_jacobian"]
 
 from typing import Any, Dict, List, Union
 import numpy as np
@@ -57,9 +53,8 @@ import jax.numpy as jnp
 from jax import vmap,jit,jacfwd,lax
 from uncertainties import unumpy
 
-from sheap.ComplexParams.Utils.Physical_functions import calc_flux,calc_luminosity
-
-c_kms = 299792.458 # this will have to move as the constant in every where 
+from sheap.SheaProducts.Utils.Physical_functions import calc_flux,calc_luminosity
+from sheap.Utils.Constants import DEFAULT_C_KMS
 
 def combine_components(
     basic_params,
@@ -69,7 +64,7 @@ def combine_components(
     flux_fe=None,
     LINES_TO_COMBINE=("Halpha", "Hbeta","MgII","CIV"),
     limit_velocity=150.0,
-    c=299792.458,
+    C_KMS=DEFAULT_C_KMS,
     ucont_params = None 
 ):
     """
@@ -94,7 +89,7 @@ def combine_components(
         Line names to attempt to combine (default ``("Halpha","Hbeta")``).
     limit_velocity : float, optional
         Minimum velocity offset (km/s) for virial filtering.
-    c : float, optional
+    C_KMS : float, optional
         Speed of light in km/s.
     ucont_params : jnp.ndarray, optional
         Uncertainty array for continuum parameters. Required if
@@ -143,16 +138,16 @@ def combine_components(
             #is_uncertainty = isinstance(amp_b, Uncertainty)
             is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
-                from sheap.ComplexParams.Utils.After_fit_profile_helpers import evaluate_with_error 
+                from sheap.SheaProducts.Utils.After_fit_profile_helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
-                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,c=c)
+                fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,C_KMS=C_KMS)
                 
                 if fwhm_c.ndim==1:
                   #  print("fwhm_c",fwhm_c.shape)
                     #two objects 1 line 
                     fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
                  #   print("fwhm_c",fwhm_c.shape)
-                fwhm_A = (fwhm_c / c) * mu_c
+                fwhm_A = (fwhm_c / C_KMS) * mu_c
                 #print(fwhm_A.shape)
                 #unumpy.nominal_values,unumpy.std_devs
                 flux_c = calc_flux(amp_c, fwhm_A)
@@ -167,11 +162,11 @@ def combine_components(
                 params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
                 params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
 
-                fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, c=c)
+                fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, C_KMS=C_KMS)
                 if fwhm_c.ndim==1:
                     fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
 
-                fwhm_A = (fwhm_c / c) * mu_c
+                fwhm_A = (fwhm_c / C_KMS) * mu_c
                 flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
                 #print(flux_c.shape)
                 cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
@@ -287,7 +282,7 @@ def combine_fast(
     params_broad: jnp.ndarray,
     params_narrow: jnp.ndarray,
     limit_velocity: float = 150.0,
-    c: float = 299_792.0,
+    C_KMS: float = DEFAULT_C_KMS,
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """
     Efficiently combine multiple broad components with one narrow
@@ -302,7 +297,7 @@ def combine_fast(
         Only ``mu_n`` is used in velocity filtering.
     limit_velocity : float, optional
         Velocity threshold in km/s for virial filtering. Default 150.
-    c : float, optional
+    C_KMS : float, optional
         Speed of light in km/s. Default 299792.
 
     Returns
@@ -336,7 +331,7 @@ def combine_fast(
     fwhm_eff= jnp.sqrt(var_eff) * 2.35482                   # (N,)
 
     mu_nar   = params_narrow[:, 1]
-    rel_vel  = jnp.abs((mu_b - mu_nar[:, None]) / mu_nar[:, None]) * c
+    rel_vel  = jnp.abs((mu_b - mu_nar[:, None]) / mu_nar[:, None]) * C_KMS
     idx_near = jnp.argmin(rel_vel, axis=1)
 
     sel = lambda arr: arr[jnp.arange(N), idx_near]
@@ -368,7 +363,7 @@ def combine_fast_with_jacobian(
     mu_n,
     fwhm_n,
     limit_velocity: float = 150.0,
-    c: float = 299792.458,
+    C_KMS: float = DEFAULT_C_KMS,
     use_jacobian: bool = True,
     rough_scale: float = 1.0
 ):
@@ -383,7 +378,7 @@ def combine_fast_with_jacobian(
         Amplitude, center, and FWHM for the narrow component.
     limit_velocity : float, optional
         Velocity threshold (km/s) for virial filtering. Default 150.
-    c : float, optional
+    C_KMS : float, optional
         Speed of light (km/s). Default 299792.458.
     use_jacobian : bool, optional
         If True (default), propagate uncertainties using
@@ -433,7 +428,7 @@ def combine_fast_with_jacobian(
             f_n = x[3*n_broad+2:3*n_broad+3]
             pb = jnp.stack([a_b, m_b, f_b], axis=-1).reshape(1, -1)
             pn = jnp.stack([a_n, m_n, f_n], axis=-1).reshape(1, -1)
-            return jnp.array(combine_fast(pb, pn, limit_velocity, c)).squeeze()
+            return jnp.array(combine_fast(pb, pn, limit_velocity, C_KMS)).squeeze()
 
         f0 = wrapped_func(x0)
 
@@ -465,15 +460,15 @@ def combine_fast_with_jacobian(
 
 
 
-def region_helper(wavelength,region_name,complex_class_group_by_region,params,on_axis_wavelength = None):
+def region_helper(wavelength,region_name,sheapmodel_group_by_region,params,on_axis_wavelength = None):
     "?"
-    if region_name not in complex_class_group_by_region.keys():
+    if region_name not in sheapmodel_group_by_region.keys():
         return np.array([0])
-    _combined_profile  = complex_class_group_by_region[region_name].combined_profile
-    index_interest_params = complex_class_group_by_region[region_name].flat_param_indices_global
-    from_complex_params = complex_class_group_by_region[region_name].params
+    _combined_profile  = sheapmodel_group_by_region[region_name].combined_profile
+    index_interest_params = sheapmodel_group_by_region[region_name].flat_param_indices_global
+    from_complex_params = sheapmodel_group_by_region[region_name].params
     params = from_complex_params if on_axis_wavelength == 0 else params[:,index_interest_params]  
-    #params = complex_class_group_by_region[region_name].params
+    #params = sheapmodel_group_by_region[region_name].params
     return vmap(_combined_profile,(on_axis_wavelength,0))(wavelength,params)
 
 class GaussianSum:
@@ -653,7 +648,7 @@ class GaussianSum:
         return self.sum_gaussians_jit(x, params)
 
 
-def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,distances,flux_fe):
+def combine_pyqsofit(basic_params,sheapmodel_group_by_region,line,params,distances,flux_fe,C_KMS=DEFAULT_C_KMS):
     #if isinstance(LINES_TO_COMBINE,str):
      #   LINES_TO_COMBINE = [LINES_TO_COMBINE]
     b_lines = np.array(basic_params["lines"])
@@ -678,7 +673,7 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     
     wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
     model_sum = vmap(gg,in_axes=(None,0))(wave,line_params).astype(jnp.float32)
-    cont_map = region_helper(wave,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = None).squeeze().astype(jnp.float32)
+    cont_map = region_helper(wave,"continuum" ,sheapmodel_group_by_region, params,on_axis_wavelength = None).squeeze().astype(jnp.float32)
     lambda_ref = {"Halpha": 6564.61,  "Hbeta": 4862.68,"MgII": 2798.75,"CIV": 1549.48}[line]
     
     i_peak     = jnp.argmax(model_sum, axis=1)            
@@ -723,7 +718,7 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
 
     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f.astype(jnp.float32), i_peak.astype(jnp.float32))   # (Nobj,), (Nobj,)
 
-    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
+    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * C_KMS   
     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
     #print(fwhm_kms)
     flux  = np.trapezoid(model_sum, wave, axis=1)
@@ -736,7 +731,7 @@ def combine_pyqsofit(basic_params,complex_class_group_by_region,line,params,dist
     return method_2
 
 
-def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,distances,flux_fe):
+def combine_pyqsofit_single(basic_params,sheapmodel_group_by_region,line,distances,flux_fe,C_KMS=DEFAULT_C_KMS):
     b_lines = np.array(basic_params["lines"])
     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
     gg = GaussianSum(len(idx_b))
@@ -766,8 +761,8 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
     #print(disp)
     model_sum = vmap(gg,in_axes=(None,0))(wave,line_params).astype(jnp.float32)
     ###################################################
-    _combined_profile  = complex_class_group_by_region["continuum"].combined_profile
-    from_complex_params = complex_class_group_by_region["continuum"].params.astype(jnp.float32)
+    _combined_profile  = sheapmodel_group_by_region["continuum"].combined_profile
+    from_complex_params = sheapmodel_group_by_region["continuum"].params.astype(jnp.float32)
     continuum_vmap =  vmap(_combined_profile,(None,0))(wave,from_complex_params)
     lambda_ref = {"Halpha": 6564.61,  "Hbeta": 4862.68,"MgII": 2798.75,"CIV": 1549.48}[line]
     i_peak     = jnp.argmax(model_sum, axis=1)            
@@ -809,7 +804,7 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
 
     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f.astype(jnp.float32), i_peak.astype(jnp.float32))   # (Nobj,), (Nobj,)
 
-    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms   
+    fwhm_kms = ((lam_R - lam_L) / lambda_ref) * C_KMS   
     
     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
     flux  = np.trapezoid(model_sum, wave, axis=1)
@@ -828,8 +823,8 @@ def combine_pyqsofit_single(basic_params,complex_class_group_by_region,line,dist
 
 
 
-def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_broad,complex_class_group_by_region,on_axis_wavelength=None):
-    c_kms = 299792.458 # this will have to move as the constant in every where 
+def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_broad,sheapmodel_group_by_region,on_axis_wavelength=None):
+    #c_kms = 299792.458 # this will have to move as the constant in every where 
     if isinstance(targets,str):
         targets = {"MgII"}
     #targets = {"MgII"}
@@ -844,12 +839,12 @@ def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_bro
     wavelength_spectra = sheapspectral.spectra[[0],0,:]
     flux_spectra = sheapspectral.spectra[[0],1,:]
     #on_axis_wavelength = None 
-    #complex_class_group_by_region = sheapspectral.result.complex_class.group_by("region")
+    #sheapmodel_group_by_region = sheapspectral.result.sheapmodel.group_by("region")
 
 
-    fe_map = region_helper(wavelength_spectra,"fe",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
-    cont_map = region_helper(wavelength_spectra,"continuum" ,complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
-    host_map = region_helper(wavelength_spectra,"host",complex_class_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+    fe_map = region_helper(wavelength_spectra,"fe",sheapmodel_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+    cont_map = region_helper(wavelength_spectra,"continuum" ,sheapmodel_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
+    host_map = region_helper(wavelength_spectra,"host",sheapmodel_group_by_region, params,on_axis_wavelength = on_axis_wavelength).squeeze()
 
     emission_spectra = np.clip(flux_spectra - (fe_map + cont_map + host_map),0.0, None).squeeze()
 
@@ -881,7 +876,7 @@ def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_bro
 
 
 
-# def combine_pyqsofit(basic_params, complex_class_group_by_region, line, params, distances, flux_fe):
+# def combine_pyqsofit(basic_params, sheapmodel_group_by_region, line, params, distances, flux_fe):
 #     b_lines = np.array(basic_params["lines"])
     
 #     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
@@ -910,7 +905,7 @@ def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_bro
 #     model_sum = vmap(gg, in_axes=(None, 0))(wave, line_params)
     
 #     # Compute continuum - use squeeze to reduce dimensionality
-#     cont_map = region_helper(wave, "continuum", complex_class_group_by_region, 
+#     cont_map = region_helper(wave, "continuum", sheapmodel_group_by_region, 
 #                             params, on_axis_wavelength=None).squeeze()
     
 #     lambda_ref = {"Halpha": 6564.61, "Hbeta": 4862.68, "MgII": 2798.75, "CIV": 1549.48}[line]

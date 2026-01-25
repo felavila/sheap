@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,apply_tied_and_fixed_params,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
 from sheap.Assistants.Parameters import build_Parameters
-from sheap.ComplexParams.ComplexParams import ComplexParams
+from sheap.SheaProducts.SheaProducts import SheaProducts
 
 
 class PseudoMonteCarloSampler:
@@ -38,7 +38,7 @@ class PseudoMonteCarloSampler:
     def __init__(self, estimator: Any, dtype=jnp.float32):
         self.estimator = estimator
         self.dtype = dtype
-        self.complexparams = ComplexParams(estimator)
+        self.SheaProducts = SheaProducts(estimator)
         self.obj_params = getattr(estimator, "obj_params", None) or getattr(estimator, "params", None)
         self.names = getattr(estimator, "names", None)
         self.constraints = getattr(estimator, "constraints", None)
@@ -104,7 +104,7 @@ class PseudoMonteCarloSampler:
           if n % 100 == 0:
             print(f"{n} of {len(self.names)}")
           full_samples = scale_amp(self.params_dict,phys_samples[n],np.array(self.scale[n]))
-          dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+          dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
           dic_posterior_params[name_i].update({"samples_phys":full_samples})
         
         return dic_posterior_params
@@ -190,9 +190,9 @@ class PseudoMonteCarloSampler:
         if (res_constraints is not None) and (names is not None):
             los, his = [], []
             for nm in names:
-                c = res_constraints.get(nm, {}) if isinstance(res_constraints, dict) else {}
-                lo = c.get("min", None)
-                hi = c.get("max", None)
+                Limit = res_constraints.get(nm, {}) if isinstance(res_constraints, dict) else {}
+                lo = Limit.get("min", None)
+                hi = Limit.get("max", None)
                 los.append(-jnp.inf if lo is None else lo)
                 his.append( jnp.inf if hi is None else hi)
             return jnp.asarray(los, self.dtype), jnp.asarray(his, self.dtype)

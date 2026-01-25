@@ -1,9 +1,7 @@
 """This module handles ?."""
 
 __author__ = 'felavila'
-__all__ = [
-    "SheapPlot",
-]
+__all__ = ["SheapPlot",]
 
 from typing import Optional, List, Any
 from dataclasses import dataclass
@@ -13,7 +11,7 @@ import matplotlib.transforms as mtransforms
 from jax import jit
  
 from sheap.Profiles.Utils import make_fused_profiles
-
+from sheap.Utils.Constants import DEFAULT_C_KMS
 
 
 class SheapPlot:
@@ -48,7 +46,7 @@ class SheapPlot:
         self.profile_params_index_list = result.profile_params_index_list
         self.profile_functions = result.profile_functions
         self.profile_names = result.profile_names
-        self.complex_region = result.complex_region
+        self.region_list = result.region_list
         self.xlim = result.outer_limits
         self.mask = result.mask
         self.names = sheap.names
@@ -66,7 +64,7 @@ class SheapPlot:
         self.profile_params_index_list = result.profile_params_index_list
         self.profile_functions = result.profile_functions
         self.profile_names = result.profile_names
-        self.complex_region = result.complex_region
+        self.region_list = result.region_list
         self.xlim = result.outer_limits
         self.mask = result.mask
         self.names = [str(i) for i in range(self.params.shape[0])]
@@ -111,7 +109,7 @@ class SheapPlot:
         component_ls = {1: "-",2: "--",3: "-.",4: ":", 5: (0, (5, 5)), 6: (0, (3, 5, 1, 5)), 7: (0, (1, 5))}
         cont_counter = 1 
         cont_names = {"balmercontinuum":"Balmer Cont.","balmerhighorder":"Higher-order Balmer"}
-        for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.complex_region,self.profile_params_index_list,)):
+        for i, (profile_name, profile_func, region, idxs) in enumerate(zip(self.profile_names,self.profile_functions,self.region_list,self.profile_params_index_list,)):
             #print(profile_name, profile_func, region, idxs)
             values = params[idxs]
             #print(profile_name)
@@ -148,8 +146,7 @@ class SheapPlot:
                     import numpy as np 
                     idx_shift = np.where("vshift_kms" == np.array(profile_func.param_names))[0]
                     #print(idx_shift)
-                    C_KMS = 299_792.458
-                    centers = np.array(region.center) *(1+values[*idx_shift]/C_KMS)#This is only true for gaussian
+                    centers = np.array(region.center) *(1+values[*idx_shift]/DEFAULT_C_KMS)#This is only true for gaussian
                     
                     for ii,c in enumerate(centers):
                         #ax1.axvline(c)

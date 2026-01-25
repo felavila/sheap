@@ -54,7 +54,7 @@ import jax.scipy as jsp
 import numpy as np
 
 from sheap.Profiles.Utils import with_param_names
-from sheap.Utils.Constants import C_KMS
+from sheap.Utils.Constants import DEFAULT_C_KMS
 
 TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "templates"
 
@@ -98,7 +98,7 @@ def make_template_function(
     -----
     The third parameter is **vshift_kms** (velocity shift in km/s), applied as a
     multiplicative stretch of the wavelength grid:
-        wl_shifted = wl * (1 + vshift_kms / c_kms)
+        wl_shifted = wl * (1 + vshift_kms / DEFAULT_C_KMS)
 
     Returns
     -------
@@ -132,7 +132,7 @@ def make_template_function(
         if x_max is not None:
             mask &= wl <= min(x_max + 50.0, wl.max())
         if not np.any(mask):
-            raise ValueError("No wavelength values left after applying x_min/x_max cut.")
+            raise ValueError(f"No wavelength values left after applying x_min/x_max cut for {name}")
         wl   = wl[mask]
         flux = flux[mask]
 
@@ -145,7 +145,7 @@ def make_template_function(
     unit_flux = flux / np.clip(np.sum(flux), 1e-10, np.inf)
 
     if user_fd is None:
-        fixed_dispersion = (dl / central_wl) * C_KMS
+        fixed_dispersion = (dl / central_wl) * DEFAULT_C_KMS
     else:
         fixed_dispersion = float(user_fd)
 
@@ -179,7 +179,7 @@ def make_template_function(
         broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
 
         # --- velocity shift (positive -> redder features) ---
-        beta = vshift_kms / C_KMS
+        beta = vshift_kms / DEFAULT_C_KMS
         xp = wl_jax * (1.0 + beta)
 
         interp = jnp.interp(x, xp, broadened, left=0.0, right=0.0)
@@ -319,7 +319,7 @@ def make_host_function(
         conv = jnp.real(jnp.fft.ifft(base_fft * gauss_tf))
 
 
-        beta = vshift_kms / C_KMS
+        beta = vshift_kms / DEFAULT_C_KMS
         xp = wave_jax * (1.0 + beta)  
 
         return amplitude * jnp.interp(x*f, xp, conv, left=0.0, right=0.0)

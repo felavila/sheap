@@ -8,7 +8,7 @@ spectral fit parameters.
 
 Main Features
 -------------
-- Interfaces directly with a :class:`ComplexAfterFit` estimator
+- Interfaces directly with a :class:`MasterSampler` estimator
   (after a fit has been run).
 - Prepares normalized spectra, constraints, and parameter dictionaries
   for NumPyro.
@@ -18,7 +18,7 @@ Main Features
   applying tied and fixed constraints.
 - Rescales amplitude/log-amplitude parameters back into original units.
 - Wraps posterior samples into physical quantities using
-  :class:`ComplexParams`.
+  :class:`SheaProducts`.
 
 Public API
 ----------
@@ -54,16 +54,16 @@ from numpyro.infer.initialization import init_to_value
 #
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp
-from sheap.ComplexParams.ComplexParams import ComplexParams
-from sheap.ComplexSampler.Samplers.Utils.numpyro_utils import make_numpyro_model
+from sheap.SheaProducts.SheaProducts import SheaProducts
+from sheap.MasterSampler.Samplers.Utils.numpyro_utils import make_numpyro_model
 
 
 
 class McMcSampler:
-    def __init__(self, estimator: "ComplexSampler"):
+    def __init__(self, estimator: "MasterSampler"):
         
         self.estimator = estimator  
-        self.complexparams = ComplexParams(estimator)
+        self.SheaProducts = SheaProducts(estimator)
         self.model = estimator.model
         self.dependencies = estimator.dependencies
         self.scale = estimator.scale
@@ -72,7 +72,7 @@ class McMcSampler:
         self.params = estimator.params
         self.params_dict = estimator.params_dict
         self.names = estimator.names 
-        self.complex_class = estimator.complex_class
+        self.sheapmodel = estimator.sheapmodel
         self.constraints = estimator.constraints 
         
     def sample_params(self, num_samples: int = 2000, num_warmup:int = 500
@@ -120,7 +120,7 @@ class McMcSampler:
                 return apply_tied_and_fixed_params(free_sample, params_i, dependencies)
             full_samples = vmap(apply_one_sample)(samples_free)
             full_samples = scale_amp(self.params_dict,full_samples,self.scale[n])
-            dic_posterior_params[name_i] = self.complexparams.extract_params(full_samples,n,summarize=summarize)
+            dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
             dic_posterior_params[name_i].update({"full_samples":full_samples})
             #iterator.close()
         return dic_posterior_params

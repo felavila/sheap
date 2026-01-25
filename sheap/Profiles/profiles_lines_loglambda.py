@@ -78,7 +78,7 @@ from jax.scipy.special import erfc
 from jax.scipy.stats import norm #maybe dosent exist xd
 
 from sheap.Profiles.Utils import with_param_names,trapz_jax
-from sheap.Utils.Constants import C_KMS,FWHM_TO_SIGMA
+from sheap.Utils.Constants import DEFAULT_C_KMS,FWHM_TO_SIGMA
 
 
 
@@ -107,7 +107,7 @@ def gaussian_fwhm_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0, a_min=jnp.finfo(x_lambda.dtype).tiny, a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm_linear = 10.0 ** fwhm_v_kms
     sigma_v = fwhm_linear * FWHM_TO_SIGMA
@@ -136,7 +136,7 @@ def lorentzian_fwhm_loglambda(x_lambda, params):
     ratio = jnp.clip(x_lambda / lambda0,
                       a_min=jnp.finfo(x_lambda.dtype).tiny,
                       a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
     gamma = 0.5 * fwhm
@@ -165,7 +165,7 @@ def skewed_gaussian_loglambda(x_lambda, params):
     ratio = jnp.clip(x_lambda / lambda0,
                       a_min=jnp.finfo(x_lambda.dtype).tiny,
                       a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
     sigma = fwhm * FWHM_TO_SIGMA
@@ -196,7 +196,7 @@ def top_hat_loglambda(x_lambda, params):
     ratio = jnp.clip(x_lambda / lambda0,
                       a_min=jnp.finfo(x_lambda.dtype).tiny,
                       a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
     half = 0.5 * fwhm
@@ -226,7 +226,7 @@ def voigt_pseudo_loglambda(x_lambda, params):
     ratio = jnp.clip(x_lambda / lambda0,
                       a_min=jnp.finfo(x_lambda.dtype).tiny,
                       a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
 
@@ -264,7 +264,7 @@ def emg_fwhm_loglambda(x_lambda, params):
     ratio = jnp.clip(x_lambda / lambda0,
                       a_min=jnp.finfo(x_lambda.dtype).tiny,
                       a_max=jnp.inf)
-    y = C_KMS * jnp.log(ratio)
+    y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
     sigma = fwhm * FWHM_TO_SIGMA

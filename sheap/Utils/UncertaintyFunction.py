@@ -169,7 +169,6 @@ def Errorfromloop(model, spectra, params, dependencies):
             dependencies    = dependencies
         )
 
-        # compute covariance in float32
         std_errs, _ = error_covariance_matrix(
             residual_fn  = res_fn,
             params_i     = free_p,

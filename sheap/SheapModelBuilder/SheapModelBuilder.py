@@ -1,5 +1,5 @@
 """
-ComplexBuilder
+SheapModelBuilder
 ==============
 
 Builds spectral fitting regions from wavelength bounds and YAML templates.
@@ -13,7 +13,7 @@ Main features
 - Instantiate `SpectralLine` objects for narrow/broad/outflow/wind/BAL/FeII.
 - Add continuum components (power law, linear; Balmer/Balmer high order optional).
 - Group lines into SPAF composites and apply known/amplitude ties.
-- Produce a `ComplexRegion` and a fitting routine configuration.
+- Produce a `SheapModel` and a fitting routine configuration.
 
 
 Parameters
@@ -66,14 +66,14 @@ lines_available : dict[str, list[dict]]
     Loaded line definitions keyed by YAML stem.
 pseudo_region_available : list[str]
     Available pseudo‑region keys found in YAML.
-complex_class : ComplexRegion
+sheapmodel : SheapModel
     Final container with all built `SpectralLine` objects.
 known_tied_relations : list[tuple]
     Default amplitude/center ties used during grouping when enabled.
 
 Examples
 --------
->>> cb = ComplexBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
+>>> cb = SheapModelBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
 >>> cb.make_region()
 >>> config = cb._make_fitting_routine(
 ...     list_num_steps=[2000, 2000],
@@ -95,7 +95,7 @@ from __future__ import annotations
 __author__ = 'felavila'
 
 __all__ = [
-    "ComplexBuilder",
+    "SheapModelBuilder",
 ]
 
 from pathlib import Path
@@ -105,8 +105,8 @@ import warnings
 import numpy as np
 import yaml
 
-from sheap.Core import SpectralLine,ComplexRegion
-from sheap.ComplexBuilder.Utils import fe_ties, _maketies, group_lines # asistant material
+from sheap.Core import SpectralLine,SheapModel
+from sheap.SheapModelBuilder.Utils import fe_ties, _maketies, group_lines # asistant material
 
 from sheap.Profiles.Profiles import PROFILE_CONTINUUM_FUNC_MAP
 from sheap.Profiles.profiles_templates import make_host_function #?
@@ -118,7 +118,7 @@ from sheap.Profiles.profiles_templates import make_host_function #?
 # 3646.0 limit for balmer continuum after this we can move to another stuff
 # ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
 
-class ComplexBuilder:
+class SheapModelBuilder:
     """
     Builds spectral fitting regions given wavelength bounds and YAML templates,
     including narrow, broad, outflow, and FeII components, plus parameter tying.
@@ -162,14 +162,14 @@ class ComplexBuilder:
         Loaded line definitions from YAML.
     pseudo_region_available : list[str]
         Keys of available pseudo‑regions from YAML.
-    complex_class : ComplexRegion
+    sheapmodel : SheapModel
         Container of all SpectralLine objects after building.
     tied_relations : list
         Parameter‐tying specifications used in fitting routine.
 
     Examples
     --------
-    >>> rb = ComplexBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
+    >>> rb = SheapModelBuilder(6500, 6600, n_narrow=2, n_broad=1, add_outflow=True)
     >>> rb.make_region()
     >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
@@ -214,7 +214,7 @@ class ComplexBuilder:
         #verbose=True,
         **kwargs) -> None:
         """
-        Initialize the ComplexBuilder with region bounds and options.
+        Initialize the SheapModelBuilder with region bounds and options.
 
         Parameters
         ----------
@@ -300,7 +300,7 @@ class ComplexBuilder:
         add_BAL = None,
         add_balmerhighorder_continuum = None):
         """
-        Build a `ComplexRegion` of `SpectralLine` objects based on settings.
+        Build a `SheapModel` of `SpectralLine` objects based on settings.
 
         Parameters
         ----------
@@ -359,7 +359,7 @@ class ComplexBuilder:
             continuum_profile = "powerlaw"
         self.group_method = get(group_method,self.group_method)
         
-        self.complex_list = [] #place holder name  
+        self.region_list = [] #place holder name  
         for pseudo_region_name,list_dict in self.lines_available.items():
             comps = []
             for raw_line in list_dict:
@@ -373,34 +373,31 @@ class ComplexBuilder:
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds,add_BAL=add_BAL) 
-                self.complex_list.extend(comps)        
+                self.region_list.extend(comps)        
         if add_host_miles:
             self._handle_host(add_host_miles,xmin,xmax)
         #print(fe_mode)
-        self.complex_list.extend(self._handle_fe(fe_mode,xmin,xmax))
+        self.region_list.extend(self._handle_fe(fe_mode,xmin,xmax))
         
-        self.complex_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum,add_balmerhighorder_continuum = add_balmerhighorder_continuum))#here we already are able to create the complex_class
-        self.complex_class = ComplexRegion(self.complex_list)
+        self.region_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum,add_balmerhighorder_continuum = add_balmerhighorder_continuum))#here we already are able to create the sheapmodel
+        #sheapmodel
+        self.sheapmodel = SheapModel(self.region_list)
         self._ties = []
         self._known_ties = []
         self._feties = []
         if self.group_method:
-             self.complex_class = self._apply_group_method(self.complex_class,fe_mode,self.known_tied_relations)
+             self.sheapmodel = self._apply_group_method(self.sheapmodel,fe_mode,self.known_tied_relations)
         else:
             #todo add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
             #print(self.known_tied_relations)
-            self._ties,self._known_ties =_maketies(self.complex_class,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
+            self._ties,self._known_ties =_maketies(self.sheapmodel,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
             #self.tied_relations.extend([*_ties,*_known_ties])
             #self._ties = []
             if fe_mode not in ["none","template"]:
                 routine_fe_tied = {"by":"subregion","tied_params": ('center', 'fwhm')}
-                self._feties = fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied)
-                #self.tied_relations.extend(fe_ties(self.complex_class.group_by("region").get("fe").lines, routine_fe_tied))
-        del self.complex_list
-        
-        
-        # for _,sp in enumerate(self.complex_class.lines):
-        #     print(sp.profile)
+                self._feties = fe_ties(self.sheapmodel.group_by("region").get("fe").lines, routine_fe_tied)
+                #self.tied_relations.extend(fe_ties(self.sheapmodel.group_by("region").get("fe").lines, routine_fe_tied))
+        del self.region_list
         
     def _handle_broad_and_narrow_lines(
         self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ,add_outflow=False) -> List[SpectralLine]:
@@ -692,14 +689,14 @@ class ComplexBuilder:
         continuum_comps.append(SpectralLine(line_name=continuum_profile,region='continuum',component=0,profile=continuum_profile))
         return continuum_comps
 
-    def _apply_group_method(self,complex_class,fe_mode,known_tied_relations):
+    def _apply_group_method(self,sheapmodel,fe_mode,known_tied_relations):
         """
-        Group lines by region, apply known ties, and return a new ComplexRegion.
+        Group lines by region, apply known ties, and return a new SheapModel.
 
         -This function in particular could be useful to run it outside.
         Parameters
         ----------
-        complex_class : ComplexRegion
+        sheapmodel : SheapModel
             Ungrouped region object.
         fe_mode : str
             FeII mode for grouping logic.
@@ -708,25 +705,25 @@ class ComplexBuilder:
 
         Returns
         -------
-        ComplexRegion
+        SheapModel
             Grouped and tied region.
         """
-        dict_regions = complex_class.group_by("region")
-        new_complex_list = []
+        dict_regions = sheapmodel.group_by("region")
+        new_region_list = []
         for key,values in dict_regions.items():
             if key in ["continuum","host","balmer"]:
-                new_complex_list.extend(values.lines)
+                new_region_list.extend(values.lines)
             elif key == "fe":
                 #here much more can be done 
                 if fe_mode=="model":
-                    new_complex_list.extend(group_lines(values.lines,key,mode="element",profile="SPAF"))
+                    new_region_list.extend(group_lines(values.lines,key,mode="element",profile="SPAF"))
                 else:
-                    new_complex_list.extend(values.lines)
+                    new_region_list.extend(values.lines)
             elif key in ["outflow","winds"]:
-                new_complex_list.extend(group_lines(values.lines,key,mode="element",known_tied_relations=known_tied_relations,profile="SPAF"))
+                new_region_list.extend(group_lines(values.lines,key,mode="element",known_tied_relations=known_tied_relations,profile="SPAF"))
             else:
-                new_complex_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
-        return ComplexRegion(new_complex_list)
+                new_region_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
+        return SheapModel(new_region_list)
 
     def _handle_host(self,add_host_miles,xmin,xmax):
         """
@@ -743,7 +740,7 @@ class ComplexBuilder:
 
         Side Effects
         ------------
-        Appends a `SpectralLine` of region 'host' to `self.complex_list`.
+        Appends a `SpectralLine` of region 'host' to `self.region_list`.
         """
         pos_defaults = make_host_function.__defaults__ or ()  
         #kw_defaults = make_host_function.__kwdefaults__ or {}  
@@ -761,9 +758,9 @@ class ComplexBuilder:
             _host_model = make_host_function(**add_host_miles)
         else:
             Warning("Not accepted type of add_host_moles")
-            return self.complex_list
+            return self.region_list
         line = SpectralLine(line_name="host",region="host",component=1,template_info=_host_model["host_info"],profile="hostmiles")    
-        self.complex_list.extend([line])
+        self.region_list.extend([line])
         
     def _make_fitting_routine(self,list_num_steps = [1000],list_learning_rate = [1e-2]):
         """
@@ -779,7 +776,7 @@ class ComplexBuilder:
         Returns
         -------
         dict
-            Dictionary with keys 'complex_class', 'outer_limits', 'inner_limits',
+            Dictionary with keys 'sheapmodel', 'outer_limits', 'inner_limits',
             and 'fitting_routine' ready for passing to RegionFitting.
 
         Raises
@@ -808,7 +805,7 @@ class ComplexBuilder:
                 else:
                     fitting_routine[f"step{i+1}"] = {"tied": [],"non_optimize_in_axis": 4,"learning_rate": list_learning_rate[i],"num_steps": list_num_steps[i]}
             
-        return {"complex_class": self.complex_class,"outer_limits": [self.xmin, self.xmax], "inner_limits": [self.xmin + 50, self.xmax - 50],"fitting_routine":fitting_routine}
+        return {"sheapmodel": self.sheapmodel,"outer_limits": [self.xmin, self.xmax], "inner_limits": [self.xmin + 50, self.xmax - 50],"fitting_routine":fitting_routine}
 
     def _load_lines(self, paths: Optional[List[Union[str, Path]]]) -> None:
             """

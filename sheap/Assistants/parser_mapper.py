@@ -580,3 +580,68 @@ def flatten_tied_map(tied_map: dict[int, tuple[int, str, float]]) -> dict[int, t
     for tgt in tied_map:
         result[tgt] = resolve(tgt)
     return result
+
+
+def get_sample_params(posterior, region, main_key, line_name, param):
+    """
+    Extract a parameter for a given emission line within a region
+    from a posterior dictionary, for all objects.
+    main_key = "basic_params"
+    region = "narrow"
+    #TODO require more detail
+
+    posterior = sheapspectral.result.posterior["montecarlo"]["posterior_result"]
+
+    import numpy as np
+    Returns
+    -------
+    np.ndarray
+        Array with shape (N_obj, N_samples, N_match)
+    """
+    # reference object (structure check)
+    first_key = next(iter(posterior))
+    regions = posterior[first_key].get(main_key, {})
+
+    if region not in regions:
+        raise KeyError(
+            f"Region '{region}' is not available. "
+            f"Available regions: {list(regions.keys())}"
+        )
+
+    region_data = regions[region]
+
+    lines = region_data.get("lines", [])
+    if line_name not in lines:
+        raise KeyError(
+            f"Line '{line_name}' is not available in region '{region}'. "
+            f"Available lines: {list(lines)}"
+        )
+
+    if param not in region_data:
+        available_params = [k for k in region_data.keys() if k != "lines"]
+        raise KeyError(
+            f"Parameter '{param}' is not available in region '{region}'. "
+            f"Available parameters: {available_params}"
+        )
+
+    # index of requested line(s)
+    line_idx = np.where(np.asarray(lines) == line_name)[0]
+
+    # collect samples for all objects
+    param_samples = []
+    for _, post in posterior.items():
+        region_post = post[main_key][region]
+        param_samples.append(
+            np.asarray(region_post[param])[:, line_idx]
+        )
+
+    return np.stack(param_samples, axis=0)
+
+
+
+
+def get_multiple_sample_params(posterior, region, main_key, line_name, param):
+    dic_params = {}
+    for p in param:
+        dic_params[p] = get_sample_params(posterior, region, main_key, line_name,p)
+    return dic_params

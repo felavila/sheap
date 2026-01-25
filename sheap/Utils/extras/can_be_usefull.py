@@ -15,7 +15,7 @@ from pathlib import Path
 from scipy.fft import fft, ifft, fftfreq
 
 
-from sheap.Utils.Constants import c
+from sheap.Utils.Constants import DEFAULT_C_KMS as C_KMS
 
 def resample_to_log_lambda_npinterp(
     wave: np.ndarray,
@@ -61,11 +61,11 @@ def resample_to_log_lambda_npinterp(
     flux_log = np.interp(wave_log_clipped, wave, flux)
 
     # Constant velscale in km/s
-    velscale = np.log(wave_log[1] / wave_log[0]) * c
+    velscale = np.log(wave_log[1] / wave_log[0]) * C_KMS
 
     # Compute Δλ per pixel
     dlam = np.gradient(wave_log)
-    fwhm_lambda = 2.355 * (wdisp_kms / c) * wave_log
+    fwhm_lambda = 2.355 * (wdisp_kms / C_KMS) * wave_log
 
     return wave_log, flux_log, velscale, fwhm_lambda,dlam
 
@@ -109,7 +109,7 @@ def build_cube_from_fits_header_comments(
             wave0 = float(cmt[48].split(":")[-1].split("(")[0])
             wave1 = float(cmt[49].split(":")[-1].split("(")[0])
             dlam = float(cmt[50].split(":")[-1].split("(")[0])
-            res_c = next(c for c in cmt if "Spectral resolution" in c)
+            res_c = next(l for l in cmt if "Spectral resolution" in l)
             sampling = cmt[51].replace("'", "").split()[-1].lower()
             age = float(cmt[40].split(":")[-1].replace("'", "").strip())
             z   = float(cmt[41].split(":")[-1].replace("'", "").strip())
@@ -135,11 +135,10 @@ def build_cube_from_fits_header_comments(
     sigma_target = FWHM_target / 2.355
 
     # compute per-pixel template sigma and pixscale
-    c = 3e5
     pixscale = np.log(wave[1]/wave[0])
     sigma_A_arr = fwhm_arr / 2.355
-    sigma_pix_template = (sigma_A_arr / wave) * c / pixscale
-    sigma_pix_target = (sigma_target / wave) * c / pixscale
+    sigma_pix_template = (sigma_A_arr / wave) * C_KMS / pixscale
+    sigma_pix_target = (sigma_target / wave) * C_KMS / pixscale
     # squared convolution sigma per pix (mean)
     sigma2_conv = np.maximum(sigma_pix_target**2 - sigma_pix_template**2, 0.0)
     sigma2_mean = np.mean(sigma2_conv)
@@ -173,8 +172,8 @@ def build_cube_from_fits_header_comments(
 
     # save constant-resolution metadata
     sigma_A = FWHM_target/2.355
-    sigmatemplate = (sigma_A/5500.0)*c
-    fixed_dispersion = (dlam/5500.0)*c
+    sigmatemplate = (sigma_A/5500.0)*C_KMS
+    fixed_dispersion = (dlam/5500.0)*C_KMS
 
     np.savez_compressed(
         output_file,

@@ -11,14 +11,11 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 
 import numpy as np 
 import matplotlib.pyplot as plt 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import Normalize
+
 import pandas as pd
 from collections.abc import Mapping
-import jax.numpy as jnp
-from jax import jit, vmap
-
-
-from sheap.Profiles.Utils import make_fused_profiles
-
 
 
 
@@ -1151,6 +1148,7 @@ def plot_logdex_agreement_v2(
         ax.set_xlim(lims)
         ax.set_ylim(lims)
     plt.tight_layout()
+    
 
     # ---------------------- save ----------------------
     # saved_file = None
@@ -1183,517 +1181,495 @@ def plot_logdex_agreement_v2(
 
 
 
-@dataclass
-class RegionInfo:
-	"""Lightweight region registry entry."""
-	combined_profile: Any
-	idx_global: jnp.ndarray
 
-
-class ResultAnalysis:
+def plot_ratio_with_sn(
+	x, y,
+	xerr_low=None, xerr_up=None,
+	yerr_low=None, yerr_up=None,
+	sn=None,
+	*,
+	lims=(-0.1, 1.1),
+	label_template="",
+	cmap="viridis",
+	ms=70,              # scatter marker size (points^2)
+	alpha=0.8,
+	label_colorbar=r'$\log_{10}~\mathrm{S/N}$',
+    xlabel = r'$\mathrm{Stars/Cont.~ratio~at~5100~\AA~(Bernal+2025)}$',
+    ylabel = r'$\mathrm{Stars/Cont.~ratio~at~5100~\AA~(SHEAP)}$',
+	err_alpha=0.65,
+	err_lw=1.2,
+	capsize=2,
+):
 	"""
-	Evaluate fused model + per-region components for best-fit params and posterior samples/draws.
+	Plot y vs x with asymmetric errorbars and encode S/N as point color.
 
-	On init, the class tries to automatically load posterior arrays and keep them cached:
-	  - self.samples : (N_obj, N_samp, N_global) or None
-	  - self.draws   : (N_obj, N_draw, N_global) or None
+	This version draws *per-point* errorbars with the same color as the marker.
 
-	Defaults
-	--------
-	posterior_group = "montecarlo"
-	posterior_key   = "posterior_result"
-	samples_field   = "samples_phys"
-	draws_field     = "draws_phys"
+	Parameters
+	----------
+	x, y : array-like, shape (N,)
+		Values to plot (e.g. Bernal+2025 vs SHEAP).
+	xerr_low, xerr_up, yerr_low, yerr_up : array-like, shape (N,), optional
+		Asymmetric errors. If provided, they are used as [low, up].
+	sn : array-like, shape (N,)
+		Per-point S/N values (already in log10 if you want log10 on the colorbar).
 	"""
+	x = np.asarray(x, dtype=float)
+	y = np.asarray(y, dtype=float)
+	n = x.size
 
-	def __init__(
-		self,
-		sheapspectral_template: Any,
-		*,
-		jit_compile: bool = True,
-		posterior_group: str = "montecarlo",
-		posterior_key: str = "posterior_result",
-		samples_field: str = "samples_phys",
-		draws_field: str = "draws_phys",
-		autoload_posterior: bool = True,
-	):
-		self.obj = sheapspectral_template
-		self._jit_compile = bool(jit_compile)
+	def _asarr(a):
+		if a is None:
+			return None
+		a = np.asarray(a, dtype=float)
+		if a.size != n:
+			raise ValueError(f"Array has size {a.size}, expected {n}.")
+		return a
 
-		# posterior config
-		self._posterior_group = posterior_group
-		self._posterior_key = posterior_key
-		self._samples_field = samples_field
-		self._draws_field = draws_field
+	xerr_low = _asarr(xerr_low)
+	xerr_up  = _asarr(xerr_up)
+	yerr_low = _asarr(yerr_low)
+	yerr_up  = _asarr(yerr_up)
 
-		# cached posterior
-		self.samples: Optional[jnp.ndarray] = None
-		self.draws: Optional[jnp.ndarray] = None
+	# Build asymmetric error arrays (2, N)
+	xerr = None if (xerr_low is None or xerr_up is None) else np.vstack([xerr_low, xerr_up])
+	yerr = None if (yerr_low is None or yerr_up is None) else np.vstack([yerr_low, yerr_up])
 
-		# registry + models
-		self._registry: Dict[str, RegionInfo] = {}
-		self._model = None
-		self._batched_model = None
-		self._batched_region: Dict[str, Any] = {}
+	if sn is None:
+		raise ValueError("sn must be provided (array of length N).")
+	sn = np.asarray(sn, dtype=float)
+	if sn.size != n:
+		raise ValueError(f"sn has size {sn.size}, expected {n}.")
 
-		self._build_registry_and_model()
-		self._build_batched_evalers()
+	fig, ax = plt.subplots(figsize=(12, 12))
 
-		if autoload_posterior:
-			self._try_autoload_posterior()
+	# Colormap normalization used for BOTH scatter and colored errorbars
+	norm = Normalize(vmin=np.nanmin(sn), vmax=np.nanmax(sn))
+	cmap_obj = plt.get_cmap(cmap)
 
-	# ----------------------------- setup ---------------------------------
+	# Errorbars (colored per point to match marker)
+	if (xerr is not None) or (yerr is not None):
+		for i in range(n):
+			color_i = cmap_obj(norm(sn[i]))
 
-	def _build_registry_and_model(self) -> None:
-		res = self.obj.result
-		grouped = res.complex_class.group_by("region")
+			xerri = None if xerr is None else np.array([[xerr[0, i]], [xerr[1, i]]])
+			yerri = None if yerr is None else np.array([[yerr[0, i]], [yerr[1, i]]])
 
-		self._registry.clear()
-		for region_name in grouped.keys():
-			self._registry[region_name] = RegionInfo(
-				combined_profile=grouped[region_name].combined_profile,
-				idx_global=jnp.array(grouped[region_name].flat_param_indices_global),
+			ax.errorbar(
+				x[i], y[i],
+				xerr=xerri, yerr=yerri,
+				fmt="none",
+				ecolor=color_i,
+				elinewidth=err_lw,
+				alpha=err_alpha,
+				capsize=capsize,
+				zorder=1,
 			)
 
-		fused = make_fused_profiles(res.profile_functions)
-		self._model = jit(fused) if self._jit_compile else fused
-
-	def _build_batched_evalers(self) -> None:
-		self._batched_model = vmap(vmap(self._model, in_axes=(None, 0)), in_axes=(None, 0))
-
-		self._batched_region.clear()
-		for region_name, info in self._registry.items():
-			f = info.combined_profile
-			self._batched_region[region_name] = vmap(vmap(f, in_axes=(None, 0)), in_axes=(None, 0))
-
-	# ----------------------------- posterior --------------------------------
-
-	def _posterior_dict(self) -> Dict[str, Any]:
-		return self.obj.result.posterior[self._posterior_group][self._posterior_key]
-
-	def _collect_field(self, field: str) -> jnp.ndarray:
-		d = self._posterior_dict()
-		all_list = []
-		for _, spectral_values in d.items():
-			if field not in spectral_values:
-				raise KeyError(f"Field '{field}' not present in posterior_result entry keys: {list(spectral_values.keys())}")
-			all_list.append(spectral_values[field])
-		return jnp.array(all_list)
-
-	def _try_autoload_posterior(self) -> None:
-		# samples
-		try:
-			self.samples = self._collect_field(self._samples_field)
-		except Exception:
-			self.samples = None
-
-		# draws (optional)
-		try:
-			self.draws = self._collect_field(self._draws_field)
-		except Exception:
-			self.draws = None
-
-	def reload_posterior(self) -> None:
-		"""Force re-read of samples/draws from result.posterior using current config."""
-		self._try_autoload_posterior()
-
-	# ----------------------------- helpers --------------------------------
-
-	@property
-	def region_names(self) -> Tuple[str, ...]:
-		return tuple(self._registry.keys())
-
-	def _wl_array(self, wavelength: float) -> jnp.ndarray:
-		return jnp.array([float(wavelength)], dtype=jnp.float32)
-
-	def get_region_info(self, region_name: str) -> RegionInfo:
-		if region_name not in self._registry:
-			raise KeyError(f"Region '{region_name}' not found. Available: {self.region_names}")
-		return self._registry[region_name]
-
-	def _require_samples(self, all_samples: Optional[jnp.ndarray]) -> jnp.ndarray:
-		if all_samples is not None:
-			return all_samples
-		if self.samples is None:
-			raise ValueError(
-				"No samples provided and self.samples is None. "
-				"Either pass all_samples=... or set autoload_posterior=True and ensure posterior exists."
-			)
-		return self.samples
-
-	def _require_draws(self, all_draws: Optional[jnp.ndarray]) -> jnp.ndarray:
-		if all_draws is not None:
-			return all_draws
-		if self.draws is None:
-			raise ValueError(
-				"No draws provided and self.draws is None. "
-				"Either pass all_draws=... or ensure draws exist in posterior."
-			)
-		return self.draws
-
-	# ----------------------------- best-fit evaluation ---------------------
-
-	def eval_bestfit_model(self, wavelength: float) -> jnp.ndarray:
-		wl = self._wl_array(wavelength)
-		params = self.obj.result.params
-		return vmap(self._model, in_axes=(None, 0))(wl, params)
-
-	def eval_bestfit_region(self, region_name: str, wavelength: float) -> jnp.ndarray:
-		wl = self._wl_array(wavelength)
-		info = self.get_region_info(region_name)
-		params = self.obj.result.params
-		p_reg = params[:, info.idx_global]
-		f = info.combined_profile
-		return vmap(f, in_axes=(None, 0))(wl, p_reg)
-
-	# ----------------------------- batched evaluation ----------------------
-
-	def eval_batched_model(self, wavelength: float, all_samples: Optional[jnp.ndarray] = None) -> jnp.ndarray:
-		wl = self._wl_array(wavelength)
-		S = self._require_samples(all_samples)
-		return self._batched_model(wl, S)
-
-	def eval_batched_region(
-		self,
-		region_name: str,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
-	) -> jnp.ndarray:
-		wl = self._wl_array(wavelength)
-		info = self.get_region_info(region_name)
-		S = self._require_samples(all_samples)
-
-		reg_params = S[:, :, info.idx_global]
-		f_batched = self._batched_region[region_name]
-		return f_batched(wl, reg_params)
-
-	def eval_batched_components(
-		self,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
-		*,
-		regions: Optional[Iterable[str]] = None,
-		include_model: bool = True,
-	) -> Dict[str, jnp.ndarray]:
-		if regions is None:
-			regions = self.region_names
-
-		out: Dict[str, jnp.ndarray] = {}
-
-		if include_model:
-			out["model"] = self.eval_batched_model(wavelength, all_samples)
-
-		for r in regions:
-			out[r] = self.eval_batched_region(r, wavelength, all_samples)
-
-		return out
-
-	# ----------------------------- derived quantities ----------------------
-
-	def stars_cont_ratio(
-		self,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
-		*,
-		host_region: str = "host",
-		subtract_regions: Tuple[str, ...] = ("narrow", "balmer", "fe", "broad"),
-		squeeze: bool = True,
-	) -> jnp.ndarray:
-		comps = self.eval_batched_components(
-			wavelength,
-			all_samples,
-			regions=(host_region,) + subtract_regions,
-			include_model=True,
-		)
-		host = comps[host_region]
-		denom = comps["model"]
-		for r in subtract_regions:
-			denom = denom - comps[r]
-
-		ratio = host / denom
-		return jnp.squeeze(ratio) if squeeze else ratio
-
-	@property
-	def stars_Cont_5100(self):
-		"""
-		Uses cached samples by default.
-
-		Example
-		-------
-		ra = ResultAnalysis(sheap)
-		stars = ra.stars_Cont_5100   # (N_obj, N_samp) if wl dim=1
-		"""
-		return self.stars_cont_ratio(5100.0, all_samples=None)
-	
-	def stars_cont_ratio_bestfit(
-		self,
-		wavelength: float,
-		*,
-		host_region: str = "host",
-		subtract_regions: Tuple[str, ...] = ("narrow", "balmer", "fe", "broad"),
-		squeeze: bool = True,
-	) -> jnp.ndarray:
-		"""
-		Best-fit version of:
-		  host / (model - narrow - balmer - fe - broad)
-
-		Uses self.obj.result.params (best-fit global params), NOT posterior samples.
-		"""
-		# evaluate fused model at best-fit
-		model = self.eval_bestfit_model(wavelength)  # (N_obj, 1, ...)
-
-		# evaluate host + subtract regions at best-fit
-		host = self.eval_bestfit_region(host_region, wavelength)
-		denom = model
-		for r in subtract_regions:
-			denom = denom - self.eval_bestfit_region(r, wavelength)
-
-		ratio = host / denom
-		return jnp.squeeze(ratio) if squeeze else ratio
-
-	@property
-	def stars_Cont_5100_bestfit(self) -> jnp.ndarray:
-		"""Convenience: best-fit stars/cont ratio at 5100 Å."""
-		return self.stars_cont_ratio_bestfit(5100.0)
-
-	# ----------------------------- single-object reproduce -----------------
-	def reproduce_one_object(
-		self,
-		n_obj: int,
-		*,
-		x: Optional[jnp.ndarray] = None,
-		samples: Optional[jnp.ndarray] = None,      # (N_samp, N_global)
-		draws: Optional[jnp.ndarray] = None,        # (N_draw, N_global)
-	) -> Dict[str, Any]:
-		"""
-		Reconstruct (evaluate) the model decomposition for a single object on its wavelength grid.
-
-		This returns:
-		- per-region component fluxes (for posterior samples, best-fit, and optionally draws)
-		- per-region parameter vectors (same)
-		- full fused-model flux (same)
-		- a "region_sum_*" flux built by summing all region components (same)
-
-		If `samples`/`draws` are not provided, it tries to use cached `self.samples`/`self.draws`.
-
-		Parameters
-		----------
-		n_obj : int
-			Object index.
-		x : jnp.ndarray, optional
-			Wavelength grid to evaluate on. If None, uses `self.obj.spectra[n_obj, 0, :]`.
-		samples : jnp.ndarray, optional
-			Posterior samples in *global* parameter space for this object, shape (N_samp, N_global).
-		draws : jnp.ndarray, optional
-			Posterior draws in *global* parameter space for this object, shape (N_draw, N_global).
-
-		Returns
-		-------
-		dict
-			Keys are named to be explicit about:
-			- what is being evaluated (flux vs params)
-			- which parameter set (samples vs bestfit vs draws)
-			- whether it's per-region or whole-model
-
-			Structure:
-			{
-				"flux_by_region_samples": {region: (N_samp, N_wave, ...), ...},
-				"flux_by_region_bestfit": {region: (N_wave, ...), ...},
-				"flux_by_region_draws":   {region: (N_draw, N_wave, ...), ...} or None,
-
-				"params_by_region_samples": {region: (N_samp, N_reg), ...},
-				"params_by_region_bestfit": {region: (N_reg,), ...},
-				"params_by_region_draws":   {region: (N_draw, N_reg), ...} or None,
-
-				"flux_full_model_samples": (N_samp, N_wave, ...),
-				"flux_full_model_bestfit": (N_wave, ...),
-				"flux_full_model_draws":   (N_draw, N_wave, ...) or None,
-
-				"flux_region_sum_samples": (N_samp, N_wave, ...),
-				"flux_region_sum_bestfit": (N_wave, ...),
-				"flux_region_sum_draws":   (N_draw, N_wave, ...) or None,
-			}
-		"""
-		if x is None:
-			x = self.obj.spectra[n_obj, 0, :]
-
-		# choose samples
-		if samples is None:
-			if self.samples is None:
-				raise ValueError("No samples given and self.samples is None.")
-			samples = self.samples[n_obj]
-
-		# choose draws (optional)
-		if draws is None and self.draws is not None:
-			draws = self.draws[n_obj]
-
-		bestfit_global = self.obj.result.params[n_obj]  # (N_global,)
-
-		out: Dict[str, Any] = {
-			# per-region fluxes
-			"flux_by_region_samples": {},
-			"flux_by_region_bestfit": {},
-			"flux_by_region_draws": {} if draws is not None else None,
-
-			# per-region params
-			"params_by_region_samples": {},
-			"params_by_region_bestfit": {},
-			"params_by_region_draws": {} if draws is not None else None,
-
-			# whole-model fluxes
-			"flux_full_model_samples": vmap(self._model, in_axes=(None, 0))(x, samples),
-			"flux_full_model_bestfit": self._model(x, bestfit_global),
-			"flux_full_model_draws": (
-				vmap(self._model, in_axes=(None, 0))(x, draws) if draws is not None else None
-			),
-		}
-
-		# We'll accumulate region sums as we go
-		region_sum_samples = None
-		region_sum_bestfit = None
-		region_sum_draws = None if draws is not None else None
-
-		for region_name, info in self._registry.items():
-			f = info.combined_profile
-			idx = info.idx_global
-
-			# slice global -> region params
-			p_samp = samples[:, idx]
-			p_best = bestfit_global[idx]
-
-			out["params_by_region_samples"][region_name] = p_samp
-			out["params_by_region_bestfit"][region_name] = p_best
-
-			# evaluate region fluxes
-			flux_samp = vmap(f, in_axes=(None, 0))(x, p_samp)
-			flux_best = f(x, p_best)
-
-			out["flux_by_region_samples"][region_name] = flux_samp
-			out["flux_by_region_bestfit"][region_name] = flux_best
-
-			# accumulate sums
-			region_sum_samples = flux_samp if region_sum_samples is None else (region_sum_samples + flux_samp)
-			region_sum_bestfit = flux_best if region_sum_bestfit is None else (region_sum_bestfit + flux_best)
-
-			if draws is not None:
-				p_draw = draws[:, idx]
-				out["params_by_region_draws"][region_name] = p_draw
-
-				flux_draw = vmap(f, in_axes=(None, 0))(x, p_draw)
-				out["flux_by_region_draws"][region_name] = flux_draw
-
-				region_sum_draws = flux_draw if region_sum_draws is None else (region_sum_draws + flux_draw)
-
-		out["flux_region_sum_samples"] = region_sum_samples
-		out["flux_region_sum_bestfit"] = region_sum_bestfit
-		out["flux_region_sum_draws"] = region_sum_draws
-
-		return out
-
-	def fe_integrated_flux(
-		self,
-		*,
-		x_min: float = 2250,
-		x_max: float = 2650,
-		n_grid: int = 2_000,
-		region_name: str = "fe",
-		all_samples: Optional[jnp.ndarray] = None,
-		include_bestfit: bool = True,
-		attach_to_posterior: bool = False,
-		attach_component: str = "broad",
-		attach_key: str = "R_Fe",
-	) -> Dict[str, Any]:
-		"""
-		Integrate the Fe-region component flux over a wavelength window.
-
-		This evaluates the region's `combined_profile` on a linear wavelength grid and
-		integrates with a trapezoidal rule:
-
-		    I_Fe = ∫ F_Fe(λ) dλ
-
-		By default, this is computed for posterior samples of all objects:
-		    samples -> shape (N_obj, N_samp)
-
-		Optionally, it also computes the best-fit integral:
-		    bestfit -> shape (N_obj,)
-
-		Optionally, it can attach the per-object sample integrals into the posterior
-		dict under:
-		    posterior_result[obj_key]["basic_params"][attach_component]["extras"][attach_key]
-        TODO add a coment on the values from Pan+25
-		Parameters
-		----------
-		x_min, x_max : float
-			Integration bounds in Å.
-		n_grid : int
-			Number of wavelength points for the integration grid.
-		region_name : str
-			Name of the region in the registry (default "fe").
-		all_samples : jnp.ndarray, optional
-			Posterior samples array (N_obj, N_samp, N_global). If None, uses cached
-			`self.samples`.
-		include_bestfit : bool
-			Also compute best-fit integral from `self.obj.result.params`.
-		attach_to_posterior : bool
-			If True, store the sample integrals in the posterior dict.
-		attach_component : str
-			Which basic_params component to attach to (default "broad").
-		attach_key : str
-			Key name inside extras (default "R_Fe").
-
-		Returns
-		-------
-		dict
-			{
-			  "wavelength_grid": (N_wave,),
-			  "samples": (N_obj, N_samp),
-			  "bestfit": (N_obj,) or None,
-			}
-		"""
-		# grid (float32, consistent with your other helpers)
-		x_grid = jnp.linspace(
-			float(x_min), float(x_max), int(n_grid), dtype=jnp.float32
-		)
-
-		# region info + slice samples to region param space
-		info = self.get_region_info(region_name)
-		S = self._require_samples(all_samples)  # (N_obj, N_samp, N_global)
-		reg_params = S[:, :, info.idx_global]   # (N_obj, N_samp, N_reg)
-
-		# batched eval over (obj, samp) -> flux(λ)
-		f = info.combined_profile
-		f_batched = vmap(vmap(f, in_axes=(None, 0)), in_axes=(None, 0))
-		flux = f_batched(x_grid, reg_params)  # (N_obj, N_samp, N_wave)
-
-		# integrate over wavelength axis
-		int_samples = jnp.trapezoid(flux, x_grid, axis=-1)  # (N_obj, N_samp)
-
-		out: Dict[str, Any] = {
-			"wavelength_grid": x_grid,
-			"samples": int_samples,
-			"bestfit": None,
-		}
-
-		if include_bestfit:
-			p_best = self.obj.result.params[:, info.idx_global]  # (N_obj, N_reg)
-			flux_best = vmap(f, in_axes=(None, 0))(x_grid, p_best)  # (N_obj, N_wave)
-			out["bestfit"] = jnp.trapezoid(flux_best, x_grid, axis=-1)   # (N_obj,)
-
-		if attach_to_posterior:
-			# attach sample integrals per object into posterior dict
-			d = self._posterior_dict()
-			keys = list(d.keys())  # keep same iteration order as _collect_field
-			for i, k in enumerate(keys):
-				entry = d[k]
-				basic = entry.setdefault("basic_params", {})
-				comp = basic.setdefault(attach_component, {})
-				extras = comp.setdefault("extras", {})
-				extras[attach_key] = int_samples[i]  # (N_samp,)
-			# note: if you want bestfit attached too, you can store out["bestfit"][i] similarly.
-
-		return out
-
-
+	# Scatter with S/N color encoding (keep this so colorbar is correct)
+	sc = ax.scatter(
+		x, y,
+		c=sn,
+		s=ms,
+		cmap=cmap_obj,
+		norm=norm,
+		alpha=alpha,
+		marker="*",
+		edgecolors="none",
+		zorder=2,
+		label=label_template,
+	)
+
+	# 1:1 line
+	ax.plot(lims, lims, "k--", linewidth=1.8, label="1:1 line", zorder=20)
+	ax.set_aspect("equal", adjustable="box")
+	ax.set_xlim(lims)
+	ax.set_ylim(lims)
+
+	# Labels
+	ax.set_xlabel(xlabel,
+		fontsize=25,
+	)
+	ax.set_ylabel(ylabel,
+		fontsize=25,
+	)
+	ax.tick_params(axis="both", which="major", labelsize=25)
+
+	# Colorbar with matched height
+	divider = make_axes_locatable(ax)
+	cax = divider.append_axes("right", size="4%", pad=0.08)
+
+	cbar = plt.colorbar(sc, cax=cax)
+	cbar.set_label(label_colorbar, fontsize=25)
+	cbar.ax.tick_params(labelsize=20)
+
+	ax.legend(
+		fontsize=20,
+		frameon=False,
+		markerscale=1.6,
+		handlelength=2.6,
+	)
+
+	plt.tight_layout()
+
+	return fig, ax, sn
+
+def plot_logdex_agreement_v3(
+    data_dict,
+    *,
+    sn=None,  # <<< NEW: common S/N array for ALL series
+    xlabel=r'$\log_{10}(\mathrm{FWHM}_{\mathrm{ref}}\ [\mathrm{km\ s^{-1}}])$',
+    ylabel=r'$\log_{10}(\mathrm{FWHM}_{\mathrm{SHEAP}}\ [\mathrm{km\ s^{-1}}])$',
+    ref_label="ref",
+    band=0.3,
+    lims="auto",
+    lims_pad=0.05,
+    save_file=None,
+    dpi=300,
+    save_format="pdf",
+    markers=('o', '*', 'X', 'D', '^', 'v', 'P', 's'),
+    colors=(
+        "#d62728", "#6b67bd", "#2ca02c", "#d62728",
+        "#6b67bd", "#8c564b", "#e377c2", "#7f7f7f",
+    ),
+    markersize=10,
+    alpha=0.9,
+    legend_fontsize=30,
+    label_fontsize=30,
+    tick_fontsize=30,
+    what="",
+    label_mode=None,
+    add_numbers=False,
+    name_line="line",
+    legend_loc="lower right",
+    # --- NEW colormap knobs ---
+    cmap="viridis",
+    label_colorbar=r'$\log_{10}\,\mathrm{S/N}$',
+    colorbar=True,
+    colorbar_pad=0.08,
+    colorbar_size="4%",
+    err_alpha=0.65,
+    err_lw=2.0,
+    capsize=3,
+):
+    """
+    Same as your v2, but now point color is driven by a *common* S/N array shared
+    across all series in data_dict. Markers still distinguish series.
+    """
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.lines as mlines
+    import matplotlib.patches as mpatches
+    from matplotlib.colors import Normalize
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    # ---------------------- label presets ----------------------
+    if label_mode:
+        _lm = label_mode.lower()
+        presets = {
+            "fwhm": (
+                rf'$\log_{{10}}(\mathrm{{FWHM}}_{{\mathrm{{{ref_label}}}}}\ [\mathrm{{km\ s^{{-1}}}}])$',
+                r'$\log_{10}(\mathrm{FWHM}_{\mathrm{SHEAP}}\ [\mathrm{km\ s^{-1}}])$'
+            ),
+            "lcont": (
+                rf'$\log_{{10}}(\lambda L_{{\lambda,\mathrm{{{ref_label}}}}}\ [\mathrm{{erg\ s^{{-1}}}}])$',
+                r'$\log_{10}(\lambda L_{\lambda,\mathrm{SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
+            ),
+            "lline": (
+                rf'$\log_{{10}}(L_{{\mathrm{{{name_line},{ref_label}}}}}\ [\mathrm{{erg\ s^{{-1}}}}])$',
+                r'$\log_{10}(L_{\mathrm{line,SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
+            ),
+            "smbh": (
+                rf'$\log_{{10}}(M_{{\mathrm{{BH,{ref_label}}}}}\ [M_\odot])$',
+                r'$\log_{10}(M_{\mathrm{BH,SHEAP}}\ [M_\odot])$'
+            ),
+            "smbh_c": (
+                rf'$\log_{{10}}(M_{{\mathrm{{BH,line}}}}\ [M_\odot])$',
+                rf'$\log_{{10}}(M_{{\mathrm{{BH,continuum}}}}\ [M_\odot])$'
+            ),
+            "rfe": (
+                rf'$R_{{\mathrm{{FeII,{ref_label}}}}}$ (dimensionless)',
+                r'$R_{\mathrm{FeII,SHEAP}}$ (dimensionless)'
+            ),
+        }
+        if _lm in presets:
+            xlabel, ylabel = presets[_lm]
+
+    # ---------------------- helpers ----------------------
+    def _as_2d(a):
+        a = np.asarray(a)
+        if a.ndim == 1:
+            return a[None, :]
+        return a
+
+    def extract_data(arr):
+        """
+        Return (values, err_minus, err_plus) in linear space.
+        err_minus/err_plus are positive magnitudes, or None.
+        """
+        a = _as_2d(arr)
+
+        # accept (N, K) where K in {1,2,3} -> transpose to (K, N)
+        if a.shape[0] not in (1, 2, 3) and a.shape[1] in (1, 2, 3):
+            a = a.T
+
+        if a.shape[0] not in (1, 2, 3):
+            raise ValueError(
+                f"Expected shape (N,), (1,N), (2,N), (3,N) (or transposed). Got {a.shape}."
+            )
+
+        vals = np.asarray(a[0], dtype=float)
+
+        if a.shape[0] == 1:
+            return vals, None, None
+
+        if a.shape[0] == 2:
+            e = np.abs(np.asarray(a[1], dtype=float))
+            return vals, e, e
+
+        e_plus  = np.abs(np.asarray(a[1], dtype=float))
+        e_minus = np.abs(np.asarray(a[2], dtype=float))
+        return vals, e_minus, e_plus
+
+    def _finite_log_values_from_series(series):
+        xv, _, _ = extract_data(series["x"])
+        yv, _, _ = extract_data(series["y"])
+        with np.errstate(divide="ignore", invalid="ignore"):
+            xl = np.log10(xv)
+            yl = np.log10(yv)
+        both = np.concatenate([xl[np.isfinite(xl)], yl[np.isfinite(yl)]])
+        return both
+
+    # ---------------------- determine limits ----------------------
+    if lims == "auto" or lims is None:
+        vals = []
+        for _, series in data_dict.items():
+            both = _finite_log_values_from_series(series)
+            if both.size:
+                vals.append(both)
+        if len(vals):
+            both = np.concatenate(vals)
+            dmin, dmax = float(np.nanmin(both)), float(np.nanmax(both))
+            if np.isfinite(dmin) and np.isfinite(dmax):
+                rng = dmax - dmin
+                if rng == 0:
+                    lims_use = (dmin - 0.1, dmax + 0.1)
+                else:
+                    pad = lims_pad * rng
+                    lims_use = (dmin - pad, dmax + pad)
+            else:
+                lims_use = (2.5, 4.5)
+        else:
+            lims_use = (2.5, 4.5)
+    else:
+        lims_use = lims
+
+    # ---------------------- validate common S/N ----------------------
+    if sn is not None:
+        sn = np.asarray(sn, dtype=float)
+        # infer N from the first series x
+        first_series = next(iter(data_dict.values()))
+        xv0, _, _ = extract_data(first_series["x"])
+        if sn.size != xv0.size:
+            raise ValueError(
+                f"sn must have the same length as the underlying arrays. "
+                f"Got sn.size={sn.size}, expected {xv0.size}."
+            )
+
+    # ---------------------- figure ----------------------
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlim(lims_use)
+    ax.set_ylim(lims_use)
+
+    x_fill = np.linspace(lims_use[0], lims_use[1], 200)
+    ax.fill_between(
+        x_fill, x_fill - band, x_fill + band,
+        alpha=0.10, color="gray", label=rf"$\pm {band}$ dex band"
+    )
+    ax.plot(lims_use, lims_use, "k--", linewidth=1.8, label="1:1 line", zorder=10)
+
+    ax.set_xlabel(xlabel, fontsize=label_fontsize)
+    ax.set_ylabel(ylabel, fontsize=label_fontsize)
+    ax.tick_params(axis="both", which="major", labelsize=tick_fontsize)
+
+    # cycle
+    def cyc(seq):
+        while True:
+            for item in seq:
+                yield item
+
+    marker_cyc = cyc(markers)
+    color_cyc  = cyc(colors)
+
+    stats = {}
+    legend_handles = [
+        mlines.Line2D([], [], linestyle="--", color="k", label="1:1 line"),
+        mpatches.Patch(facecolor="gray", alpha=0.10, label=rf"$\pm {band}$ dex band"),
+    ]
+
+    # --- Colormap setup (shared across series) ---
+    cmap_obj = plt.get_cmap(cmap)
+    norm = None
+    if sn is not None:
+        norm = Normalize(vmin=np.nanmin(sn), vmax=np.nanmax(sn))
+
+    # keep one mappable for the colorbar
+    sc_for_cbar = None
+
+    # ---------------------- plot each series ----------------------
+    for label, series in data_dict.items():
+        x_vals, x_err_m, x_err_p = extract_data(series["x"])
+        y_vals, y_err_m, y_err_p = extract_data(series["y"])
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            x_log = np.log10(x_vals)
+            y_log = np.log10(y_vals)
+
+        # NOTE: your code uses this function; keep as-is
+        x_err_m_log, x_err_p_log = errors_to_logspace(x_vals, x_err_m, x_err_p)
+        y_err_m_log, y_err_p_log = errors_to_logspace(y_vals, y_err_m, y_err_p)
+
+        m = np.isfinite(x_log) & np.isfinite(y_log)
+
+        if m.sum() == 0:
+            stats[label] = dict(n_in=0, n_tot=0, pct=0.0, band=band, idx_out=[])
+            continue
+
+        res = y_log[m] - x_log[m]
+        n_tot = int(m.sum())
+        n_in  = int((np.abs(res) <= band).sum())
+        pct   = 100.0 * n_in / n_tot if n_tot > 0 else 0.0
+
+        idx_all = np.where(m)[0]
+        idx_out = idx_all[np.abs(res) > band].tolist()
+
+        mk  = next(marker_cyc)
+        col = next(color_cyc)
+
+        # Build asymmetric errors in log space (2, N_masked)
+        xerr = None
+        yerr = None
+        if x_err_m_log is not None and x_err_p_log is not None:
+            xerr = np.vstack([x_err_m_log[m], x_err_p_log[m]])
+        if y_err_m_log is not None and y_err_p_log is not None:
+            yerr = np.vstack([y_err_m_log[m], y_err_p_log[m]])
+
+        # --- Colors per point from common sn (same indexing as the original arrays) ---
+        if sn is not None:
+            sn_m = sn[m]
+            facecols = cmap_obj(norm(sn_m))
+        else:
+            facecols = None  # fallback: use series color
+
+        # --- Draw per-point errorbars so they match marker color ---
+        if (xerr is not None) or (yerr is not None):
+            xm = x_log[m]
+            ym = y_log[m]
+            for j in range(xm.size):
+                ecolor_j = col if facecols is None else facecols[j]
+
+                xerr_j = None
+                yerr_j = None
+                if xerr is not None:
+                    xerr_j = np.array([[xerr[0, j]], [xerr[1, j]]])
+                if yerr is not None:
+                    yerr_j = np.array([[yerr[0, j]], [yerr[1, j]]])
+
+                ax.errorbar(
+                    xm[j], ym[j],
+                    xerr=xerr_j, yerr=yerr_j,
+                    fmt="none",
+                    ecolor=ecolor_j,
+                    elinewidth=err_lw,
+                    alpha=err_alpha,
+                    capsize=capsize,
+                    zorder=1,
+                )
+
+        # --- Scatter: facecolor from sn, edgecolor by series (so you still see groups) ---
+        if facecols is None:
+            sc = ax.scatter(
+                x_log[m], y_log[m],
+                marker=mk,
+                s=markersize**2 / 2.0,  # convert "markersize-like" to scatter area
+                c=col,
+                alpha=alpha,
+                edgecolors=col,
+                linewidths=1.5,
+                zorder=2,
+                label=label,
+            )
+        else:
+            sc = ax.scatter(
+                x_log[m], y_log[m],
+                marker=mk,
+                s=markersize**2 / 2.0,
+                facecolors=facecols,
+                edgecolors=col,
+                linewidths=1.5,
+                alpha=alpha,
+                zorder=2,
+                label=label,
+            )
+            if sc_for_cbar is None:
+                sc_for_cbar = ax.scatter(
+                    [], [], c=[], cmap=cmap_obj, norm=norm
+                )  # dummy mappable for colorbar
+                # make sure it carries the same cmap/norm
+                sc_for_cbar.set_cmap(cmap_obj)
+                sc_for_cbar.set_norm(norm)
+
+        if add_numbers:
+            for i, (xx, yy, ok) in enumerate(zip(x_log, y_log, m)):
+                if ok:
+                    ax.text(xx, yy, str(i), fontsize=10, ha="left", va="bottom")
+
+        # legend handle for series (marker only; colorbar explains facecolor)
+        legend_handles.append(
+            mlines.Line2D(
+                [], [], linestyle="none", marker=mk,
+                markersize=markersize, markeredgewidth=1.5,
+                markerfacecolor="none" if sn is not None else col,
+                markeredgecolor=col,
+                label=label
+            )
+        )
+
+        stats[label] = dict(n_in=n_in, n_tot=n_tot, pct=pct, band=band, idx_out=idx_out)
+
+    # optional: drop first y tick
+    yticks = ax.get_yticks()
+    if len(yticks) > 1:
+        ax.set_yticks(yticks[1:])
+
+    ax.legend(
+        handles=legend_handles,
+        fontsize=legend_fontsize,
+        frameon=False,
+        markerscale=1.0,
+        ncol=1,
+        loc=legend_loc,
+    )
+
+    if colorbar and (sn is not None):
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size=colorbar_size, pad=colorbar_pad)
+        mappable = plt.cm.ScalarMappable(norm=norm, cmap=cmap_obj)
+        mappable.set_array(sn)  # for matplotlib compatibility
+        cbar = plt.colorbar(mappable, cax=cax)
+        cbar.set_label(label_colorbar, fontsize=label_fontsize)
+        cbar.ax.tick_params(labelsize=tick_fontsize)
+
+    plt.tight_layout()
+
+    saved_file = None
+    if save_file is not None:
+        saved_file = save_file
+        fig.savefig(saved_file, dpi=dpi, format=save_format, bbox_inches="tight")
+
+    return fig, ax, stats, saved_file
 
 
 def log10_to_linear(
@@ -1727,70 +1703,3 @@ def log10_to_linear(
 	err_minus = val - 10.0 ** (logval - logerr)
 
 	return val, err_minus, err_plus
-
-
-
-def get_sample_params(posterior, region, main_key, line_name, param):
-    """
-    Extract a parameter for a given emission line within a region
-    from a posterior dictionary, for all objects.
-    main_key = "basic_params"
-    region = "narrow"
-
-
-    posterior = sheapspectral.result.posterior["montecarlo"]["posterior_result"]
-
-    import numpy as np
-    Returns
-    -------
-    np.ndarray
-        Array with shape (N_obj, N_samples, N_match)
-    """
-    # reference object (structure check)
-    first_key = next(iter(posterior))
-    regions = posterior[first_key].get(main_key, {})
-
-    if region not in regions:
-        raise KeyError(
-            f"Region '{region}' is not available. "
-            f"Available regions: {list(regions.keys())}"
-        )
-
-    region_data = regions[region]
-
-    lines = region_data.get("lines", [])
-    if line_name not in lines:
-        raise KeyError(
-            f"Line '{line_name}' is not available in region '{region}'. "
-            f"Available lines: {list(lines)}"
-        )
-
-    if param not in region_data:
-        available_params = [k for k in region_data.keys() if k != "lines"]
-        raise KeyError(
-            f"Parameter '{param}' is not available in region '{region}'. "
-            f"Available parameters: {available_params}"
-        )
-
-    # index of requested line(s)
-    line_idx = np.where(np.asarray(lines) == line_name)[0]
-
-    # collect samples for all objects
-    param_samples = []
-    for _, post in posterior.items():
-        region_post = post[main_key][region]
-        param_samples.append(
-            np.asarray(region_post[param])[:, line_idx]
-        )
-
-    return np.stack(param_samples, axis=0)
-
-
-
-
-def get_multiple_sample_params(posterior, region, main_key, line_name, param):
-    dic_params = {}
-    for p in param:
-        dic_params[p] = get_sample_params(posterior, region, main_key, line_name,p)
-    return dic_params
-        
