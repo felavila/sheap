@@ -240,7 +240,7 @@ class SheaProducts:
             #TODO add condition to avoid this method in the case with no-narrow
             combined = combine_components(basic_params, cont_group, cont_params, distances,
                                         LINES_TO_COMBINE=self.LINES_TO_COMBINE,
-                                        limit_velocity=self.limit_velocity,c=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
+                                        limit_velocity=self.limit_velocity,C_KMS=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
             list_to_get_extra_params.append("combined_params")
             result["combined_params"] = combined
             combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],sheapmodel_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}

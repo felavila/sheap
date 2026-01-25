@@ -2,7 +2,7 @@
 __author__ = 'felavila'
 
 
-__all__ = ["SheaProducts","Samplers",]
+__all__ = ["SheaProducts","Utils",]
 
 
 
