@@ -563,18 +563,20 @@ class Sheapectral:
             extinction_correction=data["extinction_correction"],
             redshift_correction=data["redshift_correction"],
         )
-
+        # small helper to read older versions -> removing it soon
         region_list = data.get("region_list", [])
+        if "complex_region" in data.keys():
+            region_list = data.get("complex_region", [])
         obj.region_list = [SpectralLine(**i) for i in region_list]
 
         profile_names = data.get("profile_names", [])
+        
         obj.result = SheapResult(
             params=jnp.array(data.get("params")),
             uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))), 
             initial_params=jnp.array(data.get("initial_params")),
             mask=jnp.array(data.get("mask")),
             profile_functions= obj.profile_functions_from_region_list(),
-            #obj.profile_functions,
             profile_names=profile_names,
             loss=None,  # Not saved currently, could be added if needed
             profile_params_index_list=data.get("profile_params_index_list"),
@@ -969,7 +971,10 @@ class Sheapectral:
         #     elif "logamp" in param_name:
         #         param -= np.log10(scale)
    
-                
+    
+    #TODO -> helper to given "samples_phys" params can calculate again the SheaProducts
+    #TODO -> update this part to be able to show the actual name of the parameter lets say line with 0,1,2,3,4 is easier for code reason but for visualitation could be messy 
+        
 # def _region_helper(region_name):
 #             if region_name not in sheapmodel_group_by_region.keys():
 #                 return 0

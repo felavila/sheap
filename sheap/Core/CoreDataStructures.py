@@ -438,8 +438,7 @@ class SheapResult:
     def __post_init__(self):
         #this should be an intermediate step in some cases it should be already done 
         self.sheapmodel = SheapModel(self.region_list)
-        self.sheapmodel.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params
-                                    ,self.profile_params_index_list,self.params_dict)
+        self.sheapmodel.attach_profiles(self.profile_functions,self.profile_names,self.params,self.uncertainty_params,self.profile_params_index_list,self.params_dict)
 
     def to_dict(self) -> dict:
         return asdict(self)
