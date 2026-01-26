@@ -8,10 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Tuple
+import os
 
 import numpy as np 
 import matplotlib.pyplot as plt 
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.colors import Normalize
+import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
 from matplotlib.colors import Normalize
 
 import pandas as pd
@@ -1314,6 +1318,50 @@ def plot_ratio_with_sn(
 
 	return fig, ax, sn
 
+def _as_2d(a):
+        a = np.asarray(a)
+        if a.ndim == 1:
+            return a[None, :]
+        return a
+
+def extract_data(arr):
+    """
+    Return (values, err_minus, err_plus) in linear space.
+    err_minus/err_plus are positive magnitudes, or None.
+    """
+    a = _as_2d(arr)
+
+    # accept (N, K) where K in {1,2,3} -> transpose to (K, N)
+    if a.shape[0] not in (1, 2, 3) and a.shape[1] in (1, 2, 3):
+        a = a.T
+
+    if a.shape[0] not in (1, 2, 3):
+        raise ValueError(
+            f"Expected shape (N,), (1,N), (2,N), (3,N) (or transposed). Got {a.shape}."
+        )
+
+    vals = np.asarray(a[0], dtype=float)
+
+    if a.shape[0] == 1:
+        return vals, None, None
+
+    if a.shape[0] == 2:
+        e = np.abs(np.asarray(a[1], dtype=float))
+        return vals, e, e
+
+    e_plus  = np.abs(np.asarray(a[1], dtype=float))
+    e_minus = np.abs(np.asarray(a[2], dtype=float))
+    return vals, e_minus, e_plus
+
+def _finite_log_values_from_series(series):
+    xv, _, _ = extract_data(series["x"])
+    yv, _, _ = extract_data(series["y"])
+    with np.errstate(divide="ignore", invalid="ignore"):
+        xl = np.log10(xv)
+        yl = np.log10(yv)
+    both = np.concatenate([xl[np.isfinite(xl)], yl[np.isfinite(yl)]])
+    return both
+
 def plot_logdex_agreement_v3(
     data_dict,
     *,
@@ -1351,20 +1399,14 @@ def plot_logdex_agreement_v3(
     err_alpha=0.65,
     err_lw=2.0,
     capsize=3,
+    ref_wavelenght = 3000,
+    
 ):
     """
     Same as your v2, but now point color is driven by a *common* S/N array shared
     across all series in data_dict. Markers still distinguish series.
     """
-    import os
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib.lines as mlines
-    import matplotlib.patches as mpatches
-    from matplotlib.colors import Normalize
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-    # ---------------------- label presets ----------------------
     if label_mode:
         _lm = label_mode.lower()
         presets = {
@@ -1373,11 +1415,12 @@ def plot_logdex_agreement_v3(
                 r'$\log_{10}(\mathrm{FWHM}_{\mathrm{SHEAP}}\ [\mathrm{km\ s^{-1}}])$'
             ),
             "lcont": (
-                rf'$\log_{{10}}(\lambda L_{{\lambda,\mathrm{{{ref_label}}}}}\ [\mathrm{{erg\ s^{{-1}}}}])$',
-                r'$\log_{10}(\lambda L_{\lambda,\mathrm{SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
+                rf'$\log_{{10}}(\lambda L_{{\lambda,\mathrm{{{ref_label}}}}} ({ref_wavelenght} Å)\ [\mathrm{{erg\ s^{{-1}}}}])$',
+                 rf'$\log_{{10}}(\lambda L_{{\lambda,\mathrm{{{"SHEAP"}}}}} ({ref_wavelenght} Å)\ [\mathrm{{erg\ s^{{-1}}}}])$',
+                
             ),
             "lline": (
-                rf'$\log_{{10}}(L_{{\mathrm{{{name_line},{ref_label}}}}}\ [\mathrm{{erg\ s^{{-1}}}}])$',
+                rf'$\log_{{10}}(L_{{\mathrm{{{name_line},{ref_label}}}}} \ [\mathrm{{erg\ s^{{-1}}}}])$',
                 r'$\log_{10}(L_{\mathrm{line,SHEAP}}\ [\mathrm{erg\ s^{-1}}])$'
             ),
             "smbh": (
@@ -1394,52 +1437,7 @@ def plot_logdex_agreement_v3(
             ),
         }
         if _lm in presets:
-            xlabel, ylabel = presets[_lm]
-
-    # ---------------------- helpers ----------------------
-    def _as_2d(a):
-        a = np.asarray(a)
-        if a.ndim == 1:
-            return a[None, :]
-        return a
-
-    def extract_data(arr):
-        """
-        Return (values, err_minus, err_plus) in linear space.
-        err_minus/err_plus are positive magnitudes, or None.
-        """
-        a = _as_2d(arr)
-
-        # accept (N, K) where K in {1,2,3} -> transpose to (K, N)
-        if a.shape[0] not in (1, 2, 3) and a.shape[1] in (1, 2, 3):
-            a = a.T
-
-        if a.shape[0] not in (1, 2, 3):
-            raise ValueError(
-                f"Expected shape (N,), (1,N), (2,N), (3,N) (or transposed). Got {a.shape}."
-            )
-
-        vals = np.asarray(a[0], dtype=float)
-
-        if a.shape[0] == 1:
-            return vals, None, None
-
-        if a.shape[0] == 2:
-            e = np.abs(np.asarray(a[1], dtype=float))
-            return vals, e, e
-
-        e_plus  = np.abs(np.asarray(a[1], dtype=float))
-        e_minus = np.abs(np.asarray(a[2], dtype=float))
-        return vals, e_minus, e_plus
-
-    def _finite_log_values_from_series(series):
-        xv, _, _ = extract_data(series["x"])
-        yv, _, _ = extract_data(series["y"])
-        with np.errstate(divide="ignore", invalid="ignore"):
-            xl = np.log10(xv)
-            yl = np.log10(yv)
-        both = np.concatenate([xl[np.isfinite(xl)], yl[np.isfinite(yl)]])
-        return both
+            xlabel, ylabel = presets[_lm]    
 
     # ---------------------- determine limits ----------------------
     if lims == "auto" or lims is None:
@@ -1458,13 +1456,8 @@ def plot_logdex_agreement_v3(
                 else:
                     pad = lims_pad * rng
                     lims_use = (dmin - pad, dmax + pad)
-            else:
-                lims_use = (2.5, 4.5)
-        else:
-            lims_use = (2.5, 4.5)
     else:
         lims_use = lims
-
     # ---------------------- validate common S/N ----------------------
     if sn is not None:
         sn = np.asarray(sn, dtype=float)
@@ -1474,27 +1467,16 @@ def plot_logdex_agreement_v3(
         if sn.size != xv0.size:
             raise ValueError(
                 f"sn must have the same length as the underlying arrays. "
-                f"Got sn.size={sn.size}, expected {xv0.size}."
-            )
+                f"Got sn.size={sn.size}, expected {xv0.size}.")
 
     # ---------------------- figure ----------------------
     fig, ax = plt.subplots(figsize=(12, 12))
     ax.set_aspect("equal", adjustable="box")
-    ax.set_xlim(lims_use)
-    ax.set_ylim(lims_use)
-
+   
     x_fill = np.linspace(lims_use[0], lims_use[1], 200)
-    ax.fill_between(
-        x_fill, x_fill - band, x_fill + band,
-        alpha=0.10, color="gray", label=rf"$\pm {band}$ dex band"
-    )
+    ax.fill_between(x_fill, x_fill - band, x_fill + band,alpha=0.10, color="gray", label=rf"$\pm {band}$ dex band")
+    
     ax.plot(lims_use, lims_use, "k--", linewidth=1.8, label="1:1 line", zorder=10)
-
-    ax.set_xlabel(xlabel, fontsize=label_fontsize)
-    ax.set_ylabel(ylabel, fontsize=label_fontsize)
-    ax.tick_params(axis="both", which="major", labelsize=tick_fontsize)
-
-    # cycle
     def cyc(seq):
         while True:
             for item in seq:
@@ -1506,8 +1488,7 @@ def plot_logdex_agreement_v3(
     stats = {}
     legend_handles = [
         mlines.Line2D([], [], linestyle="--", color="k", label="1:1 line"),
-        mpatches.Patch(facecolor="gray", alpha=0.10, label=rf"$\pm {band}$ dex band"),
-    ]
+        mpatches.Patch(facecolor="gray", alpha=0.10, label=rf"$\pm {band}$ dex band"),]
 
     # --- Colormap setup (shared across series) ---
     cmap_obj = plt.get_cmap(cmap)
@@ -1576,50 +1557,59 @@ def plot_logdex_agreement_v3(
                     xerr_j = np.array([[xerr[0, j]], [xerr[1, j]]])
                 if yerr is not None:
                     yerr_j = np.array([[yerr[0, j]], [yerr[1, j]]])
-
+                
                 ax.errorbar(
                     xm[j], ym[j],
                     xerr=xerr_j, yerr=yerr_j,
-                    fmt="none",
+                    fmt=mk,
                     ecolor=ecolor_j,
+                    color = ecolor_j,
                     elinewidth=err_lw,
                     alpha=err_alpha,
                     capsize=capsize,
                     zorder=1,
                 )
-
-        # --- Scatter: facecolor from sn, edgecolor by series (so you still see groups) ---
-        if facecols is None:
-            sc = ax.scatter(
-                x_log[m], y_log[m],
-                marker=mk,
-                s=markersize**2 / 2.0,  # convert "markersize-like" to scatter area
-                c=col,
-                alpha=alpha,
-                edgecolors=col,
-                linewidths=1.5,
-                zorder=2,
-                label=label,
-            )
-        else:
-            sc = ax.scatter(
-                x_log[m], y_log[m],
-                marker=mk,
-                s=markersize**2 / 2.0,
-                facecolors=facecols,
-                edgecolors=col,
-                linewidths=1.5,
-                alpha=alpha,
-                zorder=2,
-                label=label,
-            )
-            if sc_for_cbar is None:
-                sc_for_cbar = ax.scatter(
-                    [], [], c=[], cmap=cmap_obj, norm=norm
-                )  # dummy mappable for colorbar
-                # make sure it carries the same cmap/norm
-                sc_for_cbar.set_cmap(cmap_obj)
-                sc_for_cbar.set_norm(norm)
+        linewidths = 0.5
+        
+        #  ax.errorbar(
+        #     x_log[m], y_log[m],
+        #     xerr=xerr, yerr=yerr,
+        #     fmt=mk, capsize=3, color=col,
+        #     markersize=markersize, markeredgewidth=1.5,
+        #     elinewidth=2, alpha=alpha
+        # )
+        # # --- Scatter: facecolor from sn, edgecolor by series (so you still see groups) ---
+        # if facecols is None:
+        #     sc = ax.scatter(
+        #         x_log[m], y_log[m],
+        #         marker=mk,
+        #         s=markersize**2 / 2.0,  # convert "markersize-like" to scatter area
+        #         c=col,
+        #         alpha=alpha,
+        #         edgecolors=col,
+        #         linewidths=linewidths,
+        #         zorder=2,
+        #         label=label,
+        #     )
+        # else:
+        #     sc = ax.scatter(
+        #         x_log[m], y_log[m],
+        #         marker=mk,
+        #         s=markersize**2 / 2.0,
+        #         facecolors=facecols,
+        #         edgecolors=col,
+        #         linewidths=linewidths,
+        #         alpha=alpha,
+        #         zorder=2,
+        #         label=label,
+        #     )
+        #     if sc_for_cbar is None:
+        #         sc_for_cbar = ax.scatter(
+        #             [], [], c=[], cmap=cmap_obj, norm=norm
+        #         )  # dummy mappable for colorbar
+        #         # make sure it carries the same cmap/norm
+        #         sc_for_cbar.set_cmap(cmap_obj)
+        #         sc_for_cbar.set_norm(norm)
 
         if add_numbers:
             for i, (xx, yy, ok) in enumerate(zip(x_log, y_log, m)):
@@ -1628,30 +1618,21 @@ def plot_logdex_agreement_v3(
 
         # legend handle for series (marker only; colorbar explains facecolor)
         legend_handles.append(
-            mlines.Line2D(
-                [], [], linestyle="none", marker=mk,
-                markersize=markersize, markeredgewidth=1.5,
-                markerfacecolor="none" if sn is not None else col,
-                markeredgecolor=col,
-                label=label
-            )
-        )
+    mlines.Line2D(
+        [], [], linestyle="none", marker=mk,
+        markersize=markersize,
+        markeredgewidth=3.0,
+        markerfacecolor="white" if sn is not None else col,  # better than "none" in PDFs
+        markeredgecolor="k" if sn is not None else col,
+        label=label,
+    )
+)
 
         stats[label] = dict(n_in=n_in, n_tot=n_tot, pct=pct, band=band, idx_out=idx_out)
 
-    # optional: drop first y tick
-    yticks = ax.get_yticks()
-    if len(yticks) > 1:
-        ax.set_yticks(yticks[1:])
 
-    ax.legend(
-        handles=legend_handles,
-        fontsize=legend_fontsize,
-        frameon=False,
-        markerscale=1.0,
-        ncol=1,
-        loc=legend_loc,
-    )
+
+    
 
     if colorbar and (sn is not None):
         divider = make_axes_locatable(ax)
@@ -1661,8 +1642,22 @@ def plot_logdex_agreement_v3(
         cbar = plt.colorbar(mappable, cax=cax)
         cbar.set_label(label_colorbar, fontsize=label_fontsize)
         cbar.ax.tick_params(labelsize=tick_fontsize)
-
+    
+    ax.legend(handles=legend_handles,fontsize=legend_fontsize,frameon=False,markerscale=1.0,ncol=1,loc=legend_loc,)
+    
+    ax.set_xlabel(xlabel, fontsize=label_fontsize)
+    ax.set_ylabel(ylabel, fontsize=label_fontsize)
+    ax.tick_params(axis="both", which="major", labelsize=tick_fontsize)
+    
+    ax.set_xlim(lims_use)
+    ax.set_ylim(lims_use)
     plt.tight_layout()
+    ticks = ax.get_xticks()
+    ax.set_yticks(ticks)
+    if min(ticks) == min(lims_use): # 
+        ax.set_yticks(ticks[1:])
+        ax.set_xticks(ticks[1:])
+    
 
     saved_file = None
     if save_file is not None:
