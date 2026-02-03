@@ -58,33 +58,6 @@ from jax import vmap, jit
 
 
 
-
-def make_fused_profiles(funcs):
-    """
-    Fuse multiple profile functions into a single callable.
-
-    Parameters
-    ----------
-    funcs : list of callables
-        Each function must have a `.n_params` attribute
-        and a signature `(x, params)`.
-
-    Returns
-    -------
-    fused_profile : callable
-        A function that evaluates the sum of all profiles given
-        a single concatenated parameter vector.
-    """
-    n_params = [f.n_params for f in funcs]
-    param_splits = np.cumsum([0] + n_params)  # [0, 3, 6, ...]
-    def fused_profile(x, all_args):
-        result = 0.0
-        for i, f in enumerate(funcs):
-            fargs = all_args[param_splits[i]:param_splits[i+1]]
-            result = result + f(x, fargs)
-        return result
-    return fused_profile
-
 def with_param_names(param_names: list[str]):
     """
     Decorator to attach parameter names and count to a profile function.
@@ -107,6 +80,31 @@ def with_param_names(param_names: list[str]):
     return decorator
 
 
+def make_fused_profiles(funcs):
+    """
+    Fuse multiple profile functions into a single callable.
+    #TODO when we make a fused profile it lose the info about the n_params and the names (this can be repetead so are not trustworthy) we can add at least the n param to the combine ones.
+    Parameters
+    ----------
+    funcs : list of callables
+        Each function must have a `.n_params` attribute
+        and a signature `(x, params)`.
+
+    Returns
+    -------
+    fused_profile : callable
+        A function that evaluates the sum of all profiles given
+        a single concatenated parameter vector.
+    """
+    n_params = [f.n_params for f in funcs]
+    param_splits = np.cumsum([0] + n_params)  # [0, 3, 6, ...]
+    def fused_profile(x, all_args):
+        result = 0.0
+        for i, f in enumerate(funcs):
+            fargs = all_args[param_splits[i]:param_splits[i+1]]
+            result = result + f(x, fargs)
+        return result
+    return fused_profile
 # def make_g(list):
 #     amplitudes, centers = list.amplitude, list.center
 #     return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)

@@ -90,8 +90,8 @@ class MonteCarloSampler:
 		self.best_params = descale_amp(self.params_dict,self.params,self.scale).astype(jnp.float32) #thescaled
 
 	
-	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
-		
+	def sample_params_st(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
+		"stable"
 		from tqdm import tqdm
 		print(f"Running Monte Carlo with JAX.,sample over the spectra")
 		norm_spectra = self.norm_spectra
@@ -124,6 +124,40 @@ class MonteCarloSampler:
 
 		return dic_posterior_params
 
+	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
+		from tqdm import tqdm
+		print(f"Running Monte Carlo with JAX.,sample over the spectra using init params")
+		norm_spectra = self.norm_spectra
+		model = self.model 
+		
+		_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
+		iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
+		params = jnp.tile(self.initial_params, (norm_spectra.shape[1], 1))
+		key = random.PRNGKey(key_seed)
+		monte_params = []
+		for n in iterator:
+			key, ki = random.split(key)
+			norm_spectra_local = resample_spec_all(ki,norm_spectra)
+			t0 = time.perf_counter()
+			params_m, _ = _minimizer(params , *norm_spectra_local, self.constraints)#
+			t1 = time.perf_counter()
+			monte_params.append(params_m)
+			iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+
+		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
+
+  
+		dic_posterior_params = {}
+  
+		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+		for n, name_i in enumerate(iterator):
+			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
+			dic_posterior_params[name_i] = {"samples_phys":full_samples}
+			dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
+			dic_posterior_params[name_i].update({"samples_phys":full_samples})
+
+		return dic_posterior_params	
+ 
  
 	def sample_params_experimental(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
 			#it looks like this only work for frac_box_sigma=0.02,k_sigma=0.3 limits 
@@ -199,25 +233,3 @@ class MonteCarloSampler:
 		tied_map = flatten_tied_map(tied_map)
 		params_class = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
 		return params_class
-  
- 		#list_dependencies = self.dependencies
-        #tied_map = {T[1]: T[2:] for  T in list_dependencies}
-        #tied_map = flatten_tied_map(tied_map)
-        #self.tied_map = tied_map
-        #self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
-        
-    	# def _build_tied(self, tied_params):
-	# 	"""
-	# 	Convert tied‑parameter specifications into dependency strings.
-
-	# 	Parameters
-	# 	----------
-	# 	tied_params : list of list
-	# 		Each inner list is `[param_target, param_source, ..., optional_value]`.
-
-	# 	Returns
-	# 	-------
-	# 	list[str]
-	# 		Dependency expressions for the minimizer.
-	# 	"""
-	# 	return build_tied(tied_params,self.get_param_coord_value)

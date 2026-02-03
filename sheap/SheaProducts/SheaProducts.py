@@ -54,18 +54,20 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 import numpy as np 
 import jax.numpy as jnp 
-from jax import vmap
+from jax import vmap,jit
 #from auto_uncertainties import Uncertainty
 from uncertainties import unumpy
 
 from collections import defaultdict
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP#,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
-from sheap.Profiles.Utils import make_integrator
+from sheap.Profiles.Utils import make_integrator,make_fused_profiles
+
 from sheap.SheaProducts.Utils.fwhm_conv import make_batch_fwhm_split,make_batch_fwhm_split_with_error
 from sheap.SheaProducts.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
 from sheap.SheaProducts.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
 from sheap.SheaProducts.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
+
 from sheap.SheaProducts.Utils.Sample_handlers import pivot_and_split,summarize_nested_samples,concat_dicts
 
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS,cm_per_mpc
@@ -75,39 +77,32 @@ from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_
 #TODO move all the logic to gaussian_fwhm_loglambda kind of function. no more center only velocities -> remove intermate steps just add some caveats.
 #TODO add the params from continuum
 #TODO this have to be called ExtraProducts
+#TODO EW -> continuum balmer, fe, continuum. => cont_vals
+#TODO method still usefful ?
 
 class SheaProducts:
-    _BASE_REQUIRED = (
-        "model", "dependencies", "spectra", "mask", "sheapmodel", "method", "d"
-    )
+    _BASE_REQUIRED = ("model", "dependencies", "spectra", "mask", "sheapmodel", "method", "d")
 
-    def __init__(
-        self,
-        *,samplerclass: Optional[object] = None,model=None,dependencies=None,spectra=None,mask=None,sheapmodel=None,method=None,d=None,
+    def __init__(self,*,samplerclass: Optional[object] = None,model=None,dependencies=None,spectra=None,mask=None,sheapmodel=None,method=None,d=None,
         BOL_CORRECTIONS=None,SINGLE_EPOCH_ESTIMATORS=None,C_KMS=None,
-        **extra,   # <- allows passing arbitrary fields if you want
-    ):
-        # defaults
+        **extra,):
+
         self.BOL_CORRECTIONS = DEFAULT_BOL_CORRECTIONS if BOL_CORRECTIONS is None else BOL_CORRECTIONS
         self.SINGLE_EPOCH_ESTIMATORS = (
             DEFAULT_SINGLE_EPOCH_ESTIMATORS if SINGLE_EPOCH_ESTIMATORS is None else SINGLE_EPOCH_ESTIMATORS
         )
         self.C_KMS = DEFAULT_C_KMS if C_KMS is None else C_KMS
 
-        # 1) load from sampler if present
+        
         if samplerclass is not None:
             self._from_any(samplerclass)
 
-        # 2) manual args should fill missing (and can override if you want)
         manual = dict(model=model,dependencies=dependencies,spectra=spectra,mask=mask,sheapmodel=sheapmodel,method=method,d=d,)
         manual.update(extra)
 
         for name, value in manual.items():
             if value is None:
                 continue
-            # choose precedence:
-            # - if you want manual to OVERRIDE sampler always: just setattr
-            # - if you want manual only fill MISSING: guard with getattr(..., None) is None
             if getattr(self, name, None) is None:
                 setattr(self, name, value)
 
@@ -116,17 +111,20 @@ class SheaProducts:
         self.wavelength_grid = jnp.linspace(0, 20_000, 20_000)
         self.LINES_TO_COMBINE = ["Halpha", "Hbeta","MgII","CIV"]
         self.limit_velocity = 150.
-    
+        self.by_region = self.sheapmodel.group_by("region")
+        self.cont_profile_all = jit(vmap(make_fused_profiles(np.concatenate([self.by_region[key].profile_functions for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])), in_axes=(0, 0))) 
+        self.cont_idx_all = np.concatenate([self.by_region[key].flat_param_indices_global for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])
+        #print(type(self.cont_profile_all))
+        #cont_vals = vmap(self.sheapmodel.group_by("region")["continuum"].combined_profile, in_axes=(0, 0)) #(centers, cont_params)
+        
     def extract_params(self,full_samples=None,idx_obj=None,summarize=False,d = None):
-        #Add the filtering an separation of the params for params_single and the sample reduction for params_sampled
+       
         self.d = d if d is not None else self.d
         if self.method == "single":
             if summarize:
                 return pivot_and_split(self.names,self._extract_basic_params_single())
             return self._extract_basic_params_single()
         else:
-            #if summarize:
-                #print("Samples will be summarize")
             return summarize_nested_samples(self._extract_basic_params_sampled(full_samples=full_samples,idx_obj=idx_obj),run_summarize=summarize)
 
     def _extract_basic_params_sampled(self, full_samples, idx_obj):
@@ -140,8 +138,8 @@ class SheaProducts:
         cont_group = sheapmodel_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
         cont_params = full_samples[:, idx_cont]
+        cont_params_all = full_samples[:, self.cont_idx_all]
         distances = np.full((full_samples.shape[0],), self.d[idx_obj], dtype=np.float64)
-
         for region, region_group in sheapmodel_group_by_region.items():
             if region in ("fe", "continuum", "host","balmer"):
                 continue
@@ -164,9 +162,7 @@ class SheaProducts:
                     (
                         _line_names, _components, _flux, _fwhm, _fwhm_kms,
                         _centers, _amps, _eqw, _lum, _shapes
-                    ) = self._accumulate_spaf_sampled(
-                        prof_group, profile_fn, batch_fwhm, integrator, cont_params, full_samples
-                    )
+                    ) = self._accumulate_spaf_sampled(prof_group, profile_fn, batch_fwhm, integrator, cont_params_all, full_samples)
 
                 else:
                     profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
@@ -181,8 +177,7 @@ class SheaProducts:
                     params_by_line = params.reshape(params.shape[0], -1, profile_fn.n_params)
 
                     amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = self._extract_sampled_profile_quantities(
-                        profile_fn, integrator, batch_fwhm, params_by_line, cont_params, distances
-                    )
+                        profile_fn, integrator, batch_fwhm, params_by_line, cont_params_all, distances)
 
                     _flux, _fwhm, _fwhm_kms = [flux], [fwhm], [fwhm_kms]
                     _centers, _amps, _eqw, _lum = [centers], [amps], [eqw], [lum_vals]
@@ -238,9 +233,8 @@ class SheaProducts:
         result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances}
         if max(basic_params["broad"]["component"]) >1:
             #TODO add condition to avoid this method in the case with no-narrow
-            combined = combine_components(basic_params, cont_group, cont_params, distances,
-                                        LINES_TO_COMBINE=self.LINES_TO_COMBINE,
-                                        limit_velocity=self.limit_velocity,C_KMS=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
+            #TODO 
+            combined = combine_components(basic_params,self.cont_profile_all, cont_params_all, distances,LINES_TO_COMBINE=self.LINES_TO_COMBINE, limit_velocity=self.limit_velocity,C_KMS=self.C_KMS,ucont_params=None,flux_fe=flux_fe)
             list_to_get_extra_params.append("combined_params")
             result["combined_params"] = combined
             combined_pyqso = {line: combine_pyqsofit(basic_params["broad"],sheapmodel_group_by_region,line,full_samples,distances,flux_fe) for line in basic_params["broad"]["lines"] if line in [ "Halpha","Hbeta","MgII","CIV"]}
@@ -258,7 +252,7 @@ class SheaProducts:
         
         return result
     
-    
+    ###########################SINGLE########################################
     def _extract_basic_params_single(self):
         basic_params: Dict[str, Dict[str, np.ndarray]] = {}
         distances = self.d.copy()
@@ -380,7 +374,7 @@ class SheaProducts:
                  result_local = result[k]
              result.update({f"extra_{k}": extra_params_functions(result_local,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)}) #extras could be added directly because the are not related to the combination.
         return result
-    ###########################SINGLE########################################
+    
     def _accumulate_spaf_components(self, prof_group, profile_fn, batch_fwhm, cont_params, ucont_params):
         
         all_flux, all_fwhm, all_fwhm_kms = [], [], []
@@ -451,8 +445,7 @@ class SheaProducts:
                                                   unumpy.std_devs(amps), unumpy.std_devs(centers), unumpy.std_devs(shape_params))))
         
         fwhm_kms = calc_fwhm_kms(fwhm, np.array(self.C_KMS), centers)
-        cont_vals = unumpy.uarray(*np.array(
-            evaluate_with_error(self.sheapmodel.group_by("region")["continuum"].combined_profile,
+        cont_vals = unumpy.uarray(*np.array(evaluate_with_error(self.sheapmodel.group_by("region")["continuum"].combined_profile,
                                 unumpy.nominal_values(centers), cont_params, unumpy.std_devs(centers), ucont_params)))
         
         eqw = flux / cont_vals
@@ -463,7 +456,7 @@ class SheaProducts:
     
     
     ############SAMPLED###############################################
-    def _accumulate_spaf_sampled(self, prof_group, profile_fn, batch_fwhm, integrator_fn, cont_params, full_samples):
+    def _accumulate_spaf_sampled(self, prof_group, profile_fn, batch_fwhm, integrator_fn, cont_params_all, full_samples):
         all_flux, all_fwhm, all_fwhm_kms = [], [], []
         all_centers, all_amps, all_eqws, all_lums = [], [], [], []
         all_line_names, all_components, all_shape_dicts = [], [], []
@@ -472,7 +465,7 @@ class SheaProducts:
         for sp,idx_param in zip(prof_group.lines,prof_group.global_profile_params_index_list,):
             params_by_line = self._build_spaf_sampled_params(sp,idx_param,params_names,full_samples)
             amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = self._extract_sampled_profile_quantities(
-                profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params, np.full((full_samples.shape[0],), self.d[0])
+                profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params_all, np.full((full_samples.shape[0],), self.d[0])
             )
             
             all_flux.append(flux)
@@ -519,7 +512,7 @@ class SheaProducts:
 
         return np.moveaxis(np.array(full_params_by_line), 0, 1)
     
-    def _extract_sampled_profile_quantities(self, profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params, distances):
+    def _extract_sampled_profile_quantities(self, profile_fn, integrator_fn, batch_fwhm, params_by_line, cont_params_all, distances):
         amps = params_by_line[:, :, 0]
         #print(amps)
         centers = params_by_line[:, :, 1]
@@ -528,8 +521,10 @@ class SheaProducts:
         flux = integrator_fn(self.wavelength_grid, params_by_line)
         fwhm = batch_fwhm(amps, centers, shape_params)
         fwhm_kms = jnp.abs(calc_fwhm_kms(fwhm, self.C_KMS, centers))
-
-        cont_vals = vmap(self.sheapmodel.group_by("region")["continuum"].combined_profile, in_axes=(0, 0))(centers, cont_params)
+        #cont_params = 
+        cont_vals = self.cont_profile_all(centers, cont_params_all)
+        
+        
         eqw = flux / cont_vals
         lum_vals = calc_luminosity(distances[:, None], flux)
 

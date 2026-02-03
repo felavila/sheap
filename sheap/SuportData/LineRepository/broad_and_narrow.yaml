@@ -1,9 +1,9 @@
 # yaml of lines that can show broad and narrow lines.
 #Hδ (H I) λ4101.742
-- line_name: Hε
-  center: 3970.072
-  element: Hydrogen
-  rarity: common
+# - line_name: Hε
+#   center: 3970.072
+#   element: Hydrogen
+#   rarity: common
 - line_name: Hδ
   center: 4101.742
   element: Hydrogen
@@ -25,19 +25,12 @@
 - line_name: NV
   center: 1240.8125
   element: Nitrogen
-
-- center: 1908.73
-  line_name: CIII]
-  element: Carbon
 - line_name: OVIa
   center: 1031.926
   element: Oxigen
 - line_name: OVIb
   center: 1037.617
   element: Oxigen
-- center: 1892
-  line_name: SiIII]
-  element: Silicon
 - line_name: SiIV #+OIV]a
   center: 1393.755
   element: Silicon #Oxygen
@@ -56,12 +49,6 @@
 - center: 2733.29
   line_name: HeIIb
   element: Helium
-- center: 2799
-  line_name: MgII
-# - center: 2796.352
-#   line_name: MgIIa
-# - center: 2803.531
-#   line_name: MgIIb
 - center: 2945.106
   line_name: HeIa
   element: Helium

@@ -27,7 +27,7 @@ class RegionInfo:
 	combined_profile: Any
 	idx_global: jnp.ndarray
 
-
+#TODO this one and Sheaproducts have to be in the same place.
 class MoldelSpectraReconstruction:
 	"""
 	Evaluate fused model + per-region components for best-fit params and posterior samples/draws.

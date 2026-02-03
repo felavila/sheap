@@ -81,15 +81,21 @@ __all__ = [
     "project_params",
     "project_params_clasic",
     "scale_amp",
+    "get_sample_params",
+    "get_multiple_sample_params",
+    "summarize_spectral_lines"
+    
 ]
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 from functools import partial
 import re 
 
 import numpy as np 
 import jax.numpy as jnp
 from jax import jit
+import re
+from collections import Counter, defaultdict
 
 
 #TODO this is full of repeated or functions that can be simplified.
@@ -598,10 +604,16 @@ def get_sample_params(posterior, region, main_key, line_name, param):
     np.ndarray
         Array with shape (N_obj, N_samples, N_match)
     """
-    # reference object (structure check)
+    # TODO add a rutine for "combine" keys do the same but without intermediate
     first_key = next(iter(posterior))
+    if main_key not in  posterior[first_key].keys():
+        raise KeyError(
+            f"main_key '{main_key}' is not available. "
+            f"Available are: {list(posterior[first_key].keys())}"
+        )
     regions = posterior[first_key].get(main_key, {})
-
+    if "combined" in main_key:
+        print("No regions use the nama of the line")
     if region not in regions:
         raise KeyError(
             f"Region '{region}' is not available. "
@@ -641,7 +653,194 @@ def get_sample_params(posterior, region, main_key, line_name, param):
 
 
 def get_multiple_sample_params(posterior, region, main_key, line_name, param):
+    """
+    TODO add description
+    """
     dic_params = {}
     for p in param:
         dic_params[p] = get_sample_params(posterior, region, main_key, line_name,p)
     return dic_params
+
+
+
+
+
+
+
+
+def summarize_spectral_lines(
+    lines: Iterable[Any],
+    *,
+    gaussian_token: str = "gaussian",
+    print_lines: bool = True,
+    center_fmt: str = "{:.3f}",
+) -> dict:
+    """
+    Summarize a list of SpectralLine-like objects.
+
+    It counts:
+      - how many entries per `region` (broad/narrow/wind/continuum/etc.)
+      - how many entries are Gaussian-ish (subprofile/profile contains 'gaussian')
+      - for kinematic entries (e.g., broad1), prints a mapping of region_lines <-> center
+      - continuum components are explicitly named continuum1, continuum2, ...
+
+    Parameters
+    ----------
+    lines
+        Iterable of SpectralLine-like objects. Must have attributes similar to:
+        region, line_name, profile, subprofile, center, region_lines.
+    gaussian_token
+        Token used to detect gaussian profiles ('gaussian' by default).
+    print_lines
+        If True, prints a human-readable summary.
+    center_fmt
+        Format string for numeric centers.
+
+    Returns
+    -------
+    summary : dict
+        Dictionary with counts and parsed line mappings.
+    """
+
+    def get_attr(obj: Any, name: str, default=None):
+        return getattr(obj, name, default)
+
+    def is_gaussian(obj: Any) -> bool:
+        subp = str(get_attr(obj, "subprofile", "") or "").lower()
+        prof = str(get_attr(obj, "profile", "") or "").lower()
+        return (gaussian_token in subp) or (gaussian_token in prof)
+
+    def parse_family_and_num(line_name: str) -> tuple[str, Optional[int]]:
+        """
+        Examples:
+          'broad1'  -> ('broad', 1)
+          'narrow2' -> ('narrow', 2)
+          'wind'    -> ('wind', None)
+        """
+        s = (line_name or "").strip()
+        m = re.match(r"^([A-Za-z_]+)(\d+)?$", s)
+        if not m:
+            return (s, None)
+        fam = m.group(1)
+        num = int(m.group(2)) if m.group(2) else None
+        return (fam, num)
+
+    region_counts = Counter()
+    gaussian_counts_by_region = Counter()
+    gaussian_total = 0
+
+    continuum_idx_by_region = Counter()
+
+    family_maps = defaultdict(list)  # key: (region, family, num)
+    entries = []
+
+    for obj in lines:
+        region = str(get_attr(obj, "region", "unknown") or "unknown")
+        line_name_raw = str(get_attr(obj, "line_name", "") or "")
+        centers = get_attr(obj, "center", None)
+        rlines = get_attr(obj, "region_lines", None)
+
+        region_counts[region] += 1
+
+        g = is_gaussian(obj)
+        if g:
+            gaussian_total += 1
+            gaussian_counts_by_region[region] += 1
+
+        # --- explicit continuum handling ---
+        if region.lower() == "continuum":
+            continuum_idx_by_region[region] += 1
+            cont_idx = int(continuum_idx_by_region[region])
+
+            fam = "continuum"
+            num = cont_idx
+
+            # Force a useful line_name for continuum entries
+            line_name = f"continuum{cont_idx}"
+
+            mapped = []  # continuum has no line-to-center mapping
+
+        else:
+            line_name = line_name_raw
+            fam, num = parse_family_and_num(line_name)
+            mapped = []
+
+            # Build mapping like "Hε - 3970.072"
+            if (
+                isinstance(rlines, (list, tuple))
+                and isinstance(centers, (list, tuple))
+                and len(rlines) == len(centers)
+            ):
+                for nm, c in zip(rlines, centers):
+                    if c is None:
+                        mapped.append(f"{nm} - None")
+                    else:
+                        try:
+                            mapped.append(f"{nm} - {center_fmt.format(float(c))}")
+                        except Exception:
+                            mapped.append(f"{nm} - {c}")
+            elif isinstance(rlines, (list, tuple)) and centers is None:
+                mapped = [f"{nm} - None" for nm in rlines]
+            elif isinstance(centers, (list, tuple)) and rlines is None:
+                mapped = [
+                    f"line? - {center_fmt.format(float(c))}" if c is not None else "line? - None"
+                    for c in centers
+                ]
+
+        if mapped:
+            family_maps[(region, fam, num)].extend(mapped)
+
+        entries.append(
+            dict(
+                region=region,
+                line_name=line_name,          # <- now continuum shows continuum1/2/...
+                line_name_raw=line_name_raw,  # <- keeps original (e.g., "powerlaw") if you need it
+                family=fam,
+                number=num,
+                gaussian=g,
+                is_continuum=(region.lower() == "continuum"),
+                n_mapped=len(mapped),
+            )
+        )
+
+    summary = dict(
+        region_counts=dict(region_counts),
+        gaussian_total=gaussian_total,
+        gaussian_counts_by_region=dict(gaussian_counts_by_region),
+        family_maps={k: v for k, v in family_maps.items()},
+        entries=entries,
+    )
+
+    if print_lines:
+        print("=== SpectralLine summary ===")
+        print("Counts by region:")
+        for k, v in region_counts.most_common():
+            print(f"  - {k}: {v}")
+
+        print(f"\nGaussian-ish entries (profile/subprofile contains '{gaussian_token}'): {gaussian_total}")
+        if gaussian_counts_by_region:
+            print("Gaussian-ish by region:")
+            for k, v in gaussian_counts_by_region.most_common():
+                print(f"  - {k}: {v}")
+
+        # Optional: print continuum entries explicitly by name
+        cont_entries = [e for e in entries if e["is_continuum"]]
+        if cont_entries:
+            print("\nContinuum components:")
+            for e in cont_entries:
+                raw = e.get("line_name_raw", "")
+                extra = f" (profile: {raw})" if raw and raw != e["line_name"] else ""
+                print(f"  - {e['region']} / {e['line_name']}{extra}")
+
+        if family_maps:
+            print("\nLine mappings (region / component):")
+            for (region, fam, num), items in sorted(
+                family_maps.items(),
+                key=lambda x: (x[0][0], x[0][1], x[0][2] or -1),
+            ):
+                tag = f"{fam}{num}" if num is not None else fam
+                print(f"  - {region} / {tag}: {len(items)} lines")
+                for s in items:
+                    print(f"      {s}")
+
+    return summary

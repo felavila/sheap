@@ -167,9 +167,10 @@ def combine_components(
                     fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
 
                 fwhm_A = (fwhm_c / C_KMS) * mu_c
-                flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
-                #print(flux_c.shape)
-                cont_c = vmap(cont_group.combined_profile)(mu_c, cont_params)
+                flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A)) #This generate -> over representative values for non-gaussian lines in EW
+                #print(flux_c.shape)#vmap(cont_group.combined_profile)
+                # #this is already a profile 
+                cont_c = cont_group(mu_c, cont_params)
                 L_line = calc_luminosity(jnp.array(distances), flux_c)
                 eqw_c = flux_c / cont_c
             

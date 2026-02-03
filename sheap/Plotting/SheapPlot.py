@@ -182,8 +182,11 @@ class SheapPlot:
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color=colors_by_region["model"],label="Model")#
         ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color=colors_by_region["data"], zorder=1,label="Obs.")
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
-        if isinstance(add_xline,(float,int)):
-            ax1.axvline(add_xline,c='#A020F0',linewidth=3)
+        if  add_xline:
+            if isinstance(add_xline,(float,int)):
+                add_xline = [add_xline]
+            for KK in  add_xline:
+                ax1.axvline(KK,c='#A020F0',linewidth=3)
         ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=25)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)

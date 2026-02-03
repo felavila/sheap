@@ -5,7 +5,12 @@
 # - center: 1862.79
 #   line_name: AlIIIb
 #   element: Aluminum
-
+- center: 1892
+  line_name: SiIII]
+  element: Silicon
+- center: 1908.73
+  line_name: CIII]
+  element: Carbon
 - center: 1858.753   # simple mean of 1854.716 and 1862.79
   line_name: AlIII
   element: Aluminum
@@ -36,3 +41,12 @@
 - center: 8662.14
   line_name: CaIIc
   element: Calcium
+- center: 2799
+  line_name: MgII
+  rarity: common
+
+#MgII double
+# - center: 2796.352
+#   line_name: MgIIa
+# - center: 2803.531
+#   line_name: MgIIb

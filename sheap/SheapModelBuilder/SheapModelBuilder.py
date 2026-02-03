@@ -175,7 +175,7 @@ class SheapModelBuilder:
     """
     
 
-    lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]"]#,"NIIb","NIIa","SIIb","SIIa",]
+    lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]","[OII]","[NeIII]"]#,"NIIb","NIIa","SIIb","SIIa",]
     lines_prone_winds = ["Lyalpha","CIV","AlIII","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"] Lyα
     lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
@@ -369,7 +369,8 @@ class SheapModelBuilder:
                 base = SpectralLine(**raw_line)
                 if pseudo_region_name == "broad_and_narrow": #search of name
                     comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds,add_BAL=add_BAL,add_outflow=add_outflow)
-                elif pseudo_region_name == "narrows" and n_narrow>0:
+                elif pseudo_region_name == "narrows" and (n_narrow>0 or add_outflow):
+                    #print("jeje")
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds,add_BAL=add_BAL) 
@@ -400,7 +401,7 @@ class SheapModelBuilder:
         del self.region_list
         
     def _handle_broad_and_narrow_lines(
-        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ,add_outflow=False) -> List[SpectralLine]:
+        self, entry: SpectralLine, n_narrow: int, n_broad: int, add_winds=False,add_BAL = False ,add_outflow=False,) -> List[SpectralLine]:
         """
         Create narrow, broad, and optional wind components for a single line.
 
@@ -503,20 +504,20 @@ class SheapModelBuilder:
                 component = comp_num,
                 amplitude =  amp,
                 element = entry.element,
-                rarity = entry.rarity
-            )
+                rarity = entry.rarity)
             comps.append(new)
-            if add_outflow and comp_num <= self.n_max_component_outflow and new.line_name in self.lines_prone_outflow:
-                out = SpectralLine(
-                    center= entry.center,
-                    line_name=entry.line_name,
-                    region ='outflow',
-                    component = comp_num,
-                    amplitude=1.0,
-                    element = entry.element,
-                    rarity = entry.rarity)
-                
-                comps.append(out)
+        #->ok.
+        if add_outflow and entry.line_name in self.lines_prone_outflow:
+            out = SpectralLine(
+                center= entry.center,
+                line_name=entry.line_name,
+                region ='outflow',
+                component = 1,
+                amplitude=1.0,
+                element = entry.element,
+                rarity = entry.rarity)
+            
+            comps.append(out)
         return comps
 
     def _handle_broad_line(self, entry: SpectralLine, n_broad: int,add_winds=False,add_BAL=False) -> List[SpectralLine]:
@@ -543,10 +544,11 @@ class SheapModelBuilder:
         """
         #extra broad? 
         #return comps
+        #print(n_broad)
         comps: List[SpectralLine] = []
         for idx in range(n_broad):
-            if idx>0:
-                continue 
+            #if idx>0:
+             #   continue 
             amp = 1 #if idx == 0 else 0.5
             comp_num = idx + 1
             new = SpectralLine(

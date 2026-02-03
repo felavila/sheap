@@ -358,7 +358,6 @@ class SheapModelFitting:
         tied_map = flatten_tied_map(tied_map)
         self.tied_map = tied_map
         self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
-        
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
             penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         try:
