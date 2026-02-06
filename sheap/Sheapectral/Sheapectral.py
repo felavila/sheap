@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 #WE CAN mode fast, we will stay in this 32 to go faster. 
 #TODO -> helper to given "samples_phys" params can calculate again the SheaProducts
 #TODO -> update this part to be able to show the actual name of the parameter lets say line with 0,1,2,3,4 is easier for code reason but for visualitation could be messy 
-	
+
 class Sheapectral:
 	"""
 	Main interface class for loading, correcting, fitting, and analyzing AGN spectra.
@@ -221,6 +221,7 @@ class Sheapectral:
 		self.sheap_set_up()
 		self.default_limits = (float(np.min(self.spectra[:,0,:])),float(np.max(self.spectra[:,0,:])))
 		self.snr = np.nanmean(self.spectra[:, 1, :] / self.spectra[:, 2, :], axis=1) #signal to noise
+
 	def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
 		"""
 		Load spectra from file or array.
@@ -251,9 +252,7 @@ class Sheapectral:
 			return spectra
 		raise TypeError("spectra must be a path or ndarray")
 
-	def _prepare_z(
-		self, z: Optional[Union[float, ArrayLike]], nobj: int
-	) -> Optional[jnp.ndarray]:
+	def _prepare_z(self, z: Optional[Union[float, ArrayLike]], nobj: int) -> Optional[jnp.ndarray]:
 		"""
 		Normalize redshift input to array form.
 
@@ -919,15 +918,13 @@ class Sheapectral:
 		#plt.show()
 
 	def plot_param_distribution(self,param_name):
+		#TODO what about this plot but for posterior->
 		params_keys = self.result.params_dict.keys()
 		if param_name not in params_keys:
-			raise KeyError(
-				f"param_name '{param_name}' is not available. "
-				f"Available param names: {list(params_keys)}"
-			)
+			raise KeyError(f"param_name '{param_name}' is not available. " f"Available param names: {list(params_keys)}")
 		import pandas as pd
 		import matplotlib.pyplot as plt
-		data = []
+		#data = []
 		scale = self.result.scale
 		param_index = self.result.params_dict[param_name]
 		param_values = self.result.params[:,param_index]
@@ -945,9 +942,7 @@ class Sheapectral:
 			param_values,
 			bins=bins,
 			alpha=0.7,
-			color="#2781d65c",
-		   # label=fr"Model chi2 (median = {np.nanmedian(chi2_model):.2f})"
-		)
+			color="#2781d65c",)
 
 		ax.set_xlabel(param_name, fontsize=18)
 		ax.set_ylabel("Number of spectra", fontsize=18)
@@ -956,35 +951,10 @@ class Sheapectral:
 		ax.axvline(init_value, linestyle="--",label="init value",c="r")
 		ax.axvline(constraints[0], linestyle="--",label="min value",c="k")
 		ax.axvline(constraints[1], linestyle="--",label="max value",c="k")
-		#textstr = (
-		#    fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
-		 #   fr"Model: {frac_model_0_5:.1f}%"
-		#)
-
-		# ax.text(
-		#     0.3, 0.5,
-		#     textstr,
-		#     transform=ax.transAxes,
-		#     fontsize=20,
-		#     va="top",
-		#     bbox=dict(facecolor="white", alpha=0.7, edgecolor="none")
-		# )
 		ax.legend(fontsize=14, frameon=False)
 		fig.tight_layout()
 		plt.show()
-		
-		# for param_index,(param_name, i) in enumerate(self.result.params_dict.items()):
-		#     param = float(self.result.params[n][i])
-		#     init_value = float(self.result.initial_params[i])
-		#     uncertainty = float(self.result.uncertainty_params[n][i])
-
-		#     if "amplitude" in param_name:
-		#         param /= scale
-		#         uncertainty /= scale
-		#     elif "logamp" in param_name:
-		#         param -= np.log10(scale)
-   
-	
+  
 	def _calcualte_d(self,cosmo=None,H0=70,Om0=0.3):
 		from astropy.cosmology import FlatLambdaCDM
 		from sheap.Utils.Constants import cm_per_mpc
@@ -996,16 +966,4 @@ class Sheapectral:
 		#depending on the version this could change after 7.0.0 this change    
 		#self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 		d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
-		return d      
-# def _region_helper(region_name):
-#             if region_name not in sheapmodel_group_by_region.keys():
-#                 return 0
-#             _combined_profile  = sheapmodel_group_by_region[region_name].combined_profile
-#             params = sheapmodel_group_by_region[region_name].params
-#             return vmap(_combined_profile,(0,0))(self.spectra[:,0,:],params)
-
-# if "amplitude" in param_name:
-#                 param /= scale
-#                 uncertainty /= scale
-#             elif "logamp" in param_name:
-#                 param -= np.log10(scale)
+		return d

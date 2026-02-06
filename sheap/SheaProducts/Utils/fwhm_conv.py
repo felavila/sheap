@@ -26,6 +26,7 @@ Notes
 
 - For other profiles (e.g., skewed shapes), a numeric half‑maximum
   search is performed around the peak.
+#TODO change name from fwhm_conv to convination -> utils
 """
 
 __author__ = 'felavila'
@@ -43,14 +44,17 @@ import warnings
 from functools import partial
 from jax import vmap,jit
 import jax.numpy as jnp
-from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
-
 from jax import jacfwd
+import numpy as np 
+from uncertainties import unumpy
 
-def compute_fwhm_split(profile: str,
-                       amp:   jnp.ndarray,
-                       center:jnp.ndarray,
-                       extras:jnp.ndarray) -> jnp.ndarray:
+
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
+from sheap.Utils.Constants import DEFAULT_C_KMS
+
+
+
+def compute_fwhm_split(profile: str,amp:   jnp.ndarray,center:jnp.ndarray,extras:jnp.ndarray) -> jnp.ndarray:
     r"""
     Compute the FWHM of a single line component for a given profile.
 
@@ -246,3 +250,226 @@ def make_batch_fwhm_split(profile: str):
     batcher    = vmap(over_lines, in_axes=(0, 0, 0))
 
     return batcher
+
+
+@jit
+def combine_broad_moments(
+    params_broad: jnp.ndarray,
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """
+    Combine multiple broad components into a single effective Gaussian
+    using amplitude-weighted moments, without any virial filtering.
+
+    Parameters
+    ----------
+    params_broad : ndarray, shape (N, 3*n_broad)
+        Broad component parameters grouped as [amp_i, mu_i, fwhm_i, ...].
+
+    Returns
+    -------
+    fwhm_eff : ndarray, shape (N,)
+        Effective FWHM (same units as input fwhm_i).
+    amp_eff : ndarray, shape (N,)
+        Total effective amplitude (sum of amplitudes).
+    mu_eff : ndarray, shape (N,)
+        Effective line center (amplitude-weighted mean).
+    """
+    N = params_broad.shape[0]
+    n_broad = params_broad.shape[1] // 3
+
+    broad = params_broad.reshape(N, n_broad, 3)
+    amp_b, mu_b, fwhm_b = broad[..., 0], broad[..., 1], broad[..., 2]
+
+    # Total amplitude and amplitude-weighted center
+    total_amp = jnp.sum(amp_b, axis=1)              # (N,)
+    mu_eff    = jnp.sum(amp_b * mu_b, axis=1) / total_amp
+
+    # Effective variance from mixture of Gaussians
+    invf = 1.0 / 2.35482
+    var_i   = (fwhm_b * invf) ** 2                  # σ_i^2
+    dif2    = (mu_b - mu_eff[:, None]) ** 2
+    var_eff = jnp.sum(amp_b * (var_i + dif2), axis=1) / total_amp
+
+    fwhm_eff = jnp.sqrt(var_eff) * 2.35482          # back to FWHM
+
+    return fwhm_eff, total_amp, mu_eff
+
+
+@jit
+def combine_fast(
+    params_broad: jnp.ndarray,
+    params_narrow: jnp.ndarray,
+    limit_velocity: float = 150.0,
+    C_KMS: float = DEFAULT_C_KMS,
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    """
+    Efficiently combine multiple broad components with one narrow
+    component into an effective line measurement.
+
+    Parameters
+    ----------
+    params_broad : ndarray, shape (N, 3*n_broad)
+        Broad component parameters grouped as [amp_i, mu_i, fwhm_i, ...].
+    params_narrow : ndarray, shape (N, 3)
+        Narrow component parameters [amp_n, mu_n, fwhm_n].
+        Only ``mu_n`` is used in velocity filtering.
+    limit_velocity : float, optional
+        Velocity threshold in km/s for virial filtering. Default 150.
+    C_KMS : float, optional
+        Speed of light in km/s. Default 299792.
+
+    Returns
+    -------
+    fwhm_final : ndarray, shape (N,)
+        Effective full width at half maximum (same units as input).
+    amp_final : ndarray, shape (N,)
+        Effective amplitude.
+    mu_final : ndarray, shape (N,)
+        Effective line center.
+
+    Notes
+    -----
+    - Virial filtering selects the nearest broad component relative
+      to the narrow component if offsets exceed ``limit_velocity``.
+    - Otherwise, amplitude-weighted averages of broad components are used.
+    """
+    N = params_broad.shape[0]
+    n_broad = params_broad.shape[1] // 3
+    broad = params_broad.reshape(N, n_broad, 3)
+    amp_b, mu_b, fwhm_b = broad[..., 0], broad[..., 1], broad[..., 2]
+
+    
+    total_amp = jnp.sum(amp_b, axis=1)                      # (N,)
+    mu_eff    = jnp.sum(amp_b * mu_b, axis=1) / total_amp
+
+    invf = 1.0 / 2.35482
+    var_i   = (fwhm_b * invf) ** 2
+    dif2    = (mu_b - mu_eff[:, None]) ** 2
+    var_eff = jnp.sum(amp_b * (var_i + dif2), axis=1) / total_amp
+    fwhm_eff= jnp.sqrt(var_eff) * 2.35482                   # (N,)
+
+    mu_nar   = params_narrow[:, 1]
+    rel_vel  = jnp.abs((mu_b - mu_nar[:, None]) / mu_nar[:, None]) * C_KMS
+    idx_near = jnp.argmin(rel_vel, axis=1)
+
+    sel = lambda arr: arr[jnp.arange(N), idx_near]
+    fwhm_nb  = sel(fwhm_b)
+    amp_nb   = sel(amp_b)
+    mu_nb    = sel(mu_b)
+
+    amp_ratio = jnp.min(amp_b, axis=1) / jnp.max(amp_b, axis=1)
+    mask_amp  = amp_ratio > 0.1
+
+    fwhm_choice = jnp.where(mask_amp, fwhm_eff, fwhm_nb)
+    amp_choice  = jnp.where(mask_amp, total_amp, amp_nb)
+    mu_choice   = jnp.where(mask_amp, mu_eff, mu_nb)
+
+    mask_vir = jnp.min(rel_vel, axis=1) >= limit_velocity
+    fwhm_final = jnp.where(mask_vir, fwhm_nb,    fwhm_choice)
+    amp_final  = jnp.where(mask_vir, amp_nb,     amp_choice)
+    mu_final   = jnp.where(mask_vir, mu_nb,      mu_choice)
+
+    return fwhm_final, amp_final, mu_final
+
+def combine_fast_with_jacobian(
+    amp_b,
+    mu_b,
+    fwhm_b,
+    amp_n,
+    mu_n,
+    fwhm_n,
+    limit_velocity: float = 150.0,
+    C_KMS: float = DEFAULT_C_KMS,
+    use_jacobian: bool = True,
+    rough_scale: float = 1.0
+):
+    """
+    Combine broad + narrow components with uncertainty propagation.
+
+    Parameters
+    ----------
+    amp_b, mu_b, fwhm_b : Uncertainty
+        Amplitude, center, and FWHM arrays for broad components.
+    amp_n, mu_n, fwhm_n : Uncertainty
+        Amplitude, center, and FWHM for the narrow component.
+    limit_velocity : float, optional
+        Velocity threshold (km/s) for virial filtering. Default 150.
+    C_KMS : float, optional
+        Speed of light (km/s). Default 299792.458.
+    use_jacobian : bool, optional
+        If True (default), propagate uncertainties using
+        Jacobians via :func:`jax.jacfwd`.
+        If False, apply a rough scaling factor.
+    rough_scale : float, optional
+        Multiplier for fallback uncertainty estimates.
+
+    Returns
+    -------
+    fwhm : Uncertainty
+        Effective FWHM with propagated uncertainty.
+    amp : Uncertainty
+        Effective amplitude with propagated uncertainty.
+    mu : Uncertainty
+        Effective center with propagated uncertainty.
+
+    Notes
+    -----
+    - Jacobian-based propagation may fail for degenerate inputs;
+      in that case, a fallback approximation is used.
+    - This routine provides *approximate* error propagation; for
+      full posterior distributions, use sampling-based methods.
+    """
+    #unumpy.std_devs,unumpy.nominal_values
+    N = unumpy.nominal_values(amp_b).shape[0]
+    n_broad = unumpy.nominal_values(amp_b).shape[1]
+    results = []
+
+    for i in range(N):
+        # Flatten input vector
+        x0 = jnp.concatenate([
+            unumpy.nominal_values(amp_b)[i], unumpy.nominal_values(mu_b)[i], unumpy.nominal_values(fwhm_b)[i],
+            unumpy.nominal_values(amp_n)[i], unumpy.nominal_values(mu_n)[i], unumpy.nominal_values(fwhm_n)[i]
+        ])
+        errors = jnp.concatenate([
+            unumpy.std_devs(amp_b)[i], unumpy.std_devs(mu_b)[i], unumpy.std_devs(fwhm_b)[i],
+            unumpy.std_devs(amp_n)[i], unumpy.std_devs(mu_n)[i], unumpy.std_devs(fwhm_n)[i]
+        ])
+
+        def wrapped_func(x):
+            a_b = x[:n_broad]
+            m_b = x[n_broad:2*n_broad]
+            f_b = x[2*n_broad:3*n_broad]
+            a_n = x[3*n_broad:3*n_broad+1]
+            m_n = x[3*n_broad+1:3*n_broad+2]
+            f_n = x[3*n_broad+2:3*n_broad+3]
+            pb = jnp.stack([a_b, m_b, f_b], axis=-1).reshape(1, -1)
+            pn = jnp.stack([a_n, m_n, f_n], axis=-1).reshape(1, -1)
+            return jnp.array(combine_fast(pb, pn, limit_velocity, C_KMS)).squeeze()
+
+        f0 = wrapped_func(x0)
+
+        if use_jacobian:
+            try:
+                J = jacfwd(wrapped_func)(x0)  # shape (3, len(x0))
+                propagated_var = jnp.sum((J * errors)**2, axis=1)
+                propagated_err = jnp.sqrt(propagated_var)
+            except Exception as e:
+                print(f"[Warning] Jacobian failed for index {i}: {e}. Falling back to rough.")
+                propagated_err = jnp.abs(f0) * 0.1 * rough_scale
+        else:
+            propagated_err = jnp.abs(f0) * 0.1 * rough_scale
+
+        # Ensure each result is [(fwhm, err), (amp, err), (mu, err)]
+        results.append(list(zip(f0, propagated_err)))
+
+    # Transpose list of tuples into result groups
+    results = list(zip(*results))  # [(fwhm, err), (amp, err), (mu, err)]
+    fwhm_vals, fwhm_errs = zip(*results[0])
+    amp_vals, amp_errs   = zip(*results[1])
+    mu_vals, mu_errs     = zip(*results[2])
+
+    return (
+        unumpy.uarray(np.array(fwhm_vals), np.array(fwhm_errs)),
+        unumpy.uarray(np.array(amp_vals),  np.array(amp_errs)),
+        unumpy.uarray(np.array(mu_vals),   np.array(mu_errs))
+    )

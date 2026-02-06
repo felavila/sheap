@@ -1,6 +1,8 @@
 """
 ?
 This requiere alot of cleaning
+#TODO the name
+#TODO region info -> for all the regions ?
 """
 
 from __future__ import annotations

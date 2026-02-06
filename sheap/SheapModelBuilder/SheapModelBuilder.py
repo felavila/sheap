@@ -94,9 +94,7 @@ Notes
 from __future__ import annotations
 __author__ = 'felavila'
 
-__all__ = [
-    "SheapModelBuilder",
-]
+__all__ = ["SheapModelBuilder",]
 
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -114,6 +112,7 @@ from sheap.Profiles.profiles_templates import make_host_function #?
 
 
 #TODO ADD the rutines of gaussians and tied methods in general. 
+#TODO make lines a only one big file
 # Balmer continuum, Balmer High order emission lines
 # 3646.0 limit for balmer continuum after this we can move to another stuff
 # ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA

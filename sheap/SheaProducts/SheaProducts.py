@@ -79,6 +79,7 @@ from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_
 #TODO this have to be called ExtraProducts
 #TODO EW -> continuum balmer, fe, continuum. => cont_vals
 #TODO method still usefful ?
+#TODO Fe ratio and Star cont ratio. with model-spectra-reconstruction
 
 class SheaProducts:
     _BASE_REQUIRED = ("model", "dependencies", "spectra", "mask", "sheapmodel", "method", "d")
@@ -88,9 +89,7 @@ class SheaProducts:
         **extra,):
 
         self.BOL_CORRECTIONS = DEFAULT_BOL_CORRECTIONS if BOL_CORRECTIONS is None else BOL_CORRECTIONS
-        self.SINGLE_EPOCH_ESTIMATORS = (
-            DEFAULT_SINGLE_EPOCH_ESTIMATORS if SINGLE_EPOCH_ESTIMATORS is None else SINGLE_EPOCH_ESTIMATORS
-        )
+        self.SINGLE_EPOCH_ESTIMATORS = (DEFAULT_SINGLE_EPOCH_ESTIMATORS if SINGLE_EPOCH_ESTIMATORS is None else SINGLE_EPOCH_ESTIMATORS)
         self.C_KMS = DEFAULT_C_KMS if C_KMS is None else C_KMS
 
         
@@ -126,7 +125,7 @@ class SheaProducts:
             return self._extract_basic_params_single()
         else:
             return summarize_nested_samples(self._extract_basic_params_sampled(full_samples=full_samples,idx_obj=idx_obj),run_summarize=summarize)
-
+    
     def _extract_basic_params_sampled(self, full_samples, idx_obj):
         """
         Extract line quantities (flux, FWHM, center, etc.) from posterior samples.
