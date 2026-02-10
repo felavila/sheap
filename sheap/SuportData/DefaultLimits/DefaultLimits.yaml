@@ -87,9 +87,9 @@ fe:
     - 2010ApJS..189...15K
 
 balmerhighorder:
-  upper_fwhm_kms: 8000.0
-  lower_fwhm_kms: 800.0
-  vshift_kms: 1500.0 
+  upper_fwhm_kms: 11000
+  lower_fwhm_kms: 1000
+  vshift_kms: 500.0 
   max_amplitude: 0.07
   references:
     - xx

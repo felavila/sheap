@@ -677,7 +677,7 @@ def summarize_spectral_lines(
 ) -> dict:
     """
     Summarize a list of SpectralLine-like objects.
-
+    #sheapspectral.result.sheapmodel.lines
     It counts:
       - how many entries per `region` (broad/narrow/wind/continuum/etc.)
       - how many entries are Gaussian-ish (subprofile/profile contains 'gaussian')

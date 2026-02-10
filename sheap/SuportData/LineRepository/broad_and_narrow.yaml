@@ -1,9 +1,10 @@
 # yaml of lines that can show broad and narrow lines.
 #Hδ (H I) λ4101.742
-# - line_name: Hε
-#   center: 3970.072
-#   element: Hydrogen
-#   rarity: common
+#our hight balmer tempalte BalHiOrd_FWHM1000 limit is "key": "H8",  "name": "Hzeta", 3889.065
+- line_name: Hε
+  center: 3970.072
+  element: Hydrogen
+  rarity: common
 - line_name: Hδ
   center: 4101.742
   element: Hydrogen

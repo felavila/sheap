@@ -23,7 +23,9 @@ from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS,DEFAULT_C_KMS
 
 #TODO update the continuum for the EW estimation
 ###########################SINGLE########################################
-def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuum_idx_all,luminosity_distance,sheapmodel,cont_profile_all,BOL_CORRECTIONS =DEFAULT_BOL_CORRECTIONS,C_KMS= DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):
+def extract_basic_params_single(spectra,mask,params,uncertainty_params,continuum_idx_all,
+                                luminosity_distance,sheapmodel,cont_profile_all,
+                                BOL_CORRECTIONS =DEFAULT_BOL_CORRECTIONS,C_KMS= DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):
     #TODO the contnuum
     basic_params: Dict[str, Dict[str, np.ndarray]] = {}
     distances = luminosity_distance
@@ -32,7 +34,8 @@ def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuu
     idx_cont = cont_group.flat_param_indices_global
     cont_params = params[:, idx_cont]
     ucont_params = uncertainty_params[:, idx_cont]
-
+    cont_params_full = params[:, continuum_idx_all]
+    cont_uparams_full = uncertainty_params[:, continuum_idx_all]
     for region, region_group in sheapmodel_group_by_region.items():
         if region in ("fe", "continuum", "host","balmer"):
             continue
@@ -50,7 +53,9 @@ def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuu
                 profile_fn = PROFILE_LINE_FUNC_MAP[subprof]
                 batch_fwhm = make_batch_fwhm_split_with_error(subprof)
 
-                (_line_names, _components, _flux, _fwhm, _fwhm_kms,_centers, _amps, _eqw, _lum, _shapes) = _accumulate_spaf_components(prof_group, profile_fn, batch_fwhm, cont_params, ucont_params,distances,wavelength_grid= wavelength_grid,C_KMS=C_KMS)
+                (_line_names, _components, _flux, _fwhm, _fwhm_kms,_centers, _amps, _eqw, _lum, _shapes) = _accumulate_spaf_components(prof_group, profile_fn, batch_fwhm,params,uncertainty_params,cont_params_full, 
+                                                                                                                                       cont_uparams_full,cont_profile_full=cont_profile_all
+                                                                                                                                       ,distances=distances,wavelength_grid= wavelength_grid,C_KMS=C_KMS)
 
             else:
                 profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
@@ -66,9 +71,10 @@ def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuu
                 params_by_line = _params.reshape(_params.shape[0], -1, profile_fn.n_params)
                 uparams_by_line = _uparams.reshape(_uparams.shape[0], -1, profile_fn.n_params)
 
-                amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_profile_quantities(
-                    profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params)
-
+                amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_by_line, 
+                                                                                    cont_params_full, cont_uparams_full,cont_profile_full=cont_profile_all,
+                                                                                    distances=distances,wavelength_grid=wavelength_grid,C_KMS=C_KMS)
+                                                                                    #profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params,distances,wavelength_grid= wavelength_grid,C_KMS=C_KMS)
                 _flux, _fwhm, _fwhm_kms = [flux], [fwhm], [fwhm_kms]
                 _centers, _amps, _eqw, _lum = [centers], [amps], [eqw], [lum_vals]
                 _shapes = [{k: v for k, v in zip(profile_fn.param_names[2:], shape_params.T)}]
@@ -104,8 +110,7 @@ def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuu
         if any(valid):
             x = jnp.full((cont_params.shape[0], 1), wave)
             Fcont = unumpy.uarray(*np.array(
-                evaluate_with_error(cont_group.combined_profile, x, cont_params, jnp.zeros_like(x), ucont_params)
-            )) * valid.astype(float)
+                evaluate_with_error(cont_group.combined_profile, x, cont_params, jnp.zeros_like(x), ucont_params))) * valid.astype(float)
             #print(valid)
             Lmono = calc_monochromatic_luminosity(np.array(distances[:, None]), Fcont, wave)
             Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
@@ -115,7 +120,7 @@ def _extract_basic_params_single(spectra,mask,params,uncertainty_params,continuu
     
     return result
     
-def _accumulate_spaf_components(prof_group, profile_fn, batch_fwhm, cont_params, ucont_params,distances,wavelength_grid= jnp.linspace(0, 20_000, 20_000),C_KMS=DEFAULT_C_KMS):
+def _accumulate_spaf_components(prof_group, profile_fn, batch_fwhm,params,uncertainty_params,cont_params_full, cont_uparams_full,cont_profile_full=None,distances=None,wavelength_grid= jnp.linspace(0, 20_000, 20_000),C_KMS=DEFAULT_C_KMS):
     
     all_flux, all_fwhm, all_fwhm_kms = [], [], []
     all_centers, all_amps, all_eqws, all_lums = [], [], [], []
@@ -123,9 +128,12 @@ def _accumulate_spaf_components(prof_group, profile_fn, batch_fwhm, cont_params,
     #for sub_prof_gropu in 
     params_names = prof_group._master_param_names
     for sp,idx_params in zip(prof_group.lines,prof_group.global_profile_params_index_list,):
-        params_by_line, uparams_by_line = _build_spaf_param_matrices(sp,idx_params,params_names)
+        params_by_line, uparams_by_line = _build_spaf_param_matrices(sp,idx_params,params,uncertainty_params,params_names,C_KMS=C_KMS)
         
-        amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params,distances,wavelength_grid= wavelength_grid,C_KMS=C_KMS)
+        amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_by_line, 
+                                                                            cont_params_full, cont_uparams_full,cont_profile_full=cont_profile_full,
+                                                                            distances=distances,wavelength_grid= wavelength_grid,C_KMS=C_KMS)
+        
         all_flux.append(flux)
         all_fwhm.append(fwhm)
         all_fwhm_kms.append(fwhm_kms)
@@ -168,7 +176,9 @@ def _build_spaf_param_matrices(sp,idx_params,params,uncertainty_params,params_na
         ufull_params_by_line.append(np.column_stack([uamp, ucenter, uextras]))
     return np.moveaxis(np.array(full_params_by_line), 0, 1), np.moveaxis(np.array(ufull_params_by_line), 0, 1)
 
-def _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_by_line, cont_params, ucont_params,sheapmodel,distances,wavelength_grid= jnp.linspace(0, 20_000, 20_000),C_KMS=DEFAULT_C_KMS):
+def _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_by_line, 
+                                cont_params_full, cont_uparams_full,cont_profile_full=None,
+                                distances=None,wavelength_grid= jnp.linspace(0, 20_000, 20_000),C_KMS=DEFAULT_C_KMS):
     
     #"amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"
     
@@ -186,7 +196,7 @@ def _extract_profile_quantities(profile_fn, batch_fwhm, params_by_line, uparams_
                                                 unumpy.std_devs(amps), unumpy.std_devs(centers), unumpy.std_devs(shape_params))))
     
     fwhm_kms = calc_fwhm_kms(fwhm, np.array(C_KMS), centers)
-    cont_vals = unumpy.uarray(*np.array(evaluate_with_error(sheapmodel.group_by("region")["continuum"].combined_profile, unumpy.nominal_values(centers), cont_params, unumpy.std_devs(centers), ucont_params)))
+    cont_vals = unumpy.uarray(*np.array(evaluate_with_error(cont_profile_full, unumpy.nominal_values(centers), cont_params_full, unumpy.std_devs(centers), cont_uparams_full)))
     
     eqw = flux / cont_vals
     lum_vals = calc_luminosity(np.array(distances[:, None]), flux)

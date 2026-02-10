@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
 import numpy as np
 import jax.numpy as jnp
-from jax import vmap
+from jax import vmap,jit
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
 from sheap.Profiles.Utils import make_integrator,make_fused_profiles
@@ -18,7 +18,7 @@ from sheap.SheaProducts.Utils.Physical_functions import calc_fwhm_kms,calc_lumin
 #I dont like d has name of variable maybe D?
 #wl_i = spectra[idx_obj, 0, :]
 #mask_i = mask[idx_obj, :]
-def _extract_basic_params_sampled(wavelength,mask,full_samples,continuum_idx_all ,luminosity_distance,sheapmodel,cont_profile_all,BOL_CORRECTIONS =DEFAULT_BOL_CORRECTIONS,C_KMS= DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):
+def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_idx_all,cont_profile_all,cont_profile,luminosity_distance=0,BOL_CORRECTIONS =DEFAULT_BOL_CORRECTIONS,C_KMS= DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):
         """
         Extract line quantities (flux, FWHM, center, etc.) from posterior samples.
         Designed for use with MCMC or MC draws.
@@ -29,9 +29,9 @@ def _extract_basic_params_sampled(wavelength,mask,full_samples,continuum_idx_all
         sheapmodel_group_by_region = sheapmodel.group_by("region")
         cont_group = sheapmodel_group_by_region["continuum"]
         idx_cont = cont_group.flat_param_indices_global
-        cont_params = full_samples[:, idx_cont]
-        cont_params_all = full_samples[:, continuum_idx_all]
-        distances = np.full((full_samples.shape[0],),luminosity_distance, dtype=np.float64)
+        cont_params = samples[:, idx_cont]
+        cont_params_all = samples[:, continuum_idx_all]
+        distances = np.full((samples.shape[0],),luminosity_distance, dtype=np.float64)
         for region, region_group in sheapmodel_group_by_region.items():
             if region in ("fe", "continuum", "host","balmer"):
                 continue
@@ -53,7 +53,7 @@ def _extract_basic_params_sampled(wavelength,mask,full_samples,continuum_idx_all
                     (_line_names, _components, _flux, _fwhm, _fwhm_kms,_centers, _amps, _eqw, _lum, _shapes) = _accumulate_spaf_sampled(prof_group, 
                                                                                                                                         profile_fn, batch_fwhm, 
                                                                                                                                         integrator, cont_params_all, cont_profile_all,
-                                                                                                                                        full_samples,distances=distances,C_KMS=C_KMS)
+                                                                                                                                        samples,distances=distances,C_KMS=C_KMS)
 
                 else:
                     profile_fn = PROFILE_LINE_FUNC_MAP[profile_name]
@@ -61,7 +61,7 @@ def _extract_basic_params_sampled(wavelength,mask,full_samples,continuum_idx_all
                     integrator = make_integrator(profile_fn, method="vmap")
 
                     idxs = prof_group.flat_param_indices_global
-                    params = full_samples[:, idxs]
+                    params = samples[:, idxs]
 
                     _line_names = [l.line_name for l in prof_group.lines]
                     _components = [l.component for l in prof_group.lines]
@@ -100,28 +100,28 @@ def _extract_basic_params_sampled(wavelength,mask,full_samples,continuum_idx_all
         for wave in map(float, BOL_CORRECTIONS.keys()):
             wstr = str(int(wave))
             if (jnp.isclose(wavelength, wave, atol=2) & ~mask).any():
-                Fcont = vmap(cont_group.combined_profile, in_axes=(None, 0))(jnp.array([wave]), cont_params).squeeze()
+                Fcont = cont_profile(jnp.array([wave]), cont_params).squeeze()
                 Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
                 Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
                 L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
         
         
         #list_to_get_extra_params = ["basic_params"]
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances}
+        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances[0]} #<-
         return result
 
     
-def _accumulate_spaf_sampled(prof_group, profile_fn, batch_fwhm, integrator_fn, cont_params_all,cont_profile_all, full_samples,distances,C_KMS=DEFAULT_C_KMS):
+def _accumulate_spaf_sampled(prof_group, profile_fn, batch_fwhm, integrator_fn, cont_params_all,cont_profile_all, samples,distances,C_KMS=DEFAULT_C_KMS):
     all_flux, all_fwhm, all_fwhm_kms = [], [], []
     all_centers, all_amps, all_eqws, all_lums = [], [], [], []
     all_line_names, all_components, all_shape_dicts = [], [], []
     params_names = prof_group._master_param_names
     
     for sp,idx_param in zip(prof_group.lines,prof_group.global_profile_params_index_list):
-        params_by_line = _build_spaf_sampled_params(sp,idx_param,params_names,full_samples,C_KMS=C_KMS)
+        params_by_line = _build_spaf_sampled_params(sp,idx_param,params_names,samples,C_KMS=C_KMS)
         amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_sampled_profile_quantities(integrator_fn, batch_fwhm, 
                                                                                                                params_by_line, cont_params_all,cont_profile_all,
-                                                                                                               np.full((full_samples.shape[0],), distances))
+                                                                                                               np.full((samples.shape[0],), distances))
         
         all_flux.append(flux)
         all_fwhm.append(fwhm)
@@ -140,9 +140,9 @@ def _accumulate_spaf_sampled(prof_group, profile_fn, batch_fwhm, integrator_fn, 
 
 
  
-def _build_spaf_sampled_params(sp,idx_param,params_names, full_samples,C_KMS=DEFAULT_C_KMS):
+def _build_spaf_sampled_params(sp,idx_param,params_names, samples,C_KMS=DEFAULT_C_KMS):
     "moving from velocity to ANGSTROMS"
-    params = full_samples[:, idx_param]
+    params = samples[:, idx_param]
     names = np.array(params_names)[idx_param]
     
     amplitude_relations = sp.amplitude_relations

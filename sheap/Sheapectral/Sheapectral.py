@@ -363,7 +363,7 @@ class Sheapectral:
 			xmin,xmax = min(limits),max(limits)
 		if xmin < 3600 and add_balmer_continuum:
 			add_balmer_continuum = add_balmer_continuum
-		if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
+		if (3700 > xmin and 3910 < xmax) and add_balmerhighorder_continuum:    
 			add_balmerhighorder_continuum = add_balmerhighorder_continuum
 		self.modelbuild = SheapModelBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
 										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
@@ -440,7 +440,8 @@ class Sheapectral:
 				residuals = fit_output.residuals,
 				free_params = fit_output.free_params,
 				chi2_red = fit_output.chi2_red,
-				fitkwargs = fit_output.fitkwargs)
+				fitkwargs = fit_output.fitkwargs,
+    			elapsed_time= fit_output.elapsed_time)
 
 			self.plotter = SheapPlot(sheap=self)
 	
@@ -502,7 +503,7 @@ class Sheapectral:
 				self.result.posterior = {}
 
 			method = sampling_method.lower()
-
+			import time 
 			# --- Protection against overwriting ---
 			if method in self.result.posterior and not overwrite:
 				raise RuntimeError(f"Posterior for method '{method}' already exists. " "Use overwrite=True to recompute it.")
@@ -525,8 +526,9 @@ class Sheapectral:
 			# MONTE CARLO
 			# ------------------------------------------------------------------
 			elif method == "montecarlo":
+				time_init = time.time()
 				dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize}
+				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
 			# ------------------------------------------------------------------
 			# MCMC
 			# ------------------------------------------------------------------
@@ -604,7 +606,8 @@ class Sheapectral:
 			fitting_routine = data.get("fitting_routine"),
 			posterior = data.get("posterior"),
 			chi2_red = data.get("chi2_red"),
-			fitkwargs = data.get("fitkwargs")
+			fitkwargs = data.get("fitkwargs"),
+			elapsed_time= data.get("elapsed_time")
 		)
 		obj.plotter = SheapPlot(sheap=obj)
 		obj.spectral_model = make_fused_profiles(obj.result.profile_functions)
@@ -648,7 +651,8 @@ class Sheapectral:
 			'free_params' : self.result.free_params,
 			'chi2_red' : np.array(self.result.chi2_red),
 			"posterior" : self.result.posterior,
-			"fitkwargs":self.result.fitkwargs
+			"fitkwargs":self.result.fitkwargs,
+			"elapsed_time":self.result.elapsed_time
 		}
 
 		estimated_size = sys.getsizeof(pickle.dumps(dic_))

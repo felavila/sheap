@@ -38,6 +38,27 @@ import jax.numpy as jnp
 from uncertainties import unumpy
 #?
 
+def concat_dicts_combine(list_of_dicts):
+    out = {}
+    lines =[]
+    for line,values in list_of_dicts.items():
+        for k,v in values.items():
+            if k not in out.keys():
+                out[k] = [v]
+            else:
+                out[k].append(v)
+        lines.append(line)
+    
+    # flatten or stack if numeric/array-like
+    for k, v in out.items():
+        if "component" not in k:
+            out[k] = np.stack(v, axis=1).squeeze()
+        else:
+            out[k] = v
+    out["lines"] = lines
+    out["combined"] = True
+    return dict(out)
+
 def concat_dicts(list_of_dicts):
     """
     Concatenate lists/arrays across a list of homogeneous dictionaries.
