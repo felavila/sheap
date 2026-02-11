@@ -53,7 +53,7 @@ import jax.numpy as jnp
 from jax import vmap,jit,jacfwd,lax
 from uncertainties import unumpy
 
-from sheap.SheaProducts.Utils.Physical_functions import calc_flux,calc_luminosity
+from sheap.sheap.SheaProducts.Utils.deprecated.Physical_functions import calc_flux,calc_luminosity
 from sheap.Utils.Constants import DEFAULT_C_KMS
 
 def combine_components(
@@ -138,7 +138,7 @@ def combine_components(
             #is_uncertainty = isinstance(amp_b, Uncertainty)
             is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
-                from sheap.SheaProducts.Utils.After_fit_profile_helpers import evaluate_with_error 
+                from sheap.sheap.SheaProducts.Utils.Helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
                 fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,C_KMS=C_KMS)
                 

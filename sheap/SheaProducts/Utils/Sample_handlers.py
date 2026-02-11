@@ -25,18 +25,20 @@ __all__ = [
     "pivot_and_split",
     "summarize_nested_samples",
     "summarize_samples",
-    "concat_dicts"
+    "concat_dicts",
+    "concat_dicts_combine"
 ]
 
 from typing import Dict, Any
 import pandas as pd
 import warnings
 from collections import defaultdict
-#from auto_uncertainties.uncertainty.uncertainty_containers import VectorUncertainty
+
 import numpy as np 
 import jax.numpy as jnp
 from uncertainties import unumpy
-#?
+
+#TODO clean up 
 
 def concat_dicts_combine(list_of_dicts):
     out = {}
@@ -367,3 +369,5 @@ def summarize_nested_samples(d: dict,run_summarize:bool = True) -> dict:
         else:
             summarized[k] = v
     return summarized
+
+

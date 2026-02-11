@@ -1,3 +1,13 @@
+"""
+Extract Basic Params
+============================
+
+?
+"""
+
+__author__ = 'felavila'
+
+__all__ = []
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
@@ -7,21 +17,18 @@ from jax import vmap
 from uncertainties import unumpy
 
 
-from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP#,PROFILE_FUNC_MAP,PROFILE_LINE_FUNC_MAP_classical
-#from sheap.Profiles.Utils import make_integrator,make_fused_profiles
+from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
 
-from sheap.SheaProducts.Utils.fwhm_conv import make_batch_fwhm_split_with_error
-from sheap.SheaProducts.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity,extra_params_functions
-from sheap.SheaProducts.Utils.After_fit_profile_helpers import integrate_batch_with_error,evaluate_with_error 
-#from sheap.SheaProducts.Utils.Combine_profiles import combine_components,combine_fastspecfit,combine_pyqsofit,combine_pyqsofit_single
-
+from sheap.SheaProducts.Utils.CombineUtils import make_batch_fwhm_split_with_error
+from sheap.SheaProducts.Utils.Helpers import integrate_batch_with_error,evaluate_with_error 
 from sheap.SheaProducts.Utils.Sample_handlers import concat_dicts
 
+from sheap.Utils.BasicFunctions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS,DEFAULT_C_KMS
 
 
 
-#TODO update the continuum for the EW estimation
+#TODO 
 ###########################SINGLE########################################
 def extract_basic_params_single(spectra,mask,params,uncertainty_params,continuum_idx_all,
                                 luminosity_distance,sheapmodel,cont_profile_all,

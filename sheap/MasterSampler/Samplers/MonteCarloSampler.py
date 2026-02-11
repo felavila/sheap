@@ -52,7 +52,7 @@ import time
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
-from sheap.SheaProducts.SheaProductsv2 import SheaProducts
+from sheap.SheaProducts.SheaProducts import SheaProducts
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
 from sheap.MasterSampler.Samplers.Utils.montecarlo_utils import phys_trust_region_inits,resample_spec_all 
@@ -154,12 +154,13 @@ class MonteCarloSampler:
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
-			dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
+			dic_posterior_params[name_i] = self.SheaProducts.calculate_sheap_products_sampled(n,full_samples)
 			dic_posterior_params[name_i].update({"samples_phys":full_samples})
 
 		return dic_posterior_params
  
-	def sample_params_experimental(self, num_samples: int = 100, key_seed: int = 0, summarize=True,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
+	def sample_params_experimental(self, num_samples: int = 100, key_seed: int = 0, summarize=True
+                                ,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
 			#it looks like this only work for frac_box_sigma=0.02,k_sigma=0.3 limits 
 			from tqdm import tqdm
 			print(f"Running Monte Carlo with JAX.,frac_box_sigma={frac_box_sigma},k_sigma={k_sigma}")
@@ -203,7 +204,7 @@ class MonteCarloSampler:
 			for n, name_i in enumerate(iterator):
 				full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 				draws_phys_n = scale_amp(self.params_dict,np.array(_draws_phys[n]),self.scale[n])
-				dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
+				dic_posterior_params[name_i] = self.SheaProducts.calculate_sheap_products_sampled(n,full_samples)
 				dic_posterior_params[name_i].update({"samples_phys":full_samples,"draws_phys":draws_phys_n})
 
 			return dic_posterior_params

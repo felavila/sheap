@@ -1,4 +1,13 @@
+"""
+Extract Basic Params Sampled
+============================
 
+?
+"""
+
+__author__ = 'felavila'
+
+__all__ = []
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable
 
@@ -8,12 +17,12 @@ from jax import vmap,jit
 
 from sheap.Profiles.Profiles import PROFILE_LINE_FUNC_MAP
 from sheap.Profiles.Utils import make_integrator,make_fused_profiles
-from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS #, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS,cm_per_mpc
-from sheap.SheaProducts.Utils.fwhm_conv import make_batch_fwhm_split #,make_batch_fwhm_split_with_error
+
+from sheap.SheaProducts.Utils.CombineUtils import make_batch_fwhm_split
 from sheap.SheaProducts.Utils.Sample_handlers import concat_dicts
 
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS,DEFAULT_C_KMS
-from sheap.SheaProducts.Utils.Physical_functions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity
+from sheap.Utils.BasicFunctions import calc_fwhm_kms,calc_luminosity,calc_monochromatic_luminosity,calc_bolometric_luminosity
 
 #I dont like d has name of variable maybe D?
 #wl_i = spectra[idx_obj, 0, :]

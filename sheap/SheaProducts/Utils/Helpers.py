@@ -1,5 +1,5 @@
 """
-After-Fit Profile Helpers
+Helpers
 =========================
 
 This module provides helper routines to evaluate and integrate

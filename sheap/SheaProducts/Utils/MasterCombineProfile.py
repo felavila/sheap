@@ -17,7 +17,7 @@ from uncertainties import unumpy
 
 
 
-from sheap.SheaProducts.Utils.Physical_functions import calc_flux,calc_luminosity
+from sheap.Utils.BasicFunctions import calc_flux,calc_luminosity
 from sheap.Utils.Constants import DEFAULT_C_KMS
 from sheap.Profiles.Utils import GaussianSum
 from sheap.SheaProducts.Utils.Sample_handlers import concat_dicts_combine
@@ -25,7 +25,7 @@ from sheap.SheaProducts.Utils.Sample_handlers import concat_dicts_combine
 
 class MasterCombineProfile:
 	def __init__(self,LINES_TO_COMBINE=("Halpha", "Hbeta","MgII","CIV"), limit_velocity=150.0,C_KMS=DEFAULT_C_KMS,full_cont_profile=None,ucont_params = None
-              ,full_cont_profile_NONE=None):
+              ,full_cont_profile_NONE=None,n_narrow=None,n_broad=None):
 		
 		#here the class should know if we are working with sapled values or just -> 1D
 		#this works by object
@@ -39,13 +39,18 @@ class MasterCombineProfile:
 		self.ucont_params  = ucont_params
 		self.full_cont_profile = full_cont_profile
 		self.full_cont_profile_NONE = full_cont_profile_NONE
+		self.n_narrow = n_narrow
+		self.n_broad = n_broad
   
 	def combine_both(self,basic_params,distances,full_cont_params):
-		combine_k = self.combine_kinematic_all(basic_params,distances,full_cont_params)
-		combine_c = self.combine_classical_all(basic_params,distances,full_cont_params)
-
-		return {"basic_params_combined_kinematic": concat_dicts_combine(combine_k),"basic_params_combined_classical": concat_dicts_combine(combine_c)}
- 
+		combined = {}
+		if self.n_narrow == 1 and self.n_broad>=2:
+			combine_k = self.combine_kinematic_all(basic_params,distances,full_cont_params)
+			combined["basic_params_combined_kinematic"] = concat_dicts_combine(combine_k)
+		if self.n_broad>=2:
+			combine_c = self.combine_classical_all(basic_params,distances,full_cont_params)
+			combined["basic_params_combined_classical"] = concat_dicts_combine(combine_c)
+		return combined
 	def combine_kinematic_all(self,basic_params,distances,full_cont_params):
 		out = {}
 		for line in self.LINES_TO_COMBINE:
@@ -180,7 +185,7 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 	idx_broad = [i for i,L in enumerate(broad_params.get("lines",[])) if L.lower() == line.lower()]
 	idx_narrow = [i for i,L in enumerate(narrow_params.get("lines",[])) if L.lower() == line.lower()]
  
-	if len(idx_broad) < 2 and  len(idx_narrow) != 1:
+	if len(idx_broad) < 2 or  len(idx_narrow) != 1:
 		return
 	components =  np.array(broad_params["component"])[idx_broad]
 	#broad
@@ -193,8 +198,8 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 	fwhm_kms_n = narrow_params["fwhm_kms"][:, idx_narrow]
 	#print(distances)
 	if amp_b.dtype == 'O': #uncertainty rutines
-		from sheap.SheaProducts.Utils.After_fit_profile_helpers import evaluate_with_error
-		from sheap.SheaProducts.Utils.fwhm_conv import combine_fast_with_jacobian
+		from sheap.SheaProducts.Utils.Helpers import evaluate_with_error
+		from sheap.SheaProducts.Utils.CombineUtils import combine_fast_with_jacobian
 		
 		fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,C_KMS=C_KMS)
 		
@@ -206,7 +211,7 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 		cont_c = unumpy.uarray(*np.array(evaluate_with_error(full_cont_profile,unumpy.nominal_values(mu_c), full_cont_params,unumpy.std_devs(mu_c), ucont_params)))
 		eqw_c = flux_c / cont_c
 	else:
-		from sheap.SheaProducts.Utils.fwhm_conv import combine_fast	
+		from sheap.SheaProducts.Utils.CombineUtils import combine_fast	
 		
 		N = amp_b.shape[0]
 		params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)

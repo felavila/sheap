@@ -54,6 +54,7 @@ from sheap.Core import SpectralLine,SheapResult,ArrayLike
 from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
 from sheap.SheapModelFitting.SheapModelFitting import SheapModelFitting
 from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
+from sheap.SheaProducts.SheaProducts import SheaProducts
 from sheap.Plotting.SheapPlot import SheapPlot
 from sheap.Utils.Constants  import DEFAULT_C_KMS
 
@@ -445,7 +446,9 @@ class Sheapectral:
 
 			self.plotter = SheapPlot(sheap=self)
 	
-	def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=True,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3,only_sheaproducts=False):
+	def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=False
+                         ,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3
+                         ,only_sheaproducts=False,**kwargs):
 		"""
 		Estimate or sample posterior distributions of fit parameters.
 
@@ -478,23 +481,64 @@ class Sheapectral:
 		RuntimeError
 			If fit has not been run (`self.result` missing).
 		"""
+		avalaible_methods = ["single","none","montecarlo"]
+		#TODO implement the other methods.
 		from sheap.MasterSampler.MasterSampler import MasterSampler
+		import time
+  
 		if not hasattr(self, "result"):
 			raise RuntimeError("self.result should exist to run this.")
-		#TODO ADD break in case sampling method is not recognize 
+
+		if sampling_method not in avalaible_methods:
+			raise ValueError(
+ 					f"Unknown sampling method '{sampling_method}'. "
+ 					f"Available methods: single, {avalaible_methods}")
+
+		if self.result.posterior is None:
+			self.result.posterior = {}
+		if sampling_method in self.result.posterior and not overwrite:
+			raise RuntimeError(f"Posterior for method '{sampling_method}' already exists. " "Use overwrite=True to recompute it.")
+
 		PM = MasterSampler(sheap = self)
 		if sampling_method == "none":
-			print("Nothing will run if you dont choose between sampling_method [montecarlo or sampling_method=mcmc or sampling_method=single")
+			print("Nothing will run if you dont choose between sampling_method [single, pseudomontecarlo, montecarlo, mcmc")
 			return PM 
-		elif only_sheaproducts and hasattr(self.result, "posterior"):
-			#We only will make this inplemented for "montecarlo" meanwhile
-			from sheap.SheaProducts.SheaProductsv2 import SheaProducts
-			from tqdm import tqdm
-			import time 
-			#care with d.
-			PM.method = "montecarlo"
-			SP = SheaProducts(samplerclass=PM)
-			previous_producs = self.result.posterior["montecarlo"]["posterior_result"]
+		
+		if sampling_method == "single":
+			self.result.posterior[sampling_method] = {}
+			print("You chose single: parameter estimation using " "only fitting uncertainties.")
+			SP = SheaProducts(samplerclass=PM,method="direct")
+			dic_posterior_params = SP.calculate_sheap_products(summarize=summarize)
+			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
+		elif sampling_method == "montecarlo":
+			time_init = time.time()
+			dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
+			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
+	
+		else:
+			raise ValueError(
+				f"Unknown sampling method '{sampling_method}'. "
+				"Available methods: single, pseudomontecarlo, montecarlo, mcmc."
+			)
+	
+	def _recalculate_products(self,sampling_method=None):
+		from sheap.MasterSampler.MasterSampler import MasterSampler
+		import time
+		from tqdm import tqdm
+		if hasattr(self.result, "posterior"):
+			keys = list(self.result.posterior.keys())
+			if len(keys)==1:
+				print(keys[0], "will be recalculated")
+				sampling_method = keys[0]
+			elif len(keys) >= 2:
+				self.result.posterior[sampling_method]
+			PM = MasterSampler(sheap = self)
+			PM.method = sampling_method
+			if sampling_method == "single":
+				SP = SheaProducts(samplerclass=PM,method="direct")
+				dic_posterior_params = SP.calculate_sheap_products(summarize=False)
+				self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params}
+			previous_producs = self.result.posterior[sampling_method]["posterior_result"]
 			names = list(previous_producs.keys())
 			iterator = tqdm(names, total=len(names), desc="Re-Getting posterior-params")
 			for n, name_i in enumerate(iterator):#SP.calculate_sheap_products_sampled(n,samples,extra_products=True)
@@ -502,52 +546,6 @@ class Sheapectral:
 				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.calculate_sheap_products_sampled(n,previous_producs[name_i]["samples_phys"]))
 				t1 = time.perf_counter()
 				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
-		else:
-			if self.result.posterior is None:
-				self.result.posterior = {}
-
-			method = sampling_method.lower()
-			import time 
-			# --- Protection against overwriting ---
-			if method in self.result.posterior and not overwrite:
-				raise RuntimeError(f"Posterior for method '{method}' already exists. " "Use overwrite=True to recompute it.")
-			# ------------------------------------------------------------------
-			# SINGLE (no sampling)
-			# ------------------------------------------------------------------
-			if method == "single":
-				print("You chose no_sampling: parameter estimation using " "only fitting uncertainties.")
-
-				dic_posterior_params = PM.sample_single(summarize=summarize)
-
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
-			# ------------------------------------------------------------------
-			# PSEUDO MONTE CARLO
-			# ------------------------------------------------------------------
-			elif method == "pseudomontecarlo":
-				dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
-			# ------------------------------------------------------------------
-			# MONTE CARLO
-			# ------------------------------------------------------------------
-			elif method == "montecarlo":
-				time_init = time.time()
-				dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
-			# ------------------------------------------------------------------
-			# MCMC
-			# ------------------------------------------------------------------
-			elif method == "mcmc":
-				dic_posterior_params = PM.sample_mcmc(num_samples=num_samples,n_random=n_random,num_warmup=num_warmup,summarize=summarize,)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"num_warmup": num_warmup,"n_random": n_random,"summarize": summarize,}
-
-			# ------------------------------------------------------------------
-			# UNKNOWN METHOD
-			# ------------------------------------------------------------------
-			else:
-				raise ValueError(
-					f"Unknown sampling method '{sampling_method}'. "
-					"Available methods: single, pseudomontecarlo, montecarlo, mcmc."
-				)
 
 
 										
