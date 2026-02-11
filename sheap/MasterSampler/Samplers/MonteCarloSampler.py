@@ -52,7 +52,7 @@ import time
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
-from sheap.SheaProducts.SheaProducts import SheaProducts
+from sheap.SheaProducts.SheaProductsv2 import SheaProducts
 from sheap.Assistants.Parameters import build_Parameters
 from sheap.Minimizer.Minimizer import Minimizer
 from sheap.MasterSampler.Samplers.Utils.montecarlo_utils import phys_trust_region_inits,resample_spec_all 
@@ -121,7 +121,7 @@ class MonteCarloSampler:
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
-			dic_posterior_params[name_i] = self.SheaProducts.extract_params(full_samples,n,summarize=summarize)
+			dic_posterior_params[name_i] = self.SheaProducts.calculate_sheap_products_sampled(n,full_samples)
 			dic_posterior_params[name_i].update({"samples_phys":full_samples})
 		return dic_posterior_params	
 	

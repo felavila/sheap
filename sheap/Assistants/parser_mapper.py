@@ -588,11 +588,11 @@ def flatten_tied_map(tied_map: dict[int, tuple[int, str, float]]) -> dict[int, t
     return result
 
 
-def get_sample_params(posterior, region, main_key, line_name, param):
+def get_sample_params(posterior, main_key,region,line_name, param):
     """
     Extract a parameter for a given emission line within a region
     from a posterior dictionary, for all objects.
-    main_key = "basic_params"
+    main_key = "basic_params"/extra,etc
     region = "narrow"
     #TODO require more detail
 
@@ -604,7 +604,7 @@ def get_sample_params(posterior, region, main_key, line_name, param):
     np.ndarray
         Array with shape (N_obj, N_samples, N_match)
     """
-    # TODO add a rutine for "combine" keys do the same but without intermediate
+  
     first_key = next(iter(posterior))
     if main_key not in  posterior[first_key].keys():
         raise KeyError(
@@ -612,8 +612,6 @@ def get_sample_params(posterior, region, main_key, line_name, param):
             f"Available are: {list(posterior[first_key].keys())}"
         )
     regions = posterior[first_key].get(main_key, {})
-    if "combined" in main_key:
-        print("No regions use the nama of the line")
     if region not in regions:
         raise KeyError(
             f"Region '{region}' is not available. "
@@ -621,13 +619,16 @@ def get_sample_params(posterior, region, main_key, line_name, param):
         )
 
     region_data = regions[region]
-
+    
     lines = region_data.get("lines", [])
-    if line_name not in lines:
-        raise KeyError(
-            f"Line '{line_name}' is not available in region '{region}'. "
-            f"Available lines: {list(lines)}"
-        )
+    if not lines:
+        print(region_data.keys())
+    else:
+        if line_name not in lines:
+            raise KeyError(
+                f"Line '{line_name}' is not available in region '{region}'. "
+                f"Available lines: {list(lines)}"
+            )
 
     if param not in region_data:
         available_params = [k for k in region_data.keys() if k != "lines"]
@@ -649,7 +650,61 @@ def get_sample_params(posterior, region, main_key, line_name, param):
 
     return np.stack(param_samples, axis=0)
 
+def get_sample_extraparams(posterior, main_key,line_name, estimator,param):
+    """
+    Extract a parameter for a given emission line within a region
+    from a posterior dictionary, for all objects.
+    main_key = "basic_params"/extra,etc
+    region = "narrow"
+    #TODO require more detail
 
+    posterior = sheapspectral.result.posterior["montecarlo"]["posterior_result"]
+
+    import numpy as np
+    Returns
+    -------
+    np.ndarray
+        Array with shape (N_obj, N_samples, N_match)
+    """
+  
+    first_key = next(iter(posterior))
+    if main_key not in  posterior[first_key].keys():
+        raise KeyError(
+            f"main_key '{main_key}' is not available. "
+            f"Available are: {list(posterior[first_key].keys())}"
+        )
+    line_names = posterior[first_key].get(main_key, {})
+    if line_name not in line_names.keys():
+        raise KeyError(
+            f"Line '{line_name}' is not available. "
+            f"Available lines: {list(line_names.keys())}"
+        )
+
+    region_data = line_names[line_name]
+    
+    extimators = region_data.keys()
+   
+    if estimator not in extimators:
+        raise KeyError(
+            f"estimator '{estimator}' is not available in line '{line_name}'. "
+            f"Available estimators: {extimators}"
+        )
+    estimator_data = region_data.get(estimator)
+    
+    if param not in estimator_data:
+        available_params = [k for k in estimator_data.keys()]
+        raise KeyError(
+            f"Parameter '{param}' is not available in estimator '{estimator}'. "
+            f"Available parameters: {available_params}"
+        )
+    param_samples = []
+    for _, post in posterior.items():
+        region_post = post[main_key][line_name][estimator]
+        param_samples.append(
+            np.asarray(region_post[param])#[:, line_idx]
+        )
+
+    return np.stack(param_samples, axis=0)
 
 
 def get_multiple_sample_params(posterior, region, main_key, line_name, param):

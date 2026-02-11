@@ -57,7 +57,7 @@ def concat_dicts_combine(list_of_dicts):
             out[k] = v
     out["lines"] = lines
     out["combined"] = True
-    return dict(out)
+    return {"broad": dict(out)}
 
 def concat_dicts(list_of_dicts):
     """

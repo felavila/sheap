@@ -94,7 +94,7 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 	#re-interpretation of https://github.com/legolason/PyQSOFit/issues/?
 	#TODO single etc etc 
 	#continuum_func_1D -> is one 1D because we are using it over the (0,None) axis
-	#
+	#This method dosent have eerrors because dosent make sence.
 	lambda_ref = DEFAULT_lambda_ref[line]
 	
 	broad_params = basic_params.get("broad", {})

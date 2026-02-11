@@ -488,16 +488,20 @@ class Sheapectral:
 			return PM 
 		elif only_sheaproducts and hasattr(self.result, "posterior"):
 			#We only will make this inplemented for "montecarlo" meanwhile
-			from sheap.SheaProducts.SheaProducts import SheaProducts
+			from sheap.SheaProducts.SheaProductsv2 import SheaProducts
 			from tqdm import tqdm
+			import time 
 			#care with d.
 			PM.method = "montecarlo"
 			SP = SheaProducts(samplerclass=PM)
 			previous_producs = self.result.posterior["montecarlo"]["posterior_result"]
 			names = list(previous_producs.keys())
 			iterator = tqdm(names, total=len(names), desc="Re-Getting posterior-params")
-			for n, name_i in enumerate(iterator):
-				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.extract_params(previous_producs[name_i]["samples_phys"],n,summarize=False))
+			for n, name_i in enumerate(iterator):#SP.calculate_sheap_products_sampled(n,samples,extra_products=True)
+				t0 = time.perf_counter()
+				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.calculate_sheap_products_sampled(n,previous_producs[name_i]["samples_phys"]))
+				t1 = time.perf_counter()
+				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
 		else:
 			if self.result.posterior is None:
 				self.result.posterior = {}
