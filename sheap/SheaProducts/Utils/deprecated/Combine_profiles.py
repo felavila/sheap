@@ -53,7 +53,7 @@ import jax.numpy as jnp
 from jax import vmap,jit,jacfwd,lax
 from uncertainties import unumpy
 
-from sheap.SheaProducts.Utils.Physical_functions import calc_flux,calc_luminosity
+from sheap.sheap.SheaProducts.Utils.deprecated.Physical_functions import calc_flux,calc_luminosity
 from sheap.Utils.Constants import DEFAULT_C_KMS
 
 def combine_components(
@@ -138,7 +138,7 @@ def combine_components(
             #is_uncertainty = isinstance(amp_b, Uncertainty)
             is_uncertainty = amp_b.dtype== 'O'
             if is_uncertainty:
-                from sheap.SheaProducts.Utils.After_fit_profile_helpers import evaluate_with_error 
+                from sheap.sheap.SheaProducts.Utils.Helpers import evaluate_with_error 
                 #print("amp_b",amp_b.shape)
                 fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,C_KMS=C_KMS)
                 
@@ -874,98 +874,3 @@ def combine_fastspecfit(wavelength_spectra,flux_spectra,targets,basic_params_bro
     method_1 = {"weighted_center": weighted_center,"sigma_kms":sigma_f,"fwhm_kms":fwhm_f,"W":W,"M1":M1,"M2":M2,"targets":targets}
     return method_1
 
-
-
-
-# def combine_pyqsofit(basic_params, sheapmodel_group_by_region, line, params, distances, flux_fe):
-#     b_lines = np.array(basic_params["lines"])
-    
-#     idx_b = np.where(np.char.lower(b_lines) == line.lower())[0]
-#     params = params.astype(jnp.float32)
-#     gg = GaussianSum(len(idx_b))
-    
-#     # Extract and convert to float32 immediately, avoid intermediate copies
-#     b_mu = jnp.asarray(basic_params["center"][:, idx_b], dtype=jnp.float32)
-#     b_sigma = jnp.asarray(basic_params["fwhm"][:, idx_b], dtype=jnp.float32) / (2*np.sqrt(2)*np.log(2))
-#     b_amp = jnp.asarray(basic_params["amplitude"][:, idx_b], dtype=jnp.float32)
-    
-#     # Compute line_params more efficiently
-#     line_params = jnp.stack([b_amp, b_mu, b_sigma], axis=2).reshape(b_amp.shape[0], -1)
-    
-#     # Compute bounds
-#     left = jnp.min(b_mu - 3*b_sigma, axis=1)
-#     right = jnp.max(b_mu + 3*b_sigma, axis=1)
-    
-#     disp = 1.e-4
-#     npix = int(max((right - left) / disp))
-    
-#     # Create wave grid
-#     wave = jnp.linspace(float(jnp.min(left)), float(jnp.max(right)), npix, dtype=jnp.float32)
-    
-#     # Compute model_sum
-#     model_sum = vmap(gg, in_axes=(None, 0))(wave, line_params)
-    
-#     # Compute continuum - use squeeze to reduce dimensionality
-#     cont_map = region_helper(wave, "continuum", sheapmodel_group_by_region, 
-#                             params, on_axis_wavelength=None).squeeze()
-    
-#     lambda_ref = {"Halpha": 6564.61, "Hbeta": 4862.68, "MgII": 2798.75, "CIV": 1549.48}[line]
-    
-#     # Find peaks and compute EQW
-#     i_peak = jnp.argmax(model_sum, axis=1)
-#     model_max = jnp.max(model_sum, axis=1)
-#     half = 0.5 * model_max
-#     f = model_sum - half[:, None]
-    
-#     # Compute EQW with safe continuum
-#     cont_safe = jnp.maximum(cont_map, 1e-30)
-#     eqw = jnp.trapezoid(model_sum / cont_safe, wave, axis=1)
-    
-#     # FWHM calculation setup
-#     Nlam = wave.shape[0]
-#     idxs = jnp.arange(Nlam - 1)
-#     eps = 1e-30
-    
-#     def interp_at(k, f_row):
-#         x0, x1 = wave[k], wave[k + 1]
-#         y0, y1 = f_row[k], f_row[k + 1]
-#         t = -y0 / (y1 - y0 + eps)
-#         return x0 + t * (x1 - x0)
-    
-#     def row_fwhm(f_row, i_peak_i):
-#         s_row = jnp.sign(f_row)
-#         cross_mask = (s_row[:-1] * s_row[1:]) < 0
-        
-#         left_cand = jnp.where((idxs < i_peak_i) & cross_mask, idxs, -1)
-#         left_idx = jnp.max(left_cand)
-        
-#         right_cand = jnp.where((idxs >= i_peak_i) & cross_mask, idxs, Nlam)
-#         right_idx = jnp.min(right_cand)
-        
-#         has_left = left_idx >= 0
-#         has_right = right_idx <= (Nlam - 2)
-        
-#         lam_L = jnp.where(has_left, interp_at(left_idx, f_row), jnp.nan)
-#         lam_R = jnp.where(has_right, interp_at(right_idx, f_row), jnp.nan)
-        
-#         return lam_L, lam_R
-    
-#     lam_L, lam_R = vmap(row_fwhm, in_axes=(0, 0))(f, i_peak)
-    
-#     # Final calculations
-#     fwhm_kms = ((lam_R - lam_L) / lambda_ref) * c_kms
-#     sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-#     flux = np.sqrt(2.0 * np.pi) * model_max * sigma_kms
-#     luminosity = 4.0 * np.pi * distances**2 * flux
-    
-#     return {
-#         "fwhm_kms": fwhm_kms,
-#         "eqw": eqw,
-#         "lines": line,
-#         "sigma_kms": sigma_kms,
-#         "luminosity": luminosity,
-#         "flux": flux,
-#         "extras": {"R_Fe": flux_fe}
-#     }
-
-#batch_size=32, max_npix=50000

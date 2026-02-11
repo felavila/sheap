@@ -311,7 +311,6 @@ class SheapModelFitting:
             
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
             total_time += elapsed            
-        print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         #self.dependencies = dependencies
         self.mask = mask
         self._postprocess(norm_spec, params, uncertainty_params, scale)
@@ -319,8 +318,9 @@ class SheapModelFitting:
         self.scale = scale
         self.outer_limits = outer_limits
         self.inner_limits = inner_limits
+        self.total_time = total_time
+        print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         self.to_result()
-    
     
     def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
             method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1, verbose = True) -> Tuple[jnp.ndarray, list]:
@@ -636,7 +636,8 @@ class SheapModelFitting:
             residuals = self.residuals,
             free_params = self.free_params,
             chi2_red = self.chi2_red,
-            fitkwargs = self._fitkwargs)
+            fitkwargs = self._fitkwargs,
+            elapsed_time = self.total_time)
         
     @classmethod
     def from_builder(cls,builder: "ComplexBuilder",*,profile: str = "gaussian",limits_overrides = None,**builder_kwargs,) -> "SheapModelFitting":

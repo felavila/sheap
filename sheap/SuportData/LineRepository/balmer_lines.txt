@@ -1,0 +1,32 @@
+high_balmer_3600_4000_rest = [
+    # prominent / lower-order lines in this window
+    {"key": "H7",  "name": "Hepsilon", "lambda_rest_A": 3970.073, "restframe": True, "transition": "7->2"},
+    {"key": "H8",  "name": "Hzeta",    "lambda_rest_A": 3889.065, "restframe": True, "transition": "8->2"},
+    {"key": "H9",  "name": "Heta",     "lambda_rest_A": 3835.391, "restframe": True, "transition": "9->2"},
+    {"key": "H10", "name": "Htheta",   "lambda_rest_A": 3797.900, "restframe": True, "transition": "10->2"},
+    {"key": "H11", "name": "Hiota",    "lambda_rest_A": 3770.634, "restframe": True, "transition": "11->2"},
+    {"key": "H12", "name": "Hkappa",   "lambda_rest_A": 3750.154, "restframe": True, "transition": "12->2"},
+    {"key": "H13", "name": "Hlambda",  "lambda_rest_A": 3734.370, "restframe": True, "transition": "13->2"},
+    {"key": "H14", "name": "Hmu",      "lambda_rest_A": 3721.945, "restframe": True, "transition": "14->2"},
+    {"key": "H15", "name": "Hnu",      "lambda_rest_A": 3711.977, "restframe": True, "transition": "15->2"},
+    {"key": "H16", "name": "Hxi",      "lambda_rest_A": 3703.860, "restframe": True, "transition": "16->2"},
+
+    # near-Balmer-edge dense sequence (still within 3600–3700 part)
+    {"key": "H17", "lambda_rest_A": 3696.227, "restframe": True, "transition": "17->2"},
+    {"key": "H18", "lambda_rest_A": 3690.632, "restframe": True, "transition": "18->2"},
+    {"key": "H19", "lambda_rest_A": 3685.909, "restframe": True, "transition": "19->2"},
+    {"key": "H20", "lambda_rest_A": 3681.887, "restframe": True, "transition": "20->2"},
+    {"key": "H21", "lambda_rest_A": 3678.433, "restframe": True, "transition": "21->2"},
+    {"key": "H22", "lambda_rest_A": 3675.444, "restframe": True, "transition": "22->2"},
+    {"key": "H23", "lambda_rest_A": 3672.840, "restframe": True, "transition": "23->2"},
+    {"key": "H24", "lambda_rest_A": 3670.558, "restframe": True, "transition": "24->2"},
+    {"key": "H25", "lambda_rest_A": 3668.547, "restframe": True, "transition": "25->2"},
+    {"key": "H26", "lambda_rest_A": 3666.765, "restframe": True, "transition": "26->2"},
+    {"key": "H27", "lambda_rest_A": 3665.179, "restframe": True, "transition": "27->2"},
+    {"key": "H28", "lambda_rest_A": 3663.761, "restframe": True, "transition": "28->2"},
+    {"key": "H29", "lambda_rest_A": 3662.488, "restframe": True, "transition": "29->2"},
+    {"key": "H30", "lambda_rest_A": 3661.341, "restframe": True, "transition": "30->2"},
+
+    # Balmer edge (series limit)
+    {"key": "Balmer_limit", "lambda_rest_A": 3646.0, "restframe": True, "transition": "∞->2"},
+]

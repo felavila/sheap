@@ -1,5 +1,5 @@
 r"""
-FWHM utilities for line profiles
+Combine FWHM utilities for line profiles
 ================================
 
 Helpers to compute the full width at half maximum (FWHM) for different

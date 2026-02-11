@@ -1,245 +1,25 @@
+
 """
-Physical Functions for AGN Spectral Analysis
-============================================
+Extract Extra Params
+============================
 
-This module provides helper functions to compute derived physical
-quantities from fitted line profiles, such as flux, luminosity,
-velocity widths, bolometric luminosities, and single-epoch black hole
-masses.
-
-Main Features
--------------
-- Flux and luminosity calculations from profile amplitudes and widths.
-- Conversions between FWHM (Å) and velocity (km/s).
-- Monochromatic and bolometric luminosities.
-- Multiple single-epoch BH mass estimators (continuum- and line-based).
-- Helpers to compute derived parameters (Lbol, Ledd, mdot) from fitted spectra.
-
-Notes
------
-- Unless stated otherwise, luminosities are in erg/s,
-  distances are in cm, and velocities in km/s.
+?
 """
 
 __author__ = 'felavila'
 
-__all__ = [
-    "calc_black_hole_mass",
-    "calc_black_hole_mass_gh2015",
-    "calc_bolometric_luminosity",
-    "calc_flux",
-    "calc_fwhm_kms",
-    "calc_luminosity",
-    "calc_monochromatic_luminosity",
-    "extra_params_functions",
-]
+__all__ = []
 
-import jax.numpy as np
 import numpy as np 
-from uncertainties import unumpy as unp
 
+from sheap.Utils.BasicFunctions import log10
 
-def log10(x):
-    """
-    Compute base-10 logarithm for both numpy arrays and
-    uncertainties.unumpy arrays, replacing non-positive values with NaN.
-
-    Parameters
-    ----------
-    x : array-like or unumpy.uarray
-        Input values.
-
-    Returns
-    -------
-    result : array-like
-        log10(x), with non-positive values replaced by NaN.
-        Uses np.log10 for pure numpy objects, or unp.log10 if x has uncertainties.
-    """
-   
-    if isinstance(x, np.ndarray) and x.dtype == object and x.size:
-        # convert to unumpy array if not already
-        vals = unp.nominal_values(x)
-        safe = unp.uarray(np.where(vals > 0, vals, np.nan),
-                             unp.std_devs(x))
-        return unp.log10(safe)
-
-    
-    x = np.asarray(x, dtype=float)
-    safe = np.where(x > 0, x, np.nan)
-    return np.log10(safe)
-
-
-def calc_flux(norm_amplitude, fwhm):
-    r"""
-    Compute the integrated flux of a Gaussian line profile.
-
-    .. math::
-        F = A \cdot \mathrm{FWHM} \cdot \sqrt{ \frac{\pi}{4 \ln 2} }
-
-    Parameters
-    ----------
-    norm_amplitude : array-like
-        Normalized amplitude of the Gaussian peak.
-    fwhm : array-like
-        Full width at half maximum in wavelength units.
-
-    Returns
-    -------
-    flux : jnp.ndarray
-        Integrated line flux.
-    """
-    return np.sqrt(2.0 * np.pi) * norm_amplitude * fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-
-def calc_fwhm_kms(fwhm, C_KMS, center):
-    r"""
-    Convert FWHM in Å to velocity width in km/s.
-
-    .. math::
-        v = \frac{\mathrm{FWHM}}{\lambda_0} \, C_KMS
-
-    Parameters
-    ----------
-    fwhm : float or array
-        Full width at half maximum in Å.
-    C_KMS : float
-        Speed of light in km/s.
-    center : float or array
-        Line center wavelength in Å.
-
-    Returns
-    -------
-    v_kms : jnp.ndarray
-        Velocity width in km/s.
-    """
-    return (fwhm * C_KMS) / center
-
-
-def calc_luminosity(distance, flux):
-    r"""
-    Compute line luminosity from flux and luminosity distance.
-
-    .. math::
-        L = 4 \pi D^2 \, F
-
-    Parameters
-    ----------
-    distance : float or array
-        Luminosity distance in cm.
-    flux : float or array
-        Integrated line flux.
-
-    Returns
-    -------
-    luminosity : jnp.ndarray
-        Line luminosity in erg/s.
-    """
-    return 4.0 * np.pi * distance**2 * flux #* center
-
-def calc_monochromatic_luminosity(distance, flux_at_wavelength, wavelength):
-    r"""
-    Compute monochromatic luminosity at a given wavelength.
-
-    .. math::
-        L_\lambda \cdot \lambda = \nu L_\nu = \lambda \, 4 \pi D^2 \, F_\lambda
-
-    Parameters
-    ----------
-    distance : float or array
-        Luminosity distance in cm.
-    flux_at_wavelength : float or array
-        Flux density at the wavelength (erg/s/cm^2/Å).
-    wavelength : float
-        Wavelength in Å.
-
-    Returns
-    -------
-    L_lambda : jnp.ndarray
-        Monochromatic luminosity in erg/s.
-    """
-    return wavelength * 4.0 * np.pi * distance**2 * flux_at_wavelength
-
-def calc_bolometric_luminosity(monochromatic_lum, correction):
-    r"""
-    Apply a bolometric correction to a monochromatic luminosity.
-
-    .. math::
-        L_{\mathrm{bol}} = L_\lambda \cdot C
-
-    Parameters
-    ----------
-    monochromatic_lum : float or array
-        Monochromatic luminosity in erg/s.
-    correction : float
-        Bolometric correction factor.
-
-    Returns
-    -------
-    L_bol : jnp.ndarray
-        Bolometric luminosity in erg/s.
-    """
-    return monochromatic_lum * correction
-
-def calc_black_hole_mass(L_w, fwhm_kms, estimator):
-    r"""
-    Single-epoch BH mass estimator (continuum-based).
-
-    .. math::
-        \log M_{\rm BH} =
-        a + b \, (\log L - 44) + 2 \, \log \left(\frac{\mathrm{FWHM}}{1000}\right)
-
-    .. math::
-        M_{\rm BH} = \frac{10^{\log M_{\rm BH}}}{f}
-
-    Parameters
-    ----------
-    L_w : float or array
-        Monochromatic luminosity (erg/s).
-    fwhm_kms : float or array
-        Line width in km/s.
-    estimator : dict
-        Coefficients with keys ``a``, ``b``, ``f``.
-
-    Returns
-    -------
-    MBH : jnp.ndarray
-        Black hole mass in solar masses.
-    """
-    a, b, f = estimator["a"], estimator["b"], estimator["f"]
-    log_L = log10(L_w)
-    log_FWHM = log10(fwhm_kms) - 3  # FWHM in 1000 km/s
-    log_M_BH = a + b * (log_L - 44.0) + 2.0 * log_FWHM
-    return (10 ** log_M_BH) / f
-
-def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
-    r"""
-    Greene & Ho (2015) Hα mass estimator (Eq. 6).
-
-    .. math::
-        \log \left(\frac{M_{\rm BH}}{M_\odot}\right) =
-        6.57 + 0.47 \, (\log L_{H\alpha} - 42)
-        + 2.06 \, \log \left(\frac{\mathrm{FWHM}}{1000}\right)
-
-    Parameters
-    ----------
-    L_halpha : float or array
-        Hα line luminosity in erg/s.
-    fwhm_kms : float or array
-        FWHM in km/s.
-
-    Returns
-    -------
-    MBH : jnp.ndarray
-        Black hole mass in solar masses.
-    """
-    log_L = log10(L_halpha)
-    log_FWHM = log10(fwhm_kms) - 3
-    log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
-    return 10 ** log_M_BH
+#TODO implemented Rfe 
 
 def _col(x):
     """
     Ensure input is a 2D column vector repetead.
-    TODO move it .
+    TODO helper? .
     Parameters
     ----------
     x : array-like
@@ -253,7 +33,7 @@ def _col(x):
 #
     x = np.asarray(x)
     return x.reshape(-1, 1) if x.ndim == 1 else x
-    
+
 
 def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     r"""
@@ -400,7 +180,7 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     return (10.0 ** logM)
 
 
-def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
+def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
     r"""
     Compute derived parameters (BH masses, Eddington ratios, accretion rates).
 
@@ -410,7 +190,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
 
     Parameters
     ----------
-    broad_params : dict
+    params : dict
         Dictionary of broad-line properties (e.g., ``fwhm_kms``, ``luminosity``).
     L_w : dict
         Monochromatic luminosities keyed by wavelength.
@@ -484,10 +264,16 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
     """
 
     #if extras is None:
-    extras = broad_params.get("extras",{})
-
+    broad_params = params.get("broad",None)
+    combined = params.get("combined",False)
+    if not broad_params and combined:
+        broad_params = params #jeje
+    elif not broad_params and not combined:
+        print("No broad component")
+        return {}
     out = {}
-
+    
+    #extras = broad_params.get("extras",{})
     fwhm_all = _col(broad_params.get("fwhm_kms"))
     lum_all  = _col(broad_params.get("luminosity"))
     sigma_all = broad_params.get("sigma_kms", None)
@@ -497,71 +283,51 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
 
     lines = np.asarray(broad_params.get("lines", []))
     comps = np.asarray(broad_params.get("component", []))
-
-    # if fwhm_all is None or lines.size == 0:
-    #     return out
-
-    # constants for mdot (continuum only)
     eta = 0.1
     c_cm = C_KMS * 1e5
     M_sun_g = 1.98847e33
     sec_yr = 3.15576e7
 
     for calib_key, est in estimators.items():
+        #print(calib_key)
         line_name = est.get("line")
         kind = est.get("kind", "continuum")
         width_def = str(est.get("width_def", "fwhm")).lower()
-        
-        if broad_params.get(line_name):
-            if width_def == "sigma":
-                 Vwidth =  _col(broad_params.get(line_name).get("sigma_kms"))
+        if not line_name or (line_name not in lines):
+            continue
+        if "Pan25" in calib_key or "Le20" in calib_key:
+            print(f"TODO implement {calib_key}")
+            continue 
+        idxs = np.where(lines == line_name)[0]
+        #print(idxs)   
+        comp_here = comps[idxs]
+        # choose velocity width
+        if width_def == "sigma":
+            if sigma_all is not None:
+                Vwidth = sigma_all[:, idxs]
+            # elif "sigma_kms" in extras:
+            #     sig = _col(extras["sigma_kms"])
+            #     Vwidth = sig[:, idxs] if sig.ndim == 2 else sig
             else:
-                Vwidth = _col( broad_params.get(line_name).get("fwhm_kms"))
-            L_line  = _col( broad_params.get(line_name).get("luminosity"))
-            extras = broad_params.get(line_name).get("extras",{})
-            local_extras = {}
-            if est.get("extras", {}).get("le20_shape", False):
-                local_extras["sigma_kms"] = Vwidth    
-            #print(extras)
-            comp_here = []
-            #print(Vwidth.shape,est.get("kind"),est.get("width_def"))
-            #continue 
-        
-        
-         
+                print("no sigma available")
+                continue  # 
         else:
-            if not line_name or (line_name not in lines):
-                continue
-            #print(line_name,calib_key)
-            idxs = np.where(lines == line_name)[0]
-            comp_here = comps[idxs]
-
-            # choose velocity width
-            if width_def == "sigma":
-                if sigma_all is not None:
-                    Vwidth = sigma_all[:, idxs]
-                elif "sigma_kms" in extras:
-                    sig = _col(extras["sigma_kms"])
-                    Vwidth = sig[:, idxs] if sig.ndim == 2 else sig
-                else:
-                    continue  # no sigma available
-            else:
-                Vwidth = fwhm_all[:, idxs]
-            L_line = lum_all[:, idxs]
+            Vwidth = fwhm_all[:, idxs]
+        L_line = lum_all[:, idxs]
+        
+        # local extras (Le20 / Pan25)
+        # local_extras = {}
+        # if est.get("extras", {}).get("le20_shape", False):
+        #     if sigma_all is not None:
+        #         local_extras["sigma_kms"] = sigma_all[:, idxs]
+        #     elif "sigma_kms" in extras:
+        #         sig = _col(extras["sigma_kms"])
+        #         local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
+        # local_extras["R_Fe"] = extras.get("flux_Fe",0)/flux_all[:, idxs]
             
-            # local extras (Le20 / Pan25)
-            local_extras = {}
-            if est.get("extras", {}).get("le20_shape", False):
-                if sigma_all is not None:
-                    local_extras["sigma_kms"] = sigma_all[:, idxs]
-                elif "sigma_kms" in extras:
-                    sig = _col(extras["sigma_kms"])
-                    local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
-            local_extras["R_Fe"] = extras.get("flux_Fe",0)/flux_all[:, idxs]
-            
-        if "R_Fe" in extras:
-            #print("R_fe")
-            local_extras["R_Fe"] = extras["R_Fe"]
+        # if "R_Fe" in extras:
+        #     #print("R_fe")
+        #     local_extras["R_Fe"] = extras["R_Fe"]
             
         if kind == "continuum":
             lam = est.get("wavelength", None)
@@ -572,7 +338,7 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
                 continue
 
             Lmono = _col(L_w[wkey])
-            MBH = calc_black_hole_mass(Lmono, Vwidth, est, extras=local_extras)
+            MBH = calc_black_hole_mass(Lmono, Vwidth, est, extras=None)
 
             # Ledd + mdot (only for continuum, and only if L_bol available)
             Ledd = 1.26e38 * MBH
@@ -594,12 +360,12 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
                 "Ledd": Ledd,
                 "mdot_msun_per_year": mdot_yr,
                 "component": comp_here,
-            }
+            "combined":combined}
 
         elif kind == "line":
 
             #L_line = lum_all[:, idxs]
-            MBH = calc_black_hole_mass(L_line, Vwidth, est, extras=local_extras)
+            MBH = calc_black_hole_mass(L_line, Vwidth, est, extras=None)
             Ledd = 1.26e38 * MBH
 
             out.setdefault(line_name, {})[calib_key] = {
@@ -610,8 +376,6 @@ def extra_params_functions(broad_params, L_w, L_bol, estimators, C_KMS):
                 "log10_smbh": log10(MBH),
                 "Ledd": Ledd,
                 "component": comp_here,
-            }
+            "combined":combined}
 
     return out
-
-

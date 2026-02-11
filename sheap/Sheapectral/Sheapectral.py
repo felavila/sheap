@@ -54,6 +54,7 @@ from sheap.Core import SpectralLine,SheapResult,ArrayLike
 from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
 from sheap.SheapModelFitting.SheapModelFitting import SheapModelFitting
 from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
+from sheap.SheaProducts.SheaProducts import SheaProducts
 from sheap.Plotting.SheapPlot import SheapPlot
 from sheap.Utils.Constants  import DEFAULT_C_KMS
 
@@ -363,7 +364,7 @@ class Sheapectral:
 			xmin,xmax = min(limits),max(limits)
 		if xmin < 3600 and add_balmer_continuum:
 			add_balmer_continuum = add_balmer_continuum
-		if (3700 > xmin and 4000 < xmax) and add_balmerhighorder_continuum:    
+		if (3700 > xmin and 3910 < xmax) and add_balmerhighorder_continuum:    
 			add_balmerhighorder_continuum = add_balmerhighorder_continuum
 		self.modelbuild = SheapModelBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
 										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
@@ -440,11 +441,14 @@ class Sheapectral:
 				residuals = fit_output.residuals,
 				free_params = fit_output.free_params,
 				chi2_red = fit_output.chi2_red,
-				fitkwargs = fit_output.fitkwargs)
+				fitkwargs = fit_output.fitkwargs,
+    			elapsed_time= fit_output.elapsed_time)
 
 			self.plotter = SheapPlot(sheap=self)
 	
-	def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=True,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3,only_sheaproducts=False):
+	def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=False
+                         ,overwrite=False, num_warmup=500,n_random=1_000,frac_box_sigma=0.02,k_sigma=0.3
+                         ,only_sheaproducts=False,**kwargs):
 		"""
 		Estimate or sample posterior distributions of fit parameters.
 
@@ -477,71 +481,71 @@ class Sheapectral:
 		RuntimeError
 			If fit has not been run (`self.result` missing).
 		"""
+		avalaible_methods = ["single","none","montecarlo"]
+		#TODO implement the other methods.
 		from sheap.MasterSampler.MasterSampler import MasterSampler
+		import time
+  
 		if not hasattr(self, "result"):
 			raise RuntimeError("self.result should exist to run this.")
-		#TODO ADD break in case sampling method is not recognize 
+
+		if sampling_method not in avalaible_methods:
+			raise ValueError(
+ 					f"Unknown sampling method '{sampling_method}'. "
+ 					f"Available methods: single, {avalaible_methods}")
+
+		if self.result.posterior is None:
+			self.result.posterior = {}
+		if sampling_method in self.result.posterior and not overwrite:
+			raise RuntimeError(f"Posterior for method '{sampling_method}' already exists. " "Use overwrite=True to recompute it.")
+
 		PM = MasterSampler(sheap = self)
 		if sampling_method == "none":
-			print("Nothing will run if you dont choose between sampling_method [montecarlo or sampling_method=mcmc or sampling_method=single")
+			print("Nothing will run if you dont choose between sampling_method [single, pseudomontecarlo, montecarlo, mcmc")
 			return PM 
-		elif only_sheaproducts and hasattr(self.result, "posterior"):
-			#We only will make this inplemented for "montecarlo" meanwhile
-			from sheap.SheaProducts.SheaProducts import SheaProducts
-			from tqdm import tqdm
-			#care with d.
-			PM.method = "montecarlo"
-			SP = SheaProducts(samplerclass=PM)
-			previous_producs = self.result.posterior["montecarlo"]["posterior_result"]
+		
+		if sampling_method == "single":
+			self.result.posterior[sampling_method] = {}
+			print("You chose single: parameter estimation using " "only fitting uncertainties.")
+			SP = SheaProducts(samplerclass=PM,method="direct")
+			dic_posterior_params = SP.calculate_sheap_products(summarize=summarize)
+			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
+		elif sampling_method == "montecarlo":
+			time_init = time.time()
+			dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
+			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
+	
+		else:
+			raise ValueError(
+				f"Unknown sampling method '{sampling_method}'. "
+				"Available methods: single, pseudomontecarlo, montecarlo, mcmc."
+			)
+	
+	def _recalculate_products(self,sampling_method=None):
+		from sheap.MasterSampler.MasterSampler import MasterSampler
+		import time
+		from tqdm import tqdm
+		if hasattr(self.result, "posterior"):
+			keys = list(self.result.posterior.keys())
+			if len(keys)==1:
+				print(keys[0], "will be recalculated")
+				sampling_method = keys[0]
+			elif len(keys) >= 2:
+				self.result.posterior[sampling_method]
+			PM = MasterSampler(sheap = self)
+			PM.method = sampling_method
+			if sampling_method == "single":
+				SP = SheaProducts(samplerclass=PM,method="direct")
+				dic_posterior_params = SP.calculate_sheap_products(summarize=False)
+				self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params}
+			previous_producs = self.result.posterior[sampling_method]["posterior_result"]
 			names = list(previous_producs.keys())
 			iterator = tqdm(names, total=len(names), desc="Re-Getting posterior-params")
-			for n, name_i in enumerate(iterator):
-				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.extract_params(previous_producs[name_i]["samples_phys"],n,summarize=False))
-		else:
-			if self.result.posterior is None:
-				self.result.posterior = {}
-
-			method = sampling_method.lower()
-
-			# --- Protection against overwriting ---
-			if method in self.result.posterior and not overwrite:
-				raise RuntimeError(f"Posterior for method '{method}' already exists. " "Use overwrite=True to recompute it.")
-			# ------------------------------------------------------------------
-			# SINGLE (no sampling)
-			# ------------------------------------------------------------------
-			if method == "single":
-				print("You chose no_sampling: parameter estimation using " "only fitting uncertainties.")
-
-				dic_posterior_params = PM.sample_single(summarize=summarize)
-
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
-			# ------------------------------------------------------------------
-			# PSEUDO MONTE CARLO
-			# ------------------------------------------------------------------
-			elif method == "pseudomontecarlo":
-				dic_posterior_params = PM.sample_pseudomontecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,}
-			# ------------------------------------------------------------------
-			# MONTE CARLO
-			# ------------------------------------------------------------------
-			elif method == "montecarlo":
-				dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize}
-			# ------------------------------------------------------------------
-			# MCMC
-			# ------------------------------------------------------------------
-			elif method == "mcmc":
-				dic_posterior_params = PM.sample_mcmc(num_samples=num_samples,n_random=n_random,num_warmup=num_warmup,summarize=summarize,)
-				self.result.posterior[method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"num_warmup": num_warmup,"n_random": n_random,"summarize": summarize,}
-
-			# ------------------------------------------------------------------
-			# UNKNOWN METHOD
-			# ------------------------------------------------------------------
-			else:
-				raise ValueError(
-					f"Unknown sampling method '{sampling_method}'. "
-					"Available methods: single, pseudomontecarlo, montecarlo, mcmc."
-				)
+			for n, name_i in enumerate(iterator):#SP.calculate_sheap_products_sampled(n,samples,extra_products=True)
+				t0 = time.perf_counter()
+				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.calculate_sheap_products_sampled(n,previous_producs[name_i]["samples_phys"]))
+				t1 = time.perf_counter()
+				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
 
 
 										
@@ -604,7 +608,8 @@ class Sheapectral:
 			fitting_routine = data.get("fitting_routine"),
 			posterior = data.get("posterior"),
 			chi2_red = data.get("chi2_red"),
-			fitkwargs = data.get("fitkwargs")
+			fitkwargs = data.get("fitkwargs"),
+			elapsed_time= data.get("elapsed_time")
 		)
 		obj.plotter = SheapPlot(sheap=obj)
 		obj.spectral_model = make_fused_profiles(obj.result.profile_functions)
@@ -648,7 +653,8 @@ class Sheapectral:
 			'free_params' : self.result.free_params,
 			'chi2_red' : np.array(self.result.chi2_red),
 			"posterior" : self.result.posterior,
-			"fitkwargs":self.result.fitkwargs
+			"fitkwargs":self.result.fitkwargs,
+			"elapsed_time":self.result.elapsed_time
 		}
 
 		estimated_size = sys.getsizeof(pickle.dumps(dic_))

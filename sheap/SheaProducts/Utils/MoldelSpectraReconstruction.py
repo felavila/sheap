@@ -85,8 +85,12 @@ class MoldelSpectraReconstruction:
 	# ----------------------------- setup ---------------------------------
 
 	def _build_registry_and_model(self) -> None:
-		res = self.obj.result
-		grouped = res.sheapmodel.group_by("region")
+		if self.obj.__class__.__name__ == "Sheapectral":
+			res = self.obj.result
+		else:
+			res = self.obj
+		sheapmodel = res.sheapmodel
+		grouped = sheapmodel.group_by("region")
 
 		self._registry.clear()
 		for region_name in grouped.keys():
@@ -95,7 +99,7 @@ class MoldelSpectraReconstruction:
 				idx_global=jnp.array(grouped[region_name].flat_param_indices_global),
 			)
 
-		fused = make_fused_profiles(res.profile_functions)
+		fused = make_fused_profiles(sheapmodel.profile_functions)
 		self._model = jit(fused) if self._jit_compile else fused
 
 	def _build_batched_evalers(self) -> None:
@@ -153,6 +157,9 @@ class MoldelSpectraReconstruction:
 
 	def _require_samples(self, all_samples: Optional[jnp.ndarray]) -> jnp.ndarray:
 		if all_samples is not None:
+			if len(all_samples.shape) == 2:
+				all_samples = all_samples[None,:,:]
+				#print(all_samples.shape)
 			return all_samples
 		if self.samples is None:
 			raise ValueError(
@@ -190,19 +197,15 @@ class MoldelSpectraReconstruction:
 
 	def eval_batched_model(self, wavelength: float, all_samples: Optional[jnp.ndarray] = None) -> jnp.ndarray:
 		wl = self._wl_array(wavelength)
+		#print(all_samples)
 		S = self._require_samples(all_samples)
 		return self._batched_model(wl, S)
 
-	def eval_batched_region(
-		self,
-		region_name: str,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
-	) -> jnp.ndarray:
+	def eval_batched_region(self,region_name: str,wavelength: float,all_samples: Optional[jnp.ndarray] = None,) -> jnp.ndarray:
 		wl = self._wl_array(wavelength)
 		info = self.get_region_info(region_name)
 		S = self._require_samples(all_samples)
-
+		#print(info.idx_global)
 		reg_params = S[:, :, info.idx_global]
 		f_batched = self._batched_region[region_name]
 		return f_batched(wl, reg_params)
@@ -230,21 +233,12 @@ class MoldelSpectraReconstruction:
 
 	# ----------------------------- derived quantities ----------------------
 
-	def stars_cont_ratio(
-		self,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
+	def stars_cont_ratio(self,wavelength: float,all_samples: Optional[jnp.ndarray] = None,
 		*,
 		host_region: str = "host",
 		subtract_regions: Tuple[str, ...] = ("narrow", "balmer", "fe", "broad"),
-		squeeze: bool = True,
-	) -> jnp.ndarray:
-		comps = self.eval_batched_components(
-			wavelength,
-			all_samples,
-			regions=(host_region,) + subtract_regions,
-			include_model=True,
-		)
+		squeeze: bool = True,) -> jnp.ndarray:
+		comps = self.eval_batched_components(wavelength,all_samples,regions=(host_region,) + subtract_regions,include_model=True,)
 		host = comps[host_region]
 		denom = comps["model"]
 		for r in subtract_regions:
@@ -253,8 +247,8 @@ class MoldelSpectraReconstruction:
 		ratio = host / denom
 		return jnp.squeeze(ratio) if squeeze else ratio
 
-	@property
-	def stars_Cont_5100(self):
+	#@property
+	def stars_Cont_5100(self, all_samples=None):
 		"""
 		Uses cached samples by default.
 
@@ -263,7 +257,7 @@ class MoldelSpectraReconstruction:
 		ra = ResultAnalysis(sheap)
 		stars = ra.stars_Cont_5100   # (N_obj, N_samp) if wl dim=1
 		"""
-		return self.stars_cont_ratio(5100.0, all_samples=None)
+		return self.stars_cont_ratio(5100.0, all_samples=all_samples)
 	
 	def stars_cont_ratio_bestfit(
 		self,
@@ -449,18 +443,18 @@ class MoldelSpectraReconstruction:
 		This evaluates the region's `combined_profile` on a linear wavelength grid and
 		integrates with a trapezoidal rule:
 
-		    I_Fe = ∫ F_Fe(λ) dλ
+			I_Fe = ∫ F_Fe(λ) dλ
 
 		By default, this is computed for posterior samples of all objects:
-		    samples -> shape (N_obj, N_samp)
+			samples -> shape (N_obj, N_samp)
 
 		Optionally, it also computes the best-fit integral:
-		    bestfit -> shape (N_obj,)
+			bestfit -> shape (N_obj,)
 
 		Optionally, it can attach the per-object sample integrals into the posterior
 		dict under:
-		    posterior_result[obj_key]["basic_params"][attach_component]["extras"][attach_key]
-        TODO add a coment on the values from Pan+25
+			posterior_result[obj_key]["basic_params"][attach_component]["extras"][attach_key]
+		TODO add a coment on the values from Pan+25
 		Parameters
 		----------
 		x_min, x_max : float
