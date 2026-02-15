@@ -105,6 +105,7 @@ class SheaProducts:
         self.full_cont_profile_NONE = jit(vmap(make_fused_profiles(np.concatenate([self.by_region[key].profile_functions for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])), in_axes=(None,0))) 
         self.full_cont_idx = np.concatenate([self.by_region[key].flat_param_indices_global for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])
         self.cont_profile = jit(vmap(self.by_region["continuum"].combined_profile, in_axes=(None, 0)))
+        ##summarize_spectral_lines(sheapspectral.result.sheapmodel.lines) this have to be the way to handle this.
         n_broad = len(getattr(self.by_region.get("broad"), "lines", []))
         n_narrow = len(getattr(self.by_region.get("narrow"), "lines", []))
         self.MC = MasterCombineProfile(LINES_TO_COMBINE= self.LINES_TO_COMBINE,limit_velocity=self.limit_velocity

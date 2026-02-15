@@ -26,7 +26,7 @@ def version_msg():
     Get message about sheap version, location
     and Python version.
     """
-    python_version = sys.version[:3]
+    python_version = sys.version[:4]
     message = u"SHEAP %(version)s from {} (Python {})"
     location = os.path.dirname(this_file_location)
     return message.format(location, python_version)

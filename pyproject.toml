@@ -195,6 +195,7 @@ types-pyyaml = "^6.0.12.20250402"
 minversion = "6.2"
 addopts = "--strict-markers"
 markers = [
+     "runner_setup: marks tests that require CLI runner setup",
     "slow: Marks a slow test",
     "integration: Integration Tests",
     "network_bound: Require internet connection",

@@ -38,10 +38,7 @@ Notes
 __author__ = 'felavila'
 
 
-__all__ = [
-    "SPAF",
-    "wrap_profile_with_center_override",
-]
+__all__ = ["SPAF","wrap_profile_with_center_override",]
 
 from typing import Callable, Dict, List, Tuple
 

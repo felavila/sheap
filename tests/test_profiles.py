@@ -1,11 +1,8 @@
 import pytest
 import jax.numpy as jnp
 import numpy as np
-from sheap.Profiles.profiles import (
-    PROFILE_LINE_FUNC_MAP,
-    PROFILE_CONTINUUM_FUNC_MAP,
-    PROFILE_FUNC_MAP
-)
+from sheap.Profiles.Profiles import (PROFILE_LINE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP,PROFILE_FUNC_MAP)
+
 from sheap.Profiles.profiles_templates import (
     make_template_function,
     make_host_function

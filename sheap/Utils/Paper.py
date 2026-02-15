@@ -17,6 +17,7 @@ from matplotlib.colors import Normalize
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
 
 import pandas as pd
 from collections.abc import Mapping
@@ -65,6 +66,12 @@ def median_with_errors(x, low=0.16, high=0.84, ignore_nan=True, axis=None):
 	p_lo, p_med, p_hi = np.percentile(x, [100 * low, 50, 100 * high])
 	return p_med, p_med - p_lo, p_hi - p_med
 
+# if param not in estimator_data:
+#         available_params = [k for k in estimator_data.keys()]
+#         raise KeyError(
+#             f"Parameter '{param}' is not available in estimator '{estimator}'. "
+#             f"Available parameters: {available_params}"
+#         )
 
 def posterior_extraction(
 	sheapspectral,
@@ -80,8 +87,13 @@ def posterior_extraction(
 
 	# ⬇ enumerate to track object position
 	for n_obj, (obj_name, values) in enumerate(posterior.items()):
+		available_params = [k for k in values.keys() if "extra" in k ]
 		#print(values.keys())
-		extra = values.get(extra_key, {})
+		if extra_key not in available_params:
+			raise KeyError(
+            f"extra_key '{extra_key}' is not available in extra_keys. "
+            f"Available extra_key: {available_params}")
+		extra = values[extra_key]
 		if not extra:
 			continue
 
@@ -314,8 +326,7 @@ def extract_data(arr):
 			# Higher dimensions, flatten to 1D
 			print(f"Warning: array has {arr.ndim} dimensions, flattening")
 			return arr.flatten(), None, None
-	
-	# ========== HELPER: Convert errors to log space ==========
+
 
 def errors_to_logspace(vals, err_minus, err_plus, *, fill_value=0.30103):
 	"""
@@ -364,7 +375,38 @@ def errors_to_logspace(vals, err_minus, err_plus, *, fill_value=0.30103):
 
 	return err_m, err_p
 
+def _sym_sigma(err_m, err_p, mode="mean"):
+    """
+    Convert asymmetric +/- errors to a single symmetric sigma.
+    mode: "mean" | "max"
+    """
+    if err_m is None or err_p is None:
+        return None
+    em = np.asarray(err_m, float)
+    ep = np.asarray(err_p, float)
+    if mode == "max":
+        return np.maximum(em, ep)
+    return 0.5 * (em + ep)
 
+def weighted_quantile(x, w, q):
+    x = np.asarray(x, float)
+    w = np.asarray(w, float)
+    good = np.isfinite(x) & np.isfinite(w) & (w > 0)
+    x = x[good]; w = w[good]
+    if x.size == 0:
+        return np.nan
+    idx = np.argsort(x)
+    x = x[idx]; w = w[idx]
+    cdf = np.cumsum(w) / np.sum(w)
+    return np.interp(q, cdf, x)
+
+def weighted_median(x, w):
+    return weighted_quantile(x, w, 0.5)
+
+def weighted_nmad(x, w):
+    med = weighted_median(x, w)
+    mad = weighted_median(np.abs(x - med), w)
+    return 1.4826 * mad
 
 def plot_ratio_with_sn(
 	x, y,
@@ -637,9 +679,7 @@ def plot_logdex_agreement(
 	save_format="pdf",
 	markers=('o', 's', 'X', 'D', '^', 'v', 'P', '*'),
 	colors=("#000000", "#fd04046c", "#2ca02c", "#d62728", "#6b67bd", "#8c564b", "#e377c2", "#7f7f7f",),
-
 	markersize=10,
-	
 	legend_fontsize=30,
 	label_fontsize=30,
 	tick_fontsize=30,
@@ -660,7 +700,9 @@ def plot_logdex_agreement(
 	markeredgewidth = 0.5,
 	text = None,
 	ref_work = None,
-	remove_scater_legend=False
+	remove_scater_legend=False,
+	vmax= None,
+	vmin= None 
 ):
 	"""
 	?
@@ -798,7 +840,9 @@ def plot_logdex_agreement(
 	cmap_obj = plt.get_cmap(cmap)
 	norm = None
 	if sn is not None:
-		norm = Normalize(vmin=np.nanmin(sn), vmax=np.nanmax(sn))
+		vmax = vmax or np.nanmax(sn)
+		vmin= vmin or np.nanmin(sn)
+		norm = Normalize(vmin=vmin, vmax=vmax)
 
 	# keep one mappable for the colorbar
 	sc_for_cbar = None
@@ -920,11 +964,78 @@ def plot_logdex_agreement(
 		n_tot = int(m.sum())
 		n_in  = int((np.abs(res) <= band).sum())
 		pct   = 100.0 * n_in / n_tot if n_tot > 0 else 0.0
-		#print(ax.get_xlim(),ax.get_ylim)
+
 		idx_all = np.where(m)[0]
 		idx_out = idx_all[np.abs(res) > band].tolist()
-		stats[label] = dict(n_in=n_in, n_tot=n_tot, pct=pct, band=band, idx_out=idx_out)
 
+		# Unweighted robust stats (keep for continuity)
+		bias_med = np.nanmedian(res)
+		scatter_nmad = 1.4826 * np.nanmedian(np.abs(res - bias_med))
+		frac_within = np.nanmean(np.abs(res) <= band)
+		frac_out = np.nanmean(np.abs(res) > band)
+
+		# ---- Per-point uncertainty on Δ (dex): res_err ----
+		# You already computed x_err_m_log, x_err_p_log, y_err_m_log, y_err_p_log above.
+		# Convert asym errors to symmetric sigmas, then propagate:
+		# sigma_Δ = sqrt(sigma_x^2 + sigma_y^2)  (assuming independent)
+		sig_x = _sym_sigma(x_err_m_log[m] if x_err_m_log is not None else None,
+						x_err_p_log[m] if x_err_p_log is not None else None,
+						mode="mean")
+		sig_y = _sym_sigma(y_err_m_log[m] if y_err_m_log is not None else None,
+						y_err_p_log[m] if y_err_p_log is not None else None,
+						mode="mean")
+
+		res_err = None
+		bias_wmed = np.nan
+		scatter_wnmad = np.nan
+		med_sigma_delta = np.nan
+		pull_nmad = np.nan
+		cov_1sigma = np.nan
+		cov_2sigma = np.nan
+
+		if (sig_x is not None) and (sig_y is not None):
+			res_err = np.sqrt(sig_x**2 + sig_y**2)
+
+			ok = np.isfinite(res) & np.isfinite(res_err) & (res_err > 0)
+			if np.any(ok):
+				w = 1.0 / (res_err[ok] ** 2)
+
+				# Weighted robust center + scatter (errors impact the summary)
+				bias_wmed = weighted_median(res[ok], w)
+				scatter_wnmad = weighted_nmad(res[ok], w)
+
+				med_sigma_delta = np.nanmedian(res_err[ok])
+
+				# Pull/coverage diagnostics (do the errors explain the residuals?)
+				pulls = (res[ok] - bias_wmed) / res_err[ok]
+				pull_nmad = 1.4826 * np.nanmedian(np.abs(pulls - np.nanmedian(pulls)))
+
+				centered = np.abs(res[ok] - bias_wmed)
+				cov_1sigma = np.mean(centered <= 1.0 * res_err[ok])  # ideal ~0.68
+				cov_2sigma = np.mean(centered <= 2.0 * res_err[ok])  # ideal ~0.95
+
+		# Store results (drop mean/std; keep robust + uncertainty-aware)
+		stats[label] = dict(
+			n_in=n_in, n_tot=n_tot, pct=pct, band=band, idx_out=idx_out,
+			res=res,
+			res_err=res_err,  # array (or None) in dex
+			label=xlabel,     # keep your previous behavior
+
+			frac_within=frac_within,
+			frac_out=frac_out,
+
+			bias_med=bias_med,
+			scatter_nmad=scatter_nmad,
+
+			# uncertainty-aware robust stats (NaN if errors not available)
+			bias_wmed=bias_wmed,
+			scatter_wnmad=scatter_wnmad,
+			med_sigma_delta=med_sigma_delta,
+			pull_nmad=pull_nmad,
+			cov_1sigma=cov_1sigma,
+			cov_2sigma=cov_2sigma,
+			is_finite= m
+		)
 	if colorbar and (sn is not None):
 		divider = make_axes_locatable(ax)
 		cax = divider.append_axes("right", size=colorbar_size, pad=colorbar_pad)
@@ -970,3 +1081,320 @@ def plot_logdex_agreement(
 	return fig, ax, stats, saved_file
 
 
+
+
+
+
+
+
+def _apply_transform(val, eplus, eminus, transform="none"):
+    """
+    Optionally transform values and propagate errors.
+
+    Supported:
+      - "none": compare in linear space
+      - "log10": compare in log10 space; errors propagated as:
+          sigma_log_plus  = log10(val + eplus) - log10(val)
+          sigma_log_minus = log10(val) - log10(val - eminus)
+        (requires val>0 and val-eminus>0)
+    """
+    val = np.asarray(val, float)
+    eplus = np.asarray(eplus, float)
+    eminus = np.asarray(eminus, float)
+
+    if transform == "none":
+        return val, eplus, eminus
+
+    if transform != "log10":
+        raise ValueError(f"Unknown transform='{transform}' (use 'none' or 'log10').")
+
+    # Mask invalid for log
+    ok_val = val > 0
+    val_t = np.where(ok_val, np.log10(val), np.nan)
+
+    # propagate asymmetric errors if present
+    # plus side: log(val+eplus) - log(val)
+    val_plus = val + eplus
+    ok_plus = ok_val & (val_plus > 0) & np.isfinite(eplus)
+    eplus_t = np.where(ok_plus, np.log10(val_plus) - np.log10(val), np.nan)
+
+    # minus side: log(val) - log(val-eminus)
+    val_minus = val - eminus
+    ok_minus = ok_val & (val_minus > 0) & np.isfinite(eminus)
+    eminus_t = np.where(ok_minus, np.log10(val) - np.log10(val_minus), np.nan)
+
+    return val_t, eplus_t, eminus_t
+
+
+def compare_xy_stats(
+    x_arr,
+    y_arr,
+    *,
+    transform="log10",
+    outlier_thresh=0.3,
+    require_finite_errors_for_z=False,
+):
+    """
+    Compute comparison stats between x and y given arrays shaped (k,N)
+    where k in {1,2,3}.
+
+    Returns a dict with:
+      N, bias_median, scatter_nmad, mean, std,
+      frac_within_thresh, frac_outliers,
+      z_mean, z_std, z_n (normalized residuals count),
+      plus some helpful diagnostics.
+    """
+    x_val, x_ep, x_em = extract_data(x_arr)
+    y_val, y_ep, y_em = extract_data(y_arr)
+
+    # Transform (default: log10 space, so results are in dex for positive quantities)
+    x_vt, x_ept, x_emt = _apply_transform(x_val, x_ep, x_em, transform=transform)
+    y_vt, y_ept, y_emt = _apply_transform(y_val, y_ep, y_em, transform=transform)
+
+    # Delta in transformed space
+    d = y_vt - x_vt
+
+    # Valid points for core stats
+    base_ok = np.isfinite(d)
+
+    # Bias + scatter
+    d_ok = d[base_ok]
+    N = d_ok.size
+
+    if N == 0:
+        return {
+            "N": 0,
+            "bias_median": np.nan,
+            "scatter_nmad": np.nan,
+            "mean": np.nan,
+            "std": np.nan,
+            "frac_within_thresh": np.nan,
+            "frac_outliers": np.nan,
+            "z_mean": np.nan,
+            "z_std": np.nan,
+            "z_n": 0,
+            "transform": transform,
+            "outlier_thresh": outlier_thresh,
+        }
+
+    bias_med = np.nanmedian(d_ok)
+    scatter_nmad = 1.48 * np.nanmedian(np.abs(d_ok - bias_med))
+    mean = np.nanmean(d_ok)
+    std = np.nanstd(d_ok)
+
+    frac_within = np.nanmean(np.abs(d_ok) <= outlier_thresh)
+    frac_out = np.nanmean(np.abs(d_ok) > outlier_thresh)
+
+    # --- Normalized residuals z = delta / sigma_combined (handles asymmetric errors)
+    # Combine x and y errors in quadrature (plus and minus separately)
+    sig_plus = np.sqrt(x_ept**2 + y_ept**2)
+    sig_minus = np.sqrt(x_emt**2 + y_emt**2)
+
+    # choose sigma based on sign of delta
+    sigma = np.where(d >= 0, sig_plus, sig_minus)
+
+    z_ok = base_ok & np.isfinite(sigma) & (sigma > 0)
+    if require_finite_errors_for_z:
+        # require both sides to be finite if you want a stricter z sample
+        z_ok = z_ok & np.isfinite(sig_plus) & np.isfinite(sig_minus)
+
+    z = np.full_like(d, np.nan)
+    z[z_ok] = d[z_ok] / sigma[z_ok]
+
+    z_vals = z[np.isfinite(z)]
+    z_mean = np.nanmean(z_vals) if z_vals.size else np.nan
+    z_std = np.nanstd(z_vals) if z_vals.size else np.nan
+
+    return {
+        "N": int(N),
+        "bias_median": float(bias_med),
+        "scatter_nmad": float(scatter_nmad),
+        "mean": float(mean),
+        "std": float(std),
+        "frac_within_thresh": float(frac_within),
+        "frac_outliers": float(frac_out),
+        "outlier_thresh": float(outlier_thresh),
+        "transform": transform,
+        "z_mean": float(z_mean) if np.isfinite(z_mean) else np.nan,
+        "z_std": float(z_std) if np.isfinite(z_std) else np.nan,
+        "z_n": int(z_vals.size),
+    }
+
+
+def compare_from_data_dict(
+    data_dict,
+    *,
+    transform="log10",
+    outlier_thresh=0.3,
+):
+    """
+    data_dict format:
+      {
+        "Label A": {"x": (k,N), "y": (k,N)},
+        "Label B": {"x": ..., "y": ...},
+      }
+    Returns dict of stats per label.
+    """
+    out = {}
+    for label, dd in data_dict.items():
+        if "x" not in dd or "y" not in dd:
+            raise KeyError(f"'{label}' must have keys 'x' and 'y'")
+        out[label] = compare_xy_stats(
+            dd["x"], dd["y"],
+            transform=transform,
+            outlier_thresh=outlier_thresh,
+        )
+    return out
+
+def summary_similarity(info, *, name=None, decimals=3):
+    """
+    Summarize similarity between two methods using robust, interpretable stats.
+
+    Expected keys:
+      - n_tot, band, frac_within, bias_med, scatter_nmad
+    Optional:
+      - mean, std
+    """
+    label = name or info.get("label", "sample")
+    N = info.get("n_tot", None)
+    band = info.get("band", np.nan)
+    frac = info.get("frac_within", np.nan)*100
+    bias = info.get("bias_med", np.nan)
+    nmad = info.get("scatter_nmad", np.nan)
+
+    mean = info.get("mean", np.nan)
+    std = info.get("std", np.nan)
+
+    def f(x):
+        return f"{float(x):.{decimals}f}" if np.isfinite(x) else "nan"
+
+    core = (
+        f"{label}: "
+        f"N={int(N) if N is not None else '??'}, "
+        f"band=±{f(band)} dex, "
+        f"f_within={f(frac)}, "
+        f"bias_med={f(bias)} dex"
+        f"NMAD={f(nmad)} dex"
+    )
+    if bias>0:
+        core += (f" SHEAP larger in {np.round((10**bias-1)*100,2)}%")
+    if bias<0:
+        core += (f" SHEAP smaller in {np.round((1-10**bias)*100,2)}%")
+    # optional non-robust stats (only if present)
+    # if np.isfinite(mean) or np.isfinite(std):
+    #     core += f" (mean={f(mean)}, std={f(std)})"
+
+    return core
+
+def bins_centered_on_zero(x, nbins=60, clip=None):
+    x = np.asarray(x, float)
+    x = x[np.isfinite(x)]
+    if x.size == 0:
+        return np.linspace(-1, 1, nbins + 1)
+
+    if clip is None:
+        m = max(abs(np.nanmin(x)), abs(np.nanmax(x)))
+    else:
+        m = float(abs(clip))
+    if m == 0:
+        m = 1.0
+
+    w = (2 * m) / nbins
+    edges = np.arange(-m - w/2, m + w, w)
+    return edges
+
+def compare_res(dictionaries,labels,main_key="Values Bernal+25",compared_xlabel="None",save_file=None):
+	# Bernal+25
+	FS = 22          # <- change this to scale everything
+	TICK_FS = FS - 2
+	LEGEND_FS = FS - 4
+	TITLE_FS = FS + 2
+
+
+	#dictionaries = [lalpha, l5100, haFWHM,stars]
+	#labels = [r"$L_{H\alpha}$",r"$L_{5100}$",r"FWHM$_{H\alpha}$",r"(Star/Cont)$_{5100}$"]
+
+	fig, ax = plt.subplots(1, 1, figsize=(20, 10))
+	density = True
+	nbins = 60
+
+	chunks = []
+	if isinstance(main_key,str):
+		main_key_list =[main_key]
+	else:
+		main_key_list = main_key
+	for d in dictionaries:
+		for k in main_key_list:
+			res = d.get(k, {}).get("res")
+			if res is None:
+				continue
+
+			# use .sqe if it exists, otherwise use the value itself
+			x = getattr(res, "sqe", res)
+
+			# make array and flatten to 1D (handles scalar / list / any dimension)
+			chunks.append(np.asarray(x).ravel())
+
+	all_x = np.concatenate(chunks) if chunks else np.array([])
+	edges = bins_centered_on_zero(all_x, nbins=nbins, clip=None)
+
+	bands = [float(D[main_key]["band"]) for D in dictionaries]
+	band = max(bands)
+
+	for nn,D in enumerate(dictionaries):
+		x = np.asarray(D[main_key]["res"], float)
+		x = x[np.isfinite(x)]
+		frac_within = np.round(D[main_key]["frac_within"],3)*100
+		s =labels[nn]
+		print(summary_similarity(D[main_key], name=s))
+		#print(f"for ,{s} the frac within is {frac_within}, ")
+		# ax.hist(
+		#     x, bins=edges, density=density,
+		#     edgecolor="black", alpha=0.55, label=s
+		# )
+		ax.hist(
+			x,
+			bins=edges,
+			density=density,
+			histtype="stepfilled",
+			linewidth=3.0,
+			edgecolor="black",
+			alpha=0.25,   # lower alpha helps a lot
+			label=s,
+		)
+	# zero + band lines ONCE
+	ax.axvline(0.0, linestyle="--", linewidth=1.0, color="k")
+	ax.axvline(+band, linestyle="--", linewidth=2.0, color="k")
+	ax.axvline(-band, linestyle="--", linewidth=2.0, color="k")
+	s = rf"$\log_{{10}}(X_{{\rm SHEAP}}) - \log_{{10}}(X_{{\rm {compared_xlabel}}})$"
+	ax.set_xlabel(s,fontsize=FS)
+ 
+	ax.set_ylabel("Density" if density else "Count", fontsize=FS)
+
+	# ticks + grid
+	ax.tick_params(axis="both", which="major", labelsize=TICK_FS)
+	ax.tick_params(axis="both", which="minor", labelsize=TICK_FS - 2)
+	ax.grid(axis="y", linestyle="--", alpha=0.35)
+
+	# legend entries
+	handles, labels = ax.get_legend_handles_labels()
+	band_handle = Line2D([], [], linestyle="--", linewidth=2.0, color="k",
+						label=rf"$|\Delta|\leq {band:.2f}\ \mathrm{{dex}}$")
+	# (optional) show zero separately
+	# zero_handle = Line2D([], [], linestyle="--", linewidth=2.0, color="k",
+	#                      label=r"$\Delta=0$")
+
+	ax.legend(
+		handles + [band_handle],
+		labels + [band_handle.get_label()],
+		fontsize=LEGEND_FS,
+		frameon=True
+	)
+	max_val = np.max(np.abs(ax.get_xlim()))
+	ax.set_xlim(-max_val,max_val)
+
+	plt.tight_layout()
+	if save_file is not None:
+		saved_file = save_file#
+		fig.savefig(saved_file, dpi=300, format="pdf", bbox_inches="tight")
+	plt.show()

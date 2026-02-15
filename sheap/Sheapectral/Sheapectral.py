@@ -199,6 +199,9 @@ class Sheapectral:
 			# in cases without wdisp 
 			#     
 		self.coords = coords  # may be None – handle carefully downstream
+		if self.coords is None:
+			print("no inform coords")
+			self.extinction_correction = "done"#<
 		self.ebv = ebv
 		self.z = self._prepare_z(z, self.spectra.shape[0])
 
@@ -270,7 +273,7 @@ class Sheapectral:
 			Array of length nobj or None if z was None.
 		"""
 		if z is None:
-			return None
+			return jnp.repeat(0, nobj)
 		if isinstance(z, (int, float)):
 			return jnp.repeat(z, nobj)
 		return jnp.array(z)
@@ -363,8 +366,10 @@ class Sheapectral:
 		else:
 			xmin,xmax = min(limits),max(limits)
 		if xmin < 3600 and add_balmer_continuum:
+			#3000–3646
 			add_balmer_continuum = add_balmer_continuum
-		if (3700 > xmin and 3910 < xmax) and add_balmerhighorder_continuum:    
+		if (3700 > xmin and 3910 < xmax) and add_balmerhighorder_continuum:
+			#3646-3910
 			add_balmerhighorder_continuum = add_balmerhighorder_continuum
 		self.modelbuild = SheapModelBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
 										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
@@ -606,6 +611,8 @@ class Sheapectral:
 			source=data.get("source", "pickle"),
 			constraints = data.get('constraints'),
 			fitting_routine = data.get("fitting_routine"),
+			free_params= data.get("free_params"),
+			residuals= data.get("residuals"),
 			posterior = data.get("posterior"),
 			chi2_red = data.get("chi2_red"),
 			fitkwargs = data.get("fitkwargs"),
@@ -629,7 +636,7 @@ class Sheapectral:
 		dic_ = {
 			"names": self.names,
 			"spectra": np.array(self.spectra),
-			"coords": np.array(self.coords),
+			"coords": np.array(self.coords),#mmmm
 			"z": np.array(self.z),
 			"extinction_correction": self.extinction_correction,
 			"redshift_correction": self.redshift_correction,
@@ -902,8 +909,9 @@ class Sheapectral:
 		
 		ax.tick_params(axis="both", labelsize=14)
 
-		ax.axvline(np.nanmedian(chi2_model), linestyle="--",label=fr"Reduced $\chi^2$ median = {np.nanmedian(chi2_model):.2f}",c="k")
-
+		ax.axvline(np.nanmedian(chi2_model), linestyle="--",label=fr"Reduced $\chi^2$ median = {np.nanmedian(chi2_model):.2f}",c="b")
+		ax.axvline(1.0, linestyle="--",label=fr"Reduced $\chi^2$ = 1",c="k")
+		ax.set_xlim(0.1,ax.get_xlim()[-1])
 		#textstr = (
 		#    fr"$0.<\chi^2_{{\rm red}}<5$ fraction: " 
 		 #   fr"Model: {frac_model_0_5:.1f}%"
@@ -952,7 +960,7 @@ class Sheapectral:
 
 		ax.set_xlabel(param_name, fontsize=18)
 		ax.set_ylabel("Number of spectra", fontsize=18)
-		
+		ax.set_title(f"param number {param_index}")
 		ax.tick_params(axis="both", labelsize=14)
 		ax.axvline(init_value, linestyle="--",label="init value",c="r")
 		ax.axvline(constraints[0], linestyle="--",label="min value",c="k")
