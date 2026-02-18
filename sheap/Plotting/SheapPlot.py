@@ -52,7 +52,8 @@ class SheapPlot:
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
         self.z = sheap.z
-        #self.fe_mode = self.model_keywords.get("fe_mode")
+        self.snr = sheap.snr
+        self.chi2_red = result.chi2_red
         self.model = jit(make_fused_profiles(self.profile_functions))
         
 
@@ -70,11 +71,13 @@ class SheapPlot:
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
         self.z = result.z
+        #self.snr = result.snr
+        self.chi2_red = result.chi2_red
         #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions))
 
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
-             flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True, **kwargs):
+             flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=False, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # TODO is time to update this. 
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
@@ -100,7 +103,7 @@ class SheapPlot:
                 gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.1},
             )
         else:
-            fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(35, 15))
+            fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(30, 8))
 
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
@@ -190,7 +193,33 @@ class SheapPlot:
         ax1.set_ylabel(f"Flux [{flux_unit}]", fontsize=25)
         ax1.set_ylim(ylim)
         ax1.set_xlim(xlim)
-        ax1.text(
+        
+        if add_extra:
+            x0, y0 = 0.65, 1.21
+            dx = 0.24  # horizontal separation in axes coords (tune)
+
+            left_lines = f"ID {self.names[n]} ({n})\n z = {self.z[n]}"
+            right_lines = f"SNR = {self.snr[n]:.2f}\n$\\chi_{{\\rm red}}$ = {self.chi2_red[n]:.2f}"
+
+            # Left column
+            ax1.text(
+                x0, y0,
+                left_lines,
+                fontsize=25,
+                transform=ax1.transAxes,
+                ha="left", va="top",
+            )
+
+            # Right column
+            ax1.text(
+                x0 + dx, y0,
+                right_lines,
+                fontsize=25,
+                transform=ax1.transAxes,
+                ha="left", va="top",
+            )
+        else:
+            ax1.text(
             0.75,
             1.0,
             f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",

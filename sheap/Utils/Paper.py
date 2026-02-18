@@ -1305,7 +1305,7 @@ def bins_centered_on_zero(x, nbins=60, clip=None):
 
 def compare_res(dictionaries,labels,main_key="Values Bernal+25",compared_xlabel="None",save_file=None):
 	# Bernal+25
-	FS = 22          # <- change this to scale everything
+	FS = 26          # <- change this to scale everything
 	TICK_FS = FS - 2
 	LEGEND_FS = FS - 4
 	TITLE_FS = FS + 2

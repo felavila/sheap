@@ -795,7 +795,7 @@ class Sheapectral:
 
 		return df
 
-	def quicklook(self, idx: int, ax=None, xlim=None, ylim=None):
+	def quicklook(self, idx: int, ax=None, xlim=None, ylim=None,add_text=True,figsize= (15, 5)):
 		"""
 		Produce a quick errorbar plot of flux vs. wavelength.
 
@@ -822,7 +822,7 @@ class Sheapectral:
 		lam, flux, err = self.spectra[idx]
 
 		if ax is None:
-			fig, ax = plt.subplots(figsize=(15, 5))
+			fig, ax = plt.subplots(figsize=figsize)
 
 		ax.errorbar(lam, flux, yerr=err, ecolor='dimgray', color="black", zorder=1)
 
@@ -835,19 +835,23 @@ class Sheapectral:
 		ax.set_xlim(*xlim)
 		ax.set_ylim(*ylim)
 
-		ax.set_xlabel("Wavelength [Å]")
-		ax.set_ylabel("Flux [arb]")
-
+		ax.set_xlabel("Rest wavelength [Å]", fontsize=25)
+		
+		flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$"
+		ax.set_ylabel(f"Flux [{flux_unit}]", fontsize=25)
+		ax.tick_params(axis='both', labelsize=25)
+		ax.yaxis.offsetText.set_fontsize(25)
 		# Plot ID label outside main plot area, above-left
-		ax.text(
-			0.0,
-			1.05,
-			f"ID {self.names[idx]} ({idx}), z = {self.z[idx]} ",
-			fontsize=10,
-			transform=ax.transAxes,
-			ha='left',
-			va='bottom',
-		)
+		if add_text:
+			ax.text(
+				0.0,
+				1.05,
+				f"ID {self.names[idx]} ({idx}), z = {self.z[idx]} ",
+				fontsize=10,
+				transform=ax.transAxes,
+				ha='left',
+				va='bottom',
+			)
 
 		ax.yaxis.set_major_locator(FixedLocator(ax.get_yticks()))
 

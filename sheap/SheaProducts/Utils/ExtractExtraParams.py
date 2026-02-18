@@ -296,7 +296,7 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
         if not line_name or (line_name not in lines):
             continue
         if "Pan25" in calib_key or "Le20" in calib_key:
-            print(f"TODO implement {calib_key}")
+            #print(f"TODO implement {calib_key}")
             continue 
         idxs = np.where(lines == line_name)[0]
         #print(idxs)   
