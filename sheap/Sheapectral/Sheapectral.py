@@ -447,7 +447,8 @@ class Sheapectral:
 				free_params = fit_output.free_params,
 				chi2_red = fit_output.chi2_red,
 				fitkwargs = fit_output.fitkwargs,
-    			elapsed_time= fit_output.elapsed_time)
+    			elapsed_time= fit_output.elapsed_time
+       		)
 
 			self.plotter = SheapPlot(sheap=self)
 	

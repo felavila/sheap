@@ -1,75 +1,45 @@
-r"""
-Params Class 
-==========
+"""
+Parameter / Parameters with built-in support for *shared* (global) free parameters.
 
-This module defines the :class:`Parameter` and :class:`Parameters`
-classes and a helper :func:`build_Parameters` to construct
-constraint-aware parameter sets for fitting.
+Key behavior
+------------
+- If you do NOT use shared params:
+    raw_init() returns:
+        - (n_free,) for single spectrum
+        - (n_spec, n_free) for batched spectra (same as your original code)
 
-It handles
-----------
-- Reparameterization between optimizer (raw) and physical spaces
-- Per-parameter bounds, fixed values, and arithmetic ties
-- Batched evaluation for multiple spectra via JAX ``vmap``
+- If you DO use shared params (any Parameter with shared=True and not fixed and not tied):
+    raw_init() returns a *packed 1D vector*:
+        raw_packed = [ raw_shared (n_shared,) | raw_local_flat (n_spec * n_local,) ]
+
+    raw_to_phys(raw_packed) returns:
+        - (n_spec, n_total)  (batched physical vectors, with shared params identical across spectra)
+
+    phys_to_raw(phys) returns the same packed 1D vector.
 
 Notes
 -----
-- Tied parameters are reconstructed from their sources during
-    raw→physical mapping.
-- Only **free** (untied, unfixed) parameters live in the raw vector.
-
+- In shared-mode, at least ONE local (shared=False) parameter should carry a vector value
+  of shape (n_spec,) so the class can infer n_spec.
+- Shared free parameters should usually be provided as scalars (or 0-d arrays).
 """
 
-__author__ = 'felavila'
-
-
-__all__ = [
-    "Parameter",
-    "Parameters",
-    "build_Parameters",
-]
-
+import math
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Iterable
 
-
-import jax.numpy as jnp
 import jax
-import math
+import jax.numpy as jnp
 
 
-from typing import TYPE_CHECKING
+default_inf = float("inf")
 
-if TYPE_CHECKING:
-    import jax.numpy as jnp
-    default_inf = jnp.inf
-else:
-    default_inf = float("inf")
 
 class Parameter:
     """
-    Represents a single fit parameter with optional bounds, ties, and fixed status.
-
-    This class encapsulates metadata about the parameter, including transformation
-    rules for optimization based on bounds or constraints.
-
-    Attributes
-    ----------
-    name : str
-        Name of the parameter (e.g., "amplitude_Halpha_1_broad").
-    value : float or jnp.ndarray
-        Initial value(s) for the parameter. Can be scalar or array.
-    min : float
-        Lower bound for the parameter.
-    max : float
-        Upper bound for the parameter.
-    tie : tuple, optional
-        A tuple specifying a tied relationship (target, source, operation, operand).
-    fixed : bool
-        If True, the parameter is excluded from optimization.
-    transform : str
-        Type of transformation used: 'logistic', 'lower_bound_square',
-        'upper_bound_square', or 'linear'.
+    Represents a single fit parameter with optional bounds, ties, fixed status,
+    and an optional 'shared' flag for global (hyper-)parameters across a batch.
     """
+
     def __init__(
         self,
         name: str,
@@ -79,64 +49,61 @@ class Parameter:
         max: float = default_inf,
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
-        is_linear: Optional[bool] = None, 
+        shared: bool = False,
     ):
-        self.name  = name
-        # allow scalar or array initial values for fixed parameters
+        self.name = name
+
+        # allow scalar or array initial values
         if isinstance(value, (jnp.ndarray, list, tuple)):
             self.value = jnp.array(value)
         else:
             self.value = float(value)
-        self.min   = float(min)
-        self.max   = float(max)
-        self.tie   = tie   # (target, source, op, operand)
-        self.fixed = fixed
 
-        if is_linear is None:
-            lname = name.lower()
-            is_linear = (
-                ("amp"    in lname) or
-                ("weight" in lname)
-            )
-        self.is_linear = bool(is_linear)
-        
-        # Choose transform based on bounds (ignored if fixed=True)
+        self.min = float(min)
+        self.max = float(max)
+        self.tie = tie  # (target, source, op, operand)
+        self.fixed = bool(fixed)
+        self.shared = bool(shared)
+
+        # Choose transform based on bounds (ignored if fixed=True in mapping)
         if math.isfinite(self.min) and math.isfinite(self.max):
-            self.transform = 'logistic'
+            self.transform = "logistic"
         elif math.isfinite(self.min):
-            self.transform = 'lower_bound_square'
+            self.transform = "lower_bound_square"
         elif math.isfinite(self.max):
-            self.transform = 'upper_bound_square'
+            self.transform = "upper_bound_square"
         else:
-            self.transform = 'linear'
+            self.transform = "linear"
 
 
 class Parameters:
     r"""
-    Container for managing a list of `Parameter` instances for fitting models.
+    Container for managing a list of `Parameter` instances.
 
-    This class handles the declaration, transformation, and synchronization
-    between raw and physical parameter spaces. It supports automatic handling
-    of fixed, tied, and bounded parameters, including vectorization with `vmap`.
-
-    Attributes
-    ----------
-    _list : list of Parameter
-        All declared parameters in order of definition.
-    _jit_raw_to_phys : callable
-        JIT-compiled function that maps raw parameters to physical space.
-    _jit_phys_to_raw : callable
-        JIT-compiled function that maps physical parameters to raw space.
+    Supports:
+    - fixed params (excluded from optimization)
+    - tied params (computed from sources)
+    - bounded transforms (logistic / square / linear)
+    - batched parameters (values as arrays)
+    - NEW: shared free parameters (shared=True) as global hyper-parameters for batched fits,
+      with packing/unpacking handled internally.
     """
 
     def __init__(self):
-        self._list = []
+        self._list: List[Parameter] = []
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
+        self._jit_raw_to_phys_mixed = None
+        self._jit_phys_to_raw_mixed = None
 
-        self._linear_raw_idx = None
-        self._nonlinear_raw_idx = None
-        
+        # caches set in _finalize
+        self._raw_list = None
+        self._tied_list = None
+        self._fixed_list = None
+        self._raw_shared_list = None
+        self._raw_local_list = None
+        self._n_spectra = None
+
     def add(
         self,
         name: str,
@@ -146,181 +113,213 @@ class Parameters:
         max: Optional[float] = None,
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
+        shared: bool = False
     ):
-        """
-        Add a parameter to the collection.
-
-        Parameters
-        ----------
-        name : str
-            Name of the parameter.
-        value : float or array-like
-            Initial value.
-        min : float, optional
-            Lower bound; defaults to -inf if not set.
-        max : float, optional
-            Upper bound; defaults to +inf if not set.
-        tie : tuple, optional
-            Constraint as a tuple (target, source, op, operand).
-        fixed : bool, default=False
-            Whether the parameter is fixed during fitting.
-        """
         lo = -jnp.inf if min is None else min
         hi = jnp.inf if max is None else max
-        self._list.append(Parameter(
-            name=name, value=value, min=lo, max=hi,
-            tie=tie, fixed=fixed
-        ))
+
+        self._list.append(
+            Parameter(
+                name=name,
+                value=value,
+                min=lo,
+                max=hi,
+                tie=tie,
+                fixed=fixed,
+                shared=shared,
+            )
+        )
+        self._invalidate()
+
+    def _invalidate(self):
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
+        self._jit_raw_to_phys_mixed = None
+        self._jit_phys_to_raw_mixed = None
 
+        self._raw_list = None
+        self._tied_list = None
+        self._fixed_list = None
+        self._raw_shared_list = None
+        self._raw_local_list = None
+        self._n_spectra = None
+    def _infer_n_spectra(self) -> int:
+        lens = []
+        for p in self._list:
+            v = p.value
+            if isinstance(v, jnp.ndarray) and v.ndim > 0:
+                lens.append(int(v.shape[0]))
+        if not lens:
+            return 1
+        if len(set(lens)) != 1:
+            raise ValueError(f"Inconsistent batch lengths in parameters: {sorted(set(lens))}")
+        return lens[0]
+    
     @property
     def names(self) -> List[str]:
-        """
-        Names of all parameters in declaration order.
-
-        Returns
-        -------
-        List[str]
-            Parameter names.
-        """
         return [p.name for p in self._list]
 
     def _finalize(self):
         self._raw_list = [p for p in self._list if p.tie is None and not p.fixed]
         self._tied_list = [p for p in self._list if p.tie is not None and not p.fixed]
         self._fixed_list = [p for p in self._list if p.fixed]
-        
-        
-        linear_raw_idx = []
-        nonlinear_raw_idx = []
-        for i, p in enumerate(self._raw_list):
-            if getattr(p, "is_linear", False):
-                linear_raw_idx.append(i)
-            else:
-                nonlinear_raw_idx.append(i)
 
-        self._linear_raw_idx    = jnp.array(linear_raw_idx, dtype=int)
-        self._nonlinear_raw_idx = jnp.array(nonlinear_raw_idx, dtype=int)
-        
+        # split free params into shared vs local
+        self._raw_shared_list = [p for p in self._raw_list if getattr(p, "shared", False)]
+        self._raw_local_list = [p for p in self._raw_list if not getattr(p, "shared", False)]
+
+        # infer n_spectra from ANY vector-valued param (fixed or free), but in shared-mode
+        # we require at least one local param to be vector-valued.
+        self._n_spectra = self._infer_n_spectra() #?
+        for p in self._list:
+            v = p.value
+            if isinstance(v, jnp.ndarray) and v.ndim > 0:
+                self._n_spectra = int(v.shape[0])
+                break
+
+        # jit compile both "classic" and "mixed" cores
         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
+        self._jit_raw_to_phys_mixed = jax.jit(self._raw_to_phys_core_mixed)
+        self._jit_phys_to_raw_mixed = jax.jit(self._phys_to_raw_core_mixed)
 
+    def _ensure_finalized(self):
+        if self._jit_raw_to_phys is None:
+            self._finalize()
+
+    def _has_shared_free(self) -> bool:
+        self._ensure_finalized()
+        return len(self._raw_shared_list) > 0
+
+    def _mixed_sizes(self) -> Tuple[int, int, int]:
+        """
+        Returns (n_spec, n_shared_free, n_local_free) for shared-mode.
+        """
+        self._ensure_finalized()
+        n_shared = len(self._raw_shared_list)
+        n_local = len(self._raw_local_list)
+        n_spec = self._n_spectra if self._n_spectra is not None else 1
+        return n_spec, n_shared, n_local
+
+    # -------------------------
+    # transforms (helpers)
+    # -------------------------
+    @staticmethod
+    def _apply_transform(p: Parameter, rv: jnp.ndarray) -> jnp.ndarray:
+        if p.transform == "logistic":
+            return p.min + (p.max - p.min) * jax.nn.sigmoid(rv)
+        elif p.transform == "lower_bound_square":
+            return p.min + rv**2
+        elif p.transform == "upper_bound_square":
+            return p.max - rv**2
+        else:
+            return rv
+
+    @staticmethod
+    def _inv_transform(p: Parameter, vv: jnp.ndarray) -> jnp.ndarray:
+        if p.transform == "logistic":
+            frac = (vv - p.min) / (p.max - p.min)
+            frac = jnp.clip(frac, 1e-6, 1 - 1e-6)
+            return jnp.log(frac / (1 - frac))
+        elif p.transform == "lower_bound_square":
+            return jnp.sqrt(jnp.maximum(vv - p.min, 0))
+        elif p.transform == "upper_bound_square":
+            return jnp.sqrt(jnp.maximum(p.max - vv, 0))
+        else:
+            return vv
+
+    # -------------------------
+    # public API
+    # -------------------------
     def raw_init(self) -> jnp.ndarray:
-        """
-        Generate the initial raw parameter vector from physical values.
-
-        Returns
-        -------
-        jnp.ndarray
-            Raw parameter array suitable for optimization.
-        """
         if self._jit_phys_to_raw is None:
             self._finalize()
-        
-        # Check if we have batched parameters
-        first_val = self._list[0].value
-        if isinstance(first_val, jnp.ndarray) and first_val.ndim > 0:
-            # Batched: each parameter has multiple values
-            n_spectra = len(first_val)
+
+        n_spec = self._n_spectra
+
+        if n_spec == 1:
+            init_phys = jnp.array([p.value for p in self._list])
+        else:
             init_phys_list = []
-            for i in range(n_spectra):
+            for i in range(n_spec):
                 spec_values = []
                 for p in self._list:
-                    if isinstance(p.value, jnp.ndarray):
-                        spec_values.append(p.value[i])
+                    v = p.value
+                    if isinstance(v, jnp.ndarray) and v.ndim > 0:
+                        spec_values.append(v[i])
                     else:
-                        spec_values.append(p.value)
+                        spec_values.append(v)
                 init_phys_list.append(jnp.array(spec_values))
             init_phys = jnp.stack(init_phys_list)
-        else:
-            # Single spectrum
-            init_phys = jnp.array([p.value for p in self._list])
-        
-        return self._jit_phys_to_raw(init_phys)
+
+        if not self._has_shared_free():
+            return self._jit_phys_to_raw(init_phys)
+
+        # shared-mode expects batch axis
+        if init_phys.ndim == 1:
+            init_phys = init_phys[None, :]
+        return self._jit_phys_to_raw_mixed(init_phys)
+
 
     def raw_to_phys(self, raw_params: jnp.ndarray) -> jnp.ndarray:
         """
         Convert raw parameter vector(s) to physical space.
 
-        Parameters
-        ----------
-        raw_params : jnp.ndarray
-            Raw input array of shape (n_params,) or (n_samples, n_params).
+        - no shared free params:
+            same as original.
 
-        Returns
-        -------
-        jnp.ndarray
-            Corresponding physical parameter array(s).
+        - shared free params exist:
+            expects packed 1D raw and returns (n_spec, n_total).
         """
-        if self._jit_raw_to_phys is None:
-            self._finalize()
-        return self._jit_raw_to_phys(raw_params)
+        self._ensure_finalized()
+
+        if not self._has_shared_free():
+            return self._jit_raw_to_phys(raw_params)
+
+        # shared-mode: accept packed 1D raw
+        return self._jit_raw_to_phys_mixed(raw_params)
 
     def phys_to_raw(self, phys_params: jnp.ndarray) -> jnp.ndarray:
         """
         Convert physical parameter vector(s) to raw space.
 
-        Parameters
-        ----------
-        phys_params : jnp.ndarray
-            Physical input array.
+        - no shared free params:
+            same as original.
 
-        Returns
-        -------
-        jnp.ndarray
-            Raw parameter array suitable for optimization.
+        - shared free params exist:
+            returns packed 1D raw.
         """
-        if self._jit_phys_to_raw is None:
-            self._finalize()
-        return self._jit_phys_to_raw(phys_params)
+        self._ensure_finalized()
 
+        if not self._has_shared_free():
+            return self._jit_phys_to_raw(phys_params)
+
+        if phys_params.ndim == 1:
+            phys_params = phys_params[None, :]
+        return self._jit_phys_to_raw_mixed(phys_params)
+
+    # -------------------------
+    # classic cores (your original behavior)
+    # -------------------------
     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
-        """
-        Convert from raw vector(s) to full physical parameter vector(s).
-
-        Handles transformation of free, tied, and fixed parameters and returns
-        them in the original declaration order.
-
-        Parameters
-        ----------
-        raw : jnp.ndarray
-            Raw parameter array(s), shape (n_free,) or (n_batch, n_free).
-
-        Returns
-        -------
-        jnp.ndarray
-            Physical parameters in full vector form, shape (n_total,) or (n_batch, n_total).
-        """
         def convert_one(r_vec, spec_idx):
             ctx: Dict[str, jnp.ndarray] = {}
             idx = 0
-            
-            # First, process all raw (free) parameters
+
             for p in self._raw_list:
                 rv = r_vec[idx]
-                if p.transform == 'logistic':
-                    val = p.min + (p.max - p.min) * jax.nn.sigmoid(rv)
-                elif p.transform == 'lower_bound_square':
-                    val = p.min + rv**2
-                elif p.transform == 'upper_bound_square':
-                    val = p.max - rv**2
-                else:
-                    val = rv
-                ctx[p.name] = val
+                ctx[p.name] = self._apply_transform(p, rv)
                 idx += 1
-            
-            # Then, process fixed parameters (they may have per-spectrum values)
+
             for p in self._fixed_list:
                 v = p.value
                 ctx[p.name] = v[spec_idx] if isinstance(v, jnp.ndarray) else v
-            
-            # Finally, process tied parameters (AFTER fixed parameters are in ctx)
-            op_map = {'*': jnp.multiply, '+': jnp.add, '-': jnp.subtract, '/': jnp.divide}
+
+            op_map = {"*": jnp.multiply, "+": jnp.add, "-": jnp.subtract, "/": jnp.divide}
             for p in self._tied_list:
                 tgt, src, op, operand = p.tie
                 ctx[tgt] = op_map[op](ctx[src], operand)
-            
+
             return jnp.stack([ctx[p.name] for p in self._list])
 
         if raw.ndim == 1:
@@ -331,136 +330,145 @@ class Parameters:
             return jax.vmap(convert_one, in_axes=(0, 0))(raw, idxs)
 
     def _phys_to_raw_core(self, phys: jnp.ndarray) -> jnp.ndarray:
-        """
-        Inverse mapping from physical to raw parameter space.
-
-        Parameters
-        ----------
-        phys : jnp.ndarray
-            Physical parameter array(s), shape (n_total,) or (n_batch, n_total).
-
-        Returns
-        -------
-        jnp.ndarray
-            Corresponding raw parameter array(s), shape (n_free,) or (n_batch, n_free).
-        """
         def invert_one(v_vec):
             raws: List[jnp.ndarray] = []
-            # Build a mapping from param name to value
             ctx = {p.name: v_vec[i] for i, p in enumerate(self._list)}
-            
-            # Extract only the raw (free) parameters
+
             for p in self._raw_list:
                 vv = ctx[p.name]
-                if p.transform == 'logistic':
-                    frac = (vv - p.min) / (p.max - p.min)
-                    frac = jnp.clip(frac, 1e-6, 1 - 1e-6)
-                    raws.append(jnp.log(frac / (1 - frac)))
-                elif p.transform == 'lower_bound_square':
-                    raws.append(jnp.sqrt(jnp.maximum(vv - p.min, 0)))
-                elif p.transform == 'upper_bound_square':
-                    raws.append(jnp.sqrt(jnp.maximum(p.max - vv, 0)))
-                else:
-                    raws.append(vv)
+                raws.append(self._inv_transform(p, vv))
+
             return jnp.stack(raws)
 
         if phys.ndim == 1:
             return invert_one(phys)
         else:
             return jax.vmap(invert_one)(phys)
-        
-    def split_raw_linear_nonlinear(self, raw: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+
+    # -------------------------
+    # mixed cores (shared + local packed raw, internal)
+    # -------------------------
+    def _raw_to_phys_core_mixed(self, raw_packed: jnp.ndarray) -> jnp.ndarray:
+        n_spec, n_shared, n_local = self._mixed_sizes()
+
+        if n_shared == 0:
+            # fall back (should not happen if dispatch is correct)
+            return self._raw_to_phys_core(raw_packed)
+
+        raw_shared = raw_packed[:n_shared]  # (n_shared,)
+        raw_local = raw_packed[n_shared:].reshape(n_spec, n_local)  # (n_spec, n_local)
+
+        # shared ctx once
+        shared_ctx: Dict[str, jnp.ndarray] = {}
+        for j, p in enumerate(self._raw_shared_list):
+            shared_ctx[p.name] = self._apply_transform(p, raw_shared[j])
+
+        op_map = {"*": jnp.multiply, "+": jnp.add, "-": jnp.subtract, "/": jnp.divide}
+
+        def convert_one(r_loc, spec_idx):
+            ctx = dict(shared_ctx)
+
+            # local free params for this spec
+            for j, p in enumerate(self._raw_local_list):
+                ctx[p.name] = self._apply_transform(p, r_loc[j])
+
+            # fixed params (may be per-spec arrays)
+            for p in self._fixed_list:
+                v = p.value
+                ctx[p.name] = v[spec_idx] if isinstance(v, jnp.ndarray) else v
+
+            # tied params
+            for p in self._tied_list:
+                tgt, src, op, operand = p.tie
+                ctx[tgt] = op_map[op](ctx[src], operand)
+
+            return jnp.stack([ctx[p.name] for p in self._list])
+
+        idxs = jnp.arange(n_spec)
+        return jax.vmap(convert_one, in_axes=(0, 0))(raw_local, idxs)  # (n_spec, n_total)
+
+    def _phys_to_raw_core_mixed(self, phys: jnp.ndarray) -> jnp.ndarray:
+        # phys is (n_spec, n_total)
+        n_spec, n_shared, n_local = self._mixed_sizes()
+
+        if n_shared == 0:
+            # fall back (should not happen if dispatch is correct)
+            return self._phys_to_raw_core(phys)
+
+        def ctx_from_phys(v_vec):
+            return {p.name: v_vec[i] for i, p in enumerate(self._list)}
+
+        # shared raws: read from first spectrum (shared params are identical conceptually)
+        ctx0 = ctx_from_phys(phys[0])
+        shared_raws = []
+        for p in self._raw_shared_list:
+            shared_raws.append(self._inv_transform(p, ctx0[p.name]))
+        shared_raws = jnp.stack(shared_raws) if shared_raws else jnp.zeros((0,), dtype=phys.dtype)
+
+        # local raws per spectrum
+        def local_raws_one(v_vec):
+            ctx = ctx_from_phys(v_vec)
+            raws = []
+            for p in self._raw_local_list:
+                raws.append(self._inv_transform(p, ctx[p.name]))
+            return jnp.stack(raws) if raws else jnp.zeros((0,), dtype=phys.dtype)
+
+        local_raws = jax.vmap(local_raws_one)(phys)  # (n_spec, n_local)
+
+        return jnp.concatenate([shared_raws, local_raws.ravel()])
+
+    # -------------------------
+    # optional convenience
+    # -------------------------
+    @property
+    def specs(self) -> List[Tuple[str, Any, float, float, str, bool, bool]]:
         """
-        Split raw parameter vector(s) into non-linear and linear parts.
-
-        Parameters
-        ----------
-        raw : jnp.ndarray
-            Raw parameter array of shape (n_free,) or (n_batch, n_free).
-
-        Returns
-        -------
-        Tuple[jnp.ndarray, jnp.ndarray]
-            (raw_nonlinear, raw_linear)
+        (name, value, min, max, transform, fixed, shared)
         """
-        if self._jit_raw_to_phys is None:
-            self._finalize()
-
-        lin_idx = self._linear_raw_idx
-        nl_idx  = self._nonlinear_raw_idx
-
-        if raw.ndim == 1:
-            raw_lin = raw[lin_idx]
-            raw_nl  = raw[nl_idx]
-        else:
-            raw_lin = raw[:, lin_idx]
-            raw_nl  = raw[:, nl_idx]
-        return raw_nl, raw_lin
-
-    def merge_raw_linear_nonlinear(
-        self, raw_nl: jnp.ndarray, raw_lin: jnp.ndarray
-    ) -> jnp.ndarray:
-        """
-        Merge separate non-linear and linear raw parameter vectors back into a single vector.
-
-        Parameters
-        ----------
-        raw_nl : jnp.ndarray
-            Non-linear raw parameters, shape (n_nl,) or (n_batch, n_nl).
-        raw_lin : jnp.ndarray
-            Linear raw parameters, shape (n_lin,) or (n_batch, n_lin).
-
-        Returns
-        -------
-        jnp.ndarray
-            Full raw parameter array, shape (n_free,) or (n_batch, n_free).
-        """
-        if self._jit_raw_to_phys is None:
-            self._finalize()
-
-        n_free = len(self._raw_list)
-        lin_idx = self._linear_raw_idx
-        nl_idx  = self._nonlinear_raw_idx
-
-        if raw_nl.ndim == 1:
-            full = jnp.zeros((n_free,), dtype=raw_nl.dtype)
-            full = full.at[nl_idx].set(raw_nl)
-            full = full.at[lin_idx].set(raw_lin)
-        else:
-            n_batch = raw_nl.shape[0]
-            full = jnp.zeros((n_batch, n_free), dtype=raw_nl.dtype)
-            full = full.at[:, nl_idx].set(raw_nl)
-            full = full.at[:, lin_idx].set(raw_lin)
-        return full
+        return [(p.name, p.value, p.min, p.max, p.transform, p.fixed, p.shared) for p in self._list]
 
     @property
-    def specs(self) -> List[Tuple[str, float, float, float, str, bool]]:
+    def summary(self) -> List[Dict[str, Any]]:
         """
-        Get summary of each parameter's definition.
-
-        Returns
-        -------
-        List[Tuple[str, float, float, float, str, bool]]
-            Each entry contains (name, value, min, max, transform, fixed).
+        User-facing summary of parameters and definitions.
         """
-        return [
-            (p.name, p.value, p.min, p.max, p.transform, p.fixed)
-            for p in self._list
-        ]
-    
-    @property
-    def linear_raw_indices(self) -> jnp.ndarray:
-        """Indices in the raw free-parameter vector that are linear-in-the-model."""
-        if self._jit_raw_to_phys is None:
-            self._finalize()
-        return self._linear_raw_idx
+        self._ensure_finalized()
 
-    @property
-    def nonlinear_raw_indices(self) -> jnp.ndarray:
-        """Indices in the raw free-parameter vector that are non-linear-in-the-model."""
-        if self._jit_raw_to_phys is None:
-            self._finalize()
-        return self._nonlinear_raw_idx
+        rows: List[Dict[str, Any]] = []
+        for p in self._list:
+            if p.fixed:
+                status = "fixed"
+            elif p.tie is not None:
+                status = "tied"
+            else:
+                status = "free"
+
+            v = p.value
+            if isinstance(v, jnp.ndarray):
+                v_out: Any = {
+                    "shape": tuple(v.shape),
+                    "dtype": str(v.dtype),
+                    "preview": v[:5] if (v.ndim == 1 and v.size > 5) else v,
+                }
+            else:
+                v_out = float(v)
+
+            rows.append(
+                {
+                    "name": p.name,
+                    "value": v_out,
+                    "min": float(p.min),
+                    "max": float(p.max),
+                    "transform": p.transform,
+                    "fixed": bool(p.fixed),
+                    "shared": bool(p.shared),
+                    "tie": p.tie,
+                    "status": status,
+                }
+            )
+        return rows
+
+
 
 def build_Parameters(
     tied_map: Dict[int, Tuple[int, str, float]],

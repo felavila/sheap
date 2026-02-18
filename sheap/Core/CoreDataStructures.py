@@ -435,6 +435,7 @@ class SheapResult:
     posterior:Optional[dict] = None 
     fitkwargs:Optional[List[Dict]] = None
     elapsed_time:Optional[List[Dict]] = None
+    params_class: Optional = None
     
     def __post_init__(self):
         #this should be an intermediate step in some cases it should be already done 

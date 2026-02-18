@@ -637,7 +637,8 @@ class SheapModelFitting:
             free_params = self.free_params,
             chi2_red = self.chi2_red,
             fitkwargs = self._fitkwargs,
-            elapsed_time = self.total_time)
+            elapsed_time = self.total_time
+            )
         
     @classmethod
     def from_builder(cls,builder: "ComplexBuilder",*,profile: str = "gaussian",limits_overrides = None,**builder_kwargs,) -> "SheapModelFitting":
