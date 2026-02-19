@@ -361,7 +361,10 @@ class SheapModelFitting:
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
             penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
         try:
+            #faster why?
             params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+            #slower why?
+            #params, loss = minimizer(self.params_obj.phys_init(), *norm_spec.transpose(1, 0, 2), self.constraints)
             #params = params_obj.raw_to_phys(raw_params)
             
         except Exception as e:

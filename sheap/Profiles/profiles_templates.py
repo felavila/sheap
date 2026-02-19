@@ -200,7 +200,7 @@ def make_template_function(
     }
 
 
-
+#xsl_cube_log_
 def make_host_function(
     filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
     #filename: str = TEMPLATES_PATH / "xsl_cube_log.npz",

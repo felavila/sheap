@@ -37,9 +37,8 @@ default_inf = float("inf")
 class Parameter:
     """
     Represents a single fit parameter with optional bounds, ties, fixed status,
-    and an optional 'shared' flag for global (hyper-)parameters across a batch.
+    and optional shared behavior across a batch (shared=True).
     """
-
     def __init__(
         self,
         name: str,
@@ -52,8 +51,6 @@ class Parameter:
         shared: bool = False,
     ):
         self.name = name
-
-        # allow scalar or array initial values
         if isinstance(value, (jnp.ndarray, list, tuple)):
             self.value = jnp.array(value)
         else:
@@ -61,11 +58,10 @@ class Parameter:
 
         self.min = float(min)
         self.max = float(max)
-        self.tie = tie  # (target, source, op, operand)
+        self.tie = tie
         self.fixed = bool(fixed)
         self.shared = bool(shared)
 
-        # Choose transform based on bounds (ignored if fixed=True in mapping)
         if math.isfinite(self.min) and math.isfinite(self.max):
             self.transform = "logistic"
         elif math.isfinite(self.min):
@@ -85,12 +81,24 @@ class Parameters:
     - tied params (computed from sources)
     - bounded transforms (logistic / square / linear)
     - batched parameters (values as arrays)
-    - NEW: shared free parameters (shared=True) as global hyper-parameters for batched fits,
+    - shared free parameters (shared=True) as global hyper-parameters for batched fits,
       with packing/unpacking handled internally.
+
+    Notes
+    -----
+    - If *any* parameter has an array value with shape (n_spec,), we treat the container as batched.
+    - In shared-mode (at least one free shared parameter), raw space is a packed 1D vector:
+        [raw_shared..., raw_local(spec0)... raw_local(spec1)...]
+      and `raw_to_phys` returns a full physical array of shape (n_spec, n_total).
+
+    - IMPORTANT: In shared-mode, `raw_to_phys` broadcasts shared parameters across spectra in the
+      returned `phys` array, so `phys[:, idx_shared]` is always shape (n_spec,) and can be fed into
+      `vmap(lambda A,m,s: ...)` directly (shared means identical values across the batch).
     """
 
     def __init__(self):
         self._list: List[Parameter] = []
+
         self._jit_raw_to_phys = None
         self._jit_phys_to_raw = None
         self._jit_raw_to_phys_mixed = None
@@ -104,6 +112,9 @@ class Parameters:
         self._raw_local_list = None
         self._n_spectra = None
 
+    # -------------------------
+    # mutation / cache invalidation
+    # -------------------------
     def add(
         self,
         name: str,
@@ -113,10 +124,10 @@ class Parameters:
         max: Optional[float] = None,
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
-        shared: bool = False
+        shared: bool = False,
     ):
-        lo = -jnp.inf if min is None else min
-        hi = jnp.inf if max is None else max
+        lo = -jnp.inf if min is None else float(min)
+        hi =  jnp.inf if max is None else float(max)
 
         self._list.append(
             Parameter(
@@ -143,6 +154,10 @@ class Parameters:
         self._raw_shared_list = None
         self._raw_local_list = None
         self._n_spectra = None
+
+    # -------------------------
+    # shape inference / finalize
+    # -------------------------
     def _infer_n_spectra(self) -> int:
         lens = []
         for p in self._list:
@@ -154,30 +169,31 @@ class Parameters:
         if len(set(lens)) != 1:
             raise ValueError(f"Inconsistent batch lengths in parameters: {sorted(set(lens))}")
         return lens[0]
-    
+
     @property
     def names(self) -> List[str]:
         return [p.name for p in self._list]
 
     def _finalize(self):
-        self._raw_list = [p for p in self._list if p.tie is None and not p.fixed]
-        self._tied_list = [p for p in self._list if p.tie is not None and not p.fixed]
+        # partition params by role
+        self._raw_list   = [p for p in self._list if p.tie is None and not p.fixed]
+        self._tied_list  = [p for p in self._list if p.tie is not None and not p.fixed]
         self._fixed_list = [p for p in self._list if p.fixed]
 
         # split free params into shared vs local
-        self._raw_shared_list = [p for p in self._raw_list if getattr(p, "shared", False)]
-        self._raw_local_list = [p for p in self._raw_list if not getattr(p, "shared", False)]
+        self._raw_shared_list = [p for p in self._raw_list if p.shared]
+        self._raw_local_list  = [p for p in self._raw_list if not p.shared]
 
-        # infer n_spectra from ANY vector-valued param (fixed or free), but in shared-mode
-        # we require at least one local param to be vector-valued.
-        self._n_spectra = self._infer_n_spectra() #?
-        for p in self._list:
-            v = p.value
-            if isinstance(v, jnp.ndarray) and v.ndim > 0:
-                self._n_spectra = int(v.shape[0])
-                break
+        # infer batch size from ANY vector-valued parameter
+        self._n_spectra = self._infer_n_spectra()
 
-        # jit compile both "classic" and "mixed" cores
+        # validations that prevent confusing behavior
+        if self._n_spectra == 1 and len(self._raw_shared_list) > 0:
+            # shared free params in a single-spectrum run is not harmful,
+            # but "mixed packing" would be pointless; still allow it.
+            pass
+
+        # JIT compile both "classic" and "mixed" cores
         self._jit_raw_to_phys = jax.jit(self._raw_to_phys_core)
         self._jit_phys_to_raw = jax.jit(self._phys_to_raw_core)
         self._jit_raw_to_phys_mixed = jax.jit(self._raw_to_phys_core_mixed)
@@ -196,9 +212,9 @@ class Parameters:
         Returns (n_spec, n_shared_free, n_local_free) for shared-mode.
         """
         self._ensure_finalized()
+        n_spec   = int(self._n_spectra) if self._n_spectra is not None else 1
         n_shared = len(self._raw_shared_list)
-        n_local = len(self._raw_local_list)
-        n_spec = self._n_spectra if self._n_spectra is not None else 1
+        n_local  = len(self._raw_local_list)
         return n_spec, n_shared, n_local
 
     # -------------------------
@@ -232,65 +248,75 @@ class Parameters:
     # public API
     # -------------------------
     def raw_init(self) -> jnp.ndarray:
-        if self._jit_phys_to_raw is None:
-            self._finalize()
+        """
+        Initial raw vector from stored physical values.
+        """
+        self._ensure_finalized()
+        init_phys = self.phys_init()
 
-        n_spec = self._n_spectra
-
-        if n_spec == 1:
-            init_phys = jnp.array([p.value for p in self._list])
-        else:
-            init_phys_list = []
-            for i in range(n_spec):
-                spec_values = []
-                for p in self._list:
-                    v = p.value
-                    if isinstance(v, jnp.ndarray) and v.ndim > 0:
-                        spec_values.append(v[i])
-                    else:
-                        spec_values.append(v)
-                init_phys_list.append(jnp.array(spec_values))
-            init_phys = jnp.stack(init_phys_list)
-
+        # Dispatch to the right inverse-map
         if not self._has_shared_free():
             return self._jit_phys_to_raw(init_phys)
 
-        # shared-mode expects batch axis
         if init_phys.ndim == 1:
             init_phys = init_phys[None, :]
         return self._jit_phys_to_raw_mixed(init_phys)
+    
+    def phys_init(self) -> jnp.ndarray:
+        """
+        Build the initial physical parameter array from stored `Parameter.value`.
 
+        Returns
+        -------
+        jnp.ndarray
+            - If n_spec == 1: shape (n_total,)
+            - If n_spec > 1:  shape (n_spec, n_total)
 
+        Notes
+        -----
+        - Scalar values are broadcast across spectra.
+        - Vector values (shape (n_spec,)) are taken per spectrum.
+        """
+        self._ensure_finalized()
+        n_spec = int(self._n_spectra)
+
+        if n_spec == 1:
+            # single spectrum: all values must be scalars (or length-1 arrays)
+            return jnp.array([p.value for p in self._list])
+
+        init_phys_list = []
+        for i in range(n_spec):
+            spec_values = []
+            for p in self._list:
+                v = p.value
+                if isinstance(v, jnp.ndarray) and v.ndim > 0:
+                    spec_values.append(v[i])
+                else:
+                    spec_values.append(v)
+            init_phys_list.append(jnp.array(spec_values))
+        return jnp.stack(init_phys_list)  # (n_spec, n_total)
+    
     def raw_to_phys(self, raw_params: jnp.ndarray) -> jnp.ndarray:
         """
         Convert raw parameter vector(s) to physical space.
 
-        - no shared free params:
-            same as original.
-
-        - shared free params exist:
-            expects packed 1D raw and returns (n_spec, n_total).
+        - No shared free params: classic behavior.
+        - Shared free params: expects packed 1D raw and returns (n_spec, n_total),
+          with shared params broadcast across spectra in the returned `phys`.
         """
         self._ensure_finalized()
-
         if not self._has_shared_free():
             return self._jit_raw_to_phys(raw_params)
-
-        # shared-mode: accept packed 1D raw
         return self._jit_raw_to_phys_mixed(raw_params)
 
     def phys_to_raw(self, phys_params: jnp.ndarray) -> jnp.ndarray:
         """
         Convert physical parameter vector(s) to raw space.
 
-        - no shared free params:
-            same as original.
-
-        - shared free params exist:
-            returns packed 1D raw.
+        - No shared free params: classic behavior.
+        - Shared free params: expects (n_spec, n_total) and returns packed 1D raw.
         """
         self._ensure_finalized()
-
         if not self._has_shared_free():
             return self._jit_phys_to_raw(phys_params)
 
@@ -299,7 +325,7 @@ class Parameters:
         return self._jit_phys_to_raw_mixed(phys_params)
 
     # -------------------------
-    # classic cores (your original behavior)
+    # classic cores (original behavior)
     # -------------------------
     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
         def convert_one(r_vec, spec_idx):
@@ -307,8 +333,7 @@ class Parameters:
             idx = 0
 
             for p in self._raw_list:
-                rv = r_vec[idx]
-                ctx[p.name] = self._apply_transform(p, rv)
+                ctx[p.name] = self._apply_transform(p, r_vec[idx])
                 idx += 1
 
             for p in self._fixed_list:
@@ -331,13 +356,10 @@ class Parameters:
 
     def _phys_to_raw_core(self, phys: jnp.ndarray) -> jnp.ndarray:
         def invert_one(v_vec):
-            raws: List[jnp.ndarray] = []
             ctx = {p.name: v_vec[i] for i, p in enumerate(self._list)}
-
+            raws: List[jnp.ndarray] = []
             for p in self._raw_list:
-                vv = ctx[p.name]
-                raws.append(self._inv_transform(p, vv))
-
+                raws.append(self._inv_transform(p, ctx[p.name]))
             return jnp.stack(raws)
 
         if phys.ndim == 1:
@@ -349,24 +371,44 @@ class Parameters:
     # mixed cores (shared + local packed raw, internal)
     # -------------------------
     def _raw_to_phys_core_mixed(self, raw_packed: jnp.ndarray) -> jnp.ndarray:
+        """
+        Shared-mode raw->phys.
+
+        Input
+        -----
+        raw_packed : shape (n_shared + n_spec*n_local,)
+
+        Output
+        ------
+        phys : shape (n_spec, n_total)
+
+        Guarantee
+        ---------
+        In the returned `phys`, any shared parameter column is broadcast to all spectra,
+        so `phys[:, idx_shared]` has shape (n_spec,) and identical values.
+        """
         n_spec, n_shared, n_local = self._mixed_sizes()
 
         if n_shared == 0:
-            # fall back (should not happen if dispatch is correct)
             return self._raw_to_phys_core(raw_packed)
 
-        raw_shared = raw_packed[:n_shared]  # (n_shared,)
-        raw_local = raw_packed[n_shared:].reshape(n_spec, n_local)  # (n_spec, n_local)
+        raw_shared = raw_packed[:n_shared]                       # (n_shared,)
+        raw_local  = raw_packed[n_shared:].reshape(n_spec, n_local)  # (n_spec, n_local)
 
-        # shared ctx once
-        shared_ctx: Dict[str, jnp.ndarray] = {}
+        # Compute shared phys scalars once, then broadcast when building each spectrum row
+        shared_vals: Dict[str, jnp.ndarray] = {}
         for j, p in enumerate(self._raw_shared_list):
-            shared_ctx[p.name] = self._apply_transform(p, raw_shared[j])
+            v = self._apply_transform(p, raw_shared[j])          # scalar
+            shared_vals[p.name] = v
 
         op_map = {"*": jnp.multiply, "+": jnp.add, "-": jnp.subtract, "/": jnp.divide}
 
         def convert_one(r_loc, spec_idx):
-            ctx = dict(shared_ctx)
+            ctx: Dict[str, jnp.ndarray] = {}
+
+            # shared free params: scalar in ctx for this spectrum row
+            for p in self._raw_shared_list:
+                ctx[p.name] = shared_vals[p.name]
 
             # local free params for this spec
             for j, p in enumerate(self._raw_local_list):
@@ -385,20 +427,29 @@ class Parameters:
             return jnp.stack([ctx[p.name] for p in self._list])
 
         idxs = jnp.arange(n_spec)
-        return jax.vmap(convert_one, in_axes=(0, 0))(raw_local, idxs)  # (n_spec, n_total)
+        phys = jax.vmap(convert_one, in_axes=(0, 0))(raw_local, idxs)  # (n_spec, n_total)
+
+        # --- broadcast shared columns explicitly to guarantee `phys[:, idx_shared]` is (n_spec,)
+        # and identical across rows (even if later logic changes).
+        if self._raw_shared_list:
+            for p in self._raw_shared_list:
+                col = self.names.index(p.name)
+                phys = phys.at[:, col].set(jnp.full((n_spec,), shared_vals[p.name]))
+        return phys
 
     def _phys_to_raw_core_mixed(self, phys: jnp.ndarray) -> jnp.ndarray:
-        # phys is (n_spec, n_total)
+        """
+        Shared-mode phys->raw (inverse of packed layout).
+        """
         n_spec, n_shared, n_local = self._mixed_sizes()
 
         if n_shared == 0:
-            # fall back (should not happen if dispatch is correct)
             return self._phys_to_raw_core(phys)
 
         def ctx_from_phys(v_vec):
             return {p.name: v_vec[i] for i, p in enumerate(self._list)}
 
-        # shared raws: read from first spectrum (shared params are identical conceptually)
+        # shared raws: read from first spectrum
         ctx0 = ctx_from_phys(phys[0])
         shared_raws = []
         for p in self._raw_shared_list:
@@ -414,11 +465,10 @@ class Parameters:
             return jnp.stack(raws) if raws else jnp.zeros((0,), dtype=phys.dtype)
 
         local_raws = jax.vmap(local_raws_one)(phys)  # (n_spec, n_local)
-
         return jnp.concatenate([shared_raws, local_raws.ravel()])
 
     # -------------------------
-    # optional convenience
+    # convenience
     # -------------------------
     @property
     def specs(self) -> List[Tuple[str, Any, float, float, str, bool, bool]]:
