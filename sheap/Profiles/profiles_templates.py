@@ -200,7 +200,7 @@ def make_template_function(
     }
 
 
-
+#xsl_cube_log_
 def make_host_function(
     filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
     #filename: str = TEMPLATES_PATH / "xsl_cube_log.npz",
@@ -226,7 +226,12 @@ def make_host_function(
     #z_source = 2.16
     #z_lens = 0.905
     #f = (1 + z_source) / (1 + z_lens)
+    if filename not in ["miles","xsl",TEMPLATES_PATH / "miles_cube_log.npz",TEMPLATES_PATH / "xsl_cube_log.npz",None]:
+        raise KeyError(
+            f"file_name '{filename}' is not available file_name."
+            f"Available parameters: {["miles","xsl"]}")
     f = 1.
+    filename = {"miles":TEMPLATES_PATH / "miles_cube_log.npz","xsl":TEMPLATES_PATH / "xsl_cube_log.npz"}.get(filename,TEMPLATES_PATH / "miles_cube_log.npz")
     data = np.load(filename, mmap_mode="r")
 
     cube = np.asarray(data["cube_log"], dtype=np.float32)   # (n_Z, n_age, n_pix)
@@ -333,6 +338,7 @@ def make_host_function(
             "n_age": n_age,
             "xmin": xmin,
             "xmax": xmax,
+            "file_name":filename
         },
     }
     

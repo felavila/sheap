@@ -606,6 +606,7 @@ def get_sample_params(posterior, main_key,region,line_name, param):
     """
   
     first_key = next(iter(posterior))
+    
     if main_key not in  posterior[first_key].keys():
         raise KeyError(
             f"main_key '{main_key}' is not available. "

@@ -77,7 +77,7 @@ class SheapPlot:
         self.model = jit(make_fused_profiles(self.profile_functions))
 
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
-             flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=False, **kwargs):
+             flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=True, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
         # TODO is time to update this. 
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])

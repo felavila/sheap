@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 #WE CAN mode fast, we will stay in this 32 to go faster. 
 #TODO -> helper to given "samples_phys" params can calculate again the SheaProducts
 #TODO -> update this part to be able to show the actual name of the parameter lets say line with 0,1,2,3,4 is easier for code reason but for visualitation could be messy 
-
+#TODO -> check the buge associated to have nan in the flux chanel is best change for 0 and just bust the error
 class Sheapectral:
 	"""
 	Main interface class for loading, correcting, fitting, and analyzing AGN spectra.
@@ -162,7 +162,7 @@ class Sheapectral:
 		----------
 		spectra : str or jnp.ndarray
 			Path to data file or array of raw spectra.
-		z : float or jnp.ndarray, optional
+		z : float or jnp.ndarray (N,) shape,optional
 			Redshift(s) to apply; repeated if scalar.
 		coords : ?
 			Coordinates for extinction map lookup.
@@ -204,7 +204,6 @@ class Sheapectral:
 			self.extinction_correction = "done"#<
 		self.ebv = ebv
 		self.z = self._prepare_z(z, self.spectra.shape[0])
-
 		self.names = (np.atleast_1d(names) if names is not None else np.arange(self.spectra.shape[0]).astype(str))
 		if self.names.shape[0] !=self.spectra.shape[0]:
 			print(f"The number of names ({len(self.names.shape[0])}) is different from the number of spectra ({self.spectra.shape[0]}) the code will use the inner names")
@@ -339,7 +338,16 @@ class Sheapectral:
 			self.spectra = self.spectra[jnp.newaxis, :]
 		self.spectra_shape = self.spectra.shape  # ?
 		self.spectra_nans = jnp.isnan(self.spectra)
-	
+		c1 = self.spectra[:, 1, :]
+		c1 = jnp.where(jnp.isnan(c1), 0.0, c1)
+		c2 = self.spectra[:, 2, :]
+		c2 = jnp.where(jnp.isnan(c2) | jnp.isnan(c1), 1e41, c2)
+		# write back functionally
+		self.spectra = self.spectra.at[:, 1, :].set(c1)
+		self.spectra = self.spectra.at[:, 2, :].set(c2)
+
+		#self.spectra = spec
+  
 	def makemodel(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
 					add_balmer_continuum = True ,add_balmerhighorder_continuum = True ,**kwargs):
 		"""
@@ -447,7 +455,8 @@ class Sheapectral:
 				free_params = fit_output.free_params,
 				chi2_red = fit_output.chi2_red,
 				fitkwargs = fit_output.fitkwargs,
-    			elapsed_time= fit_output.elapsed_time)
+    			elapsed_time= fit_output.elapsed_time
+       		)
 
 			self.plotter = SheapPlot(sheap=self)
 	
@@ -983,5 +992,5 @@ class Sheapectral:
 			self.cosmo = cosmo
 		#depending on the version this could change after 7.0.0 this change    
 		#self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
-		d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
+		d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 		return d
