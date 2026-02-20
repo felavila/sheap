@@ -187,9 +187,7 @@ class MasterSampler:
             self.cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
         else:
             self.cosmo = cosmo
-        #depending on the version this could change after 7.0.0 this change    
-        #self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
-        self.d = self.cosmo.luminosity_distance(self.z) * cm_per_mpc
+        self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 
     def sample_pseudomontecarlosampler(self, num_samples: int = 2000, key_seed: int = 0,summarize=True):
         """

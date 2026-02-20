@@ -94,7 +94,7 @@ numpy = ">=2.0,<2.3"
 pandas = ">=2.2"
 scipy = ">=1.11"
 # Astronomy we have to move to 7.2>/ plotting 
-astropy = ">=6.0,<=7.0"
+astropy = ">=7.2"
 matplotlib = ">=3.8"
 # JAX stack (keep jax/jaxlib aligned)
 #jax = ">=0.6,<0.8"
