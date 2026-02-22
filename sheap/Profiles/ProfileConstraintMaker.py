@@ -338,9 +338,9 @@ def ProfileConstraintMaker(
     if selected_profile == "hostmiles":
         params_names = local_profile.param_names
         #testing limits
-        init = [0.0,1e-3, 0.0] + [0.0] * len(params_names[3:])
-        upper = [4.0,3.5, limits.vshift_kms] + [1.0] * len(params_names[3:]) # ? 
-        lower = [-4.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  + [0.0] * len(params_names[3:])
+        init = [0.0,np.log10(limits.upper_fwhm_kms-10), 0.0] + [0.0] * len(params_names[3:])
+        upper = [5.0,np.log10(limits.upper_fwhm_kms),limits.vshift_kms] + [1.0] * len(params_names[3:]) # ? 
+        lower = [-5.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  + [0.0] * len(params_names[3:])
         return ProfileConstraintSet(
                 init=init,
                 upper=upper,

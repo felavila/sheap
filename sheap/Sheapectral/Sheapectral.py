@@ -385,7 +385,7 @@ class Sheapectral:
 
 	def fitmodel(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
 				,add_penalty_function=False,method="adam",penalty_weight: float = 0.00
-				,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0):
+				,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0,limits_overrides={}):
 		"""
 		Execute fitting of the prepared region on the spectra.
 
@@ -416,7 +416,7 @@ class Sheapectral:
 		if not hasattr(self, "modelbuild"):
 			raise RuntimeError("makemodel() must be called before fitmodel()")
 
-		self.fitting_class = SheapModelFitting.from_builder(self.modelbuild,limits_overrides=None,profile=profile) #until here only uses the things that it knows from modelbuild
+		self.fitting_class = SheapModelFitting.from_builder(self.modelbuild,limits_overrides=limits_overrides,profile=profile) #until here only uses the things that it knows from modelbuild
 
 		spectra = self.spectra.astype(jnp.float32)
 		if run_fit:

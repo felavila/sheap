@@ -51,7 +51,7 @@ from sheap.Profiles.ProfileConstraintMaker import ProfileConstraintMaker
 from sheap.Profiles.Utils import make_fused_profiles,build_grid_penalty
 
 
-from sheap.Sheapectral.Utils.SpectralSetup import mask_builder, prepare_spectra
+from sheap.Sheapectral.Utils.SpectralSetup import mask_builder, prepare_spectra #
 from sheap.Utils.Constants import DEFAULT_LIMITS
 
 from sheap.Utils.UncertaintyFunction import Errorfromloop
@@ -165,7 +165,7 @@ class SheapModelFitting:
     >>> print(df.head())
     """
 
-    def __init__(self, region_dict: dict, *, profile: str = "gaussian",limits_overrides: Optional[Dict[str, FittingLimits]] = None):
+    def __init__(self, region_dict: dict, *, profile: str = "gaussian",limits_overrides: Optional[Dict[str, FittingLimits]] = {}):
         
         """
         Initialize SheapModelFitting with builder output and optional limits.
@@ -187,13 +187,20 @@ class SheapModelFitting:
             setattr(self, key, val)
         self.limits_map: Dict[str, FittingLimits] = {}
         for region, cfg in DEFAULT_LIMITS.items():
+            if region in limits_overrides:
+                if isinstance(limits_overrides,dict):
+                    for k,val in limits_overrides[region].items():
+                        if k in cfg.keys():
+                            cfg[k] = val
+                        else:
+                            print(f"{k} is not an avalaible variable try {list(cfg.keys())}")
             default_lim = FittingLimits.from_dict(cfg)
-            # Use override if provided, else default
-            self.limits_map[region] = (
-                limits_overrides[region]
-                if limits_overrides and region in limits_overrides
-                else default_lim
-            )
+            self.limits_map[region] = default_lim
+        non_regions = set(list(limits_overrides.keys())) - set(list(DEFAULT_LIMITS.keys()))
+        if len(non_regions) > 0:
+            print(f"region(s) {non_regions} are not avalaible try with {list(DEFAULT_LIMITS.keys())}" )
+       
+              
         self.params_dict: Dict[str, int] = {}
         self.initial_params: jnp.ndarray = jnp.array([])
         self.profile_functions: List[Any] = []
@@ -280,10 +287,11 @@ class SheapModelFitting:
         else:
             n_steps = len(list(self.fitting_routine.keys()))
         total_time = 0
+        
         self._fitkwargs = []
         for _step in range(n_steps):
             key = f"step{_step+1}"
-            step = self.fitting_routine[key]
+            step = self.fitting_routine.get(key,{'tied': [], 'non_optimize_in_axis': 4, 'learning_rate': list_learning_rate[_step], 'num_steps': list_num_steps[_step]})
             if isinstance(list_learning_rate,list):
                 step["learning_rate"] = list_learning_rate[_step]
             if isinstance(list_num_steps,list):
