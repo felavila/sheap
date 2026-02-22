@@ -1,7 +1,7 @@
 broad:
   upper_fwhm_kms: 10000.0
   lower_fwhm_kms: 1000.0
-  vshift_kms: 3000.0
+  vshift_kms: 2000.0
   max_amplitude: 1.0
   references:
     - 2011ApJS..194...45S
@@ -88,8 +88,9 @@ fe:
 
 balmerhighorder:
   upper_fwhm_kms: 11000
-  lower_fwhm_kms: 1000
+  lower_fwhm_kms: 100
   vshift_kms: 500.0 
   max_amplitude: 0.07
   references:
+
     - xx
