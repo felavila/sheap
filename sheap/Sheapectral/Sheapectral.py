@@ -944,7 +944,7 @@ class Sheapectral:
 		#plt.tight_layout()
 		#plt.show()
 
-	def plot_param_distribution(self,param_name):
+	def plot_param_distribution(self,param_name,no_log=False):
 		#TODO what about this plot but for posterior->
 		params_keys = self.result.params_dict.keys()
 		if param_name not in params_keys:
@@ -952,6 +952,7 @@ class Sheapectral:
 		import pandas as pd
 		import matplotlib.pyplot as plt
 		#data = []
+
 		scale = self.result.scale
 		param_index = self.result.params_dict[param_name]
 		param_values = self.result.params[:,param_index]
@@ -961,7 +962,14 @@ class Sheapectral:
 		elif "logamp" in param_name:
 				param_values -= np.log10(scale)
 		
+
 		constraints = self.result.constraints[param_index]
+		if no_log:
+			constraints = 10**constraints
+			#constraints[1] = 10**constraints[1]
+			init_value = 10**init_value
+			param_values = 10**param_values
+			param_name = param_name.replace("log","")
 		bins = np.linspace(np.min(param_values),np.max(param_values), 40)
 		fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -981,7 +989,7 @@ class Sheapectral:
 		ax.legend(fontsize=14, frameon=False)
 		fig.tight_layout()
 		plt.show()
-  
+		return param_values
 	def _calcualte_d(self,cosmo=None,H0=70,Om0=0.3):
 		from astropy.cosmology import FlatLambdaCDM
 		from sheap.Utils.Constants import cm_per_mpc

@@ -256,8 +256,7 @@ def ProfileConstraintMaker(
                 lower.append(-float(limits.vshift_kms))
                 
             elif p == "fwhm_v_kms":
-                init.append(np.log10((limits.lower_fwhm_kms+limits.upper_fwhm_kms)/2))
-                #init.append(np.log10(float(limits.lower_fwhm)*(1.0 if sp.region in ["outflow", "winds"] else (4.0 if sp.region in ["narrow"] else 2.0))))
+                init.append(np.log10(limits.init_fwhm_kms))
                 upper.append(np.log10(float(limits.upper_fwhm_kms)))
                 lower.append(np.log10(float(limits.lower_fwhm_kms)))
             
@@ -307,7 +306,7 @@ def ProfileConstraintMaker(
     if selected_profile == "template" and sp.region == "fe":
         params_names = local_profile.param_names
         #logamplitude
-        init = [1.0,np.log10(4000.0), 0.0] 
+        init = [1.0,np.log10(limits.init_fwhm_kms), 0.0] 
         upper = [2.0,np.log10(limits.upper_fwhm_kms), limits.vshift_kms] 
         lower = [-2.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  
         #print(init,upper,lower)
@@ -321,11 +320,9 @@ def ProfileConstraintMaker(
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "template":
         params_names = local_profile.param_names
-        #print(limits)
-        init= [1.0, np.log10( 2000.0),0.0]
+        init= [1.0, np.log10(limits.init_fwhm_kms),0.0]
         upper= [2.0, np.log10(limits.upper_fwhm_kms), limits.vshift_kms]
         lower= [-2.0,np.log10(limits.lower_fwhm_kms) , -limits.vshift_kms]
-        #print(PROFILE_FUNC_MAP.get(selected_profile))
         return ProfileConstraintSet(
             init= init,
             upper=upper,
@@ -338,7 +335,9 @@ def ProfileConstraintMaker(
     if selected_profile == "hostmiles":
         params_names = local_profile.param_names
         #testing limits
-        init = [0.0,np.log10(limits.upper_fwhm_kms-10), 0.0] + [0.0] * len(params_names[3:])
+        #init = [0.0,np.log10(limits.upper_fwhm_kms-10), 0.0] + [0.0] * len(params_names[3:])
+        init = [0.0,np.log10(limits.init_fwhm_kms), 0.0] + [0.0] * len(params_names[3:])
+        #print(init)
         upper = [5.0,np.log10(limits.upper_fwhm_kms),limits.vshift_kms] + [1.0] * len(params_names[3:]) # ? 
         lower = [-5.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  + [0.0] * len(params_names[3:])
         return ProfileConstraintSet(

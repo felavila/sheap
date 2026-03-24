@@ -485,6 +485,7 @@ class FittingLimits:
 
     upper_fwhm_kms: float
     lower_fwhm_kms: float
+    init_fwhm_kms:Optional[float] = None
     vshift_kms: Optional[float] = None
     max_amplitude:  Optional[float] = None
     references: Optional[list] = None 
@@ -509,7 +510,9 @@ class FittingLimits:
             raise ValueError(f"Missing keys for FittingLimits: {missing}")
 
         return cls(
-            upper_fwhm_kms=d['upper_fwhm_kms'],lower_fwhm_kms=d['lower_fwhm_kms'],
+            upper_fwhm_kms=d['upper_fwhm_kms']
+            ,lower_fwhm_kms=d['lower_fwhm_kms'],
+            init_fwhm_kms = d.get('init_fwhm_kms'),
             vshift_kms =d['vshift_kms'],
             max_amplitude=d['max_amplitude'],
             references=d.get('references'),

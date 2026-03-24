@@ -1,6 +1,7 @@
 broad:
   upper_fwhm_kms: 10000.0
   lower_fwhm_kms: 1000.0
+  init_fwhm_kms: 5500.0
   vshift_kms: 2000.0
   max_amplitude: 1.0
   references:
@@ -10,6 +11,7 @@ broad:
 narrow:
   upper_fwhm_kms: 600.0
   lower_fwhm_kms: 100.0
+  init_fwhm_kms: 350.0
   vshift_kms: 500.0
   max_amplitude: 1.0
   references:
@@ -19,6 +21,7 @@ narrow:
 outflow:
   upper_fwhm_kms: 2000.0
   lower_fwhm_kms: 600.0
+  init_fwhm_kms: 1300.0
   vshift_kms: 500.0
   max_amplitude: 1.0
   references:
@@ -29,6 +32,7 @@ outflow:
 winds:
   upper_fwhm_kms: 15000.0
   lower_fwhm_kms: 3000.0
+  init_fwhm_kms: 9000.0
   vshift_kms: 8000.0
   max_amplitude: 1.0
   references:
@@ -39,6 +43,7 @@ winds:
 fe_broad:
   upper_fwhm_kms: 7000.0
   lower_fwhm_kms: 900.0
+  init_fwhm_kms: 3950.0
   vshift_kms: 3000.0
   max_amplitude: 0.07
   references:
@@ -49,6 +54,7 @@ fe_broad:
 fe_narrow:
   upper_fwhm_kms: 600.0
   lower_fwhm_kms: 100.0
+  init_fwhm_kms: 350.0
   vshift_kms: 500.0
   max_amplitude: 0.07
   references:
@@ -59,6 +65,7 @@ fe_narrow:
 host:
   upper_fwhm_kms: 1000.0
   lower_fwhm_kms: 100.0
+  init_fwhm_kms: 471.0
   vshift_kms: 500.0
   max_amplitude: 0.0
   references:
@@ -69,6 +76,7 @@ host:
 bal:
   upper_fwhm_kms: 20000.0
   lower_fwhm_kms: 2000.0
+  init_fwhm_kms: 11000.0
   vshift_kms: 30000.0
   max_amplitude: 1.0
   references:
@@ -78,6 +86,7 @@ bal:
 # Optional backward-compat alias
 fe:
   upper_fwhm_kms: 7000.0
+  init_fwhm_kms: 4000.0
   lower_fwhm_kms: 100.0
   vshift_kms: 3000.0
   max_amplitude: 0.07
@@ -87,10 +96,10 @@ fe:
     - 2010ApJS..189...15K
 
 balmerhighorder:
-  upper_fwhm_kms: 11000
-  lower_fwhm_kms: 100
-  vshift_kms: 500.0 
+  upper_fwhm_kms: 11000.0
+  init_fwhm_kms: 2000.0
+  lower_fwhm_kms: 100.0
+  vshift_kms: 500.0
   max_amplitude: 0.07
   references:
-
     - xx

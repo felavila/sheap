@@ -673,7 +673,6 @@ class SheapModelFitting:
         """
     
         region_dict = builder._make_fitting_routine(**builder_kwargs)
-
         #print(region_dict)
         return cls(region_dict, profile=profile,limits_overrides= limits_overrides)
     

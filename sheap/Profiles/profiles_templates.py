@@ -201,7 +201,7 @@ def make_template_function(
 
 
 # #xsl_cube_log_
-def make_host_function(
+def make_host_function_classic(
     filename: str = TEMPLATES_PATH / "miles_cube_log.npz",
     #filename: str = TEMPLATES_PATH / "xsl_cube_log.npz",
     z_include: Optional[Union[tuple[float, float], list[float]]] = [-0.7, 0.22],
@@ -343,7 +343,7 @@ def make_host_function(
         },
     }
 
-def make_host_function_test(
+def make_host_function(
     filename: str | Path = TEMPLATES_PATH / "miles_cube_log.npz",
     z_include: Optional[Union[tuple[float, float], list[float]]] = [-0.7, 0.22],
     age_include: Optional[Union[tuple[float, float], list[float]]] = [0.1, 10.0],
@@ -394,7 +394,7 @@ def make_host_function_test(
     The parameter order is:
     ``[logamp, logFWHM, vshift_kms, weight_0, weight_1, ...]``.
     """
-    # --- allow shortcuts ---
+    print("Makehost test function")
     allowed = {"miles": TEMPLATES_PATH / "miles_cube_log.npz",
                "xsl":   TEMPLATES_PATH / "xsl_cube_log.npz",
                None:    TEMPLATES_PATH / "miles_cube_log.npz"}
@@ -409,6 +409,7 @@ def make_host_function_test(
 
     data = np.load(filename, mmap_mode="r")
 
+    
     cube = np.asarray(data["cube_log"], dtype=np.float32)   # (n_Z, n_age, n_pix)
     wave = np.asarray(data["wave_log"], dtype=np.float32)   # (n_pix,) in Angstrom, log-sampled
     all_ages = np.asarray(data["ages_sub"], dtype=np.float32)
@@ -443,8 +444,20 @@ def make_host_function_test(
         cube = cube[:, a_mask, :]
     else:
         ages = all_ages
-
+    grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
+    if kwargs.get("data"):
+       print("We will use external template experimental")
+       data = kwargs["data"]
+       filename = kwargs["data"]["filename"]
+       cube =  np.asarray(data["cube_log"], dtype=np.float32)
+       wave = np.asarray(data["wave_log"], dtype=np.float32)   # (n_pix,) in Angstrom, log-sampled
+       assert wave.shape[0] == cube.shape[-1], "check the shapes of wave_log and cube_log"
+       sigmatemplate = data["sigmatemplate"]
+       n_Z, n_age = cube.shape[:-1]
+       grid_metadata = [(float(Z), float(age)) for Z in np.arange(n_Z) for age in  np.arange(n_age)]
     f = 1.0  # keep if you later want external scaling
+    
+       
     if xmin is not None or xmax is not None:
         mask = np.ones_like(wave, dtype=bool)
         if xmin is not None:
@@ -459,14 +472,12 @@ def make_host_function_test(
     n_Z, n_age, n_pix = cube.shape
     if verbose:
         print(f"Host added with n_Z={n_Z}, n_age={n_age}, n_pix={n_pix}")
-
+    
     eps = 1e-30
     flux_int = np.nansum(cube, axis=-1, keepdims=True)
     cube = cube / (flux_int + eps)
 
     templates_flat = cube.reshape(-1, n_pix)  # (n_Z*n_age, n_pix)
-    grid_metadata = [(float(Z), float(age)) for Z in zs for age in ages]
-
     param_names = ["logamp", "logFWHM", "vshift_kms"]
     for Z, age in grid_metadata:
         zstr = str(Z).replace(".", "p")
@@ -479,8 +490,10 @@ def make_host_function_test(
     # build convolution kernel in ln(lambda) (LOSVD-correct)
     # dln is ~constant if wave is log-sampled in Angstrom
     dln = float(np.mean(np.gradient(np.log(wave.astype(np.float64)))))
+    #print("dln",dln)
+    #print("sigmatemplate",sigmatemplate)
     freq = jnp.fft.fftfreq(n_pix, d=dln).astype(jnp.float32)
-
+    #print( str(filename))
     @with_param_names(param_names)
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
         logamp = params[0]
@@ -520,6 +533,7 @@ def make_host_function_test(
             "file_name": str(filename),
             "dln": dln,
             "dv_pix_kms": float(DEFAULT_C_KMS * dln),
-            "fixed_dispersion_kms": float(fixed_dispersion),
+            "sigmatemplate": sigmatemplate,
+            "data":kwargs.get("data",None)
         },
     }
