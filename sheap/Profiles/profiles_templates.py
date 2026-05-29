@@ -229,7 +229,7 @@ def make_host_function_classic(
     if filename not in ["miles","xsl",TEMPLATES_PATH / "miles_cube_log.npz",TEMPLATES_PATH / "xsl_cube_log.npz",None]:
         raise KeyError(
             f"file_name '{filename}' is not available file_name."
-            f"Available parameters: {["miles","xsl"]}")
+            f"Available parameters: {['miles','xsl']}")
     f = 1.
     filename = {"miles":TEMPLATES_PATH / "miles_cube_log.npz","xsl":TEMPLATES_PATH / "xsl_cube_log.npz"}.get(filename,TEMPLATES_PATH / "miles_cube_log.npz")
     #print(filename)
