@@ -1,37 +1,53 @@
+# Python cache and compiled files
+__pycache__/
+*__pycache__/
+*.py[cod]
+*.pyc
+
+# Build and distribution files
+build/
+dist/
+wheels/
+*.egg-info/
+
+# Virtual environments
+.venv/
+
+# IDE/editor settings
 .idea/
 .vscode/
 
-notebooks/images/*
-notebooks/pickles/*
+# Jupyter notebooks
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
+# Notebook outputs
 notebooks/images/
 notebooks/pickles/
 
-.ipynb_checkpoints
-*/.ipynb_checkpoints/
-
-*.egg-info/
-*.pyc
-*\.bak
-\.fuse*
+# Coverage and test outputs
 .coverage
-.DS_Store
-*__pycache__
-
-docs/_build/
-dist/
-build/
 htmlcov/
-
 .tox/
-node_modules
-
-dependency-graphs/
 test-results/
+
+# Generated diagrams and graphs
+dependency-graphs/
 uml-diagrams/
 pydoer-graphs/
 
-# LOGS
+# Documentation builds
+docs/_build/
 
+# Node dependencies
+node_modules/
+
+# Logs and reports
 cookie-py.log
-#txt
 pylint-result.txt
+
+# OS and temporary files
+.DS_Store
+*.bak
+.fuse*
+
