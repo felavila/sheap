@@ -28,4 +28,7 @@ fail_on_warning: false
 
 formats:
 
-formats: [htmlzip, pdf, epub]
+formats:
+  - htmlzip
+  - pdf
+  - epub
