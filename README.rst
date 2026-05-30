@@ -36,10 +36,11 @@ References
 
 sheap is based on methodologies and models outlined in the following paper:
 
--  **Mejía-Restrepo, J. E., et al. (2016)**.
-   *Active galactic nuclei at z ∼ 1.5 – II. Black hole mass estimation by means of broad emission lines.*
-   Monthly Notices of the Royal Astronomical Society, **460**, 187.
-   Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2016MNRAS.460..187M/abstract>`_
+-  **Ávila-Vera, F., et al. (xxx)**.
+   *Spectral Handling and Estimation of AGN Parameters (SHEAP):
+   The first GPU-based AGN spectral-fitting code*.
+   **xxx**, xxx.
+   Available at: `ADS Abstract <#>`_.
 
 
 License
