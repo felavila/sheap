@@ -9,6 +9,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
+import numpy as np 
  
 from sheap.Profiles.Utils import make_fused_profiles
 from sheap.Utils.Constants import DEFAULT_C_KMS
@@ -79,7 +80,10 @@ class SheapPlot:
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
              flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=True, **kwargs):
         """Plot spectrum, model components, and residuals for a given index `n`."""
-        # TODO is time to update this. 
+        # TODO is time to update this.
+        
+        # if not isinstance(n,int):
+        #     n = np.random.randint(0,self.spec.shape[0]) 
         default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
         filtered_colors = [
             c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f',"blue","green"]

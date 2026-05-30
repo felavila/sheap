@@ -45,13 +45,14 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
+import time
 
 import jax.numpy as jnp
 import numpy as np
 
 from sheap.Core import SpectralLine,SheapResult,ArrayLike
 
-from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data
+from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data,profile_functions_from_region_list
 from sheap.SheapModelFitting.SheapModelFitting import SheapModelFitting
 from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
 from sheap.SheaProducts.SheaProducts import SheaProducts
@@ -341,7 +342,7 @@ class Sheapectral:
 		c1 = self.spectra[:, 1, :]
 		c1 = jnp.where(jnp.isnan(c1), 0.0, c1)
 		c2 = self.spectra[:, 2, :]
-		c2 = jnp.where(jnp.isnan(c2) | jnp.isnan(c1), 1e41, c2)
+		c2 = jnp.where(jnp.isnan(c2) | jnp.isnan(c1), 3.4028235e+38, c2)#max float32
 		# write back functionally
 		self.spectra = self.spectra.at[:, 1, :].set(c1)
 		self.spectra = self.spectra.at[:, 2, :].set(c2)
@@ -415,7 +416,7 @@ class Sheapectral:
 		"""
 		if not hasattr(self, "modelbuild"):
 			raise RuntimeError("makemodel() must be called before fitmodel()")
-
+		print("P0",time.time())
 		self.fitting_class = SheapModelFitting.from_builder(self.modelbuild,limits_overrides=limits_overrides,profile=profile) #until here only uses the things that it knows from modelbuild
 
 		spectra = self.spectra.astype(jnp.float32)
@@ -591,8 +592,8 @@ class Sheapectral:
 			names=data["names"],
 			coords=data["coords"],
 			extinction_correction=data["extinction_correction"],
-			redshift_correction=data["redshift_correction"],
-		)
+			redshift_correction=data["redshift_correction"],)
+		
 		# small helper to read older versions -> removing it soon
 		region_list = data.get("region_list", [])
 		if "complex_region" in data.keys():
@@ -606,7 +607,7 @@ class Sheapectral:
 			uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))), 
 			initial_params=jnp.array(data.get("initial_params")),
 			mask=jnp.array(data.get("mask")),
-			profile_functions= obj.profile_functions_from_region_list(),
+			profile_functions= profile_functions_from_region_list(obj.region_list) ,
 			profile_names=profile_names,
 			loss=None,  # Not saved currently, could be added if needed
 			profile_params_index_list=data.get("profile_params_index_list"),
@@ -694,35 +695,6 @@ class Sheapectral:
 		filepath = Path(filepath)
 		with open(filepath, "wb") as f:
 			pickle.dump(self._save(), f)
-
-	
-	def profile_functions_from_region_list(self):
-		"""
-		Recreate profile functions for each region component.
-
-		Returns
-		-------
-		list of callables
-			Profile model functions.
-		"""
-		from sheap.Profiles.Profiles import PROFILE_FUNC_MAP
-		profile_functions = []
-		for _,sp in enumerate(self.region_list):
-			holder_profile = getattr(sp, "profile") # cant be none 
-			if "SPAF" in holder_profile:
-				if len(sp.profile.split("_")) == 2:
-					_, subprofile = sp.profile.split("_")
-				else:
-					print("Warning this if u have an SPAF, you should have and subprofile otherwise it can be readed correctly")
-				sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,subprofile)
-			elif sp.profile == "hostmiles":
-				sm = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
-			elif sp.profile == "template":
-				sm =PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
-			else:
-				sm = PROFILE_FUNC_MAP.get(holder_profile)
-			profile_functions.append(sm)
-		return profile_functions
 	
 	@property
 	def modelplot(self):
@@ -990,6 +962,41 @@ class Sheapectral:
 		fig.tight_layout()
 		plt.show()
 		return param_values
+	
+	@property
+	def modelplot(self):
+		"""
+		Get or initialize the SheapPlot plotting interface.
+		TODO modelplot or plotter?
+
+		Returns
+		-------
+		SheapPlot
+			Plotting backend for spectra and fit results.
+
+		Raises
+		------
+		RuntimeError
+			If no fit result exists.
+		"""
+		if not hasattr(self, "plotter"):
+			if hasattr(self, "result"):
+				self.plotter = SheapPlot(sheap=self)
+			else:
+				raise RuntimeError("No fit result found. Run `fitmodel()` first.")
+		return self.plotter
+	
+   
+	# def result_panda(self, n:number {param_index}")
+	# 	ax.tick_params(axis="both", labelsize=14)
+	# 	ax.axvline(init_value, linestyle="--",label="init value",c="r")
+	# 	ax.axvline(constraints[0], linestyle="--",label="min value",c="k")
+	# 	ax.axvline(constraints[1], linestyle="--",label="max value",c="k")
+	# 	ax.legend(fontsize=14, frameon=False)
+	# 	fig.tight_layout()
+	# 	plt.show()
+	# 	return param_values
+	
 	def _calcualte_d(self,cosmo=None,H0=70,Om0=0.3):
 		from astropy.cosmology import FlatLambdaCDM
 		from sheap.Utils.Constants import cm_per_mpc

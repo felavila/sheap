@@ -22,7 +22,8 @@ __all__ = [
     "prepare_spectra",
     "prepare_uncertainties",
     "resize_and_fill_with_nans",
-    "ensure_sfd_data"
+    "ensure_sfd_data",
+    "profile_functions_from_region_list"
 ]
 
 from typing import Optional, Sequence, Tuple
@@ -282,7 +283,38 @@ def ensure_sfd_data(sfd_path: Path = None):
 
 
 
+def profile_functions_from_region_list(region_list):
+    """
+    Recreate profile functions for each region component.
 
+    Returns
+    -------
+    list of callables
+        Profile model functions.
+    """
+    from sheap.Profiles.Profiles import PROFILE_FUNC_MAP,PROFILE_CONTINUUM_FUNC_MAP
+    profile_functions = []
+    for _,sp in enumerate(region_list):
+        holder_profile = getattr(sp, "profile") # cant be none
+        if "SPAF" in holder_profile:
+            if len(sp.profile.split("_")) == 2:
+                _, subprofile = sp.profile.split("_")
+            else:
+                print("Warning this if u have an SPAF, you should have and subprofile otherwise it can be readed correctly")
+            sm = PROFILE_FUNC_MAP["SPAF"](sp.center,sp.amplitude_relations,subprofile)
+        elif sp.profile == "hostmiles":
+            sm = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
+        elif sp.profile == "template":
+            sm =PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
+        elif sp.profile in PROFILE_CONTINUUM_FUNC_MAP:
+            if sp.profile == "polynomial":
+                sm =  PROFILE_FUNC_MAP.get(sp.profile)(**sp.template_info["keywords"]) 
+            else:
+                sm =  PROFILE_FUNC_MAP.get(sp.profile)
+        else:
+            sm = PROFILE_FUNC_MAP.get(holder_profile)
+        profile_functions.append(sm)
+    return profile_functions
 
 
 # """

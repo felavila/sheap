@@ -179,7 +179,7 @@ class SheapModelBuilder:
     lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
     available_fe_modes = ["template","model","none"] # none is like No fe
     
-    available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys())
+    available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys()) + ["none"]
     LINEAR_RANGE_THRESHOLD = 1000
     known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [(('OIIIb', 'OIIIc'),['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3'],),
         (('NIIa', 'NIIb'),['amplitude_NIIa_component_narrow', 'amplitude_NIIb_component_narrow', '*0.3'],),
@@ -268,10 +268,15 @@ class SheapModelBuilder:
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
-        self.continuum_profile = continuum_profile.lower()
-        if self.continuum_profile not in self.available_continuum_profiles:
-            print(f"continuum_profile: {self.continuum_profile} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
-            self.continuum_profile = "powerlaw"
+        ###
+        if isinstance(continuum_profile,str):
+            continuum_profile = {"name":continuum_profile.lower()}
+        self.continuum_profile = continuum_profile
+        
+        if self.continuum_profile.get("name") not in self.available_continuum_profiles:
+            print(f"continuum_profile: {self.continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
+            #print(self.continuum_profile)
+            self.continuum_profile = {"name": "powerlaw"} 
         
         if not line_repository_path:
             TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "LineRepository"
@@ -343,7 +348,9 @@ class SheapModelBuilder:
         add_host_miles = get(add_host_miles,self.add_host_miles)
         add_BAL = get(add_BAL,self.add_BAL)
         add_balmerhighorder_continuum = get(add_balmerhighorder_continuum,self.add_balmerhighorder_continuum)
-        continuum_profile = get(continuum_profile, self.continuum_profile).lower()
+        # continuum_profile => only can be a dict?
+        continuum_profile = get(continuum_profile, self.continuum_profile)#.lower()
+        #
         tied_broad_to = get(tied_broad_to,self.tied_broad_to)
         tied_narrow_to = get(tied_narrow_to,self.tied_narrow_to)
         if add_BAL:
@@ -353,9 +360,11 @@ class SheapModelBuilder:
             print(fe_mode)
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             fe_mode = "template"
-        if continuum_profile not in self.available_continuum_profiles:
-            print(f"continuum_profile: {continuum_profile} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
-            continuum_profile = "powerlaw"
+        if continuum_profile.get("name") not in self.available_continuum_profiles:
+            print(f"continuum_profile: {continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
+            #print(self.continuum_profile)
+            self.continuum_profile = {"name": "powerlaw"} 
+            
         self.group_method = get(group_method,self.group_method)
         
         self.region_list = [] #place holder name  
@@ -669,26 +678,18 @@ class SheapModelBuilder:
         """
         continuum_comps = []
         if add_balmer_continuum:
-            #if not xmax< 3646:
-             #   warnings.warn(f"Care with the addition of balmer continuum {xmax}")
             if self.verbose:
                 print("added balmer continuum")
             continuum_comps.append(SpectralLine(line_name='balmercontinuum',region='balmer',component=0,profile='balmercontinuum'))
         if add_balmerhighorder_continuum:
             if self.verbose:
                 print("added balmer high order continuum")
-            # if not xmax< 3646:
-            #     warnings.warn(f"Care with the addition of balmer hight order continuum {xmax}")
             continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='template'
                                                 ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
-        
-        
-        # if 'linear' != continuum_profile and (xmax - xmin) < self.LINEAR_RANGE_THRESHOLD:
-        #     print(f"xmax - xmin less than LINEAR_RANGE_THRESHOLD:{self.LINEAR_RANGE_THRESHOLD} < {(xmax - xmin)} moving to linear continuum")
-        #     continuum_comps.append(SpectralLine(line_name="linear",region='continuum',component=0,profile="linear"))
-        #     return continuum_comps
-        continuum_comps.append(SpectralLine(line_name=continuum_profile,region='continuum',component=0,profile=continuum_profile))
+        if continuum_profile != "none":
+            continuum_comps.append(SpectralLine(line_name=continuum_profile.get("name"),region='continuum',component=0,profile=continuum_profile.get("name"),template_info=continuum_profile))
         return continuum_comps
+        
 
     def _apply_group_method(self,sheapmodel,fe_mode,known_tied_relations):
         """

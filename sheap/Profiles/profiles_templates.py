@@ -287,18 +287,19 @@ def make_host_function_classic(
 
    
     param_names = ["logamp", "logFWHM", "vshift_kms"]
+    linear_params = []
     for Z, age in grid_metadata:
         zstr = str(Z).replace(".", "p")
         astr = str(age).replace(".", "p")
         param_names.append(f"weight_Z{zstr}_age{astr}")
-
+        linear_params.append(f"weight_Z{zstr}_age{astr}")
     templates_jax = jnp.asarray(templates_flat)             # (N, P) float32
     wave_jax = jnp.asarray(wave)
     #print(wave_jax)
     freq = jnp.fft.fftfreq(n_pix, d=dx).astype(jnp.float32) # (P,)
 
-
-    @with_param_names(param_names)
+    print(linear_params)
+    @with_param_names(param_names,linear_param_names=linear_params)
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
         logamp = params[0]
         amplitude = 10.0 ** logamp
@@ -479,11 +480,12 @@ def make_host_function(
 
     templates_flat = cube.reshape(-1, n_pix)  # (n_Z*n_age, n_pix)
     param_names = ["logamp", "logFWHM", "vshift_kms"]
+    linear_params = []
     for Z, age in grid_metadata:
         zstr = str(Z).replace(".", "p")
         astr = str(age).replace(".", "p")
         param_names.append(f"weight_Z{zstr}_age{astr}")
-
+        linear_params.append(f"weight_Z{zstr}_age{astr}")
     templates_jax = jnp.asarray(templates_flat)  # (Ntemp, n_pix) float32
     wave_jax = jnp.asarray(wave)                 # (n_pix,) float32
 
@@ -494,7 +496,7 @@ def make_host_function(
     #print("sigmatemplate",sigmatemplate)
     freq = jnp.fft.fftfreq(n_pix, d=dln).astype(jnp.float32)
     #print( str(filename))
-    @with_param_names(param_names)
+    @with_param_names(param_names,linear_param_names=linear_params)
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
         logamp = params[0]
         logFWHM = params[1]

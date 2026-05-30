@@ -143,13 +143,15 @@ def ProfileConstraintMaker(
                 param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
                 profile_fn = local_profile)
         if selected_profile == "polynomial":
-            #should be testted
+            #
+            param_names= local_profile.param_names
+            #print(param_names)
             return ProfileConstraintSet(
-                init=[1.0,0.0,0.0,0.0],
-                upper=[10.0,10.0,10.0,10.0],
-                lower=[0.0,-10.0,-10.0,-10.0],
+                init  = [0.0]  + len(param_names[1:]) * [0.0],
+                upper = [10.0] + len(param_names[1:]) * [100.0],
+                lower = [-10.0]+ len(param_names[1:]) * [-100.0],
                 profile=selected_profile,
-                param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names= param_names,
                 profile_fn = local_profile)
     
     if selected_profile in PROFILE_LINE_FUNC_MAP:
@@ -319,6 +321,7 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "template":
+        #print(local_profile)
         params_names = local_profile.param_names
         init= [1.0, np.log10(limits.init_fwhm_kms),0.0]
         upper= [2.0, np.log10(limits.upper_fwhm_kms), limits.vshift_kms]
