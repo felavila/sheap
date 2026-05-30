@@ -298,10 +298,12 @@ class SheapModelFitting:
                 step["num_steps"] = list_num_steps[_step]
             print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
+            print("P1",time.time())
             start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight)
+            print("P2",time.time())
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
             elapsed = end_time - start_time
@@ -365,12 +367,17 @@ class SheapModelFitting:
         tied_map = {T[1]: T[2:] for  T in list_dependencies}
         tied_map = flatten_tied_map(tied_map)
         self.tied_map = tied_map
+        #print(tied_map)
         self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
+        #print("P1.25",time.time())
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
             penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+        #print("P1.5",time.time())
         try:
             #faster why?
             params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+            self.minimizer = minimizer
+            self.norm_spec = norm_spec
             #slower why?
             #params, loss = minimizer(self.params_obj.phys_init(), *norm_spec.transpose(1, 0, 2), self.constraints)
             #params = params_obj.raw_to_phys(raw_params)
@@ -453,11 +460,16 @@ class SheapModelFitting:
         try:
             idxs = mapping_params(self.params_dict, [["amplitude"]])
             idxs_log = mapping_params(self.params_dict, [["logamp"]])
+            self.params_desc = params
             if len(idxs_log) == 0:
                 self.params = params.at[:, idxs].multiply(scale[:, None])
+                self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])
+            elif len(idxs) == 0:
+                self.params = (params.at[:, idxs_log].add(jnp.log10(scale[:, None])))
+                self.uncertainty_params = uncertainty_params.at[:, idxs_log].add(jnp.log10(scale[:, None])) 
             else:
                 self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
-            self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None])          
+                self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None]))       
             self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
             y_model  = self.model_vmap(self.spec[:,0,:],self.params)
             y_data  = self.spec[:,1,:]
@@ -499,6 +511,7 @@ class SheapModelFitting:
         idx = 0  # parameter_position
         region_list = []
         for _,sp in enumerate(self.sheapmodel.lines):
+            #print(sp)
             region_name = sp.region
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
@@ -512,11 +525,19 @@ class SheapModelFitting:
                 host_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = host_dict["model"]
                 self.host_info = host_dict["host_info"] 
+            #here maybe could be good option
             elif sp.profile == "template":
                 if sp.line_name == "balmerhighorder":
                     region_name = sp.line_name
                 template_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = template_dict["model"]
+            elif sp.region =="continuum":
+                #print(sp.profile)
+                #print(sp.template_info)
+                if sp.profile == "polynomial":
+                    profile_fn =  PROFILE_FUNC_MAP.get(sp.profile)(**sp.template_info["keywords"]) 
+                else:
+                    profile_fn =  PROFILE_FUNC_MAP.get(sp.profile)
             else:
                 profile_fn =  PROFILE_FUNC_MAP.get(holder_profile, PROFILE_FUNC_MAP["gaussian"])#?
             
@@ -542,14 +563,14 @@ class SheapModelFitting:
             self.profile_params_index_list.append(np.arange(idx, idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
 
-        if add_linear:
-            print("Continuum profile not found a linear profile will be added")
-            init_,upper_,lower_,spl=self._add_linear(idx)
-            init_list.extend(init_)
-            high_list.extend(upper_)
-            low_list.extend(lower_)
+        # if add_linear:
+        #     print("Continuum profile not found a linear profile will be added")
+        #     init_,upper_,lower_,spl=self._add_linear(idx)
+        #     init_list.extend(init_)
+        #     high_list.extend(upper_)
+        #     low_list.extend(lower_)
             
-            region_list.append(spl)
+        #     region_list.append(spl)
             
         self.initial_params = jnp.array(init_list).astype(jnp.float32)
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
@@ -703,13 +724,13 @@ class SheapModelFitting:
             w      = 1.0 / (ei**2)
 
             # compute weighted sums
-            sum_wxx = jnp.sum(w * xi * xi)    # Σ w x²
-            sum_wx  = jnp.sum(w * xi)         # Σ w x
-            sum_wxy = jnp.sum(w * xi * fi)    # Σ w x y
-            sum_wy  = jnp.sum(w * fi)         # Σ w y
-            sum_w   = jnp.sum(w)              # Σ w
+            sum_wxx = jnp.sum(w * xi * xi)   
+            sum_wx  = jnp.sum(w * xi)         
+            sum_wxy = jnp.sum(w * xi * fi)    
+            sum_wy  = jnp.sum(w * fi)         
+            sum_w   = jnp.sum(w)              
 
-            # normal equations: [[Σw x², Σw x], [Σw x, Σw]] · [m, b] = [Σw x y, Σw y]
+           
             M   = jnp.array([[sum_wxx, sum_wx],
                             [sum_wx , sum_w ]])
             rhs = jnp.array([sum_wxy, sum_wy])

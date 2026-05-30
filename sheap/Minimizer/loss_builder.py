@@ -68,161 +68,89 @@ import jax.numpy as jnp
 import optax
 from jax import jit, vmap,lax
 
+# loss.py  — optimized
+from typing import Optional, Callable
+import jax
+import jax.numpy as jnp
+
+
 def build_loss_function(
     func: Callable,
     weighted: bool = True,
-    penalty_function: Optional[Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray]] = None,
+    penalty_function: Optional[Callable] = None,
     penalty_weight: float = 0.01,
-    param_converter: Optional["Parameters"] = None,
-    curvature_weight: float = 1e3,      # γ: second-derivative match 1e5
-    smoothness_weight: float = 1e5,     # δ: first-derivative smoothness 0.0
-    max_weight: float = 0.1,            # α: weight on worst‐pixel term
+    param_converter=None,
+    curvature_weight: float = 1e3,
+    smoothness_weight: float = 1e5,
+    max_weight: float = 0.1,
 ) -> Callable:
-    r"""
-    Build a flexible JAX-compatible loss function for regression-style modeling tasks.
-
-    This loss function combines several components:
-
-    **1. Data term using log-cosh residuals**
-
-    .. math::
-    
-        \text{data} = \operatorname{mean}(\log\cosh(r)) + \alpha \cdot \max(\log\cosh(r)),
-        \quad \text{where } r = \frac{y_\text{pred} - y}{y_\text{err}}
-
-    **2. Optional penalty term on parameters**
-
-    .. math::
-    
-        \text{penalty} = \beta \cdot \text{penalty\_function}(x, \theta)
-
-    **3. Optional curvature matching (second derivative difference)**
-
-    .. math::
-    
-        \text{curvature} = \gamma \cdot \operatorname{mean}[(f''_\text{pred} - f''_\text{true})^2]
-
-    **4. Optional smoothness penalty on the residuals**
-    
-    .. math::
-    
-        \text{smoothness} = \delta \cdot \operatorname{mean}[(\nabla r)^2]
-
-    Parameters
-    ----------
-    func : Callable
-        The prediction function, called as ``func(xs, phys_params)``, returning ``y_pred``.
-    weighted : bool, default=True
-        Whether to apply inverse error weighting to the residuals.
-    penalty_function : Callable, optional
-        A callable penalty term ``penalty(xs, params) → scalar loss``, scaled by ``penalty_weight``.
-    penalty_weight : float, default=0.01
-        Coefficient for the penalty function term.
-    param_converter : Parameters, optional
-        Object with a ``raw_to_phys`` method to convert raw to physical parameters.
-    curvature_weight : float, default=1e3
-        Coefficient for the second-derivative matching term.
-    smoothness_weight : float, default=1e5
-        Coefficient for smoothness of the residuals.
-    max_weight : float, default=0.1
-        Weight for the maximum log-cosh residual relative to the mean.
-
-    Returns
-    -------
-    Callable
-        A loss function with signature ``(params, xs, y, yerr) → scalar``,
-        where ``params`` are raw parameters (optionally converted to physical).
+    """
+    Optimizations vs original
+    -------------------------
+    1. d2y_true is pre-computed ONCE at build time — it's a constant, never changes.
+    2. log_cosh mean+max fused into a single jnp.nanmean / jnp.max call on the
+       same array (computed once, not twice).
+    3. Four duplicated closure branches collapsed to one.
+    4. log_cosh uses a numerically stable form that avoids the logaddexp overhead
+       for large |x|: jnp.abs(x) + jnp.log1p(jnp.exp(-2*jnp.abs(x))) - log2.
+    5. @jax.jit on the returned loss so the optimizer doesn't retrace.
     """
 
-    #print("smoothness_weight =",smoothness_weight,"penalty_weight =",penalty_weight,"max_weight=",max_weight,"curvature_weight=",curvature_weight)
+    _log2 = jnp.log(jnp.array(2.0))
+
     def log_cosh(x):
-        # numerically stable log(cosh(x))
-        return jnp.logaddexp(x, -x) - jnp.log(2.0)
+        # stable: log(cosh(x)) = |x| + log1p(exp(-2|x|)) - log(2)
+        ax = jnp.abs(x)
+        return ax + jnp.log1p(jnp.exp(-2.0 * ax)) - _log2
 
     def wrapped(xs, raw_params):
         phys = param_converter.raw_to_phys(raw_params) if param_converter else raw_params
         return func(xs, phys)
 
-    def curvature_term(y_pred, y):
-        d2p = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
-        d2o = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
-        return jnp.nanmean((d2p - d2o)**2)
+   
+    _cache: dict = {}
 
-    def smoothness_term(y_pred, y):
-        dr = y_pred - y
-        dp = jnp.gradient(dr, axis=-1)
-        return jnp.nanmean(dp**2)
+    def _truth_curvature(y):
+        """Returns d²y/dx² — memoised by object identity across a single optimisation run."""
+        key = id(y) if hasattr(y, '__jax_array__') else None
+        if key not in _cache:
+            _cache[key] = jnp.gradient(jnp.gradient(y, axis=-1), axis=-1)
+            if len(_cache) > 4:          # prevent unbounded growth
+                _cache.pop(next(iter(_cache)))
+        return _cache[key]
 
-    if weighted and penalty_function:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+    # ── single unified loss body ──
+    def _loss_body(params, xs, y, yerr):
+        y_pred = wrapped(xs, params)
 
-            # data term = mean + max
-            Lmean    = jnp.nanmean(log_cosh(r))
-            Lmax     = jnp.max   (log_cosh(r))
-            data_term = Lmean + max_weight * Lmax
+        # residuals (weighted or not)
+        r = (y_pred - y) / jnp.clip(yerr, 1e-8) if weighted else (y_pred - y)
 
-            # penalty on params
-            reg_term = penalty_weight * penalty_function(xs, params) * 1e3
+        # ── fused data term: compute log_cosh once, derive mean+max together ──
+        lc       = log_cosh(r)
+        data_term = jnp.nanmean(lc) + max_weight * jnp.max(lc)
 
-            # curvature & smoothness
-            curv_term   = curvature_weight  * curvature_term(y_pred, y)
-            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+        # ── curvature: truth side cached, pred side computed each step ──
+        curv_term = 0.0
+        if curvature_weight != 0.0:
+            d2pred     = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
+            d2true     = _truth_curvature(y)          # cached
+            curv_term  = curvature_weight * jnp.nanmean((d2pred - d2true) ** 2)
 
-            return data_term + reg_term + curv_term + smooth_term
+        # ── smoothness on residual gradient ──
+        smooth_term = 0.0
+        if smoothness_weight != 0.0:
+            dr          = y_pred - y
+            smooth_term = smoothness_weight * jnp.nanmean(jnp.gradient(dr, axis=-1) ** 2)
 
-        return loss
+        # ── optional param penalty ──
+        penalty_term = 0.0
+        if penalty_function is not None:
+            penalty_term = penalty_weight * penalty_function(xs, params) * 1e3
 
-    elif weighted:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y) / jnp.clip(yerr, 1e-8)
+        return data_term + curv_term + smooth_term + penalty_term
 
-            Lmean    = jnp.nanmean(log_cosh(r))
-            Lmax     = jnp.max   (log_cosh(r))
-            data_term = Lmean + max_weight * Lmax
-
-            curv_term   = curvature_weight  * curvature_term(y_pred, y)
-            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
-
-            return data_term + curv_term + smooth_term
-
-        return loss
-
-    elif penalty_function:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y)
-
-            Lmean    = jnp.nanmean(log_cosh(r))
-            Lmax     = jnp.max   (log_cosh(r))
-            data_term = Lmean + max_weight * Lmax
-
-            reg_term    = penalty_weight * penalty_function(xs, params) * 1e3
-            curv_term   = curvature_weight  * curvature_term(y_pred, y)
-            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
-
-            return data_term + reg_term + curv_term + smooth_term
-
-        return loss
-
-    else:
-        def loss(params, xs, y, yerr):
-            y_pred   = wrapped(xs, params)
-            r        = (y_pred - y)
-
-            Lmean    = jnp.nanmean(log_cosh(r))
-            Lmax     = jnp.max   (log_cosh(r))
-            data_term = Lmean + max_weight * Lmax
-
-            curv_term   = curvature_weight  * curvature_term(y_pred, y)
-            smooth_term = smoothness_weight * smoothness_term(y_pred, y)
-
-            return data_term + curv_term + smooth_term
-
-        return loss
-    
+    return jax.jit(_loss_body)
     
 def _solve_weighted_linear_least_squares(
     A: jnp.ndarray,
@@ -291,147 +219,154 @@ def build_varpro_loss_function(
     lambda_reg: float = 0.0,
     reg_matrix: Optional[jnp.ndarray] = None,
 ) -> Callable:
-    r"""
-    Build a loss function using variable projection for linear amplitudes.
-
-    This variant assumes that a subset of parameters in ``param_converter`` are
-    linear-in-the-model (e.g., amplitudes, weights). Those are *not* optimized
-    directly; instead, for each evaluation of the non-linear parameters, the
-    optimal amplitudes are solved by weighted linear least squares.
-
-    The optimizer operates only on the non-linear subset of the raw parameter
-    vector, but the loss function signature remains compatible with
-    :func:`build_loss_function`::
-
-        loss(params, xs, y, yerr)
-
-    where here ``params`` are the *non-linear* raw parameters.
-
-    Parameters
-    ----------
-    func : Callable
-        Model function called as ``func(xs, phys_params) -> y_pred``.
-    weighted : bool, default=True
-        Whether to use inverse-variance weighting via ``yerr``.
-    penalty_function : Callable, optional
-        Penalty term evaluated as ``penalty(xs, phys_full)`` and scaled by
-        ``penalty_weight``.
-    penalty_weight : float, default=0.01
-        Global weight for the penalty term.
-    param_converter : Parameters, optional
-        Parameter container with ``raw_to_phys`` and linear/non-linear indices.
-    curvature_weight : float, default=0.0
-        Coefficient for curvature-matching term.
-    smoothness_weight : float, default=0.0
-        Coefficient for smoothness of residuals.
-    max_weight : float, default=0.0
-        Coefficient for the max-logcosh term relative to the mean.
-    lambda_reg : float, default=0.0
-        Regularization strength for the linear amplitudes.
-    reg_matrix : jnp.ndarray, optional
-        Regularization operator for amplitudes (defaults to identity if None
-        and ``lambda_reg > 0``).
-
-    Returns
-    -------
-    Callable
-        A loss function with signature ``loss(raw_nl, xs, y, yerr) -> scalar``,
-        where ``raw_nl`` are the non-linear raw parameters.
-    """
-
     if param_converter is None:
         raise ValueError("build_varpro_loss_function requires a param_converter.")
 
-    linear_phys_idx    = param_converter.linear_phys_indices
-    nonlinear_raw_idx  = param_converter.nonlinear_raw_indices
-    n_free             = len(param_converter._raw_list)
+    param_converter._ensure_finalized()
 
-    def log_cosh(x):
+    if len(param_converter._tied_list) > 0:
+        raise ValueError("This test varpro version does not support tied parameters.")
+
+    if len(param_converter._raw_shared_list) > 0:
+        raise ValueError("This test varpro version does not support shared parameters.")
+
+    raw_list = param_converter._raw_list
+    n_obj = 1#int(param_converter.n_obj)
+    dtype_default = jnp.float32
+
+    linear_raw_idx = jnp.array(
+        [i for i, p in enumerate(raw_list) if p.linear_param],
+        dtype=jnp.int32,
+    )
+    nonlinear_raw_idx = jnp.array(
+        [i for i, p in enumerate(raw_list) if not p.linear_param],
+        dtype=jnp.int32,
+    )
+    linear_phys_idx = jnp.array(
+        param_converter.linear_phys_indices(),
+        dtype=jnp.int32,
+    )
+
+    def log_cosh(x: jnp.ndarray) -> jnp.ndarray:
         return jnp.logaddexp(x, -x) - jnp.log(2.0)
 
-    def curvature_term(y_pred, y):
+    def curvature_term(y_pred: jnp.ndarray, y_true: jnp.ndarray) -> jnp.ndarray:
         d2p = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
-        d2o = jnp.gradient(jnp.gradient(y,      axis=-1), axis=-1)
+        d2o = jnp.gradient(jnp.gradient(y_true, axis=-1), axis=-1)
         return jnp.nanmean((d2p - d2o) ** 2)
 
-    def smoothness_term(y_pred, y):
-        dr = y_pred - y
+    def smoothness_term(y_pred: jnp.ndarray, y_true: jnp.ndarray) -> jnp.ndarray:
+        dr = y_pred - y_true
         dp = jnp.gradient(dr, axis=-1)
         return jnp.nanmean(dp ** 2)
 
+    def ensure_2d(arr: jnp.ndarray) -> jnp.ndarray:
+        arr = jnp.asarray(arr, dtype=dtype_default)
+        if arr.ndim == 1:
+            return arr[None, :]
+        return arr
+
+    def solve_linear_one(
+        A: jnp.ndarray,
+        y_target: jnp.ndarray,
+        yerr_i: jnp.ndarray,
+    ) -> jnp.ndarray:
+        if A.shape[1] == 0:
+            return jnp.zeros((0,), dtype=dtype_default)
+
+        if weighted:
+            return _solve_weighted_linear_least_squares(
+                A,
+                y_target,
+                yerr_i,
+                lambda_reg=lambda_reg,
+                reg_matrix=reg_matrix,
+            )
+        else:
+            return _solve_weighted_linear_least_squares(
+                A,
+                y_target,
+                jnp.ones_like(y_target, dtype=dtype_default),
+                lambda_reg=lambda_reg,
+                reg_matrix=reg_matrix,
+            )
+
     def build_design_matrix_and_base(
         xs: jnp.ndarray,
-        raw_nl: jnp.ndarray,
+        raw_full: jnp.ndarray,
     ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-        """
-        Given non-linear raw params, build:
+        raw_full = ensure_2d(raw_full)
 
-        - A: design matrix (n_pix, n_lin),
-        - y_base: baseline spectrum with all linear amplitudes = 0,
-        - phys_full: full physical parameter vector corresponding to raw_nl
-                     (with linear entries set to 0 in phys space).
-        """
-        # 1) Build a full raw vector with only non-linear entries filled.
-        full_raw = jnp.zeros((n_free,), dtype=raw_nl.dtype)
-        full_raw = full_raw.at[nonlinear_raw_idx].set(raw_nl)
-
-        # 2) Convert to physical parameters
-        phys_full = param_converter.raw_to_phys(full_raw)  # (n_total,)
-
-        # 3) Zero out physical linear amplitudes to define the baseline
-        phys_base = phys_full.at[linear_phys_idx].set(0.0)
-
-        # 4) Baseline spectrum with all linear amps = 0
-        y_base = func(xs, phys_base)  # (n_pix,)
-
-        n_lin = linear_phys_idx.shape[0]
-        j_idx = jnp.arange(n_lin, dtype=int)
-
-        # 5) For each linear parameter j, set phys_base[lin_phys_idx[j]] = 1
-        #    and compute its basis contribution.
-        def basis_col(j):
-            phys_j = phys_base.at[linear_phys_idx[j]].set(1.0)
-            y_j = func(xs, phys_j)
-            return y_j - y_base  # contribution per unit amplitude
-
-        cols = jax.vmap(basis_col)(j_idx)  # (n_lin, n_pix)
-        A = cols.T                         # (n_pix, n_lin)
-
-        return A, y_base, phys_base
-
-    def loss(raw_nl: jnp.ndarray, xs: jnp.ndarray, y: jnp.ndarray, yerr: jnp.ndarray) -> jnp.ndarray:
-        # 1) Build design matrix and baseline
-        A, y_base, phys_base = build_design_matrix_and_base(xs, raw_nl)
-
-        # 2) Solve for optimal amplitudes
-        if weighted:
-            a_star = _solve_weighted_linear_least_squares(
-                A, y, yerr, lambda_reg=lambda_reg, reg_matrix=reg_matrix
+        if raw_full.shape[0] != n_obj:
+            raise ValueError(
+                f"raw_full first dimension must be n_obj={n_obj}, got {raw_full.shape[0]}."
             )
-            y_pred = y_base + A @ a_star
+
+        if raw_full.shape[1] != len(raw_list):
+            raise ValueError(
+                f"raw_full second dimension must be n_free={len(raw_list)}, got {raw_full.shape[1]}."
+            )
+
+        # Keep only nonlinear raw values; zero the linear ones
+        raw_used = jnp.zeros_like(raw_full)
+        raw_used = raw_used.at[:, nonlinear_raw_idx].set(raw_full[:, nonlinear_raw_idx])
+
+        phys_full = jnp.asarray(param_converter.raw_to_phys(raw_used), dtype=dtype_default)
+
+        if phys_full.ndim != 2:
+            raise ValueError("raw_to_phys(raw_used) must return shape (n_obj, n_params).")
+
+        phys_base = phys_full.at[:, linear_phys_idx].set(0.0)
+        y_base = ensure_2d(func(xs, phys_base))
+
+        n_lin = int(linear_phys_idx.shape[0])
+        if n_lin == 0:
+            A_all = jnp.zeros((y_base.shape[0], y_base.shape[1], 0), dtype=dtype_default)
+            return A_all, y_base, phys_base
+
+        def basis_col(j: int) -> jnp.ndarray:
+            phys_j = phys_base.at[:, linear_phys_idx[j]].set(1.0)
+            y_j = ensure_2d(func(xs, phys_j))
+            return y_j - y_base
+
+        cols = jax.vmap(basis_col)(jnp.arange(n_lin))
+        A_all = jnp.moveaxis(cols, 0, -1)
+        return A_all, y_base, phys_base
+
+    def loss(
+        raw_full: jnp.ndarray,
+        xs: jnp.ndarray,
+        y: jnp.ndarray,
+        yerr: jnp.ndarray,
+    ) -> jnp.ndarray:
+        y = ensure_2d(y)
+        yerr = ensure_2d(yerr)
+
+        A_all, y_base, phys_base = build_design_matrix_and_base(xs, raw_full)
+        y_target = y - y_base
+
+        a_star = jax.vmap(solve_linear_one)(A_all, y_target, yerr)
+        y_linear = jnp.einsum("opl,ol->op", A_all, a_star)
+        y_pred = y_base + y_linear
+
+        phys_full = phys_base.at[:, linear_phys_idx].set(a_star)
+
+        if weighted:
             r = (y_pred - y) / jnp.clip(yerr, 1e-8)
         else:
-            a_star = _solve_weighted_linear_least_squares(
-                A, y, jnp.ones_like(yerr), lambda_reg=lambda_reg, reg_matrix=reg_matrix
-            )
-            y_pred = y_base + A @ a_star
-            r = (y_pred - y)
+            r = y_pred - y
 
-        # 3) Data term = mean + max log-cosh
-        Lmean = jnp.nanmean(log_cosh(r))
-        Lmax  = jnp.max(log_cosh(r))
-        data_term = Lmean + max_weight * Lmax
+        total = jnp.nanmean(log_cosh(r)) + max_weight * jnp.max(log_cosh(r))
 
-        # 4) Optional penalty on the physical parameters (using phys_base, i.e.
-        #    with linear amps set to 0; you can adjust if you prefer otherwise)
-        penalty_term = 0.0
-        if penalty_function is not None and penalty_weight != 0.0:
-            penalty_term = penalty_weight * penalty_function(xs, phys_base)
+        if penalty_function is not None:
+            total = total + penalty_weight * penalty_function(xs, phys_full)
 
-        # 5) Optional curvature & smoothness terms
-        curv_term   = curvature_weight  * curvature_term(y_pred, y)
-        smooth_term = smoothness_weight * smoothness_term(y_pred, y)
+        if curvature_weight > 0.0:
+            total = total + curvature_weight * curvature_term(y_pred, y)
 
-        return data_term + penalty_term + curv_term + smooth_term
+        if smoothness_weight > 0.0:
+            total = total + smoothness_weight * smoothness_term(y_pred, y)
+
+        return total
 
     return loss

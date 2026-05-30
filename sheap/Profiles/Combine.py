@@ -83,57 +83,124 @@ PROFILE_LINE_FUNC_MAP_loglambda: Dict[str, ProfileFunc] = {
 }
 
 
+# def SPAF_loglambda(
+#     centers: List[float],
+#     amplitude_rules: List[Tuple[int, float, int]],
+#     profile_name: str,
+# ):
+#     """
+#     SPAF (Sum Profiles Amplitude Free) wrapper for *log-lambda* line profiles.
+
+#     This builds a composite profile made of multiple lines that share the same
+#     *shape parameters* (e.g., ``vshift_kms``, ``fwhm_v_kms``, and any extra shape
+#     params like ``alpha``, ``eta``, or ``tau_kms``), while allowing a flexible
+#     set of **free amplitudes** combined through ``amplitude_rules``.
+
+#     Parameters
+#     ----------
+#     centers : list[float]
+#         Per-line rest wavelengths :math:`\\lambda_0` (Å). These are required and
+#         injected as the last parameter of the base profile for each line.
+#     amplitude_rules : list[(line_idx, coefficient, free_amp_idx)]
+#         For each line: ``amp_line = coefficient * free_amplitudes[free_amp_idx]``.
+
+#         Example for a doublet with fixed 2:1 ratio sharing the same free amp 0::
+
+#             [(0, 1.0, 0), (1, 0.5, 0)]
+#     profile_name : str
+#         Name of the base profile to use. It must exist in
+#         ``PROFILE_LINE_FUNC_MAP_loglambda`` and be decorated with ``@with_param_names``.
+
+#         The base profile must include at least these parameter names:
+#         ``"amplitude"`` and ``"lambda0"``.
+#         Any additional parameters are treated as *shared* across all lines.
+
+#     Returns
+#     -------
+#     ProfileFunc
+#         A callable ``G(x_lambda, params)`` decorated with ``@with_param_names``.
+
+#         The parameter layout is:
+
+#         - ``[amplitude0, ..., amplitude{Nfree-1}, <shared_params...>]``
+
+#         where ``<shared_params...>`` are all base parameters except ``amplitude``
+#         and ``lambda0`` (in the same order as the base profile's ``param_names``).
+
+#     Notes
+#     -----
+#     - This works for any log-lambda base profile with signature
+#       ``base_func(x_lambda, params)`` and ``param_names`` containing
+#       ``"amplitude"`` and ``"lambda0"``.
+#     - Shape parameters are shared across all lines; only amplitudes are
+#       combined via ``amplitude_rules``.
+#     """
+#     centers = jnp.asarray(centers, dtype=jnp.float32)
+
+#     base_func = PROFILE_LINE_FUNC_MAP_loglambda.get(profile_name)
+#     if base_func is None:
+#         raise ValueError(
+#             f"Profile '{profile_name}' not found in PROFILE_LINE_FUNC_MAP_loglambda."
+#         )
+
+#     base_param_names = getattr(base_func, "param_names", None)
+#     if not base_param_names:
+#         raise ValueError(
+#             f"Base profile '{profile_name}' must be decorated with @with_param_names "
+#             f"and expose 'param_names'."
+#         )
+
+#     if "amplitude" not in base_param_names or "lambda0" not in base_param_names:
+#         raise ValueError(
+#             f"Base profile '{profile_name}' must include parameter names "
+#             f"'amplitude' and 'lambda0'. Got: {base_param_names}"
+#         )
+
+#     # Shared params are everything except amplitude + lambda0, in base order
+#     shared_names = [n for n in base_param_names if n not in ("amplitude", "lambda0")]
+
+#     # Normalize/compact free amplitude indices
+#     raw_free = [r[2] for r in amplitude_rules]
+#     uniq = sorted({int(i) for i in raw_free})
+#     idx_map = {orig: new for new, orig in enumerate(uniq)}
+#     rules = [(int(li), float(coef), idx_map[int(fi)]) for li, coef, fi in amplitude_rules]
+#     n_free = len(uniq)
+
+#     # Public param names for the composite
+#     param_names = [f"amplitude{k}" for k in range(n_free)] + shared_names
+
+#     @with_param_names(param_names)
+#     def G(x_lambda, params):
+#         x_dtype = x_lambda.dtype
+
+#         amps_linear = params[:n_free]                 # linear free amplitudes
+#         shared_vals = params[n_free:]                 # shared shape params in shared_names order
+
+#         total = jnp.array(0.0, dtype=x_dtype)
+
+#         # Build each line with correct base param ordering
+#         for line_idx, coef, free_idx in rules:
+#             amp_line = coef * amps_linear[free_idx]
+#             lambda0_i = centers[line_idx].astype(x_dtype)
+
+#             # map name->value for the base params
+#             pdict = {"amplitude": amp_line, "lambda0": lambda0_i}
+#             for name, val in zip(shared_names, shared_vals):
+#                 pdict[name] = val
+
+#             p_line = jnp.array([pdict[name] for name in base_param_names], dtype=x_dtype)
+#             total = total + base_func(x_lambda, p_line)
+
+#         return total
+
+#     return G
 def SPAF_loglambda(
-    centers: List[float],
-    amplitude_rules: List[Tuple[int, float, int]],
+    centers: list[float],
+    amplitude_rules: list[tuple[int, float, int]],
     profile_name: str,
 ):
     """
-    SPAF (Sum Profiles Amplitude Free) wrapper for *log-lambda* line profiles.
-
-    This builds a composite profile made of multiple lines that share the same
-    *shape parameters* (e.g., ``vshift_kms``, ``fwhm_v_kms``, and any extra shape
-    params like ``alpha``, ``eta``, or ``tau_kms``), while allowing a flexible
-    set of **free amplitudes** combined through ``amplitude_rules``.
-
-    Parameters
-    ----------
-    centers : list[float]
-        Per-line rest wavelengths :math:`\\lambda_0` (Å). These are required and
-        injected as the last parameter of the base profile for each line.
-    amplitude_rules : list[(line_idx, coefficient, free_amp_idx)]
-        For each line: ``amp_line = coefficient * free_amplitudes[free_amp_idx]``.
-
-        Example for a doublet with fixed 2:1 ratio sharing the same free amp 0::
-
-            [(0, 1.0, 0), (1, 0.5, 0)]
-    profile_name : str
-        Name of the base profile to use. It must exist in
-        ``PROFILE_LINE_FUNC_MAP_loglambda`` and be decorated with ``@with_param_names``.
-
-        The base profile must include at least these parameter names:
-        ``"amplitude"`` and ``"lambda0"``.
-        Any additional parameters are treated as *shared* across all lines.
-
-    Returns
-    -------
-    ProfileFunc
-        A callable ``G(x_lambda, params)`` decorated with ``@with_param_names``.
-
-        The parameter layout is:
-
-        - ``[amplitude0, ..., amplitude{Nfree-1}, <shared_params...>]``
-
-        where ``<shared_params...>`` are all base parameters except ``amplitude``
-        and ``lambda0`` (in the same order as the base profile's ``param_names``).
-
-    Notes
-    -----
-    - This works for any log-lambda base profile with signature
-      ``base_func(x_lambda, params)`` and ``param_names`` containing
-      ``"amplitude"`` and ``"lambda0"``.
-    - Shape parameters are shared across all lines; only amplitudes are
-      combined via ``amplitude_rules``.
+    SPAF (Sum Profiles Amplitude Free) wrapper for log-lambda line profiles.
     """
     centers = jnp.asarray(centers, dtype=jnp.float32)
 
@@ -146,44 +213,40 @@ def SPAF_loglambda(
     base_param_names = getattr(base_func, "param_names", None)
     if not base_param_names:
         raise ValueError(
-            f"Base profile '{profile_name}' must be decorated with @with_param_names "
-            f"and expose 'param_names'."
+            f"Base profile '{profile_name}' must expose 'param_names'."
         )
 
     if "amplitude" not in base_param_names or "lambda0" not in base_param_names:
         raise ValueError(
-            f"Base profile '{profile_name}' must include parameter names "
-            f"'amplitude' and 'lambda0'. Got: {base_param_names}"
+            f"Base profile '{profile_name}' must include 'amplitude' and 'lambda0'. "
+            f"Got: {base_param_names}"
         )
 
-    # Shared params are everything except amplitude + lambda0, in base order
     shared_names = [n for n in base_param_names if n not in ("amplitude", "lambda0")]
 
-    # Normalize/compact free amplitude indices
     raw_free = [r[2] for r in amplitude_rules]
     uniq = sorted({int(i) for i in raw_free})
     idx_map = {orig: new for new, orig in enumerate(uniq)}
     rules = [(int(li), float(coef), idx_map[int(fi)]) for li, coef, fi in amplitude_rules]
     n_free = len(uniq)
 
-    # Public param names for the composite
     param_names = [f"amplitude{k}" for k in range(n_free)] + shared_names
+    linear_names = [f"amplitude{k}" for k in range(n_free)]
 
-    @with_param_names(param_names)
+    @with_param_names(param_names, linear_param_names=linear_names)
     def G(x_lambda, params):
         x_dtype = x_lambda.dtype
+        params = jnp.asarray(params, dtype=x_dtype)
 
-        amps_linear = params[:n_free]                 # linear free amplitudes
-        shared_vals = params[n_free:]                 # shared shape params in shared_names order
+        amps_linear = params[:n_free]
+        shared_vals = params[n_free:]
 
         total = jnp.array(0.0, dtype=x_dtype)
 
-        # Build each line with correct base param ordering
         for line_idx, coef, free_idx in rules:
             amp_line = coef * amps_linear[free_idx]
             lambda0_i = centers[line_idx].astype(x_dtype)
 
-            # map name->value for the base params
             pdict = {"amplitude": amp_line, "lambda0": lambda0_i}
             for name, val in zip(shared_names, shared_vals):
                 pdict[name] = val
@@ -194,7 +257,6 @@ def SPAF_loglambda(
         return total
 
     return G
-
 
 
 def SPAF_loglambda_old(

@@ -49,7 +49,7 @@ __all__ = [
     "with_param_names",
 ]
 
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable 
 
 import numpy as np 
 import jax.numpy as jnp 
@@ -58,58 +58,169 @@ from jax import vmap, jit,nn
 
 
 
-def with_param_names(param_names: list[str]):
+# def with_param_names(param_names: list[str]):
+#     """
+#     Decorator to attach parameter names and count to a profile function.
+
+#     Parameters
+#     ----------
+#     param_names : list of str
+#         Names of the parameters for the decorated profile function.
+
+#     Returns
+#     -------
+#     decorator : callable
+#         A decorator that attaches `.param_names` and `.n_params` attributes
+#         to the target function.
+#     """
+#     def decorator(func):
+#         func.param_names = param_names
+#         func.n_params = len(param_names)
+#         return func
+#     return decorator
+
+
+def with_param_names(
+    param_names: Iterable[str],
+    linear_param_names: Optional[Iterable[str]] = None,
+    linear_param_mask: Optional[Iterable[bool]] = None,
+    profile_name = None):
     """
-    Decorator to attach parameter names and count to a profile function.
+    Decorate a profile function with parameter metadata.
 
     Parameters
     ----------
-    param_names : list of str
-        Names of the parameters for the decorated profile function.
+    param_names : iterable of str
+        Ordered parameter names for the function.
+    linear_param_names : iterable of str, optional
+        Names of parameters that enter linearly.
+    linear_param_mask : iterable of bool, optional
+        Boolean mask of the same length as ``param_names`` indicating which
+        parameters are linear.
 
     Returns
     -------
-    decorator : callable
-        A decorator that attaches `.param_names` and `.n_params` attributes
-        to the target function.
+    callable
+        Decorated function with attributes:
+
+        - ``param_names``
+        - ``n_params``
+        - ``linear_param_mask``
+        - ``linear_param_indices``
+        - ``nonlinear_param_indices``
+        - ``linear_param_names``
+        - ``nonlinear_param_names``
+
+    Notes
+    -----
+    Provide either ``linear_param_names`` or ``linear_param_mask``.
+    If neither is provided, all parameters are assumed nonlinear.
     """
+    param_names = list(param_names)
+    n_params = len(param_names)
+
+    if linear_param_names is not None and linear_param_mask is not None:
+        raise ValueError("Use only one of linear_param_names or linear_param_mask.")
+
+    if linear_param_names is not None:
+        linear_param_names = set(linear_param_names)
+        mask = [name in linear_param_names for name in param_names]
+    elif linear_param_mask is not None:
+        mask = list(linear_param_mask)
+        if len(mask) != n_params:
+            raise ValueError("linear_param_mask must have the same length as param_names.")
+    else:
+        mask = [False] * n_params
+
+    linear_idx = tuple(i for i, m in enumerate(mask) if m)
+    nonlinear_idx = tuple(i for i, m in enumerate(mask) if not m)
+
     def decorator(func):
-        func.param_names = param_names
-        func.n_params = len(param_names)
+        func.param_names = tuple(param_names)
+        func.n_params = n_params
+        func.linear_param_mask = tuple(bool(m) for m in mask)
+        func.linear_param_indices = linear_idx
+        func.nonlinear_param_indices = nonlinear_idx
+        func.linear_param_names = tuple(param_names[i] for i in linear_idx)
+        func.nonlinear_param_names = tuple(param_names[i] for i in nonlinear_idx)
+        func.profile_name = profile_name
         return func
+
     return decorator
 
 
-def make_fused_profiles(funcs):
-    """
-    Fuse multiple profile functions into a single callable.
-    #TODO when we make a fused profile it lose the info about the n_params and the names (this can be repetead so are not trustworthy) we can add at least the n param to the combine ones.
-    Parameters
-    ----------
-    funcs : list of callables
-        Each function must have a `.n_params` attribute
-        and a signature `(x, params)`.
+# def make_fused_profiles(funcs):
+#     """
+#     Fuse multiple profile functions into a single callable.
+#     #TODO when we make a fused profile it lose the info about the n_params and the names (this can be repetead so are not trustworthy) we can add at least the n param to the combine ones.
+#     Parameters
+#     ----------
+#     funcs : list of callables
+#         Each function must have a `.n_params` attribute
+#         and a signature `(x, params)`.
 
-    Returns
-    -------
-    fused_profile : callable
-        A function that evaluates the sum of all profiles given
-        a single concatenated parameter vector.
-    """
-    n_params = [f.n_params for f in funcs]
-    param_splits = np.cumsum([0] + n_params)  # [0, 3, 6, ...]
-    def fused_profile(x, all_args):
-        result = 0.0
-        for i, f in enumerate(funcs):
-            fargs = all_args[param_splits[i]:param_splits[i+1]]
-            result = result + f(x, fargs)
-        return result
-    return fused_profile
+#     Returns
+#     -------
+#     fused_profile : callable
+#         A function that evaluates the sum of all profiles given
+#         a single concatenated parameter vector.
+#     """
+#     n_params = [f.n_params for f in funcs]
+#     param_splits = np.cumsum([0] + n_params)  # [0, 3, 6, ...]
+#     def fused_profile(x, all_args):
+#         result = 0.0
+#         for i, f in enumerate(funcs):
+#             fargs = all_args[param_splits[i]:param_splits[i+1]]
+#             result = result + f(x, fargs)
+#         return result
+#     return fused_profile
+
 # def make_g(list):
 #     amplitudes, centers = list.amplitude, list.center
 #     return PROFILE_FUNC_MAP["Gsum_model"](centers, amplitudes)
 #here add the function to reconstruct sum_gaussian_amplitude_free 
 
+
+def make_fused_profiles(funcs):
+    """
+    Fuse multiple profile functions into a single callable while preserving
+    parameter metadata, including which parameters are linear.
+    """
+    n_params = [f.n_params for f in funcs]
+    param_splits = np.cumsum([0] + n_params)
+
+    fused_param_names = []
+    fused_linear_mask = []
+
+    for i, f in enumerate(funcs):
+        names = list(getattr(f, "param_names", [f"p{i}_{k}" for k in range(f.n_params)]))
+        linear_mask = list(getattr(f, "linear_param_mask", [False] * f.n_params))
+
+        if len(names) != f.n_params:
+            raise ValueError(f"Function {i} has inconsistent param_names length.")
+        if len(linear_mask) != f.n_params:
+            raise ValueError(f"Function {i} has inconsistent linear_param_mask length.")
+
+        fused_param_names.extend(names)
+        fused_linear_mask.extend(linear_mask)
+
+    @with_param_names(
+        fused_param_names,
+        linear_param_mask=fused_linear_mask,)
+    def fused_profile(x, all_args):
+        all_args = jnp.asarray(all_args)
+        result = jnp.array(0.0, dtype=x.dtype if hasattr(x, "dtype") else jnp.float32)
+
+        for i, f in enumerate(funcs):
+            fargs = all_args[param_splits[i]:param_splits[i + 1]]
+            result = result + f(x, fargs)
+
+        return result
+
+    fused_profile.param_splits = tuple(param_splits.tolist())
+    fused_profile.sub_funcs = tuple(funcs)
+
+    return fused_profile
 
 def make_integrator(profile_fn, method="broadcast"):
     """

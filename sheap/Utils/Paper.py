@@ -16,7 +16,6 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import Normalize
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
-from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
 
 import pandas as pd
@@ -366,10 +365,10 @@ def errors_to_logspace(vals, err_minus, err_plus, *, fill_value=0.30103):
 	# replace invalid values with "100% error"
 	bad_plus = np.where(~np.isfinite(err_p))[0]
 	bad_minus = np.where(~np.isfinite(err_m))[0]
-	if len(bad_plus)>0:
-		print(f"Bad errors plus in index {bad_plus}, replacing per 100% error")
-	if len(bad_minus)>0:
-		print(f"Bad errors minus in index {bad_minus} 100% error")
+	# if len(bad_plus)>0:
+	# 	print(f"Bad errors plus in index {bad_plus}, replacing per 100% error")
+	# if len(bad_minus)>0:
+	# 	print(f"Bad errors minus in index {bad_minus} 100% error")
 	err_m = np.where(np.isfinite(err_m), err_m, fill_value)
 	err_p = np.where(np.isfinite(err_p), err_p, fill_value)
 
@@ -665,7 +664,7 @@ def plot_ratio_histogram(
 
 def plot_logdex_agreement(
 	data_dict,
-	sn=None,  # <<< NEW: common S/N array for ALL series
+	sn=None,
 	xlabel=r'$\log_{10}(\mathrm{FWHM}_{\mathrm{ref}}\ [\mathrm{km\ s^{-1}}])$',
 	ylabel=r'$\log_{10}(\mathrm{FWHM}_{\mathrm{SHEAP}}\ [\mathrm{km\ s^{-1}}])$',
 	label_colorbar=r'$\log_{10}\,\mathrm{S/N}$',
@@ -836,7 +835,6 @@ def plot_logdex_agreement(
 ]
 
 
-	# --- Colormap setup (shared across series) ---
 	cmap_obj = plt.get_cmap(cmap)
 	norm = None
 	if sn is not None:
@@ -844,10 +842,8 @@ def plot_logdex_agreement(
 		vmin= vmin or np.nanmin(sn)
 		norm = Normalize(vmin=vmin, vmax=vmax)
 
-	# keep one mappable for the colorbar
 	sc_for_cbar = None
-
-	# ---------------------- plot each series ----------------------
+	plots_xx = {}
 	for label, series in data_dict.items():
 		x_vals, x_err_m, x_err_p = extract_data(series["x"])
 		y_vals, y_err_m, y_err_p = extract_data(series["y"])
@@ -869,9 +865,6 @@ def plot_logdex_agreement(
 			stats[label] = dict(n_in=0, n_tot=0, pct=0.0, band=band, idx_out=[])
 			continue
 
-	   
-
-		
 		mk  = next(marker_cyc)
 		col = next(color_cyc)
 
@@ -895,6 +888,12 @@ def plot_logdex_agreement(
 			facecols = None  # fallback: use series color
 
 		# --- Draw per-point errorbars so they match marker color ---
+		X = []
+		Y = []
+		eX = []
+		eY = []
+		EC = []
+		markeredgecolor_list = []
 		if (xerr is not None) or (yerr is not None):
 			xm = x_log[m]
 			ym = y_log[m]
@@ -919,9 +918,14 @@ def plot_logdex_agreement(
 						elinewidth=elinewidth,
 						alpha=err_alpha,
 						capsize=capsize,
-						zorder=zorder,
-					)
-    
+						zorder=zorder,)
+				X.append(xm[j])
+				Y.append(ym[j])
+				eX.append(xerr_j)
+				eY.append(yerr_j)	
+				EC.append(ecolor_j)
+				markeredgecolor_list.append(col)
+		
 		if add_numbers:
 			for i, (xx, yy, ok) in enumerate(zip(x_log, y_log, m)):
 				if ok:
@@ -937,9 +941,8 @@ def plot_logdex_agreement(
 			markerfacecolor="white" if sn is not None else col,  # better than "none" in PDFs
 			markeredgecolor = markeredgecolor if sn is not None else col,
 			label=label,
-			alpha = err_alpha
-		)
-)       
+			alpha = err_alpha))
+		       
 		#stats
 		# select plotted values
 		
@@ -1014,7 +1017,8 @@ def plot_logdex_agreement(
 				cov_1sigma = np.mean(centered <= 1.0 * res_err[ok])  # ideal ~0.68
 				cov_2sigma = np.mean(centered <= 2.0 * res_err[ok])  # ideal ~0.95
 
-		# Store results (drop mean/std; keep robust + uncertainty-aware)
+		plots_xx[label] = {"x":X,"y":Y,"ey":eY,"ex":eX,"fmt":mk,"ecolor":markeredgecolor,"color":EC,"markeredgecolor":markeredgecolor,"markeredgewidth":markeredgewidth,"elinewidth":elinewidth,"alpha":alpha,"capsize":capsize,"zorder":zorder}
+
 		stats[label] = dict(
 			n_in=n_in, n_tot=n_tot, pct=pct, band=band, idx_out=idx_out,
 			res=res,
@@ -1034,8 +1038,8 @@ def plot_logdex_agreement(
 			pull_nmad=pull_nmad,
 			cov_1sigma=cov_1sigma,
 			cov_2sigma=cov_2sigma,
-			is_finite= m
-		)
+			is_finite= m)
+	
 	if colorbar and (sn is not None):
 		divider = make_axes_locatable(ax)
 		cax = divider.append_axes("right", size=colorbar_size, pad=colorbar_pad)
@@ -1044,19 +1048,18 @@ def plot_logdex_agreement(
 		cbar = plt.colorbar(mappable, cax=cax)
 		cbar.set_label(label_colorbar, fontsize=label_fontsize)
 		cbar.ax.tick_params(labelsize=tick_fontsize)
+		colorbar_dict = {}
 	
-	ax.legend(handles=legend_handles, fontsize=legend_fontsize, frameon=False, 
-		  markerscale=1.0, ncol=1, loc=legend_loc)
+	ax.legend(handles=legend_handles, fontsize=legend_fontsize, frameon=False, markerscale=1.0, ncol=1, loc=legend_loc)
+
 	ax.set_xlabel(xlabel, fontsize=label_fontsize)
 	ax.set_ylabel(ylabel, fontsize=label_fontsize)
 	ax.tick_params(axis="both", which="major", labelsize=tick_fontsize)
 
-	# Set limits FIRST
 	
 	ax.set_xlim(lims_use)
 	ax.set_ylim(lims_use)
 
-	# Set ticks BEFORE tight_layout
 	ticks = ax.get_xticks()
 	ax.set_yticks(ticks)
 	if min(ticks) == min(lims_use):
@@ -1074,10 +1077,32 @@ def plot_logdex_agreement(
 				ha=text.get("ha", "center"), va=text.get("va", "top"))
 		
 	saved_file = None
+	main_plot = {}
+	main_plot["inner_plot"] = plots_xx
+	main_plot["outter_plot"] = {"tick_params":{"axis":"both", "which":"major", "labelsize":tick_fontsize},
+							 "legend":{"handles":legend_handles,"fontsize":legend_fontsize,"frameon":False,"markerscale":1.0,"ncol":1,"loc":legend_loc}
+							 ,"lim":lims_use,"ticks":ticks,"xlabel":xlabel,"ylabel":ylabel,"label_fontsize":label_fontsize,}
+	if colorbar and (sn is not None):
+		colorbar_dict = {
+			"use_colorbar": True,
+			"sn": sn,
+			"cmap": cmap_obj,
+			"norm": norm,
+			"label": label_colorbar,
+			"label_fontsize": label_fontsize,
+			"tick_fontsize": tick_fontsize,
+			"size": colorbar_size,
+			"pad": colorbar_pad,
+		}
+	else:
+		colorbar_dict = {
+			"use_colorbar": False
+		}
+	main_plot["outter_plot"]["colorbar_dict"] = colorbar_dict
 	if save_file is not None:
 		saved_file = save_file
 		fig.savefig(saved_file, dpi=dpi, format=save_format, bbox_inches="tight")
-
+	stats["main_plot"] = main_plot
 	return fig, ax, stats, saved_file
 
 
@@ -1398,3 +1423,228 @@ def compare_res(dictionaries,labels,main_key="Values Bernal+25",compared_xlabel=
 		saved_file = save_file#
 		fig.savefig(saved_file, dpi=300, format="pdf", bbox_inches="tight")
 	plt.show()
+
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.pyplot as plt
+
+def add_colorbar_from_dict(ax, colorbar_dict):
+    """
+    Recreate a colorbar from a saved dictionary.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Axis where the colorbar will be attached.
+    colorbar_dict : dict
+        Dictionary with colorbar configuration.
+
+    Returns
+    -------
+    cbar : matplotlib.colorbar.Colorbar or None
+        The created colorbar, or None if not used.
+    """
+    if not colorbar_dict.get("use_colorbar", False):
+        return None
+
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes(
+        "right",
+        size=colorbar_dict["size"],
+        pad=colorbar_dict["pad"]
+    )
+
+    mappable = plt.cm.ScalarMappable(
+        norm=colorbar_dict["norm"],
+        cmap=colorbar_dict["cmap"]
+    )
+    mappable.set_array(colorbar_dict["sn"])
+
+    cbar = plt.colorbar(mappable, cax=cax)
+    cbar.set_label(
+        colorbar_dict["label"],
+        fontsize=colorbar_dict["label_fontsize"]
+    )
+    cbar.ax.tick_params(labelsize=colorbar_dict["tick_fontsize"])
+
+    return cbar
+
+def plot_main_plot_panel(main_plot_dict, ax=None, panel_title=None,tick_labelsize=None,legend_fontsize=None,label_fontsize=None):
+    """
+    Plot one agreement panel from a `stats_host["main_plot"]` dictionary.
+
+    Parameters
+    ----------
+    main_plot_dict : dict
+        Dictionary with the structure of `stats_host["main_plot"]`.
+    ax : matplotlib.axes.Axes, optional
+        Axis where the panel will be drawn. If None, a new figure/axis is created.
+    panel_title : str, optional
+        Title for the panel.
+
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        Axis with the plot.
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 12))
+
+    ax.set_aspect("equal", adjustable="box")
+
+    inner_plot, outer_plot = main_plot_dict.values()
+    tick_params_val, legend_val, lim, ticks, xlabel, ylabel, default_label_fontsize,colorbar_dict = outer_plot.values()
+
+    x_fill = np.linspace(lim[0], lim[1], 200)
+    edge_color = "0.4"
+
+    ax.plot(x_fill, x_fill + 0.3, color=edge_color, lw=2.5, ls="--")
+    ax.plot(x_fill, x_fill - 0.3, color=edge_color, lw=2.5, ls="--")
+    ax.plot(lim, lim, "k--", linewidth=1.8, label="1:1 line", zorder=10)
+
+    for key, values in inner_plot.items():
+        (
+            x, y, ey, ex, fmt, ecolor, color,
+            markeredgecolor, markeredgewidth,
+            elinewidth, alpha, capsize, zorder
+        ) = values.values()
+
+        for j in range(len(x)):
+            ax.errorbar(
+                x[j], y[j],
+                xerr=ex[j], yerr=ey[j],
+                fmt=fmt,
+                ecolor=markeredgecolor,
+                color=color[j],
+                markeredgecolor=markeredgecolor,
+                markeredgewidth=markeredgewidth,
+                elinewidth=elinewidth,
+                alpha=alpha,
+                capsize=capsize,
+                zorder=zorder,
+            )
+    final_label_fontsize = label_fontsize if label_fontsize is not None else default_label_fontsize
+    if colorbar_dict["use_colorbar"]:
+        add_colorbar_from_dict(ax,colorbar_dict)
+    
+    ax.set_xlabel(xlabel, fontsize=final_label_fontsize)
+    ax.set_ylabel(ylabel, fontsize=final_label_fontsize)
+    # ax.set_xlabel(xlabel, fontsize=label_fontsize)
+    # ax.set_ylabel(ylabel, fontsize=label_fontsize)
+    ax.tick_params(**tick_params_val)
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+
+    ticks = ax.get_xticks()
+    ax.set_yticks(ticks)
+    if min(ticks) == min(lim):
+        ax.set_yticks(ticks[1:])
+        ax.set_xticks(ticks[1:])
+
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
+    if tick_labelsize is not None:
+        ax.tick_params(axis="both", labelsize=tick_labelsize)
+    if panel_title is not None:
+        ax.set_title(panel_title)
+    #ax.legend(**legend_val)
+    if legend_fontsize is not None:
+        legend_val = dict(legend_val)
+        legend_val["fontsize"] = legend_fontsize
+
+    ax.legend(**legend_val)
+    return ax
+
+def plot_main_plot_subplots(
+    main_plot_list,
+    titles=None,
+    ncols=2,
+    figsize_per_panel=(8, 8),
+    sharex=False,
+    sharey=False,
+    tick_labelsize=None,
+    legend_fontsize=None,
+    label_fontsize=None,
+    wspace=None,
+    hspace=None,
+    left=None,
+    right=None,
+    top=None,
+    bottom=None,
+):
+    """
+    Plot multiple `stats_host["main_plot"]` dictionaries as subplots.
+
+    Parameters
+    ----------
+    main_plot_list : list of dict
+        List where each element is a `stats_host["main_plot"]` dictionary.
+    titles : list of str, optional
+        Titles for each subplot.
+    ncols : int, optional
+        Number of columns in subplot grid.
+    figsize_per_panel : tuple, optional
+        Size (width, height) per panel.
+    sharex : bool, optional
+        Whether to share x axis.
+    sharey : bool, optional
+        Whether to share y axis.
+    tick_labelsize : float, optional
+        Tick label font size.
+    legend_fontsize : float, optional
+        Legend font size.
+    label_fontsize : float, optional
+        Axis label font size.
+    wspace : float, optional
+        Width spacing between subplots.
+    hspace : float, optional
+        Height spacing between subplots.
+    left, right, top, bottom : float, optional
+        Margins for subplot layout.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Figure object.
+    axes : numpy.ndarray
+        Array of axes.
+    """
+    nplots = len(main_plot_list)
+    nrows = int(np.ceil(nplots / ncols))
+
+    fig, axes = plt.subplots(
+        nrows,
+        ncols,
+        figsize=(figsize_per_panel[0] * ncols, figsize_per_panel[1] * nrows),
+        sharex=sharex,
+        sharey=sharey,
+        squeeze=False
+    )
+
+    axes_flat = axes.ravel()
+
+    for i, main_plot_dict in enumerate(main_plot_list):
+        title = titles[i] if titles is not None and i < len(titles) else None
+        plot_main_plot_panel(
+            main_plot_dict,
+            ax=axes_flat[i],
+            panel_title=title,
+            tick_labelsize=tick_labelsize,
+            legend_fontsize=legend_fontsize,
+            label_fontsize=label_fontsize,
+        )
+
+    # remove empty axes
+    for j in range(nplots, len(axes_flat)):
+        fig.delaxes(axes_flat[j])
+
+    fig.subplots_adjust(
+        wspace=wspace if wspace is not None else 0.25,
+        hspace=hspace if hspace is not None else 0.25,
+        left=left if left is not None else 0.08,
+        right=right if right is not None else 0.97,
+        top=top if top is not None else 0.95,
+        bottom=bottom if bottom is not None else 0.08,
+    )
+
+    return fig, axes

@@ -32,7 +32,9 @@ import jax.numpy as jnp
 
 
 default_inf = float("inf")
-
+# self.value = jnp.asarray(value, dtype=jnp.float32)
+# self.min = jnp.float32(min)
+# self.max = jnp.float32(max)
 
 class Parameter:
     """
@@ -49,19 +51,22 @@ class Parameter:
         tie: Optional[Tuple[str, str, str, float]] = None,
         fixed: bool = False,
         shared: bool = False,
+        #linear_param: bool = None 
     ):
         self.name = name
         if isinstance(value, (jnp.ndarray, list, tuple)):
-            self.value = jnp.array(value)
+            self.value = jnp.array(value, dtype=jnp.float32)
         else:
             self.value = float(value)
 
-        self.min = float(min)
-        self.max = float(max)
+        self.min = jnp.float32(min)
+        self.max = jnp.float32(max)
         self.tie = tie
         self.fixed = bool(fixed)
         self.shared = bool(shared)
-
+        self.linear_param = False
+        if "amplitude" in self.name or "weight" in self.name:#maybe is best change weight for amplitude? 
+            self.linear_param = True
         if math.isfinite(self.min) and math.isfinite(self.max):
             self.transform = "logistic"
         elif math.isfinite(self.min):
@@ -281,7 +286,6 @@ class Parameters:
         n_spec = int(self._n_spectra)
 
         if n_spec == 1:
-            # single spectrum: all values must be scalars (or length-1 arrays)
             return jnp.array([p.value for p in self._list])
 
         init_phys_list = []
@@ -324,9 +328,7 @@ class Parameters:
             phys_params = phys_params[None, :]
         return self._jit_phys_to_raw_mixed(phys_params)
 
-    # -------------------------
-    # classic cores (original behavior)
-    # -------------------------
+
     def _raw_to_phys_core(self, raw: jnp.ndarray) -> jnp.ndarray:
         def convert_one(r_vec, spec_idx):
             ctx: Dict[str, jnp.ndarray] = {}
@@ -466,7 +468,73 @@ class Parameters:
 
         local_raws = jax.vmap(local_raws_one)(phys)  # (n_spec, n_local)
         return jnp.concatenate([shared_raws, local_raws.ravel()])
+    def linear_phys_indices(self) -> jnp.ndarray:
+        """
+        Return the indices in physical parameter space corresponding to linear parameters.
 
+        Physical-space indices always follow the full parameter ordering in `self._list`,
+        so fixed and tied parameters are included if they are marked as linear.
+
+        Returns
+        -------
+        jnp.ndarray
+            Integer array with the indices of linear parameters in the physical vector.
+        """
+        return jnp.array(
+            [i for i, p in enumerate(self._list) if p.linear_param],
+            dtype=jnp.int32,
+        )
+
+    def nonlinear_raw_indices(self) -> jnp.ndarray:
+        """
+        Return the indices in raw optimization space corresponding to non-linear free parameters.
+
+        Notes
+        -----
+        - Raw space only contains free parameters (`tie is None` and `fixed is False`).
+        - Parameters with `linear_param=True` are excluded.
+        - In classic mode (no shared free parameters), raw indices follow `self._raw_list`.
+        - In shared-mode, raw packing is:
+              [raw_shared..., raw_local(spec0)... raw_local(spec1)...]
+          so local non-linear indices are repeated for each spectrum.
+        - Shared non-linear parameters appear only once at the beginning of the packed raw vector.
+
+        Returns
+        -------
+        jnp.ndarray
+            Integer array with the indices of non-linear free parameters in raw space.
+        """
+        self._ensure_finalized()
+
+        # Classic mode
+        if not self._has_shared_free():
+            return jnp.array(
+                [i for i, p in enumerate(self._raw_list) if not p.linear_param],
+                dtype=jnp.int32,
+            )
+
+        # Shared/local packed mode
+        n_spec, n_shared, n_local = self._mixed_sizes()
+
+        shared_idx = [
+            i
+            for i, p in enumerate(self._raw_shared_list)
+            if not p.linear_param
+        ]
+
+        local_base_idx = [
+            i
+            for i, p in enumerate(self._raw_local_list)
+            if not p.linear_param
+        ]
+
+        local_idx = []
+        offset0 = n_shared
+        for k in range(n_spec):
+            offset = offset0 + k * n_local
+            local_idx.extend([offset + i for i in local_base_idx])
+
+        return jnp.array(shared_idx + local_idx, dtype=jnp.int32)
     # -------------------------
     # convenience
     # -------------------------
@@ -475,7 +543,7 @@ class Parameters:
         """
         (name, value, min, max, transform, fixed, shared)
         """
-        return [(p.name, p.value, p.min, p.max, p.transform, p.fixed, p.shared) for p in self._list]
+        return [(p.name, p.value, p.min, p.max, p.transform, p.fixed, p.shared,p.linear_param) for p in self._list]
 
     @property
     def summary(self) -> List[Dict[str, Any]]:
@@ -514,6 +582,7 @@ class Parameters:
                     "shared": bool(p.shared),
                     "tie": p.tie,
                     "status": status,
+                    "linear_param" :p.linear_param
                 }
             )
         return rows
@@ -580,5 +649,5 @@ def build_Parameters(
             params_obj.add(name, val, min=min_val, max=max_val, tie=tie)
         else:
             params_obj.add(name, val, min=min_val, max=max_val)
-    
+    params_obj.n_obj = initial_params.shape[0]
     return params_obj
