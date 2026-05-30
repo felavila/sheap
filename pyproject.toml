@@ -1,201 +1,140 @@
-# BUILD
-
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.16,<0.12.0"]
+build-backend = "uv_build"
 
-# Poetry
+[tool.uv.build-backend]
+module-name = "sheap"
+module-root = "."
+source-exclude = [
+    "sheap/SuportData/sfddata/*.fits",
+]
 
-# Information required for building (sdist/wheel)
-## Also renders on pypi as 'subtitle'
-[tool.poetry]
+[project]
 name = "sheap"
 version = "0.0.10"
 description = "sheap: Spectral Handling and Estimation of AGN Parameters"
-authors = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
-maintainers = ["Felipe Avila-Vera <felipe.avilav@postgrado.uv.cl>"]
-license = "AGPL-3.0-only"
 readme = "README.rst"
-
-homepage = "https://github.com/favila/sheap"
-repository = "https://github.com/favila/sheap"
-documentation = "https://sheap.readthedocs.io/"
-
+requires-python = ">=3.11,<3.13"
+license = "AGPL-3.0-only"
+authors = [
+    { name = "Felipe Avila-Vera", email = "felipe.avilav@postgrado.uv.cl" },
+]
+maintainers = [
+    { name = "Felipe Avila-Vera", email = "felipe.avilav@postgrado.uv.cl" },
+]
 keywords = [
     "python package",
 ]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "Intended Audience :: End Users/Desktop",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU Affero General Public License v3",
-    "Natural Language :: English",
-    "Operating System :: Unix",
-    "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: System :: Software Distribution",
-    "Typing :: Typed"
+
+dependencies = [
+    # Core numerics
+    "numpy>=2.0,<2.3",
+    "pandas>=2.2",
+    "scipy>=1.11",
+
+    # Astronomy / plotting
+    "astropy>=7.2",
+    "matplotlib>=3.8",
+
+    # JAX stack. Keep jax and jaxlib aligned.
+    "jax==0.4.38",
+    "jaxlib==0.4.38",
+    "optax>=0.2.3,<0.3",
+
+    # Utilities
+    "tqdm>=4.66",
+    "uncertainties>=3.1",
+
+    # Dust maps
+    "sfdmap2",
+
+    # # Documentation notebooks currently imported by the docs build
+    # "nbsphinx",
+    # "myst-nb",
 ]
 
-packages = [
-    { include = "sheap" },
-]
 
-include = [
-    { path = "tests", format = "sdist" },
-    { path = "docs/**/*.rst", format = "sdist" },
-    { path = "docs/conf.py", format = "sdist" },
-    { path = "sheap/**/*.typed", format = "sdist" },
-    { path = "sheap/stubs/*.pyi", format = "sdist" },
-    "pyproject.toml",
-    "LICENSE",
-    "README.rst",
-    "CONTRIBUTING.md",
-    "CHANGELOG.rst",
-]
+[project.scripts]
+sheap = "sheap.cli:main"
 
-exclude = [
-    "docs/*",
-    "requirements/*",
-    "scripts/*.py",
-    "tox.ini",
-    ".circleci/config.yml",
-    ".coveragerc",
-    ".DS_Store",
-    ".gitignore",
-    ".prospector.yml",
-    ".pylintrc",
-    ".readthedocs.yml",
-    ".scrutinizer.yml",
-    ".travis.yml",
-    "sheap/SuportData/sfddata/*.fits"
-]
-
-# PyPi url links, that appear in 'Project Links' section
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/sheap/issues"
+[project.urls]
+Homepage = "https://github.com/favila/sheap"
+Repository = "https://github.com/favila/sheap"
+Documentation = "https://sheap.readthedocs.io/"
+"Bug Tracker" = "https://github.com/favila/sheap/issues"
 "CI: Github Actions" = "https://github.com/favila/sheap/actions"
-"Documentation" = "https://sheap.readthedocs.io/"
 "Source Code" = "https://github.com/favila/sheap"
-"Changelog" = "https://github.com/favila/sheap/blob/master/CHANGELOG.rst"
+Changelog = "https://github.com/favila/sheap/blob/master/CHANGELOG.rst"
 "Code of Conduct" = "https://github.com/favila/sheap/blob/master/CONTRIBUTING.rst"
 
-
-### Dependency Constraints, aka Requirements ###
-[tool.poetry.dependencies]
-python = ">=3.11,<3.13"
-# Core numerics
-numpy = ">=2.0,<2.3"
-pandas = ">=2.2"
-scipy = ">=1.11"
-# Astronomy we have to move to 7.2>/ plotting 
-astropy = ">=7.2"
-matplotlib = ">=3.8"
-# JAX stack (keep jax/jaxlib aligned)
-#jax = ">=0.6,<0.8"
-#jaxlib = ">=0.6,<0.8"
-jax = "0.4.38"
-jaxlib = "0.4.38"
-optax = ">=0.2.3,<0.3"
-# Utilities
-tqdm = ">=4.66"
-uncertainties = ">=3.1"
-# Dust maps
-sfdmap2 = "*"
-
-# Test: packages imported in test code and packages required for the "test runner"
-pytest = { version = "^8.0.0", optional = true }
-pytest-cov = { version = "^4.1.0", optional = true }
-pytest-explicit = { version = "^1.0.1", optional = true }
-pytest-xdist = { version = "^3.5.0", optional = true }
-pytest-click = { version = "^1.1.0", optional = true }
-pytest-run-subprocess = { version = "^0.10.0", optional = true }
-
-# Type Checking
-mypy = { version = "^1.8.0", optional = true }
-
-# Docs: dev and build dependencies
-sphinx = { version = ">=5.0,<8.3", optional = true }
-sphinx-autodoc-typehints = { version = ">=1.10", optional = true }
-sphinx-rtd-theme = { version = ">=1.2.0,<2.0", optional = true }
-sphinxcontrib-spelling = { version = "~=7.3.3", optional = true }
-sphinx-autobuild = { version = "^2021.3.14", optional = true }
-sphinx-inline-tabs = { version = "^2023.4.21", optional = true, python = ">=3.12,<3.13" }
-sphinxcontrib-mermaid = { version = "^0.9.2", optional = true, python = ">=3.12,<3.13" }
-nbsphinx = "*"
-myst_nb = "*"
-# requests [security,tests] >= 2.8.1, == 2.8.* ; python_version < "2.7"
-# poetry add 'griffe >=1.0.0 ; python_version >= "3.9"' --optional
-
-
-### EXTRAS ###
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0"
-pytest-cov = "^4.0"
-pytest-xdist = "^3.0"
-coverage = "^7.0"
-exceptiongroup = "^1.1" 
-sphinx = ">=5.0"
-click = { version = ">=8.1.0,<9.0", optional = true }
-types-pyyaml = "^6.0.12.20250516"
-nbsphinx = "*"
-myst_nb = "*"
-[tool.poetry.extras]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-explicit",
-    "pytest-xdist",
-    "pytest-click",
-    "pytest-run-subprocess",
-    "coverage"
-    ,"exceptiongroup"]
-typing = [
+[dependency-groups]
+dev = [
+    "tox>=4.55.0",
+    "tox-uv>=1.35.2",
+    "ruff",
     "mypy",
-    "types-requests",
     "pytest",
-    "pytest-click",
 ]
+
+test = [
+    "pytest>=8.0,<9.0",
+    "pytest-cov>=4.1,<5.0",
+    "pytest-explicit>=1.0.1,<2.0",
+    "pytest-xdist>=3.5,<4.0",
+    "pytest-click>=1.1,<2.0",
+    "pytest-run-subprocess>=0.10,<0.11",
+    "coverage>=7.0,<8.0",
+    "exceptiongroup>=1.1,<2.0",
+]
+
+typing = [
+    "mypy>=1.8,<2.0",
+    "types-requests",
+    "types-PyYAML>=6.0.12.20250516",
+    "pytest>=8.0,<9.0",
+    "pytest-click>=1.1,<2.0",
+]
+
 docs = [
-    "sphinx",
-    "sphinx-autodoc-typehints",
-    "sphinx-rtd-theme",
-    "sphinxcontrib-spelling",
-    "sphinx-inline-tabs",
-    "sphinxcontrib-mermaid",
+    "sphinx>=5.0,<8.3",
+    "sphinx-autodoc-typehints>=1.10",
+    "sphinx-rtd-theme>=1.2.0,<2.0",
+    "sphinxcontrib-spelling~=7.3.3",
+    "sphinx-inline-tabs>=2023.4.21; python_version >= '3.12' and python_version < '3.13'",
+    "sphinxcontrib-mermaid>=0.9.2; python_version >= '3.12' and python_version < '3.13'",
     "furo",
+    "nbsphinx",
+    "myst-nb",
 ]
+
 docslive = [
-    "sphinx",
-    "sphinx-autodoc-typehints",
-    "sphinx-rtd-theme",
-    "sphinxcontrib-spelling",
-    "sphinx-inline-tabs",
-    "sphinxcontrib-mermaid",
-    "sphinx-autobuild",
+    { include-group = "docs" },
+    "sphinx-autobuild>=2021.3.14,<2022.0",
 ]
 
-[tool.poetry.scripts]
-sheap = 'sheap.cli:main'
+notebooks = [
+    "marimo",
+    "ipykernel",
+    "jupyterlab",
+]
 
-[tool.poetry.plugins."poetry.application.plugin"]
-export = "poetry_plugin_export.plugins:ExportApplicationPlugin"
+all = [
+    { include-group = "dev" },
+    { include-group = "test" },
+    { include-group = "typing" },
+    { include-group = "docs" },
+    { include-group = "docslive" },
+    { include-group = "notebooks" },
+]
 
-# TOOLS
-
-[tool.poetry.group.typing.dependencies]
-types-pyyaml = "^6.0.12.20250402"
+[tool.uv]
+package = true
 
 [tool.pytest.ini_options]
 minversion = "6.2"
 addopts = "--strict-markers"
 markers = [
-     "runner_setup: marks tests that require CLI runner setup",
+    "runner_setup: marks tests that require CLI runner setup",
     "slow: Marks a slow test",
     "integration: Integration Tests",
     "network_bound: Require internet connection",
@@ -208,14 +147,21 @@ explicit-only = [
     "network_bound",
 ]
 
+[tool.ruff]
+line-length = 95
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = []
+
 [tool.black]
 line-length = 95
-include = '\.pyi?$'
+include = '\\.pyi?$'
 extend-exclude = '''
 '''
 
 [tool.isort]
-profile = 'black'
+profile = "black"
 
 [tool.bandit]
 tests = []
@@ -224,7 +170,7 @@ skips = [
 ]
 
 [tool.mypy]
-ignore_missing_imports = true      # quick blanket, or …
+ignore_missing_imports = true
 check_untyped_defs = true
 disallow_untyped_defs = true
 warn_unused_ignores = true
@@ -236,3 +182,4 @@ ignore_missing_imports = true
 
 [tool.software-release]
 version_variable = "sheap/__init__.py:__version__"
+
