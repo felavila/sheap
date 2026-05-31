@@ -260,7 +260,7 @@ class SheapModelFitting:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         
-        self.spectra = spectra
+        #self.spectra = spectra
         #self.ivar = (self.spectra[:, 2, :] * self.spectra[:, 2, :])
         _, mask, scale, norm_spec = self._prep_data(spectra, inner_limits, outer_limits, force_cut)
 
@@ -476,11 +476,11 @@ class SheapModelFitting:
             else:
                 self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
                 self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None]))       
-            #self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
-            y_model  = self.model_vmap(self.spectra[:,0,:],self.params)
+            self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+            y_model  = self.model_vmap(self.spec[:,0,:],self.params)
             mask = self.mask
-            y_error = self.spectra[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
-            self.residuals = (y_model-self.spectra[:,1,:])/y_error
+            y_error = self.spec[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
+            self.residuals = (y_model-self.spec[:,1,:])/y_error
             self.free_params = jnp.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
             self.chi2_red = jnp.sum(self.residuals**2,axis=1)/self.free_params
             
