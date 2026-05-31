@@ -119,31 +119,29 @@ def build_loss_function(
                 _cache.pop(next(iter(_cache)))
         return _cache[key]
 
-    # ── single unified loss body ──
     def _loss_body(params, xs, y, yerr):
         y_pred = wrapped(xs, params)
 
-        # residuals (weighted or not)
+        
         r = (y_pred - y) / jnp.clip(yerr, 1e-8) if weighted else (y_pred - y)
 
-        # ── fused data term: compute log_cosh once, derive mean+max together ──
+        
         lc       = log_cosh(r)
         data_term = jnp.nanmean(lc) + max_weight * jnp.max(lc)
 
-        # ── curvature: truth side cached, pred side computed each step ──
+        
         curv_term = 0.0
         if curvature_weight != 0.0:
             d2pred     = jnp.gradient(jnp.gradient(y_pred, axis=-1), axis=-1)
             d2true     = _truth_curvature(y)          # cached
             curv_term  = curvature_weight * jnp.nanmean((d2pred - d2true) ** 2)
 
-        # ── smoothness on residual gradient ──
+        
         smooth_term = 0.0
         if smoothness_weight != 0.0:
             dr          = y_pred - y
             smooth_term = smoothness_weight * jnp.nanmean(jnp.gradient(dr, axis=-1) ** 2)
 
-        # ── optional param penalty ──
         penalty_term = 0.0
         if penalty_function is not None:
             penalty_term = penalty_weight * penalty_function(xs, params) * 1e3

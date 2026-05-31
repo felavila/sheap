@@ -47,6 +47,7 @@ __all__ = [
     "make_integrator",
     "trapz_jax",
     "with_param_names",
+    "GaussianSum",
 ]
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union,Iterable 
@@ -55,29 +56,6 @@ import numpy as np
 import jax.numpy as jnp 
 from jax.scipy.integrate import trapezoid
 from jax import vmap, jit,nn
-
-
-
-# def with_param_names(param_names: list[str]):
-#     """
-#     Decorator to attach parameter names and count to a profile function.
-
-#     Parameters
-#     ----------
-#     param_names : list of str
-#         Names of the parameters for the decorated profile function.
-
-#     Returns
-#     -------
-#     decorator : callable
-#         A decorator that attaches `.param_names` and `.n_params` attributes
-#         to the target function.
-#     """
-#     def decorator(func):
-#         func.param_names = param_names
-#         func.n_params = len(param_names)
-#         return func
-#     return decorator
 
 
 def with_param_names(

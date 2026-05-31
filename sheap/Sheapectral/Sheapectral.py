@@ -384,7 +384,7 @@ class Sheapectral:
 										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
 	
 
-	def fitmodel(self,run_fit=True, list_num_steps=None,list_learning_rate = None ,covariance_error = False,profile: str ='gaussian'
+	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2] ,covariance_error = False,profile: str ='gaussian'
 				,add_penalty_function=False,method="adam",penalty_weight: float = 0.00
 				,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0,limits_overrides={}):
 		"""
@@ -416,7 +416,6 @@ class Sheapectral:
 		"""
 		if not hasattr(self, "modelbuild"):
 			raise RuntimeError("makemodel() must be called before fitmodel()")
-		print("P0",time.time())
 		self.fitting_class = SheapModelFitting.from_builder(self.modelbuild,limits_overrides=limits_overrides,profile=profile) #until here only uses the things that it knows from modelbuild
 
 		spectra = self.spectra.astype(jnp.float32)
@@ -429,12 +428,11 @@ class Sheapectral:
 
 			self.spectral_model = self.fitting_class.model #the actual model is
 			self.params_obj = self.fitting_class.params_obj
-			#build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
 			
 			fit_output = self.fitting_class.sheapresult
 			fit_output.source = "computed"
 			self.result = SheapResult(
-				params=fit_output.params.astype(jnp.float64),
+				params=fit_output.params,
 				uncertainty_params=fit_output.uncertainty_params,
 				mask=fit_output.mask,
 				profile_functions=fit_output.profile_functions,
@@ -449,16 +447,15 @@ class Sheapectral:
 				inner_limits=fit_output.inner_limits,
 				model_keywords= fit_output.model_keywords,
 				fitting_routine = fit_output.fitting_routine,
-				constraints = fit_output.constraints.astype(jnp.float64),
+				constraints = fit_output.constraints.astype(jnp.float32),
 				source=fit_output.source,
 				dependencies=fit_output.dependencies,
 				residuals = fit_output.residuals,
 				free_params = fit_output.free_params,
 				chi2_red = fit_output.chi2_red,
 				fitkwargs = fit_output.fitkwargs,
-    			elapsed_time= fit_output.elapsed_time
-       		)
-
+    			elapsed_time= fit_output.elapsed_time)
+			#del self.fitting_class #free memory
 			self.plotter = SheapPlot(sheap=self)
 	
 	def estimate_posteriors(self,sampling_method="single", num_samples: int = 50, key_seed: int = 0,summarize=False

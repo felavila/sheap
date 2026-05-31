@@ -227,6 +227,7 @@ def make_linear_function(delta0: float = 5500.0):
         x = xs / delta0
         return intercept + slope * x
     return linear
+#######################################################
 
 def make_powerlaw_function(delta0: float = 5500.0):
     @with_param_names(["logamp","alpha"])

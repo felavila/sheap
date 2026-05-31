@@ -41,7 +41,7 @@ from jax import jit,vmap
 from sheap.Core import FittingLimits, SpectralLine,SheapResult
 
 from sheap.Assistants.Parameters import build_Parameters
-from sheap.Assistants.parser_mapper import mapping_params,parse_dependencies,make_get_param_coord_value,build_tied,flatten_tied_map,parse_dependencies
+from sheap.Assistants.parser_mapper import build_param_index_cache,mapping_params,parse_dependencies,make_get_param_coord_value,build_tied,flatten_tied_map,parse_dependencies
 
 
 from sheap.Minimizer.Minimizer import Minimizer
@@ -260,8 +260,9 @@ class SheapModelFitting:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         
-        _, mask, scale, norm_spec = self._prep_data(
-            spectra, inner_limits, outer_limits, force_cut)
+        self.spectra = spectra
+        #self.ivar = (self.spectra[:, 2, :] * self.spectra[:, 2, :])
+        _, mask, scale, norm_spec = self._prep_data(spectra, inner_limits, outer_limits, force_cut)
 
         inner_limits = self.inner_limits or inner_limits
         outer_limits = self.outer_limits or outer_limits
@@ -289,6 +290,9 @@ class SheapModelFitting:
         total_time = 0
         
         self._fitkwargs = []
+        self.param_index_cache = build_param_index_cache(self.params_dict)
+        self.idxs_amplitude = self.param_index_cache["amplitude"]
+        self.idxs_logamp = self.param_index_cache["logamp"]
         for _step in range(n_steps):
             key = f"step{_step+1}"
             step = self.fitting_routine.get(key,{'tied': [], 'non_optimize_in_axis': 4, 'learning_rate': list_learning_rate[_step], 'num_steps': list_num_steps[_step]})
@@ -298,11 +302,12 @@ class SheapModelFitting:
                 step["num_steps"] = list_num_steps[_step]
             print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
-            print("P1",time.time())
+            #print("P1",time.time())
             start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight)
+            params.block_until_ready()
             print("P2",time.time())
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
@@ -324,6 +329,7 @@ class SheapModelFitting:
         #self.dependencies = dependencies
         self.mask = mask
         self._postprocess(norm_spec, params, uncertainty_params, scale)
+        print("P3",time.time())
         self.loss = loss
         self.scale = scale
         self.outer_limits = outer_limits
@@ -331,6 +337,7 @@ class SheapModelFitting:
         self.total_time = total_time
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         self.to_result()
+        print("P4",time.time())
     
     def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
             method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1, verbose = True) -> Tuple[jnp.ndarray, list]:
@@ -456,10 +463,9 @@ class SheapModelFitting:
         ValueError
             If renormalization fails.
         """
-        
         try:
-            idxs = mapping_params(self.params_dict, [["amplitude"]])
-            idxs_log = mapping_params(self.params_dict, [["logamp"]])
+            idxs_log = self.idxs_logamp
+            idxs = self.idxs_amplitude 
             self.params_desc = params
             if len(idxs_log) == 0:
                 self.params = params.at[:, idxs].multiply(scale[:, None])
@@ -470,12 +476,11 @@ class SheapModelFitting:
             else:
                 self.params = (params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None])))
                 self.uncertainty_params = uncertainty_params.at[:, idxs].multiply(scale[:, None]).at[:, idxs_log].add(jnp.log10(scale[:, None]))       
-            self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
-            y_model  = self.model_vmap(self.spec[:,0,:],self.params)
-            y_data  = self.spec[:,1,:]
+            #self.spec = norm_spec.at[:, [1, 2], :].multiply(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
+            y_model  = self.model_vmap(self.spectra[:,0,:],self.params)
             mask = self.mask
-            y_error = self.spec[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
-            self.residuals = (y_model-y_data)/y_error
+            y_error = self.spectra[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
+            self.residuals = (y_model-self.spectra[:,1,:])/y_error
             self.free_params = jnp.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
             self.chi2_red = jnp.sum(self.residuals**2,axis=1)/self.free_params
             
@@ -532,12 +537,8 @@ class SheapModelFitting:
                 template_dict = PROFILE_FUNC_MAP[sp.profile](**sp.template_info)
                 profile_fn = template_dict["model"]
             elif sp.region =="continuum":
-                #print(sp.profile)
-                #print(sp.template_info)
-                if sp.profile == "polynomial":
-                    profile_fn =  PROFILE_FUNC_MAP.get(sp.profile)(**sp.template_info["keywords"]) 
-                else:
-                    profile_fn =  PROFILE_FUNC_MAP.get(sp.profile)
+                #if sp.profile == "polynomial":
+                profile_fn =  PROFILE_FUNC_MAP.get(sp.profile)(**sp.template_info["keywords"]) 
             else:
                 profile_fn =  PROFILE_FUNC_MAP.get(holder_profile, PROFILE_FUNC_MAP["gaussian"])#?
             

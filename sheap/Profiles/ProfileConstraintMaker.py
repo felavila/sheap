@@ -95,13 +95,14 @@ def ProfileConstraintMaker(
         if not isinstance(sp.amplitude, list):
             raise ValueError("SPAF profile requires cfg.amplitude to be a list of amplitudes.")
     if selected_profile in PROFILE_CONTINUUM_FUNC_MAP:  
+        param_names= local_profile.param_names
         if selected_profile == 'powerlaw':
             return ProfileConstraintSet(
                 init=[ -1,-1.7],
                 upper=[0.0, 0.0],
                 lower=[-5.0, -5.0],
                 profile=selected_profile,
-                param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names=param_names,
                 profile_fn = local_profile)
 
         if selected_profile == 'linear':
@@ -110,7 +111,7 @@ def ProfileConstraintMaker(
                 upper=[1.0, 1.0],
                 lower=[-1.0, -1.0],
                 profile=selected_profile,
-                param_names=PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names=param_names,
                 profile_fn = local_profile)
         
         
@@ -121,7 +122,7 @@ def ProfileConstraintMaker(
                 upper=[5.0,0.0, 0.0, 8000.0],
                 lower=[-5.0,-5.0, -5.0, 3000.0],
                 profile=selected_profile,
-                param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names= param_names,
                 profile_fn = local_profile)
         #UNTIL HERE THE CONSTRAINS ARE TESTED AFTER THAT I dont know?
         if selected_profile == "logparabola":
@@ -131,7 +132,7 @@ def ProfileConstraintMaker(
                 upper=[10,3.0, 1.0, 10.0],
                 lower=[0.0,0.0, 0.0],
                 profile=selected_profile,
-                param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names= param_names,
                 profile_fn = local_profile)
         if selected_profile == "exp_cutoff":
             #should be testted
@@ -140,12 +141,9 @@ def ProfileConstraintMaker(
                 upper=[10.0,3.0, 1.0, 1e5],
                 lower=[0.0,0.0, 0.0],
                 profile=selected_profile,
-                param_names= PROFILE_FUNC_MAP.get(selected_profile).param_names,
+                param_names= param_names,
                 profile_fn = local_profile)
         if selected_profile == "polynomial":
-            #
-            param_names= local_profile.param_names
-            #print(param_names)
             return ProfileConstraintSet(
                 init  = [0.0]  + len(param_names[1:]) * [0.0],
                 upper = [10.0] + len(param_names[1:]) * [100.0],

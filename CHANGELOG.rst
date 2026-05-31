@@ -5,8 +5,12 @@ Changelog
 0.0.11 (30-05-2026)
 ==================
 
-- Migration from `poetry` to `uv
+- Migration from `poetry` to `uv`
+- Moving from str continuum profiles to dict-based profiles with dynamic keyword support removing hard "delta0" in the function
 
+0.0.10 (29-05-2026)
+==================
+  - small bug fixing and preparing version 0.0.11 with new features and improvements
 
 0.0.1 (2025-04-04)
 ==================

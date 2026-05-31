@@ -150,6 +150,82 @@ def mapping_params(params_dict, params, verbose=False):
         print(np.array(list(params_dict.keys()))[unique_arr])
     return unique_arr
 
+def mapping_params_fast(params_dict, params, verbose=False):
+    """
+    Identify parameter indices matching one or more substring patterns.
+
+    Parameters
+    ----------
+    params_dict : dict | np.ndarray
+        Mapping from parameter names to integer indices, or an array of names.
+    params : str | list[str] | list[list[str]]
+        Substring pattern or list of patterns. A nested list means all substrings
+        must be present in the key.
+    verbose : bool, optional
+        If ``True``, print the matched keys.
+
+    Returns
+    -------
+    jnp.ndarray
+        Sorted unique matching indices.
+    """
+    if isinstance(params_dict, np.ndarray):
+        items = [(str(key), n) for n, key in enumerate(params_dict)]
+    else:
+        items = list(params_dict.items())
+
+    if isinstance(params, str):
+        params = [[params]]
+    else:
+        params = [
+            [param] if isinstance(param, str) else param
+            for param in params
+        ]
+
+    match_set = set()
+
+    for key, idx in items:
+        for pattern in params:
+            if all(p in key for p in pattern):
+                match_set.add(idx)
+                break
+
+    match_arr = np.fromiter(sorted(match_set), dtype=np.int64)
+
+    if verbose:
+        keys = np.asarray([key for key, _ in items], dtype=object)
+        print(keys[match_arr])
+
+    return jnp.asarray(match_arr)
+
+def build_param_index_cache(params_dict):
+    """
+    Build cached parameter-index groups.
+
+    Parameters
+    ----------
+    params_dict : dict
+        Mapping from parameter names to integer indices.
+
+    Returns
+    -------
+    dict[str, jnp.ndarray]
+        Cached index arrays for commonly used parameter groups.
+    """
+    idxs_amplitude = []
+    idxs_logamp = []
+
+    for key, idx in params_dict.items():
+        if "amplitude" in key:
+            idxs_amplitude.append(idx)
+
+        if "logamp" in key:
+            idxs_logamp.append(idx)
+
+    return {
+        "amplitude": jnp.asarray(sorted(idxs_amplitude), dtype=jnp.int32),
+        "logamp": jnp.asarray(sorted(idxs_logamp), dtype=jnp.int32),
+    }
 
 def scale_amp(params_dict, params, scale):
     """

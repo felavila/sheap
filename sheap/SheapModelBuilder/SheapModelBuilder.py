@@ -270,13 +270,13 @@ class SheapModelBuilder:
             self.fe_mode = "template"
         ###
         if isinstance(continuum_profile,str):
-            continuum_profile = {"name":continuum_profile.lower()}
+            continuum_profile = {"name":continuum_profile.lower(),"keywords":{"delta0":5500}}
         self.continuum_profile = continuum_profile
         
         if self.continuum_profile.get("name") not in self.available_continuum_profiles:
             print(f"continuum_profile: {self.continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
             #print(self.continuum_profile)
-            self.continuum_profile = {"name": "powerlaw"} 
+            self.continuum_profile = {"name": "powerlaw", "keywords": {"delta0": 5500}} 
         
         if not line_repository_path:
             TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "LineRepository"

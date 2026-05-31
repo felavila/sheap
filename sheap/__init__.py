@@ -5,7 +5,7 @@ from sheap.Core import (SpectralLine,SheapModel,SheapResult,ProfileConstraintSet
 
 from sheap.Sheapectral.Sheapectral import Sheapectral
 
-__version__ = "0.0.7"
+__version__ = "0.0.11"
 
 __all__ = [
     "Assistants",

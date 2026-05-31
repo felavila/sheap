@@ -307,10 +307,9 @@ def profile_functions_from_region_list(region_list):
         elif sp.profile == "template":
             sm =PROFILE_FUNC_MAP[sp.profile](**sp.template_info)["model"]
         elif sp.profile in PROFILE_CONTINUUM_FUNC_MAP:
-            if sp.profile == "polynomial":
-                sm =  PROFILE_FUNC_MAP.get(sp.profile)(**sp.template_info["keywords"]) 
-            else:
-                sm =  PROFILE_FUNC_MAP.get(sp.profile)
+            ##retroactive solution
+            keywords = sp.template_info["keywords"] if sp.template_info is not None else {"delta0":5500.0}
+            sm =  PROFILE_FUNC_MAP.get(sp.profile)(**keywords) 
         else:
             sm = PROFILE_FUNC_MAP.get(holder_profile)
         profile_functions.append(sm)
