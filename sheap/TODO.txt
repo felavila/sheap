@@ -6,4 +6,3 @@
 # TODO: Choice of using skewed Gaussians
 # TODO: Different line models: Gauss Hermite 
 # TODO: remove all the uncertainty and just keep sampling methods as the methods for uncertainty estimation? 
-# TODO: The MS is customarily represented by a trend in the

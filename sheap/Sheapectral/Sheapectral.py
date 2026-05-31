@@ -822,9 +822,9 @@ class Sheapectral:
 		# Plot ID label outside main plot area, above-left
 		if add_text:
 			ax.text(
-				0.6,
+				0.7,
 				1.0,
-				f"ID {self.names[idx]} ({idx}), z = {self.z[idx]} ",
+				f"ID {self.names[idx]} ({idx}) \nz = {self.z[idx]} ",
 				fontsize=20,
 				transform=ax.transAxes,
 				ha='left',

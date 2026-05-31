@@ -46,7 +46,9 @@ from typing import Callable, Dict, List, Tuple
 
 from sheap.Core import ProfileFunc
 
-from sheap.Profiles.profiles_continuum import (linear, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,make_polynomial_function,make_powerlaw_function)#polynomial
+from sheap.Profiles.profiles_continuum import (linear, powerlaw, brokenpowerlaw,logparabola,exp_cutoff,
+                                               make_polynomial_function,make_powerlaw_function,make_linear_function,make_brokenpowerlaw_function,
+                                               make_exp_cutoff_function,make_logparabola_function)#polynomial
 from sheap.Profiles.profiles_lines import (gaussian_fwhm, lorentzian_fwhm, skewed_gaussian,emg_fwhm, top_hat, voigt_pseudo)
 
 from sheap.Profiles.profiles_templates import make_template_function,make_host_function
@@ -58,10 +60,12 @@ from sheap.Profiles.balmercontinuum import balmercontinuum
 # from sheap.sheap.Profiles.depreted.Combine import SPAF
 
 # # Low-level line profiles (require center+amplitude inside param vector)
-PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {'gaussian': gaussian_fwhm,'lorentzian': lorentzian_fwhm,'voigt_pseudo': voigt_pseudo,'skewed_gaussian': skewed_gaussian,'emg_fwhm': emg_fwhm,'top_hat': top_hat}
+PROFILE_LINE_FUNC_MAP: Dict[str, ProfileFunc] = {'gaussian': gaussian_fwhm,'lorentzian': lorentzian_fwhm,'voigt_pseudo': 
+                                                 voigt_pseudo,'skewed_gaussian': skewed_gaussian,'emg_fwhm': emg_fwhm,'top_hat': top_hat}
 
-PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {'linear': linear,'powerlaw': make_powerlaw_function,'brokenpowerlaw':brokenpowerlaw
-                                                      ,'logparabola': logparabola,'exp_cutoff': exp_cutoff
+PROFILE_CONTINUUM_FUNC_MAP: Dict[str, ProfileFunc] = {'linear': make_linear_function,'powerlaw': make_powerlaw_function,
+                                                      'brokenpowerlaw':make_brokenpowerlaw_function
+                                                      ,'logparabola': make_logparabola_function,'exp_cutoff': make_exp_cutoff_function
                                                       ,'polynomial': make_polynomial_function}
 
 

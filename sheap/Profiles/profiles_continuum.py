@@ -227,7 +227,6 @@ def make_linear_function(delta0: float = 5500.0):
         x = xs / delta0
         return intercept + slope * x
     return linear
-#######################################################
 
 def make_powerlaw_function(delta0: float = 5500.0):
     @with_param_names(["logamp","alpha"])
@@ -340,3 +339,31 @@ def make_polynomial_function(degree: int, delta0: float = 5500.0):
         return 10**A * jnp.exp(corr)
 
     return polynomial
+
+def make_logparabola_function(delta0: float = 5500.0):
+    @with_param_names(["amplitude", "alpha", "beta"])
+    def logparabola(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+        r"""
+        Log-parabolic continuum profile.
+
+        .. math::
+            f(\lambda) = A \cdot \left(\frac{\lambda}{\lambda_0}\right)^{-\alpha - \beta \cdot \log(\lambda / \lambda_0)}
+
+        Parameters
+        ----------
+        xs : jnp.ndarray
+            Wavelengths in Ångström.
+        params : array-like
+            - `params[0]`: Amplitude :math:`A`
+            - `params[1]`: Spectral index :math:`\alpha`
+            - `params[2]`: Curvature parameter :math:`\beta`
+
+        Returns
+        -------
+        jnp.ndarray
+            Evaluated flux.
+        """
+        A, alpha, beta = params
+        x = xs / delta0
+        return A * x ** (-alpha - beta * jnp.log(x))
+    return logparabola

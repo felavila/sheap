@@ -260,8 +260,6 @@ class SheapModelFitting:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         
-        #self.spectra = spectra
-        #self.ivar = (self.spectra[:, 2, :] * self.spectra[:, 2, :])
         _, mask, scale, norm_spec = self._prep_data(spectra, inner_limits, outer_limits, force_cut)
 
         inner_limits = self.inner_limits or inner_limits
@@ -302,13 +300,11 @@ class SheapModelFitting:
                 step["num_steps"] = list_num_steps[_step]
             print(f"\n{'='*40}\n{key.upper()} ({key}) params to minimize {self.initial_params.shape[0]-len(step['tied'])}")
             step["non_optimize_in_axis"] = 4 #experimental 
-            #print("P1",time.time())
             start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight)
             params.block_until_ready()
-            print("P2",time.time())
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
             elapsed = end_time - start_time
@@ -326,10 +322,8 @@ class SheapModelFitting:
             
             print(f"Time for error_covariance_matrix: {elapsed:.2f} seconds")
             total_time += elapsed            
-        #self.dependencies = dependencies
         self.mask = mask
         self._postprocess(norm_spec, params, uncertainty_params, scale)
-        print("P3",time.time())
         self.loss = loss
         self.scale = scale
         self.outer_limits = outer_limits
@@ -337,7 +331,6 @@ class SheapModelFitting:
         self.total_time = total_time
         print(f'The entire process took {total_time:.2f} ({total_time/spectra.shape[0]:.2f}s by spectra)')
         self.to_result()
-        print("P4",time.time())
     
     def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
             method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1, verbose = True) -> Tuple[jnp.ndarray, list]:
