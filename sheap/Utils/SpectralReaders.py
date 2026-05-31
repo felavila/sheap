@@ -76,6 +76,30 @@ def fits_reader_desi(file: str):
     header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])
     return data_array, header_array
 
+def fits_reader_4most(file: str):
+    """
+    Read a 4most FITS spectrum SPV.
+
+    Parameters
+    ----------
+    file : str
+        Path to 4most FITS file.
+
+    Returns
+    -------
+    data_array : np.ndarray
+        Array with shape (3, n_pix): [wavelength, flux, error].
+    header_array : np.ndarray
+        Array with RA and DEC from header.
+    """
+    hdul = fits.open(file)
+    data = hdul[1].data
+    header_array = np.array([hdul[0].header["RA"], hdul[0].header["DEC"]])
+    data_array = np.array([
+        data["WAVE"],
+        data["FLUX"],
+        data["ERR"]])
+    return data_array.squeeze(), header_array
 
 def fits_reader_simulation(file: str, chanel: int = 1, template: bool = False):
     """
@@ -183,6 +207,7 @@ READER_FUNCTIONS = {
     "fits_reader_simulation": fits_reader_simulation,
     "fits_reader_pyqso": fits_reader_pyqso,
     "fits_reader_desi": fits_reader_desi,
+    "fits_reader_4most": fits_reader_4most,
 }
 
 
