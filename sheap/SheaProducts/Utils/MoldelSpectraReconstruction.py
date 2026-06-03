@@ -30,6 +30,7 @@ class RegionInfo:
 	idx_global: jnp.ndarray
 
 #TODO this one and Sheaproducts have to be in the same place.
+#TODO clean up ´all_samples´ is mislanding because it look like in the begninig i idealize it as a put your params here and lets see but for now I will use it as a  way to model specifics ones
 class MoldelSpectraReconstruction:
 	"""
 	Evaluate fused model + per-region components for best-fit params and posterior samples/draws.
@@ -157,15 +158,14 @@ class MoldelSpectraReconstruction:
 
 	def _require_samples(self, all_samples: Optional[jnp.ndarray]) -> jnp.ndarray:
 		if all_samples is not None:
-			if len(all_samples.shape) == 2:
-				all_samples = all_samples[None,:,:]
-				#print(all_samples.shape)
-			return all_samples
+		#	if len(all_samples.shape) == 2:
+		#		all_samples = all_samples[None,:,:]
+			return self.samples[all_samples,:,:]
+		#print(self.samples.shape)
 		if self.samples is None:
 			raise ValueError(
 				"No samples provided and self.samples is None. "
-				"Either pass all_samples=... or set autoload_posterior=True and ensure posterior exists."
-			)
+				"Either pass all_samples=... or set autoload_posterior=True and ensure posterior exists.")
 		return self.samples
 
 	def _require_draws(self, all_draws: Optional[jnp.ndarray]) -> jnp.ndarray:
@@ -178,7 +178,6 @@ class MoldelSpectraReconstruction:
 			)
 		return self.draws
 
-	# ----------------------------- best-fit evaluation ---------------------
 
 	def eval_bestfit_model(self, wavelength: float) -> jnp.ndarray:
 		wl = self._wl_array(wavelength)
@@ -193,7 +192,6 @@ class MoldelSpectraReconstruction:
 		f = info.combined_profile
 		return vmap(f, in_axes=(None, 0))(wl, p_reg)
 
-	# ----------------------------- batched evaluation ----------------------
 
 	def eval_batched_model(self, wavelength: float, all_samples: Optional[jnp.ndarray] = None) -> jnp.ndarray:
 		wl = self._wl_array(wavelength)
@@ -210,14 +208,7 @@ class MoldelSpectraReconstruction:
 		f_batched = self._batched_region[region_name]
 		return f_batched(wl, reg_params)
 
-	def eval_batched_components(
-		self,
-		wavelength: float,
-		all_samples: Optional[jnp.ndarray] = None,
-		*,
-		regions: Optional[Iterable[str]] = None,
-		include_model: bool = True,
-	) -> Dict[str, jnp.ndarray]:
+	def eval_batched_components(self, wavelength: float,all_samples: Optional[jnp.ndarray] = None,*,regions: Optional[Iterable[str]] = None, include_model: bool = True,) -> Dict[str, jnp.ndarray]:
 		if regions is None:
 			regions = self.region_names
 
@@ -231,7 +222,6 @@ class MoldelSpectraReconstruction:
 
 		return out
 
-	# ----------------------------- derived quantities ----------------------
 
 	def stars_cont_ratio(self,wavelength: float,all_samples: Optional[jnp.ndarray] = None,
 		*,

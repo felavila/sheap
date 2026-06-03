@@ -240,16 +240,20 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
                         rows.append(row)
     return rows
 
-def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="montecarlo"):
+def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="montecarlo",selected_index = []):
     #TODO next update should put this inside param extraction-combined with Fe ? 
     #TODO selected n_index go for name is to confuse.
     posterior = sheapspectral.result.posterior[method]["posterior_result"]
-
     rows_extra = []
     rows_cont = []
     rows_basic = []
+    obj_list = []
+    if len(selected_index) == 0:
+        selected_index = np.arange(len(sheapspectral.names))
     for n_obj, (obj_name, values) in enumerate(posterior.items()):
-
+        if n_obj not in selected_index:
+            continue
+        obj_list.append(obj_name)
         keys = list(set(values.keys()) - {"distances", "samples_phys"})
 
         available_extra_params = [k for k in keys if "extra" in k]
@@ -265,12 +269,12 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     df_cont = pd.DataFrame(rows_cont)
     df_basic = pd.DataFrame(rows_basic)
     if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]):
-        print("Running host reconstruction")
+        print("----Running host reconstruction-----")
         ra = MoldelSpectraReconstruction(sheapspectral, jit_compile=True)
-        stars = ra.stars_Cont_5100()
+        stars = ra.stars_Cont_5100(all_samples = selected_index)
         med, _low, _up= median_with_errors(stars,axis=1, low=low, high=high)
-        row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": sheapspectral.names,"wavelenght":[5100]*len(sheapspectral.names),
-                            "quantity":["cont_ratio"]*len(sheapspectral.names),"n_obj":np.arange(len(sheapspectral.names))})
+        row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
+                            "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
         df_cont=pd.concat([df_cont, row], ignore_index=True)
 
     if df_extra.empty:
