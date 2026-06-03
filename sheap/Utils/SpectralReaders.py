@@ -243,9 +243,9 @@ def parallel_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
 
     spectra = [result[0] for result in results]
     coords = np.array([result[1] for result in results])
-    shapes_max = max(s.shape[1] for s in spectra)
-    spectra_reshaped = []  # TODO: enable resize_and_fill_with_nans
-    return coords, spectra_reshaped, spectra
+    shapes_min= [s.shape[1] for s in spectra]
+    #spectra_reshaped = []  # TODO: enable resize_and_fill_with_nans
+    return coords, shapes_min, spectra
 
 
 def batched_reader(paths, batch_size=8, function=fits_reader_sdss):
@@ -318,9 +318,158 @@ def sequential_reader(paths, function=fits_reader_sdss):
     return coords, spectra_reshaped, spectra
 
 
-# Ensure start method is set safely when calling as a script
-if __name__ == '__main__':
-    try:
-        set_start_method("spawn", force=True)
-    except RuntimeError:
-        pass  # already set
+def rebin_one_spectrum(
+    spectrum,
+    n_pix,
+    fill=np.nan,
+    clean_invalid=True,
+):
+    """
+    Rebin one spectrum to a fixed number of pixels.
+
+    Parameters
+    ----------
+    spectrum : tuple or list
+        Spectrum in the form ``(wl, flux, error)``.
+    n_pix : int
+        Number of pixels in the output spectrum.
+    fill : float, optional
+        Fill value used by ``spectres`` outside the valid range.
+    clean_invalid : bool, optional
+        If True, non-finite flux/error values are replaced by 0.
+
+    Returns
+    -------
+    original : ndarray
+        Original spectrum with shape ``(3, n_original)``.
+        Rows are wavelength, flux, error.
+    new : ndarray
+        Rebinned spectrum with shape ``(4, n_pix)``.
+        Rows are wavelength, flux, error, mask.
+    conservation_ratio : float
+        Percentage ratio between rebinned and original integrated flux.
+    """
+
+    wl, flux, error = spectrum
+
+    wl = np.asarray(wl, dtype=float)
+    flux = np.asarray(flux, dtype=float)
+    error = np.asarray(error, dtype=float)
+
+    order = np.argsort(wl)
+    wl = wl[order]
+    flux = flux[order]
+    error = error[order]
+
+    regrid = np.linspace(wl[0], wl[-1], int(n_pix))
+
+    new_flux, new_error = spectres(
+        regrid,
+        wl,
+        flux,
+        error,
+        fill=fill,
+        verbose=False,
+    )
+
+    valid = np.isfinite(new_flux) & np.isfinite(new_error)
+
+    if clean_invalid:
+        new_flux = np.where(valid, new_flux, 0.0)
+        new_error = np.where(valid, new_error, 0.0)
+
+    original_flux = np.trapezoid(flux, wl)
+    rebinned_flux = np.trapezoid(new_flux, regrid)
+
+    conservation_ratio = (
+        100.0 * rebinned_flux / original_flux
+        if original_flux != 0
+        else np.nan
+    )
+
+    original = np.stack([wl, flux, error], axis=0)
+
+    new = np.stack(
+        [
+            regrid,
+            new_flux,
+            new_error,
+            valid.astype(float),
+        ],
+        axis=0,
+    )
+
+    return original, new, conservation_ratio
+
+def rebin_spectra_list(
+    spectra_list,
+    n_pix=None,
+    file_names=None,
+    redshifts=None,
+    coords=None,
+    npix_original=None,
+):
+    """
+    Rebin a list of spectra to the same number of pixels.
+
+    Parameters
+    ----------
+    spectra_list : list
+        List of spectra. Each item must be ``(wl, flux, error)``.
+    n_pix : int or None, optional
+        Number of pixels for the output grid. If None, uses the minimum
+        input spectrum length.
+    file_names : list or None, optional
+        Names used as dictionary keys.
+    redshifts : list or None, optional
+        Redshifts associated with each spectrum.
+    coords : list or None, optional
+        Coordinates associated with each spectrum.
+    npix_original : list or None, optional
+        Original number of pixels for each spectrum.
+
+    Returns
+    -------
+    new_dic : dict
+        Dictionary containing original and rebinned spectra.
+    """
+
+    if n_pix is None:
+        n_pix = min(len(s[0]) for s in spectra_list)
+
+    n_pix = int(n_pix)
+    n_spectra = len(spectra_list)
+
+    if file_names is None:
+        file_names = [f"spectrum_{i}" for i in range(n_spectra)]
+
+    if redshifts is None:
+        redshifts = [np.nan] * n_spectra
+
+    if coords is None:
+        coords = [None] * n_spectra
+
+    if npix_original is None:
+        npix_original = [len(s[0]) for s in spectra_list]
+
+    new_dic = {}
+
+    for i, spectrum in enumerate(spectra_list):
+        original, new, conservation_ratio = rebin_one_spectrum(
+            spectrum=spectrum,
+            n_pix=n_pix,
+        )
+
+        file_name = file_names[i]
+
+        new_dic[file_name] = {
+            "original": original,
+            "new": new,
+            "conservation_ratio": conservation_ratio,
+            "coords": coords[i],
+            "z": redshifts[i],
+            "dr_name": file_name,
+            "npix": npix_original[i],
+        }
+
+    return new_dic

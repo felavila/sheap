@@ -307,8 +307,8 @@ def ProfileConstraintMaker(
         params_names = local_profile.param_names
         #logamplitude
         init = [1.0,np.log10(limits.init_fwhm_kms), 0.0] 
-        upper = [2.0,np.log10(limits.upper_fwhm_kms), limits.vshift_kms] 
-        lower = [-2.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  
+        upper = [4.0,np.log10(limits.upper_fwhm_kms), limits.vshift_kms] 
+        lower = [-4.0,np.log10(limits.lower_fwhm_kms), -limits.vshift_kms]  
         #print(init,upper,lower)
         return ProfileConstraintSet(
             init= init,
@@ -319,7 +319,6 @@ def ProfileConstraintMaker(
             profile_fn = local_profile
         )
     if sp.line_name == "balmerhighorder" and sp.profile == "template":
-        #print(local_profile)
         params_names = local_profile.param_names
         init= [1.0, np.log10(limits.init_fwhm_kms),0.0]
         upper= [2.0, np.log10(limits.upper_fwhm_kms), limits.vshift_kms]

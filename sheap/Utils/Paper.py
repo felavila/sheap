@@ -56,14 +56,49 @@ def log10_to_linear(
 	return val, err_minus, err_plus
 
 
+
 def median_with_errors(x, low=0.16, high=0.84, ignore_nan=True, axis=None):
-	x = np.asarray(x, dtype=float)
-	if ignore_nan:
-		x = x[~np.isnan(x)]
-	if x.size == 0:
-		return np.nan, np.nan, np.nan
-	p_lo, p_med, p_hi = np.percentile(x, [100 * low, 50, 100 * high])
-	return p_med, p_med - p_lo, p_hi - p_med
+    """
+    Return median and asymmetric percentile errors.
+
+    Parameters
+    ----------
+    x : array-like
+        Input values.
+    low : float, optional
+        Lower quantile. Default is 0.16.
+    high : float, optional
+        Upper quantile. Default is 0.84.
+    ignore_nan : bool, optional
+        If True, ignore NaN values.
+    axis : int or None, optional
+        Axis along which to compute the percentiles.
+
+    Returns
+    -------
+    p_med : float or ndarray
+        Median.
+    err_low : float or ndarray
+        Median minus lower percentile.
+    err_high : float or ndarray
+        Upper percentile minus median.
+    """
+    x = np.asarray(x, dtype=float)
+
+    if x.size == 0:
+        return np.nan, np.nan, np.nan
+
+    percentiles = [100 * low, 50, 100 * high]
+
+    if ignore_nan:
+        p_lo, p_med, p_hi = np.nanpercentile(x, percentiles, axis=axis)
+    else:
+        p_lo, p_med, p_hi = np.percentile(x, percentiles, axis=axis)
+
+    err_low = p_med - p_lo
+    err_high = p_hi - p_med
+
+    return p_med, err_low, err_high
 
 # if param not in estimator_data:
 #         available_params = [k for k in estimator_data.keys()]
@@ -84,7 +119,6 @@ def posterior_extraction(
 	rows = []
 	posterior = sheapspectral.result.posterior["montecarlo"]["posterior_result"]
 
-	# ⬇ enumerate to track object position
 	for n_obj, (obj_name, values) in enumerate(posterior.items()):
 		available_params = [k for k in values.keys() if "extra" in k ]
 		#print(values.keys())
@@ -116,7 +150,7 @@ def posterior_extraction(
 
 				for quantity_name, (qkind, payload) in quantities.items():
 					row = {
-						"n_obj": n_obj,          # ✅ object index
+						"n_obj": n_obj,          
 						"name": obj_name,        # object name
 						"line": line,
 						"SMBHEstimator": combo,
@@ -159,6 +193,9 @@ def posterior_extraction(
 
 	return df
 
+
+
+
 def mad_std(x):
 	# Robust sigma estimate from MAD
 	med = np.median(x)
@@ -176,10 +213,7 @@ def concordance_ccc(x, y):
 	sx2, sy2 = np.var(x, ddof=1), np.var(y, ddof=1)
 	sxy = np.cov(x, y, ddof=1)[0, 1]
 	return (2 * sxy) / (sx2 + sy2 + (mx - my) ** 2)
-# ---------- helpers ----------
-def mad_std(x):
-	med = np.median(x)
-	return 1.4826 * np.median(np.abs(x - med))
+
 
 def concordance_ccc(x, y):
 	x = np.asarray(x); y = np.asarray(y)
