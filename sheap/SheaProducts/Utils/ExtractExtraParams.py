@@ -32,7 +32,7 @@ def _col(x):
     """
 #
     x = np.asarray(x)
-    return x.reshape(-1, 1) if x.ndim == 1 else x
+    return x[None,:] if x.ndim == 1 else x
 
 
 def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
@@ -272,9 +272,10 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
         print("No broad component")
         return {}
     out = {}
-    
+    #samples,Lines
     #extras = broad_params.get("extras",{})
     fwhm_all = _col(broad_params.get("fwhm_kms"))
+    #print(fwhm_all.shape)
     lum_all  = _col(broad_params.get("luminosity"))
     sigma_all = broad_params.get("sigma_kms", None)
     flux_all = broad_params.get("flux", None)

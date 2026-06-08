@@ -18,6 +18,7 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
 
+
 import pandas as pd
 from collections.abc import Mapping
 
@@ -1459,8 +1460,7 @@ def compare_res(dictionaries,labels,main_key="Values Bernal+25",compared_xlabel=
 	plt.show()
 
 
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib.pyplot as plt
+
 
 def add_colorbar_from_dict(ax, colorbar_dict):
     """

@@ -93,7 +93,6 @@ class MonteCarloSampler:
 
 	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
 		from tqdm import tqdm
-		print(f"Running Monte Carlo with JAX.,sample over the spectra using init params")
 		norm_spectra = self.norm_spectra
 		model = self.model 
 		
@@ -102,19 +101,22 @@ class MonteCarloSampler:
 		params = jnp.tile(self.initial_params, (norm_spectra.shape[1], 1))
 		key = random.PRNGKey(key_seed)
 		monte_params = []
-		
-		for n in iterator:
-			key, ki = random.split(key)
-			norm_spectra_local = resample_spec_all(ki,norm_spectra)
-			t0 = time.perf_counter()
-			params_m, _ = _minimizer(params , *norm_spectra_local, self.constraints)#
-			t1 = time.perf_counter()
-			monte_params.append(params_m)
-			iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+		if num_samples>1:
+			print(f"Running Monte Carlo with JAX.,sample over the spectra using init params")
+			for n in iterator:
+				key, ki = random.split(key)
+				norm_spectra_local = resample_spec_all(ki,norm_spectra)
+				t0 = time.perf_counter()
+				params_m, _ = _minimizer(params , *norm_spectra_local, self.constraints)#
+				t1 = time.perf_counter()
+				monte_params.append(params_m)
+				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
+		else:
+			print(f"Running posterior params")
+			monte_params.append(self.best_params)
+			#monte_params.append(self.best_params)
 
 		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
-
-  
 		dic_posterior_params = {}
   
 		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")

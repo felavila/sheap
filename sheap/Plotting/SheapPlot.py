@@ -55,7 +55,7 @@ class SheapPlot:
         self.z = sheap.z
         self.snr = sheap.snr
         self.chi2_red = result.chi2_red
-        self.model = jit(make_fused_profiles(self.profile_functions))
+        self.model = make_fused_profiles(self.profile_functions)
         
 
     def _from_fit_result(self, result, spectra):
@@ -75,7 +75,7 @@ class SheapPlot:
         #self.snr = result.snr
         self.chi2_red = result.chi2_red
         #self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = jit(make_fused_profiles(self.profile_functions))
+        self.model = make_fused_profiles(self.profile_functions)
 
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
              flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=True, **kwargs):
@@ -199,16 +199,14 @@ class SheapPlot:
         ax1.set_xlim(xlim)
         
         if add_extra:
-            x0, y0 = 0.65, 1.21
-            dx = 0.24  # horizontal separation in axes coords (tune)
+            x0, y0 = 0.5, 1.21
+            dx = 0.4  # horizontal separation in axes coords (tune)
 
-            left_lines = f"ID {self.names[n]} ({n})\n z = {self.z[n]}"
+            left_lines = f"ID {self.names[n]}({n})\n z = {self.z[n]}"
             right_lines = f"SNR = {self.snr[n]:.2f}\n$\\chi_{{\\rm red}}$ = {self.chi2_red[n]:.2f}"
 
             # Left column
-            ax1.text(
-                x0, y0,
-                left_lines,
+            ax1.text(x0, y0,left_lines,
                 fontsize=25,
                 transform=ax1.transAxes,
                 ha="left", va="top",

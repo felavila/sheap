@@ -517,11 +517,16 @@ class Sheapectral:
 			return PM 
 		
 		if sampling_method == "single":
-			self.result.posterior[sampling_method] = {}
-			print("You chose single: parameter estimation using " "only fitting uncertainties.")
-			SP = SheaProducts(samplerclass=PM,method="direct")
-			dic_posterior_params = SP.calculate_sheap_products(summarize=summarize)
-			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
+			#self.result.posterior[sampling_method] = {}
+			#print("You chose single: parameter estimation using " "only fitting uncertainties.")
+			#SP = SheaProducts(samplerclass=PM,method="direct")
+			#dic_posterior_params = SP.calculate_sheap_products(summarize=summarize)
+			#self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
+			time_init = time.time()
+			dic_posterior_params = PM.montecarlosampler(num_samples=1,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
+			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
+
+
 		elif sampling_method == "montecarlo":
 			time_init = time.time()
 			dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
@@ -530,8 +535,7 @@ class Sheapectral:
 		else:
 			raise ValueError(
 				f"Unknown sampling method '{sampling_method}'. "
-				"Available methods: single, pseudomontecarlo, montecarlo, mcmc."
-			)
+					"Available methods: single, pseudomontecarlo, montecarlo, mcmc.")
 	
 	def _recalculate_products(self,sampling_method=None):
 		from sheap.MasterSampler.MasterSampler import MasterSampler

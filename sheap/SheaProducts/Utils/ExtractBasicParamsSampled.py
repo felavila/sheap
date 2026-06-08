@@ -27,6 +27,7 @@ from sheap.Utils.BasicFunctions import calc_fwhm_kms,calc_luminosity,calc_monoch
 #I dont like d has name of variable maybe D?
 #wl_i = spectra[idx_obj, 0, :]
 #mask_i = mask[idx_obj, :]
+
 def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_idx_all,cont_profile_all,cont_profile,luminosity_distance=0,BOL_CORRECTIONS =DEFAULT_BOL_CORRECTIONS,C_KMS= DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):
         """
         Extract line quantities (flux, FWHM, center, etc.) from posterior samples.

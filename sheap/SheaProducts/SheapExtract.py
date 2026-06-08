@@ -276,6 +276,8 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
                             "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
         df_cont=pd.concat([df_cont, row], ignore_index=True)
+    df_chi = pd.DataFrame({"obj_name":obj_list,"n_obj":selected_index,
+                           "chi_2_reduced":sheapspectral.result.chi2_red[selected_index],"snr":sheapspectral.snr,"z":sheapspectral.z})
 
     if df_extra.empty:
         return df_extra
@@ -292,4 +294,4 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         if col not in non_numeric:
             df_basic[col] = pd.to_numeric(df_basic[col], errors="ignore")
 
-    return df_extra,df_cont,df_basic
+    return df_extra,df_cont,df_basic,df_chi

@@ -349,7 +349,7 @@ def rebin_one_spectrum(
     conservation_ratio : float
         Percentage ratio between rebinned and original integrated flux.
     """
-
+    from spectres import spectres
     wl, flux, error = spectrum
 
     wl = np.asarray(wl, dtype=float)
@@ -402,11 +402,10 @@ def rebin_one_spectrum(
     return original, new, conservation_ratio
 
 def rebin_spectra_list(
-    spectra_list,
+    spectra_list,redshifts,
+    coords,
     n_pix=None,
     file_names=None,
-    redshifts=None,
-    coords=None,
     npix_original=None,
 ):
     """
@@ -440,14 +439,6 @@ def rebin_spectra_list(
     n_pix = int(n_pix)
     n_spectra = len(spectra_list)
 
-    if file_names is None:
-        file_names = [f"spectrum_{i}" for i in range(n_spectra)]
-
-    if redshifts is None:
-        redshifts = [np.nan] * n_spectra
-
-    if coords is None:
-        coords = [None] * n_spectra
 
     if npix_original is None:
         npix_original = [len(s[0]) for s in spectra_list]
