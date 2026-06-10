@@ -158,8 +158,6 @@ class MoldelSpectraReconstruction:
 
 	def _require_samples(self, all_samples: Optional[jnp.ndarray]) -> jnp.ndarray:
 		if all_samples is not None:
-		#	if len(all_samples.shape) == 2:
-		#		all_samples = all_samples[None,:,:]
 			return self.samples[all_samples,:,:]
 		#print(self.samples.shape)
 		if self.samples is None:

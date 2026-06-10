@@ -272,15 +272,12 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
         print("No broad component")
         return {}
     out = {}
-    #samples,Lines
-    #extras = broad_params.get("extras",{})
-    fwhm_all = _col(broad_params.get("fwhm_kms"))
-    #print(fwhm_all.shape)
-    lum_all  = _col(broad_params.get("luminosity"))
+    fwhm_all = np.atleast_2d(_col(broad_params.get("fwhm_kms")))
+    lum_all  = np.atleast_2d(_col(broad_params.get("luminosity")))
     sigma_all = broad_params.get("sigma_kms", None)
     flux_all = broad_params.get("flux", None)
     if sigma_all is not None:
-        sigma_all = _col(sigma_all)
+        sigma_all = np.atleast_2d(_col(sigma_all))
 
     lines = np.asarray(broad_params.get("lines", []))
     comps = np.asarray(broad_params.get("component", []))
@@ -300,9 +297,8 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
             #print(f"TODO implement {calib_key}")
             continue 
         idxs = np.where(lines == line_name)[0]
-        #print(idxs)   
+
         comp_here = comps[idxs]
-        # choose velocity width
         if width_def == "sigma":
             if sigma_all is not None:
                 Vwidth = sigma_all[:, idxs]
@@ -316,20 +312,6 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
             Vwidth = fwhm_all[:, idxs]
         L_line = lum_all[:, idxs]
         
-        # local extras (Le20 / Pan25)
-        # local_extras = {}
-        # if est.get("extras", {}).get("le20_shape", False):
-        #     if sigma_all is not None:
-        #         local_extras["sigma_kms"] = sigma_all[:, idxs]
-        #     elif "sigma_kms" in extras:
-        #         sig = _col(extras["sigma_kms"])
-        #         local_extras["sigma_kms"] = sig[:, idxs] if sig.ndim == 2 else sig
-        # local_extras["R_Fe"] = extras.get("flux_Fe",0)/flux_all[:, idxs]
-            
-        # if "R_Fe" in extras:
-        #     #print("R_fe")
-        #     local_extras["R_Fe"] = extras["R_Fe"]
-            
         if kind == "continuum":
             lam = est.get("wavelength", None)
             if lam is None:

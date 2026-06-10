@@ -270,8 +270,10 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     df_basic = pd.DataFrame(rows_basic)
     if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]):
         print("----Running host reconstruction-----")
-        ra = MoldelSpectraReconstruction(sheapspectral, jit_compile=True)
+        ra = MoldelSpectraReconstruction(sheapspectral, jit_compile=True,posterior_group=method)
         stars = ra.stars_Cont_5100(all_samples = selected_index)
+        if len(stars.shape) != 2:
+            stars = stars[:,None]
         med, _low, _up= median_with_errors(stars,axis=1, low=low, high=high)
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
                             "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
@@ -284,14 +286,14 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
 
     non_numeric = {"n_obj", "name","line", "SMBHEstimator", "quantity", "method", "vwidth_def", "component", "extra_key",}
 
-    for col in df_extra.columns:
-        if col not in non_numeric:
-            df_extra[col] = pd.to_numeric(df_extra[col], errors="ignore")
-    for col in df_cont.columns:
-        if col not in non_numeric:
-            df_cont[col] = pd.to_numeric(df_cont[col], errors="ignore")
-    for col in df_basic.columns:
-        if col not in non_numeric:
-            df_basic[col] = pd.to_numeric(df_basic[col], errors="ignore")
+    # for col in df_extra.columns:
+    #     if col not in non_numeric:
+    #         df_extra[col] = pd.to_numeric(df_extra[col], errors="ignore")
+    # for col in df_cont.columns:
+    #     if col not in non_numeric:
+    #         df_cont[col] = pd.to_numeric(df_cont[col], errors="ignore")
+    # for col in df_basic.columns:
+    #     if col not in non_numeric:
+    #         df_basic[col] = pd.to_numeric(df_basic[col], errors="ignore")
 
     return df_extra,df_cont,df_basic,df_chi

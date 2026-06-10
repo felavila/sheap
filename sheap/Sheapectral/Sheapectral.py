@@ -777,7 +777,7 @@ class Sheapectral:
 
 		return df
 
-	def quicklook(self, idx: int, ax=None, xlim=None, ylim=None,add_text=True,figsize= (15, 5)):
+	def quicklook(self, idx: list, ax=None, xlim=None, ylim=None,add_text=True,figsize= (15, 5)):
 		"""
 		Produce a quick errorbar plot of flux vs. wavelength.
 
@@ -801,12 +801,15 @@ class Sheapectral:
 		import matplotlib.pyplot as plt
 		from matplotlib.ticker import FixedLocator
 
-		lam, flux, err = self.spectra[idx]
-
 		if ax is None:
 			fig, ax = plt.subplots(figsize=figsize)
 
-		ax.errorbar(lam, flux, yerr=err, ecolor='dimgray', color="black", zorder=1)
+		if isinstance(idx,int):
+			idx = [idx]
+		
+		for i in idx:
+			lam, flux, err = self.spectra[i]
+			ax.errorbar(lam, flux, yerr=err, zorder=1,label=self.names[i])
 
 		# Default xlim and ylim if not provided
 		if xlim is None:
@@ -823,18 +826,21 @@ class Sheapectral:
 		ax.set_ylabel(f"Flux [{flux_unit}]", fontsize=25)
 		ax.tick_params(axis='both', labelsize=25)
 		ax.yaxis.offsetText.set_fontsize(25)
+		
 		# Plot ID label outside main plot area, above-left
 		if add_text:
-			ax.text(
-				0.7,
-				1.0,
-				f"ID {self.names[idx]} ({idx}) \nz = {self.z[idx]} ",
-				fontsize=20,
-				transform=ax.transAxes,
-				ha='left',
-				va='bottom',
-			)
-
+			if len(idx) == 1:
+				ax.text(
+					0.7,
+					1.0,
+					f"ID {self.names[idx[0]]} ({idx[0]}) \nz = {self.z[idx[0]]} ",
+					fontsize=20,
+					transform=ax.transAxes,
+					ha='left',
+					va='bottom',
+				)
+			else:
+				ax.legend(fontsize=14, frameon=False)
 		ax.yaxis.set_major_locator(FixedLocator(ax.get_yticks()))
 
 		return ax
@@ -1010,3 +1016,4 @@ class Sheapectral:
 		#self.d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 		d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 		return d
+	

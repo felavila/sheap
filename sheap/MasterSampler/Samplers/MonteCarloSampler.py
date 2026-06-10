@@ -97,12 +97,12 @@ class MonteCarloSampler:
 		model = self.model 
 		
 		_minimizer = self.make_minimizer(model=model, **self.fitkwargs[-1])
-		iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
 		params = jnp.tile(self.initial_params, (norm_spectra.shape[1], 1))
 		key = random.PRNGKey(key_seed)
 		monte_params = []
 		if num_samples>1:
 			print(f"Running Monte Carlo with JAX.,sample over the spectra using init params")
+			iterator = tqdm(range(num_samples), total=num_samples, desc="Sampling obj")
 			for n in iterator:
 				key, ki = random.split(key)
 				norm_spectra_local = resample_spec_all(ki,norm_spectra)
