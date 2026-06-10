@@ -47,7 +47,7 @@ dependencies = [
 
     # Dust maps
     "sfdmap2",
-
+    "requests"
     # # Documentation notebooks currently imported by the docs build
     # "nbsphinx",
     # "myst-nb",
