@@ -137,29 +137,6 @@ class SheaProducts:
             products= {**all_params,**products}
         if extra_products:
             products = self._get_extraparams(products)
-        #print(products.keys())
-        return products
-    
-    def calculate_sheap_products(self,combine=True,extra_products=True,**kwargs):
-        params = jnp.asarray(self.sheapmodel.params, dtype=jnp.float32)
-        uncertainty_params = jnp.asarray(self.sheapmodel.uncertainty_params, dtype=jnp.float32)
-        spectra = jnp.asarray(self.spectra, dtype=jnp.float32)
-        #mask = jnp.asarray(self.mask, dtype=jnp.float32)
-        
-        full_cont_profile = make_fused_profiles(np.concatenate([self.by_region[key].profile_functions for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])) # <- ?
-        products = extract_basic_params_single(spectra,self.mask,params,uncertainty_params,continuum_idx_all=self.full_cont_idx,
-                                               luminosity_distance=self.d,sheapmodel=self.sheapmodel,cont_profile_all= full_cont_profile,
-                                                BOL_CORRECTIONS =self.BOL_CORRECTIONS,C_KMS= self.C_KMS,wavelength_grid=self.wavelength_grid)
-        if combine:
-            full_cont_params = params[:,self.full_cont_idx] # <-jeje
-            self.MC.ucont_params = uncertainty_params[:,self.full_cont_idx] # <-jeje
-            self.MC.full_cont_profile = full_cont_profile
-            all_params = self.MC.combine_both(products["basic_params"],self.d,full_cont_params) #<-
-            #print(all_params)
-            products= {**all_params,**products}
-        if extra_products:
-            products = self._get_extraparams(products)
-        #print(products)
         return products
           
     def _get_extraparams(self,products):
@@ -189,3 +166,24 @@ class SheaProducts:
         missing = [n for n in names if getattr(self, n, None) is None]
         if missing:
             raise ValueError(f"SheaProducts is missing required fields: {missing}")
+    def calculate_sheap_products(self,combine=True,extra_products=True,**kwargs):
+        "this will be deprecated"
+        params = jnp.asarray(self.sheapmodel.params, dtype=jnp.float32)
+        uncertainty_params = jnp.asarray(self.sheapmodel.uncertainty_params, dtype=jnp.float32)
+        spectra = jnp.asarray(self.spectra, dtype=jnp.float32)
+        
+        full_cont_profile = make_fused_profiles(np.concatenate([self.by_region[key].profile_functions for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])) # <- ?
+        products = extract_basic_params_single(spectra,self.mask,params,uncertainty_params,continuum_idx_all=self.full_cont_idx,
+                                               luminosity_distance=self.d,sheapmodel=self.sheapmodel,cont_profile_all= full_cont_profile,
+                                                BOL_CORRECTIONS =self.BOL_CORRECTIONS,C_KMS= self.C_KMS,wavelength_grid=self.wavelength_grid)
+        if combine:
+            full_cont_params = params[:,self.full_cont_idx] # <-jeje
+            self.MC.ucont_params = uncertainty_params[:,self.full_cont_idx] # <-jeje
+            self.MC.full_cont_profile = full_cont_profile
+            all_params = self.MC.combine_both(products["basic_params"],self.d,full_cont_params) #<-
+            #print(all_params)
+            products= {**all_params,**products}
+        if extra_products:
+            products = self._get_extraparams(products)
+        #print(products)
+        return products

@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Union,Iterable
 import numpy as np
 import jax.numpy as jnp
 from jax import vmap,jit,jacfwd,lax
-from uncertainties import unumpy
+#from uncertainties import unumpy
 
 
 
@@ -21,7 +21,7 @@ from sheap.Utils.BasicFunctions import calc_flux,calc_luminosity
 from sheap.Utils.Constants import DEFAULT_C_KMS
 from sheap.Profiles.Utils import GaussianSum
 from sheap.SheaProducts.Utils.Sample_handlers import concat_dicts_combine
-
+from sheap.SheaProducts.Utils.CombineUtils import combine_fast	
 
 class MasterCombineProfile:
 	def __init__(self,LINES_TO_COMBINE=("Halpha", "Hbeta","MgII","CIV"), limit_velocity=150.0,C_KMS=DEFAULT_C_KMS,full_cont_profile=None,ucont_params = None
@@ -111,9 +111,9 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 	components =  np.array(broad_params["component"])[idx_broad]
 	gg = GaussianSum(len(idx_broad))
 	#check in comming iterations if this generate overcharge <-
-	b_mu = jnp.asarray(unumpy.nominal_values(broad_params["center"]))[:,idx_broad].astype(jnp.float32)
-	b_sigma = jnp.asarray(unumpy.nominal_values(broad_params["fwhm"]))[:,idx_broad].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
-	b_amp   = jnp.asarray(unumpy.nominal_values(broad_params["amplitude"]))[:,idx_broad].astype(jnp.float32)    # (Nobj, NB)
+	b_mu = jnp.asarray(broad_params["center"])[:,idx_broad].astype(jnp.float32)
+	b_sigma = jnp.asarray(broad_params["fwhm"])[:,idx_broad].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
+	b_amp   = jnp.asarray(broad_params["amplitude"])[:,idx_broad].astype(jnp.float32)    # (Nobj, NB)
 	
 	_ = np.stack([b_amp, b_mu,b_sigma], axis=2)
 	line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
@@ -178,13 +178,14 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,full_cont_profile=None,full_cont_params=None,distances = 0,ucont_params=None):
 	"""
 	continuum_func -> a function that already has the continuum params integrated
- 	"""
+ 	soon will be deprecated
+	"""
 	broad_params = basic_params.get("broad", {})
 	narrow_params = basic_params.get("narrow", {})
 	
 	idx_broad = [i for i,L in enumerate(broad_params.get("lines",[])) if L.lower() == line.lower()]
 	idx_narrow = [i for i,L in enumerate(narrow_params.get("lines",[])) if L.lower() == line.lower()]
- 
+	
 	if len(idx_broad) < 2 or  len(idx_narrow) != 1:
 		return
 	components =  np.array(broad_params["component"])[idx_broad]
@@ -196,42 +197,24 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 	amp_n = narrow_params["amplitude"][:, idx_narrow]
 	mu_n = narrow_params["center"][:, idx_narrow]
 	fwhm_kms_n = narrow_params["fwhm_kms"][:, idx_narrow]
-	#print(distances)
-	if amp_b.dtype == 'O': #uncertainty rutines
-		from sheap.SheaProducts.Utils.Helpers import evaluate_with_error
-		from sheap.SheaProducts.Utils.CombineUtils import combine_fast_with_jacobian
-		
-		fwhm_c, amp_c, mu_c = combine_fast_with_jacobian(amp_b, mu_b, fwhm_kms_b,amp_n, mu_n, fwhm_kms_n,limit_velocity=limit_velocity,C_KMS=C_KMS)
-		
-		if fwhm_c.ndim==1:
-			fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1)
-		fwhm_A = (fwhm_c / C_KMS) * mu_c
-		flux_c = calc_flux(amp_c, fwhm_A)
-		L_line = calc_luminosity(np.array(distances)[:,None], flux_c)
-		cont_c = unumpy.uarray(*np.array(evaluate_with_error(full_cont_profile,unumpy.nominal_values(mu_c), full_cont_params,unumpy.std_devs(mu_c), ucont_params)))
+	
+	N = amp_b.shape[0]
+	params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
+	params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
+
+	fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, C_KMS=C_KMS)
+	if fwhm_c.ndim==1:
+		fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1) #i have a helper to do this?
+
+	fwhm_A = (fwhm_c / C_KMS) * mu_c
+	flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
+	L_line = calc_luminosity(jnp.array(distances), flux_c)
+	if full_cont_profile:
+		cont_c = full_cont_profile(mu_c,full_cont_params)
 		eqw_c = flux_c / cont_c
 	else:
-		from sheap.SheaProducts.Utils.CombineUtils import combine_fast	
-		
-		N = amp_b.shape[0]
-		params_broad = jnp.stack([amp_b, mu_b, fwhm_kms_b], axis=-1).reshape(N, -1)
-		params_narrow = jnp.concatenate([amp_n, mu_n, fwhm_kms_n], axis=1)
+		eqw_c = jnp.zeros_like(flux_c)
 
-		fwhm_c, amp_c, mu_c = combine_fast(params_broad, params_narrow, limit_velocity=limit_velocity, C_KMS=C_KMS)
-		if fwhm_c.ndim==1:
-			fwhm_c, amp_c, mu_c = fwhm_c.reshape(-1, 1), amp_c.reshape(-1, 1), mu_c.reshape(-1, 1) #i have a helper to do this?
-
-		fwhm_A = (fwhm_c / C_KMS) * mu_c
-		flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
-		L_line = calc_luminosity(jnp.array(distances), flux_c)
-		if full_cont_profile:
-			cont_c = full_cont_profile(mu_c,full_cont_params)
-			eqw_c = flux_c / cont_c
-		else:
-			eqw_c = jnp.zeros_like(flux_c)
-	#L_line = 0 
-	combined = {"component": components,"flux":flux_c,"fwhm":fwhm_A,"fwhm_kms":fwhm_c,"center":mu_c,"amplitude":amp_c,"luminosity":L_line,"eqw":eqw_c}
-	
-	return combined
+	return {"component": components,"flux":flux_c,"fwhm":fwhm_A,"fwhm_kms":fwhm_c,"center":mu_c,"amplitude":amp_c,"luminosity":L_line,"eqw":eqw_c}
 	
 #cont_c = cont_group(mu_c, cont_params)

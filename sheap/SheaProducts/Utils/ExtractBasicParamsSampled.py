@@ -95,6 +95,7 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
                 lum_parts.extend(_lum)
                 shape_params_list.extend(_shapes)
 
+            line_names = np.array(line_names)
             basic_params[region] = {"lines": line_names,
                 "component": components,
                 "flux": np.concatenate(flux_parts, axis=1),
@@ -104,7 +105,8 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
                 "amplitude": np.concatenate(amp_parts, axis=1),
                 "eqw": np.concatenate(eqw_parts, axis=1),
                 "luminosity": np.concatenate(lum_parts, axis=1),
-                "shape_params": concat_dicts(shape_params_list) 
+                "shape_params": concat_dicts(shape_params_list),
+                "idx_by_name": {name: np.where(line_names == name)[0]  for name in np.unique(line_names)}
             }
         L_w, L_bol,F_cont = {}, {},{}
         for wave in map(float, BOL_CORRECTIONS.keys()):
