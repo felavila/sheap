@@ -278,8 +278,7 @@ class SheapModelFitting:
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
             raise TypeError("fitting_routine must be a dictionary.")
-        #list_num_steps =
-        #list_learning_rate = 
+
         if list_num_steps and list_learning_rate:
             assert len(list_num_steps) == len(list_learning_rate), "The  list_num_steps and list_learning_rate should be equal"
             n_steps = len(list_learning_rate)
@@ -370,13 +369,14 @@ class SheapModelFitting:
         #print(tied_map)
         self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
         #print("P1.25",time.time())
-        minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
+        self.minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
             penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+        
         #print("P1.5",time.time())
         try:
             #faster why?
-            params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
-            self.minimizer = minimizer
+            params, loss = self.minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+            #self.minimizer = minimizer
             self.norm_spec = norm_spec
             #slower why?
             #params, loss = minimizer(self.params_obj.phys_init(), *norm_spec.transpose(1, 0, 2), self.constraints)

@@ -103,27 +103,28 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 	lambda_ref = DEFAULT_lambda_ref[line]
 	
 	broad_params = basic_params.get("broad", {})
-	idx_broad = [i for i,L in enumerate(broad_params.get("lines",[])) if L.lower() == line.lower()]
+	idx_broad = jnp.array([i for i,L in enumerate(broad_params.get("lines",[])) if L.lower() == line.lower()])
  
 	if len(idx_broad) < 2:
 		return
 	broad_params = basic_params["broad"]
-	components =  np.array(broad_params["component"])[idx_broad]
+	components = jnp.array(broad_params["component"])
+	components =  jnp.take(components, idx_broad, axis=0)   #jnp.array(broad_params["component"])[idx_broad]
 	gg = GaussianSum(len(idx_broad))
 	#check in comming iterations if this generate overcharge <-
-	b_mu = jnp.asarray(unumpy.nominal_values(broad_params["center"]))[:,idx_broad].astype(jnp.float32)
-	b_sigma = jnp.asarray(unumpy.nominal_values(broad_params["fwhm"]))[:,idx_broad].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
-	b_amp   = jnp.asarray(unumpy.nominal_values(broad_params["amplitude"]))[:,idx_broad].astype(jnp.float32)    # (Nobj, NB)
+	b_mu = jnp.asarray((broad_params["center"]))[:,idx_broad].astype(jnp.float32)
+	b_sigma = jnp.asarray((broad_params["fwhm"]))[:,idx_broad].astype(jnp.float32) /  (2.0 * np.sqrt(2.0 * np.log(2.0)))
+	b_amp   = jnp.asarray((broad_params["amplitude"]))[:,idx_broad].astype(jnp.float32)    # (Nobj, NB)
 	
-	_ = np.stack([b_amp, b_mu,b_sigma], axis=2)
+	_ = jnp.stack([b_amp, b_mu,b_sigma], axis=2)
 	line_params = jnp.array(_.transpose(0, 2, 1).reshape(_.shape[0], -1)).astype(jnp.float32)
-	left = np.min(b_mu - 3*b_sigma,axis=1)
-	right = np.max(b_mu + 3*b_sigma,axis=1)
+	left = jnp.min(b_mu - 3*b_sigma,axis=1)
+	right = jnp.max(b_mu + 3*b_sigma,axis=1)
 
 	disp = 1.e-4 #hyperparam 
 	npix = 50_000 #int(max((right-left)/disp))  #(maybe it is 2 much)
 
-	wave = jnp.linspace(np.min(left), np.max(right), npix, dtype=jnp.float32)
+	wave = jnp.linspace(jnp.min(left), jnp.max(right), npix, dtype=jnp.float32)
 	model_sum = vmap(gg,in_axes=(None,0))(wave,line_params).astype(jnp.float32)
 	
 	i_peak     = jnp.argmax(model_sum, axis=1)            
@@ -165,9 +166,9 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 	fwhm_kms = ((lam_R - lam_L) / lambda_ref) * C_KMS   
 	sigma_kms = fwhm_kms / (2.0 * np.sqrt(2.0 * np.log(2.0)))
 
-	flux  = np.trapezoid(model_sum, wave, axis=1)
+	flux  = jnp.trapezoid(model_sum, wave, axis=1)
 	luminosity = calc_luminosity(jnp.array(distances), flux)#just to be consisten with our self
-	eqw = np.zeros_like(flux)
+	eqw = jnp.zeros_like(flux)
 	if full_cont_profile:
 		continuum_vals = full_cont_profile(wave,full_cont_params)
 		cont_safe  = jnp.maximum(continuum_vals, 1e-30)

@@ -41,7 +41,7 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
         idx_cont = cont_group.flat_param_indices_global
         cont_params = samples[:, idx_cont]
         cont_params_all = samples[:, continuum_idx_all]
-        distances = np.full((samples.shape[0],),luminosity_distance, dtype=np.float64)
+        distances = jnp.full((samples.shape[0],),luminosity_distance, dtype=jnp.float64)
         for region, region_group in sheapmodel_group_by_region.items():
             if region in ("fe", "continuum", "host","balmer"):
                 continue
@@ -97,23 +97,31 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
 
             basic_params[region] = {"lines": line_names,
                 "component": components,
-                "flux": np.concatenate(flux_parts, axis=1),
-                "fwhm": np.concatenate(fwhm_parts, axis=1),
-                "fwhm_kms": np.concatenate(fwhm_kms_parts, axis=1),
-                "center": np.concatenate(center_parts, axis=1),
-                "amplitude": np.concatenate(amp_parts, axis=1),
-                "eqw": np.concatenate(eqw_parts, axis=1),
-                "luminosity": np.concatenate(lum_parts, axis=1),
+                "flux": jnp.concatenate(flux_parts, axis=1),
+                "fwhm": jnp.concatenate(fwhm_parts, axis=1),
+                "fwhm_kms": jnp.concatenate(fwhm_kms_parts, axis=1),
+                "center": jnp.concatenate(center_parts, axis=1),
+                "amplitude": jnp.concatenate(amp_parts, axis=1),
+                "eqw": jnp.concatenate(eqw_parts, axis=1),
+                "luminosity": jnp.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list) 
             }
-        L_w, L_bol,F_cont = {}, {},{}
-        for wave in map(float, BOL_CORRECTIONS.keys()):
-            wstr = str(int(wave))
-            if (jnp.isclose(wavelength, wave, atol=2) & ~mask).any():
-                Fcont = cont_profile(jnp.array([wave]), cont_params).squeeze()
-                Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
-                Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
-                L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
+        L_w, L_bol, F_cont = {}, {}, {}
+
+        for wstr, bol_corr in BOL_CORRECTIONS.items():
+            wave = float(wstr)
+
+            valid_wave = jnp.any(jnp.isclose(wavelength, wave, atol=2.0) & (~mask))
+
+            Fcont_i = cont_profile(jnp.array([wave]), cont_params).squeeze()
+
+            Lmono_i = calc_monochromatic_luminosity(luminosity_distance,Fcont_i,wave,)
+
+            Lbol_i = calc_bolometric_luminosity(Lmono_i,bol_corr,)
+
+            L_w[wstr] = jnp.where(valid_wave, Lmono_i, jnp.nan)
+            L_bol[wstr] = jnp.where(valid_wave, Lbol_i, jnp.nan)
+            F_cont[wstr] = jnp.where(valid_wave, Fcont_i, jnp.nan)    
         
         
         #list_to_get_extra_params = ["basic_params"]
@@ -131,7 +139,7 @@ def _accumulate_spaf_sampled(prof_group, profile_fn, batch_fwhm, integrator_fn, 
         params_by_line = _build_spaf_sampled_params(sp,idx_param,params_names,samples,C_KMS=C_KMS)
         amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals = _extract_sampled_profile_quantities(integrator_fn, batch_fwhm, 
                                                                                                                params_by_line, cont_params_all,cont_profile_all,
-                                                                                                               np.full((samples.shape[0],), distances))
+                                                                                                               jnp.full((samples.shape[0],), distances))
         
         all_flux.append(flux)
         all_fwhm.append(fwhm)
@@ -165,9 +173,9 @@ def _build_spaf_sampled_params(sp,idx_param,params_names, samples,C_KMS=DEFAULT_
         amp = params[:, [dic_amp[idx]]] *factor #+ np.log10(factor)
         center = sp.center[i] * (1+params[:, [idx_shift]]/C_KMS)
         extras = (10**params[:, idx_shift+1:]) * center/C_KMS
-        full_params_by_line.append(np.column_stack([amp, center, extras]))
+        full_params_by_line.append(jnp.column_stack([amp, center, extras]))
 
-    return np.moveaxis(np.array(full_params_by_line), 0, 1)
+    return jnp.moveaxis(jnp.array(full_params_by_line), 0, 1)
 
 def _extract_sampled_profile_quantities(integrator_fn, batch_fwhm, params_by_line, cont_params_all,cont_profile_all,
                                         distances,C_KMS=DEFAULT_C_KMS,wavelength_grid=jnp.linspace(0, 20_000, 20_000)):

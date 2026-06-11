@@ -54,7 +54,7 @@ def concat_dicts_combine(list_of_dicts):
     # flatten or stack if numeric/array-like
     for k, v in out.items():
         if "component" not in k:
-            out[k] = np.stack(v, axis=1).squeeze()
+            out[k] = jnp.stack(v, axis=1).squeeze()
         else:
             out[k] = v
     out["lines"] = lines
@@ -91,7 +91,7 @@ def concat_dicts(list_of_dicts):
 
     # flatten or stack if numeric/array-like
     for k, v in out.items():
-        out[k] = np.concatenate([x for x in v]).T
+        out[k] = jnp.concatenate([x for x in v]).T
     return dict(out)
 
 

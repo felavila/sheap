@@ -107,7 +107,8 @@ class MonteCarloSampler:
 				key, ki = random.split(key)
 				norm_spectra_local = resample_spec_all(ki,norm_spectra)
 				t0 = time.perf_counter()
-				params_m, _ = _minimizer(params , *norm_spectra_local, self.constraints)#
+				print(params.shape,norm_spectra_local.shape,self.constraints.shape)
+				params_m, _ = _minimizer(params , *norm_spectra_local, self.constraints)
 				t1 = time.perf_counter()
 				monte_params.append(params_m)
 				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
@@ -120,7 +121,8 @@ class MonteCarloSampler:
 		dic_posterior_params = {}
   
 		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
-		samples_func = self.SheaProducts.calculate_sheap_products_sampled #jit(self.SheaProducts.calculate_sheap_products_sampled)
+		samples_func = self.SheaProducts.calculate_sheap_products_sampled #
+		#samples_func = jit(self.SheaProducts.calculate_sheap_products_sampled)
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
