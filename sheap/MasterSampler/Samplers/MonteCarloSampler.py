@@ -120,13 +120,16 @@ class MonteCarloSampler:
 		dic_posterior_params = {}
   
 		iterator = tqdm(self.names, total=len(self.names), desc="Getting posterior-params")
+		samples_func = self.SheaProducts.calculate_sheap_products_sampled #jit(self.SheaProducts.calculate_sheap_products_sampled)
 		for n, name_i in enumerate(iterator):
 			full_samples = scale_amp(self.params_dict,_monte_params[n],self.scale[n])
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
-			dic_posterior_params[name_i] = self.SheaProducts.calculate_sheap_products_sampled(n,full_samples)
+			dic_posterior_params[name_i] = samples_func(n,full_samples)
 			dic_posterior_params[name_i].update({"samples_phys":full_samples})
 		return dic_posterior_params	
 	
+
+
 	def sample_params_st(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
 		"stable start from the best result."
 		from tqdm import tqdm

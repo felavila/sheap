@@ -118,6 +118,9 @@ class SheaProducts:
         #full_samples -> samples
         #d->luminosity_distance?
         wi,mi,samples,luminosity_distance = self.spectra[idx,0,:],self.mask[idx,:],samples,self.d[idx]
+        #wi = jnp.take(self.spectra[:, 0, :], idx, axis=0)  # shape: (Nidx, L)
+        #mi = jnp.take(self.mask, idx, axis=0)              # shape: (Nidx, L)
+        #luminosity_distance = jnp.take(self.d, idx, axis=0)
         #basic_params should be basic extraction.
         # fe_out = self.MSR.fe_integrated_flux(all_samples=samples,include_bestfit=False)
         # stars = self.MSR.stars_Cont_5100(all_samples=samples)     
