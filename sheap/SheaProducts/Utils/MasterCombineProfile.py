@@ -54,7 +54,9 @@ class MasterCombineProfile:
 	def combine_kinematic_all(self,basic_params,distances,full_cont_params):
 		out = {}
 		for line in self.LINES_TO_COMBINE:
-			L = combine_kinematic(basic_params=basic_params,line=line,limit_velocity=self.limit_velocity,full_cont_profile=self.full_cont_profile,full_cont_params=full_cont_params,C_KMS=self.C_KMS, distances=distances, ucont_params=self.ucont_params,)	
+			L = combine_kinematic(basic_params=basic_params,line=line,limit_velocity=self.limit_velocity,
+						 full_cont_profile=self.full_cont_profile,full_cont_params=full_cont_params,C_KMS=self.C_KMS, 
+						 distances=distances, ucont_params=self.ucont_params,)	
 			if L is not None:
 				out[line] = L
 		return out
@@ -173,7 +175,7 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 		continuum_vals = full_cont_profile(wave,full_cont_params)
 		cont_safe  = jnp.maximum(continuum_vals, 1e-30)
 		eqw       = jnp.trapezoid(model_sum / cont_safe, wave, axis=1) 
-	combined = {"component":components,"flux":flux,"sigma_kms":sigma_kms,"fwhm_kms":fwhm_kms,"luminosity":luminosity,"eqw":eqw} #more to add?
+	combined = {"component":components,"flux":flux,"sigma_kms":sigma_kms,"fwhm_kms":fwhm_kms,"luminosity":luminosity,"eqw":eqw,} #more to add?
 	return combined 
 
 def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,full_cont_profile=None,full_cont_params=None,distances = 0,ucont_params=None):

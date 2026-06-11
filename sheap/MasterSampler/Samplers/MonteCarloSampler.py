@@ -49,6 +49,7 @@ import jax.numpy as jnp
 
 import numpy as np 
 import time
+from tqdm import tqdm
 
 
 from sheap.Assistants.parser_mapper import descale_amp,scale_amp,make_get_param_coord_value,build_tied,parse_dependencies,flatten_tied_map
@@ -92,7 +93,7 @@ class MonteCarloSampler:
 	
 
 	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
-		from tqdm import tqdm
+
 		norm_spectra = self.norm_spectra
 		model = self.model 
 		
@@ -115,7 +116,6 @@ class MonteCarloSampler:
 		else:
 			print(f"Running posterior params")
 			monte_params.append(self.best_params)
-			#monte_params.append(self.best_params)
 
 		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
 		dic_posterior_params = {}
@@ -132,9 +132,11 @@ class MonteCarloSampler:
 	
 
 
+	
+	
 	def sample_params_st(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
 		"stable start from the best result."
-		from tqdm import tqdm
+		
 		print(f"Running Monte Carlo with JAX.,sample over the spectra")
 		norm_spectra = self.norm_spectra
 		model = self.model 
@@ -166,10 +168,11 @@ class MonteCarloSampler:
 
 		return dic_posterior_params
  
+	
+	
 	def sample_params_experimental(self, num_samples: int = 100, key_seed: int = 0, summarize=True
                                 ,return_only_draws=False,frac_box_sigma=0.5, k_sigma= 0.5 ) -> jnp.ndarray:
 			#it looks like this only work for frac_box_sigma=0.02,k_sigma=0.3 limits 
-			from tqdm import tqdm
 			print(f"Running Monte Carlo with JAX.,frac_box_sigma={frac_box_sigma},k_sigma={k_sigma}")
 			model = self.model 
 			norm_spectra = self.norm_spectra
@@ -219,12 +222,14 @@ class MonteCarloSampler:
 
 	def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
 					method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
+		
 		minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
 							learning_rate=learning_rate,param_converter= self.params_class,penalty_function = penalty_function,method=method,
 							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
 		
 		
-		return minimizer  
+		return minimizer 
+	
 	def _normalize_spectra(self):
 		"from the clasical shape to the one that is use during the fitting"
 		scale = jnp.atleast_1d(self.scale.astype(jnp.float32))

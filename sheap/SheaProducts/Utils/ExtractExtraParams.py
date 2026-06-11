@@ -180,7 +180,8 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     return (10.0 ** logM)
 
 
-def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
+
+def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta = 0.1):
     r"""
     Compute derived parameters (BH masses, Eddington ratios, accretion rates).
 
@@ -275,13 +276,13 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
     fwhm_all = np.atleast_2d(_col(broad_params.get("fwhm_kms")))
     lum_all  = np.atleast_2d(_col(broad_params.get("luminosity")))
     sigma_all = broad_params.get("sigma_kms", None)
-    flux_all = broad_params.get("flux", None)
+    idx_by_name = broad_params.get("idx_by_name")
+    #flux_all = broad_params.get("flux", None)
     if sigma_all is not None:
         sigma_all = np.atleast_2d(_col(sigma_all))
 
     lines = np.asarray(broad_params.get("lines", []))
     comps = np.asarray(broad_params.get("component", []))
-    eta = 0.1
     c_cm = C_KMS * 1e5
     M_sun_g = 1.98847e33
     sec_yr = 3.15576e7
@@ -291,13 +292,12 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None):
         line_name = est.get("line")
         kind = est.get("kind", "continuum")
         width_def = str(est.get("width_def", "fwhm")).lower()
-        if not line_name or (line_name not in lines):
+        idxs = idx_by_name.get(line_name,[])
+        if len(idxs)==0:
             continue
         if "Pan25" in calib_key or "Le20" in calib_key:
             #print(f"TODO implement {calib_key}")
             continue 
-        idxs = np.where(lines == line_name)[0]
-
         comp_here = comps[idxs]
         if width_def == "sigma":
             if sigma_all is not None:

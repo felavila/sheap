@@ -57,7 +57,9 @@ def concat_dicts_combine(list_of_dicts):
             out[k] = jnp.stack(v, axis=1).squeeze()
         else:
             out[k] = v
-    out["lines"] = lines
+    line_names = np.array(lines)
+    out["lines"] = line_names
+    out["idx_by_name"] = { name: np.where(line_names == name)[0]  for name in np.unique(line_names)}
     out["combined"] = True
     return {"broad": dict(out)}
 
