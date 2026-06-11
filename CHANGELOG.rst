@@ -7,6 +7,10 @@ Changelog
 
 - Migration from `poetry` to `uv`
 - Moving from str continuum profiles to dict-based profiles with dynamic keyword support removing hard "delta0" in the function
+- small bug corrections, added request to dependence
+- move posterior single to one iteration cleaning and removing uncertainties in upcoming versions
+- New class 'SheapExtract' to extract the params as a csv 
+
 
 0.0.10 (29-05-2026)
 ==================
