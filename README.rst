@@ -39,8 +39,8 @@ sheap is based on methodologies and models outlined in the following paper:
 -  **Ávila-Vera, F., et al. (xxx)**.
    *Spectral Handling and Estimation of AGN Parameters (SHEAP):
    The first GPU-based AGN spectral-fitting code*.
-   **xxx**, xxx.
-   Available at: `ADS Abstract <#>`_.
+   **Submmited to A&A**, xxx.
+   Available at: `ADS Abstract <https://ui.adsabs.harvard.edu/abs/2026arXiv260603934A/abstract>`_.
 
 
 License
