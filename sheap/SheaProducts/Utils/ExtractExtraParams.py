@@ -16,23 +16,23 @@ from sheap.Utils.BasicFunctions import log10
 
 #TODO implemented Rfe 
 
-def _col(x):
-    """
-    Ensure input is a 2D column vector repetead.
-    TODO helper? .
-    Parameters
-    ----------
-    x : array-like
-        Input data.
+# def _col(x):
+#     """
+#     Ensure input is a 2D column vector repetead.
+#     TODO helper? .
+#     Parameters
+#     ----------
+#     x : array-like
+#         Input data.
 
-    Returns
-    -------
-    array-like
-        If input is 1D, reshaped to (N, 1).
-    """
-#
-    x = np.asarray(x)
-    return x[None,:] if x.ndim == 1 else x
+#     Returns
+#     -------
+#     array-like
+#         If input is 1D, reshaped to (N, 1).
+#     """
+# #
+#     x = np.asarray(x)
+#     return x[None,:] if x.ndim == 1 else x
 
 
 def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
@@ -159,8 +159,8 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     beta = estimator.get("fwhm_factor", estimator.get("vel_exp", 2.0))
     f = estimator.get("f", 1.0)
     
-    L = _col(L_in)
-    V = _col(vwidth_kms)
+    L = L_in
+    V = vwidth_kms
     #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
     #logM = log10(f) + a + b * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
     logM = log10(f) + a  + b    * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
@@ -168,13 +168,13 @@ def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
     if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
         sigma = extras.get("sigma_kms", None)
         if sigma is not None:
-            sigma = _col(sigma)
+            sigma = sigma
             logM += (-1.14 * (log10(V) - log10(sigma)) + 0.33)
 
     # Pan25 iron term
     if "R_Fe" in extras:
         gamma = estimator.get("extras", {}).get("pan25_gamma", -0.21)#-0.34)
-        RFe = _col(extras["R_Fe"])
+        RFe = extras["R_Fe"]
         
         #logM += gamma * RFe  # broadcasts across components
     return (10.0 ** logM)
@@ -263,18 +263,18 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
     - **Pan25 iron term**: additional correction proportional to :math:`R_\mathrm{Fe}`.
     """
 
-    broad_params = params["broad"]
-    combined = broad_params.get("combined",False)
+    #Nsamples,lineas
+    broad_params = params.get("broad",None)
     if not broad_params:
         return {}
-
     out = {}
-    fwhm_all = np.atleast_2d(_col(broad_params.get("fwhm_kms")))
-    lum_all  = np.atleast_2d(_col(broad_params.get("luminosity")))
+    Combined = np.atleast_1d(broad_params.get("combined"))
+    fwhm_all = np.atleast_2d(broad_params.get("fwhm_kms"))
+    lum_all  = np.atleast_2d(broad_params.get("luminosity"))
     sigma_all = broad_params.get("sigma_kms", None)
-    idx_by_name =broad_params.get("idx_by_name")
+    idx_by_name = broad_params.get("idx_by_name")
     if sigma_all is not None:
-        sigma_all = np.atleast_2d(_col(sigma_all))
+        sigma_all = np.atleast_2d(sigma_all)
 
     comps = np.asarray(broad_params.get("component", []))
     
@@ -287,7 +287,8 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
         idxs = idx_by_name.get(line_name,[])
         if "Pan25" in calib_key or "Le20" in calib_key or len(idxs)==0:
             #print(f"TODO implement {calib_key}")
-            continue 
+            continue
+        combined = Combined[idxs]
         comp_here = comps[idxs]
         if width_def == "sigma":
             if sigma_all is not None:
@@ -306,8 +307,9 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
             wkey = str(int(lam))
             if wkey not in L_w:
                 continue
-
-            Lmono = _col(L_w[wkey])
+            #tile
+            Lmono = np.repeat(L_w[wkey][:, None], Vwidth.shape[1], axis=1) #np.tile(L_w[wkey],)
+            #print(line_name,Lmono.shape,Vwidth.shape,combined)
             MBH = calc_black_hole_mass(Lmono, Vwidth, est, extras=None)
 
             # Ledd + mdot (only for continuum, and only if L_bol available)
@@ -315,7 +317,8 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
             mdot_yr = None
             Lbol = None
             if wkey in L_bol:
-                Lbol = _col(L_bol[wkey])
+                Lbol = np.atleast_2d(L_bol[wkey]).T
+                #print("Lbol",Lbol.shape)
                 mdot_gs = Lbol / (eta * c_cm**2)
                 mdot_yr = mdot_gs / M_sun_g * sec_yr
 

@@ -115,7 +115,7 @@ class MonteCarloSampler:
 			print(f"Running posterior params")
 			monte_params.append(self.best_params)
 			#monte_params.append(self.best_params)
-
+			#monte_params.append(self.best_params)
 		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
 		dic_posterior_params = {}
   
@@ -217,6 +217,7 @@ class MonteCarloSampler:
 
 	def make_minimizer(self,model,non_optimize_in_axis,num_steps,learning_rate,
 					method,penalty_weight,curvature_weight,smoothness_weight,max_weight,penalty_function=None,weighted=True,**kwargs):
+		
 		minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,
 							learning_rate=learning_rate,param_converter= self.params_class,penalty_function = penalty_function,method=method,
 							penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)

@@ -54,13 +54,14 @@ def concat_dicts_combine(list_of_dicts):
     # flatten or stack if numeric/array-like
     for k, v in out.items():
         if "component" not in k:
-            out[k] = np.stack(v, axis=1).squeeze()
+            out[k] = np.concatenate(v, axis=1) #np.stack(*v, axis=1)#.squeeze()
+            #print(np.concatenate(v, axis=1).shape)
         else:
             out[k] = v
     line_names = np.array(lines)
     out["lines"] = line_names
     out["idx_by_name"] = { name: np.where(line_names == name)[0]  for name in np.unique(line_names)}
-    out["combined"] = True
+    out["combined"] = [True]*len(line_names)
     return {"broad": dict(out)}
 
 def concat_dicts(list_of_dicts):

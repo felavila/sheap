@@ -6,8 +6,41 @@ import pandas as pd
 from sheap.Utils.Paper import median_with_errors
 from sheap.SheaProducts.Utils.MoldelSpectraReconstruction import MoldelSpectraReconstruction
 
-def _extract_extra_params(n_obj, obj_name, available_extra_params, values, low=0.16, high=0.84,):
+
+def _extract_extra_params(
+    n_obj,
+    obj_name,
+    available_extra_params,
+    values,
+    low=0.16,
+    high=0.84,
+):
     rows = []
+
+    def _pick_indexed_value(arr_like, idx, n_expected, default=None):
+        """
+        Pick one value from metadata like component/combined.
+
+        Cases:
+        - size == n_expected: use arr[idx]
+        - size == 1: use scalar value
+        - otherwise: use default
+        """
+        arr = np.asarray(arr_like).squeeze()
+
+        if arr.size == 0:
+            return default
+
+        if arr.size == n_expected:
+            out = arr.ravel()[idx]
+            out_arr = np.asarray(out)
+            return out_arr.item() if out_arr.size == 1 else out
+
+        if arr.size == 1:
+            return arr.item()
+
+        return default
+
     for extra_key in available_extra_params:
         extra = values[extra_key]
 
@@ -17,13 +50,17 @@ def _extract_extra_params(n_obj, obj_name, available_extra_params, values, low=0
                 meta = {}
                 quantities = {}
 
+                # ---------------------------------
+                # Separate metadata from quantities
+                # ---------------------------------
                 for key, val in combo_dict.items():
 
-                    # Already-computed statistics dictionary
-                    if isinstance(val, Mapping) and "median" in val:
+                    if key in ["component", "combined"]:
+                        meta[key] = val
+
+                    elif isinstance(val, Mapping) and "median" in val:
                         quantities[key] = ("stats_dict", val)
 
-                    # Samples array/list
                     elif isinstance(val, (np.ndarray, list, tuple)):
                         arr = np.asarray(val)
 
@@ -32,50 +69,100 @@ def _extract_extra_params(n_obj, obj_name, available_extra_params, values, low=0
                         else:
                             meta[key] = val
 
-                    # Metadata
                     else:
                         meta[key] = val
 
+                # ---------------------------------
+                # Build rows
+                # ---------------------------------
                 for quantity_name, (qkind, payload) in quantities.items():
 
-                    row = {
+                    base_row = {
                         "n_obj": n_obj,
                         "name": obj_name,
                         "line": line,
                         "SMBHEstimator": combo,
-                        "quantity": quantity_name,
+                        "quantity_name": quantity_name,
                         "extra_key": extra_key,
                     }
 
-                    # Add metadata
+                    # Add metadata except per-component metadata
                     for m_key, m_val in meta.items():
-                        if isinstance(m_val, (np.ndarray, list, tuple)):
-                            arr = np.asarray(m_val)
-                            row[m_key] = arr.item() if arr.size == 1 else m_val
-                        else:
-                            row[m_key] = m_val
 
-                    # Add statistics
+                        if m_key in ["component", "combined"]:
+                            continue
+
+                        elif isinstance(m_val, (np.ndarray, list, tuple)):
+                            arr = np.asarray(m_val)
+                            base_row[m_key] = arr.item() if arr.size == 1 else m_val
+
+                        else:
+                            base_row[m_key] = m_val
+
+                    # ---------------------------------
+                    # Case 1: already computed stats
+                    # ---------------------------------
                     if qkind == "stats_dict":
+                        row = base_row.copy()
+
                         for stat_name, stat_val in payload.items():
                             arr = np.asarray(stat_val).squeeze()
                             row[stat_name] = arr.item() if arr.size == 1 else arr
 
+                        # Add component / combined if scalar metadata exists
+                        if "component" in meta:
+                            components = np.asarray(meta["component"]).squeeze()
+                            if components.size == 1:
+                                row["component"] = components.item()
+                            else:
+                                row["component"] = components
+
+                        if "combined" in meta:
+                            combined = np.asarray(meta["combined"]).squeeze()
+                            if combined.size == 1:
+                                row["combined"] = combined.item()
+                            else:
+                                row["combined"] = combined
+
+                        rows.append(row)
+
+                    # ---------------------------------
+                    # Case 2: samples, compute stats
+                    # ---------------------------------
                     elif qkind == "samples":
                         samples = np.asarray(payload, dtype=float)
 
-                        med, em, ep = median_with_errors(
-                            samples,
-                            low=low,
-                            high=high,
-                        )
+                        # Expected shape: (nsamples, n_components)
+                        if samples.ndim == 1:
+                            samples = samples[:, None]
 
-                        row["median"] = med
-                        row["err_minus"] = em
-                        row["err_plus"] = ep
-                        row["nsamp"] = int(samples.size)
+                        components = np.asarray(meta.get("component", []))
+                        combined = np.asarray(meta.get("combined", []))
 
-                    rows.append(row)
+                        n_components = samples.shape[1]
+
+                        for y, x in enumerate(samples.T):
+
+                            # New independent row for each component
+                            row = base_row.copy()
+
+                            med, em, ep = median_with_errors(x,low=low,high=high,)
+                            #print(components[y])
+                            row["component"] = components[y]
+                            
+                            row["combined"] = _pick_indexed_value(
+                                combined,
+                                idx=y,
+                                n_expected=n_components,
+                                default=None,
+                            )
+
+                            row["median"] = med
+                            row["err_minus"] = em
+                            row["err_plus"] = ep
+                            row["nsamp"] = int(x.size)
+
+                            rows.append(row)
 
     return rows
 
@@ -97,6 +184,7 @@ def _extract_continuum_params(n_obj, obj_name, available_others, values, low=0.1
             rows.append(row)
     return rows
 
+
 def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0.16, high=0.84,):
     rows = []
 
@@ -105,7 +193,6 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
         values_k = values[basic_param]
 
         for region_name, inner_line_region in values_k.items():
-
             meta = {}
             quantities = {}
             for key, val in inner_line_region.items():
@@ -116,10 +203,7 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
                 elif isinstance(val, (np.ndarray, list, tuple)):
                     arr = np.asarray(val)
 
-                    if (
-                        arr.size > 0
-                        and np.issubdtype(arr.dtype, np.number)
-                        and key not in ["component", "lines"]
+                    if (arr.size > 0 and np.issubdtype(arr.dtype, np.number) and key not in ["component", "lines"]
                     ):
                         quantities[key] = ("samples", arr)
                     else:
@@ -193,12 +277,7 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
 
                     samples = np.asarray(payload)
 
-                    med, em, ep = median_with_errors(
-                        samples,
-                        low=low,
-                        high=high,
-                        axis=0,
-                    )
+                    med, em, ep = median_with_errors(samples, low=low,high=high,axis=0,)
 
                     med = np.asarray(med).squeeze()
                     em = np.asarray(em).squeeze()
@@ -212,7 +291,7 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
                             "region": region_name,
                             "basic_param": basic_param,
                             "quantity_name": quantity_name,
-                            "lines": lines[i],
+                            "line": lines[i],
                             "component": components[i],
                             "median": med[i] if med.ndim > 0 else med.item(),
                             "err_minus": em[i] if em.ndim > 0 else em.item(),
@@ -240,7 +319,7 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
                         rows.append(row)
     return rows
 
-def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="montecarlo",selected_index = []):
+def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="montecarlo",selected_index = [],calculate_host=True):
     #TODO next update should put this inside param extraction-combined with Fe ? 
     #TODO selected n_index go for name is to confuse.
     posterior = sheapspectral.result.posterior[method]["posterior_result"]
@@ -265,10 +344,11 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         rows_extra.extend(_extract_extra_params(n_obj=n_obj, obj_name=obj_name, available_extra_params=available_extra_params, values=values, low=low, high=high,))
         rows_cont.extend(_extract_continuum_params(n_obj=n_obj, obj_name=obj_name, available_others=available_others, values=values, low=low, high=high,))
         rows_basic.extend(_extract_basic_params(n_obj=n_obj, obj_name=obj_name, available_basic_params=available_basic_params, values=values, low=low, high=high,))
+    
     df_extra = pd.DataFrame(rows_extra)
     df_cont = pd.DataFrame(rows_cont)
     df_basic = pd.DataFrame(rows_basic)
-    if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]):
+    if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]) and calculate_host:
         print("----Running host reconstruction-----")
         ra = MoldelSpectraReconstruction(sheapspectral, jit_compile=True,posterior_group=method)
         stars = ra.stars_Cont_5100(all_samples = selected_index)
@@ -278,8 +358,9 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
                             "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
         df_cont=pd.concat([df_cont, row], ignore_index=True)
+    
     df_chi = pd.DataFrame({"obj_name":obj_list,"n_obj":selected_index,
-                           "chi_2_reduced":sheapspectral.result.chi2_red[selected_index],"snr":sheapspectral.snr,"z":sheapspectral.z})
+                           "chi_2_reduced":sheapspectral.result.chi2_red[*selected_index],"snr":sheapspectral.snr[*selected_index],"z":sheapspectral.z[*selected_index]})
 
     if df_extra.empty:
         return df_extra

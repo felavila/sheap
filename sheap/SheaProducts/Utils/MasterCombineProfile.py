@@ -100,6 +100,7 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 	#TODO single etc etc 
 	#continuum_func_1D -> is one 1D because we are using it over the (0,None) axis
 	#This method dosent have eerrors because dosent make sence.
+	#TODO Check the array shapes and dimensions so we can remove the list of T and atlaset_2
 	lambda_ref = DEFAULT_lambda_ref[line]
 	
 	broad_params = basic_params.get("broad", {})
@@ -172,7 +173,9 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 		continuum_vals = full_cont_profile(wave,full_cont_params)
 		cont_safe  = jnp.maximum(continuum_vals, 1e-30)
 		eqw       = jnp.trapezoid(model_sum / cont_safe, wave, axis=1) 
-	combined = {"component":components,"flux":flux,"sigma_kms":sigma_kms,"fwhm_kms":fwhm_kms,"luminosity":luminosity,"eqw":eqw} #more to add?
+	combined = {"component":components,"flux":np.atleast_2d(flux).T,"sigma_kms":np.atleast_2d(sigma_kms).T
+			 ,"fwhm_kms":np.atleast_2d(fwhm_kms).T,"luminosity":np.atleast_2d(luminosity).T,"eqw":np.atleast_2d(eqw).T} #more to add?
+	
 	return combined 
 
 def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,full_cont_profile=None,full_cont_params=None,distances = 0,ucont_params=None):
@@ -215,6 +218,7 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 	else:
 		eqw_c = jnp.zeros_like(flux_c)
 
-	return {"component": components,"flux":flux_c,"fwhm":fwhm_A,"fwhm_kms":fwhm_c,"center":mu_c,"amplitude":amp_c,"luminosity":L_line,"eqw":eqw_c}
+	return {"component": components,"flux":np.atleast_2d(flux_c),"fwhm":np.atleast_2d(fwhm_A),"fwhm_kms":np.atleast_2d(fwhm_c),
+		 "center":np.atleast_2d(mu_c),"amplitude":np.atleast_2d(amp_c),"luminosity":np.atleast_2d(L_line),"eqw":np.atleast_2d(eqw_c)}
 	
 #cont_c = cont_group(mu_c, cont_params)
