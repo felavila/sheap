@@ -212,8 +212,8 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
                 else:
                     meta[key] = val
 
-            lines = np.asarray(meta["lines"])
-            components = np.asarray(meta["component"])
+            lines = np.asarray(meta.get("lines"))
+            components = np.asarray(meta.get("component"))
 
             n_lines = len(lines)
 
@@ -327,6 +327,9 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     rows_cont = []
     rows_basic = []
     obj_list = []
+    chi2_red = np.array(sheapspectral.result.chi2_red)
+    snr = np.array(sheapspectral.snr)
+    z = np.array(sheapspectral.z)
     if len(selected_index) == 0:
         selected_index = np.arange(len(sheapspectral.names))
     for n_obj, (obj_name, values) in enumerate(posterior.items()):
@@ -344,7 +347,6 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         rows_extra.extend(_extract_extra_params(n_obj=n_obj, obj_name=obj_name, available_extra_params=available_extra_params, values=values, low=low, high=high,))
         rows_cont.extend(_extract_continuum_params(n_obj=n_obj, obj_name=obj_name, available_others=available_others, values=values, low=low, high=high,))
         rows_basic.extend(_extract_basic_params(n_obj=n_obj, obj_name=obj_name, available_basic_params=available_basic_params, values=values, low=low, high=high,))
-    
     df_extra = pd.DataFrame(rows_extra)
     df_cont = pd.DataFrame(rows_cont)
     df_basic = pd.DataFrame(rows_basic)
@@ -358,9 +360,8 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
                             "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
         df_cont=pd.concat([df_cont, row], ignore_index=True)
-    
     df_chi = pd.DataFrame({"obj_name":obj_list,"n_obj":selected_index,
-                           "chi_2_reduced":sheapspectral.result.chi2_red[*selected_index],"snr":sheapspectral.snr[*selected_index],"z":sheapspectral.z[*selected_index]})
+                           "chi_2_reduced":chi2_red[selected_index],"snr":snr[selected_index],"z":z[selected_index]})
 
     if df_extra.empty:
         return df_extra
