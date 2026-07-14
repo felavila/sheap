@@ -809,7 +809,16 @@ class Sheapectral:
 		
 		for i in idx:
 			lam, flux, err = self.spectra[i]
-			ax.errorbar(lam, flux, yerr=err, zorder=1,label=self.names[i])
+			line, caplines, barlinecols = ax.errorbar(
+			lam,
+			flux,
+			yerr=err,
+			zorder=1,
+			label=self.names[i],
+			)
+
+			for barline in barlinecols:
+				barline.set_alpha(0.1)
 
 		# Default xlim and ylim if not provided
 		if xlim is None:
