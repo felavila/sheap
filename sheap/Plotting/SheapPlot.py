@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 from jax import jit
 import numpy as np 
- 
+import matplotlib.colors as mcolors
+
 from sheap.Profiles.Utils import make_fused_profiles
 from sheap.Utils.Constants import DEFAULT_C_KMS
 
@@ -112,7 +113,7 @@ class SheapPlot:
         trans = mtransforms.blended_transform_factory(ax1.transData, ax1.transAxes)
         
         colors_by_region = {"model":"#d62728","broad":"#0f6fb4","narrow":"#559e46","outflow":"#bcbd22","winds":"#17becf","fe":"#8f220c","host":"#9467bd",
-                            "continuum":"#000000","data":"#1B1B1B","balmer":"#2C2424","bal":"#803939"}
+                            "continuum":"#F77A066C","data":"#1B1B1B","balmer":"#2C2424","bal":"#803939"}
         component_ls = {1: "-",2: "--",3: "-.",4: ":", 5: (0, (5, 5)), 6: (0, (3, 5, 1, 5)), 7: (0, (1, 5))}
         cont_counter = 1 
         cont_names = {"balmercontinuum":"Balmer Cont.","balmerhighorder":"Higher-order Balmer"}
@@ -127,7 +128,7 @@ class SheapPlot:
                 line_name = cont_names.get(region.line_name,"Cont.")
                 #region.line_name
                 #print(region)
-                ax1.plot(x_axis, component_y, zorder=3, label = line_name, color= colors_by_region["continuum"],ls = component_ls[cont_counter])
+                ax1.plot(x_axis, component_y, zorder=3, label = line_name, color= colors_by_region["continuum"],ls = component_ls[cont_counter],lw=4)
                 cont_counter += 1
             
             elif "Fe" in profile_name or "fe" in region.region.lower() or region.region == "fe":
@@ -187,7 +188,7 @@ class SheapPlot:
                     )
 
         ax1.plot(x_axis, fit_y, linewidth=3, zorder=2, color=colors_by_region["model"],label="Model")#
-        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor='dimgray', color=colors_by_region["data"], zorder=1,label="Obs.")
+        ax1.errorbar(x_axis, y_axis, yerr=yerr, ecolor=mcolors.to_rgba("dimgray", alpha=0.4), color=colors_by_region["data"], zorder=1,label="Obs.")
         ax1.fill_between(x_axis, *ylim, where=mask, color="grey", alpha=0.3, zorder=10)
         if  add_xline:
             if isinstance(add_xline,(float,int)):
@@ -200,36 +201,38 @@ class SheapPlot:
         
         if add_extra:
             x0, y0 = 0.5, 1.21
-            dx = 0.4  # horizontal separation in axes coords (tune)
+            
+            def fmt_num(value, ndigits=4):
+                """Format number with up to ndigits decimals, removing trailing zeros."""
+                return f"{float(value):.{ndigits}f}".rstrip("0").rstrip(".")
+            if len(self.names[n])>45:
+                x0 -=  0.1
+            name_line = f"ID {self.names[n]} ({n})"
 
-            left_lines = f"ID {self.names[n]}({n})\n z = {self.z[n]}"
-            right_lines = f"SNR = {self.snr[n]:.2f}\n$\\chi_{{\\rm red}}$ = {self.chi2_red[n]:.2f}"
-
-            # Left column
-            ax1.text(x0, y0,left_lines,
-                fontsize=25,
-                transform=ax1.transAxes,
-                ha="left", va="top",
+            values_line = (
+                f"z = {fmt_num(self.z[n])}   "
+                f"SNR = {fmt_num(self.snr[n])}   "
+                f"$\\chi_{{\\rm red}}$ = {fmt_num(self.chi2_red[n])}"
             )
 
-            # Right column
             ax1.text(
-                x0 + dx, y0,
-                right_lines,
+                x0, y0,
+                name_line + "\n" + values_line,
                 fontsize=25,
                 transform=ax1.transAxes,
-                ha="left", va="top",
+                ha="left",
+                va="top",
             )
-        else:
-            ax1.text(
-            0.75,
-            1.0,
-            f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
-            fontsize=25,
-            transform=ax1.transAxes,
-            ha='left',
-            va='bottom',
-        )
+        # else:
+        #     ax1.text(
+        #     0.75,
+        #     1.0,
+        #     f"ID {self.names[n]} ({n}) \n z = {self.z[n]}",
+        #     fontsize=25,
+        #     transform=ax1.transAxes,
+        #     ha='left',
+        #     va='bottom',
+        # )
         #font_legend =
         ax1.tick_params(axis='both', labelsize=25)
         ax1.yaxis.offsetText.set_fontsize(25)
@@ -256,7 +259,7 @@ class SheapPlot:
 
         if save:
             plt.savefig(save, dpi=300, bbox_inches='tight')
-            #plt.close()
+            plt.close()
         else:
             plt.show()
 

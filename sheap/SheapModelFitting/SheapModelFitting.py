@@ -229,6 +229,7 @@ class SheapModelFitting:
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
+        mask_list= []
         ) -> None:
         """
         Execute the full fitting routine on provided spectra.
@@ -260,7 +261,7 @@ class SheapModelFitting:
         # the idea is that is exp_factor dosent have the same shape of scale could be fully renormalice the spectra.
         print(f"Fitting {spectra.shape[0]} spectra with {spectra.shape[2]} wavelength pixels")
         
-        _, mask, scale, norm_spec = self._prep_data(spectra, inner_limits, outer_limits, force_cut)
+        _, mask, scale, norm_spec = self._prep_data(spectra, inner_limits, outer_limits, force_cut,mask_list=mask_list)
 
         inner_limits = self.inner_limits or inner_limits
         outer_limits = self.outer_limits or outer_limits
@@ -389,7 +390,7 @@ class SheapModelFitting:
 
 
     def _prep_data(self, spectra: Union[List[Any], jnp.ndarray], inner_limits: Optional[Tuple[float, float]], outer_limits: Optional[Tuple[float, float]], force_cut: bool,
-        ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+        mask_list=[]) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
         """
         Preprocess spectra for fitting.
 
@@ -423,7 +424,7 @@ class SheapModelFitting:
             if isinstance(spectra, list):
                 spec, mask = prepare_spectra(spectra, outer_limits=self.outer_limits)
             else:
-                spec, _, _, mask = mask_builder(spectra, outer_limits=self.outer_limits)
+                spec, _, _, mask = mask_builder(spectra, outer_limits=self.outer_limits,mask_list=mask_list)
                 if force_cut:
                     spec, mask = prepare_spectra(spec, outer_limits=self.outer_limits)
         except Exception as e:

@@ -40,6 +40,7 @@ import numpy as np
 from multiprocessing import Pool, set_start_method
 from astropy.io import fits
 from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
 #from sheap.Utils.SpectralSetup import resize_and_fill_with_nans
 
@@ -248,42 +249,37 @@ def parallel_reader(paths, n_cpu=n_cpu, function=fits_reader_sdss, **kwargs):
     return coords, shapes_min, spectra
 
 
-def batched_reader(paths, batch_size=8, function=fits_reader_sdss):
+def parallel_reader(paths, n_cpu=None, function=fits_reader_sdss, **kwargs):
     """
-    Batch reader for safer memory usage.
+    Parallel FITS reader using threads.
 
-    Parameters
-    ----------
-    paths : list of str
-        Paths to FITS files.
-    batch_size : int, optional
-        Number of files to read per batch.
-    function : callable or str, optional
-        Reader function or key in `READER_FUNCTIONS`.
-
-    Returns
-    -------
-    coords : np.ndarray
-        Stacked coordinates from all batches.
-    spectra_reshaped : str
-        Placeholder (currently unused).
-    spectra_raw : list of np.ndarray
-        All raw spectra arrays.
+    This avoids multiprocessing fork problems with JAX/CUDA.
     """
-    all_coords, all_reshaped, all_raw = [], [], []
+    paths = list(paths)
 
-    for i in range(0, len(paths), batch_size):
-        batch = paths[i:i + batch_size]
-        coords, reshaped, raw = parallel_reader(
-            batch, n_cpu=min(n_cpu, len(batch)), function=function
-        )
-        all_coords.append(coords)
-        all_reshaped.append(reshaped)
-        all_raw.extend(raw)
+    if len(paths) == 0:
+        return np.empty((0, 2)), [], []
 
-    coords = np.vstack(all_coords)
-    return coords, "unused", all_raw
+    if isinstance(function, str):
+        function = READER_FUNCTIONS[function]
 
+    if n_cpu is None:
+        n_cpu = min(4, os.cpu_count() or 1)
+
+    n_workers = min(n_cpu, len(paths))
+    func_with_args = partial(function, **kwargs)
+
+    if n_workers <= 1:
+        results = [func_with_args(path) for path in paths]
+    else:
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
+            results = list(executor.map(func_with_args, paths))
+
+    spectra = [result[0] for result in results]
+    coords = np.array([result[1] for result in results])
+    shapes_min = [s.shape[1] for s in spectra]
+
+    return coords, shapes_min, spectra
 
 def sequential_reader(paths, function=fits_reader_sdss):
     """

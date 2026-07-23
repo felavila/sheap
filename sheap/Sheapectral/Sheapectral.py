@@ -335,6 +335,7 @@ class Sheapectral:
 		-------
 		None
 		"""
+		
 		if len(self.spectra.shape) <= 2:
 			self.spectra = self.spectra[jnp.newaxis, :]
 		self.spectra_shape = self.spectra.shape  # ?
@@ -342,7 +343,10 @@ class Sheapectral:
 		c1 = self.spectra[:, 1, :]
 		c1 = jnp.where(jnp.isnan(c1), 0.0, c1)
 		c2 = self.spectra[:, 2, :]
-		c2 = jnp.where(jnp.isnan(c2) | jnp.isnan(c1), 3.4028235e+38, c2)#max float32
+		invalid_flux = ~jnp.isfinite(c1)
+		invalid_error = ~jnp.isfinite(c2) | (c2 <= 0.0)
+		invalid_pixel = invalid_flux | invalid_error
+		c2 = jnp.where(invalid_pixel, 3.4028235e+38, c2)#max float32
 		# write back functionally
 		self.spectra = self.spectra.at[:, 1, :].set(c1)
 		self.spectra = self.spectra.at[:, 2, :].set(c2)
@@ -386,7 +390,7 @@ class Sheapectral:
 
 	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2] ,covariance_error = False,profile: str ='gaussian'
 				,add_penalty_function=False,method="adam",penalty_weight: float = 0.00
-				,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0,limits_overrides={}):
+				,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0,limits_overrides={},mask_list=[]):
 		"""
 		Execute fitting of the prepared region on the spectra.
 
@@ -424,7 +428,7 @@ class Sheapectral:
 			self.fitting_class(spectra,list_num_steps = list_num_steps,list_learning_rate =list_learning_rate,
 							covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
 								penalty_weight= penalty_weight, curvature_weight= curvature_weight,
-										smoothness_weight= smoothness_weight,max_weight= max_weight)
+										smoothness_weight= smoothness_weight,max_weight= max_weight,mask_list=mask_list)
 
 			self.spectral_model = self.fitting_class.model #the actual model is
 			self.params_obj = self.fitting_class.params_obj

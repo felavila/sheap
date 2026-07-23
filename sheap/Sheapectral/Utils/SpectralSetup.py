@@ -120,10 +120,10 @@ def cut_spectra(spectra: ArrayLike, xmin: float, xmax: float) -> ArrayLike:
     return spectra[:, sel]
 
 
-def mask_builder(
-    sheap_array: jnp.ndarray,
+def mask_builder(sheap_array: jnp.ndarray,
     inner_limits: Tuple[float, float] = (0.0, 0.0),
     outer_limits: Optional[Tuple[float, float]] = None,
+    mask_list = [],
     instrumental_limit: float = 1e50,  # kept for API compatibility; not used internally
 ):
     """
@@ -143,6 +143,8 @@ def mask_builder(
         (xmin, xmax) wavelengths to *mask out* inside this window.
     outer_limits
         If given, wavelengths outside (xmin, xmax) are masked.
+    mask_list
+        list of lits with wavelenght limits to add extra mask in necesary cases[[xmin,xmax],[xmin,xmax],etc]
     instrumental_limit
         Unused placeholder (kept to avoid breaking callers).
 
@@ -171,7 +173,10 @@ def mask_builder(
 
     # Invalidate bad values
     mask |= jnp.isnan(wl) | jnp.isinf(err) | (flux <= 0)
+    for limits in mask_list:
+        mask |= (wl >= limits[0]) & (wl <= limits[1])
 
+    
     # Set error to NaN where masked; then prepare_uncertainties → 1e31 at those places
     err_masked = jnp.where(mask, jnp.nan, err)
     copy_array = copy_array.at[:, 2, :].set(err_masked)
