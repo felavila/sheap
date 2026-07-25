@@ -346,8 +346,11 @@ def rebin_one_spectrum(
         Percentage ratio between rebinned and original integrated flux.
     """
     from spectres import spectres
-    wl, flux, error = spectrum
-
+    #print(spectrum)
+    try:
+        wl, flux, error,_ = spectrum
+    except:
+        wl, flux, error = spectrum
     wl = np.asarray(wl, dtype=float)
     flux = np.asarray(flux, dtype=float)
     error = np.asarray(error, dtype=float)

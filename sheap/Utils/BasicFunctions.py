@@ -24,7 +24,7 @@ __all__ = [
     "kms_to_wl",
     "vac_to_air",
     "wl_to_kms",
-]
+    "air_to_vacuum"]
 
 
 from typing import Callable, Dict, Optional, Tuple
@@ -111,17 +111,50 @@ def wl_to_kms(wl, line_center, C_KMS=DEFAULT_C_KMS):
 
 def vac_to_air(lam_vac):
     """
-    Convert vacuum to air wavelengths
-
-    :param lam_vac - Wavelength in Angstroms
-    :return: lam_air - Wavelength in Angstroms
-
+    Convert wavelength in vacuum to air.
+        
+        Parameters
+        ----------
+        lam_vac : float or array-like
+            Wavelength in vacuum, in Angstroms.
+        
+        Returns
+        -------
+        lam_air : float or array-like
+            Wavelength in air, in Angstroms.
+        
+        Valid roughly for 2000-20000 Å.
     """
     lam = np.asarray(lam_vac)
     sigma2 = (1e4 / lam) ** 2
     fact = 1 + 5.792105e-2 / (238.0185 - sigma2) + 1.67917e-3 / (57.362 - sigma2)
 
     return lam_vac / fact
+
+def air_to_vacuum(lambda_air):
+    """
+    Convert wavelength in air to wavelength in vacuum.
+    
+    Parameters
+    ----------
+    lambda_air : float or array-like
+        Wavelength in air, in Angstroms.
+    
+    Returns
+    -------
+    lambda_vac : float or array-like
+        Wavelength in vacuum, in Angstroms.
+    
+    Valid roughly for 2000-20000 Å.
+    """
+    l2 = lambda_air ** 2
+    n = (1
+         + 2.735182e-4
+         + 131.4182 / l2
+         + 2.76249e8 / l2**2)
+    return lambda_air * n
+
+
 
 def calc_flux(norm_amplitude, fwhm):
     r"""

@@ -218,7 +218,7 @@ class SheapModelFitting:
         self,
         spectra: Union[List[Any], jnp.ndarray],
         force_cut: bool = False,
-        covariance_error = True,
+        covariance_error = False,
         list_num_steps = None,
         list_learning_rate =None,
         inner_limits: Optional[Tuple[float, float]] = None, 
@@ -229,7 +229,8 @@ class SheapModelFitting:
         curvature_weight: float = 1e5,
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
-        mask_list= []
+        mask_list= [],
+        shared_params = []
         ) -> None:
         """
         Execute the full fitting routine on provided spectra.
@@ -279,15 +280,12 @@ class SheapModelFitting:
             raise ValueError("inner_limits and outer_limits must be specified")
         if not isinstance(self.fitting_routine, dict):
             raise TypeError("fitting_routine must be a dictionary.")
-        #list_num_steps =
-        #list_learning_rate = 
         if list_num_steps and list_learning_rate:
             assert len(list_num_steps) == len(list_learning_rate), "The  list_num_steps and list_learning_rate should be equal"
             n_steps = len(list_learning_rate)
         else:
             n_steps = len(list(self.fitting_routine.keys()))
         total_time = 0
-        
         self._fitkwargs = []
         self.param_index_cache = build_param_index_cache(self.params_dict)
         self.idxs_amplitude = self.param_index_cache["amplitude"]
@@ -304,8 +302,8 @@ class SheapModelFitting:
             start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
-                                        curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight)
-            params.block_until_ready()
+                                        curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight,shared_params=shared_params)
+            #params.block_until_ready()
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
             elapsed = end_time - start_time
@@ -334,7 +332,7 @@ class SheapModelFitting:
         self.to_result()
     
     def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
-            method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1, verbose = True) -> Tuple[jnp.ndarray, list]:
+            method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1,shared_params=[],verbose = True) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX‑based minimization using Minimizer.
 
@@ -364,29 +362,47 @@ class SheapModelFitting:
         """
         if verbose:
             print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
-        list_dependencies = self.dependencies
-        tied_map = {T[1]: T[2:] for  T in list_dependencies}
-        tied_map = flatten_tied_map(tied_map)
-        self.tied_map = tied_map
-        #print(tied_map)
-        self.params_obj = build_Parameters(tied_map,self.params_dict,initial_params,self.constraints) #this one should came from fitting or the clase itself.
-        #print("P1.25",time.time())
-        minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,list_dependencies=list_dependencies,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_obj,
-            penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
-        #print("P1.5",time.time())
-        try:
-            #faster why?
-            params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
-            self.minimizer = minimizer
-            self.norm_spec = norm_spec
-            #slower why?
-            #params, loss = minimizer(self.params_obj.phys_init(), *norm_spec.transpose(1, 0, 2), self.constraints)
-            #params = params_obj.raw_to_phys(raw_params)
-            
-        except Exception as e:
-            logger.exception("Fitting failed")
-            raise RuntimeError(f"Fitting error: {e}")
-        return params, loss
+        self.params_class = self._build_params_class(initial_params,shared_params=shared_params)
+        if len(shared_params)>0:
+            print("runing shared parameter methods experimental.")
+            import optax
+            import jax 
+            sp_model_vmap = jax.vmap(model)
+            P=self.params_class
+            raw0 = P.raw_init()  # packed 1D raw vector (handled internally)
+            raw0 = P.phys_to_raw(P.phys_init())  # packed 1D raw vector (handled internally)
+            def loss_fn(raw_vec):
+                phys = P.raw_to_phys(raw_vec)
+                params = [phys[:, P.names.index(p)] for p in P.params_dict]
+                yhat = sp_model_vmap(norm_spec[:,0,:],params)
+                r = (norm_spec[:,1,:] - yhat) / norm_spec[:,2,:]
+                chi2 = jnp.sum(r * r, axis=1)
+                return jnp.mean(chi2)
+            loss_and_grad = jax.jit(jax.value_and_grad(loss_fn))
+            opt = optax.adam(learning_rate=0.05)
+            state = opt.init(raw0)
+            raw = raw0
+            for step in range(1000):
+                val, g = loss_and_grad(raw)
+                updates, state = opt.update(g, state, raw)
+                raw = optax.apply_updates(raw, updates)
+    
+            params = P.raw_to_phys(raw)
+            return params,0
+        else:
+            minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_class,
+                penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+
+            try:
+                #faster why?
+                params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+                self.minimizer = minimizer
+                self.norm_spec = norm_spec
+                
+            except Exception as e:
+                logger.exception("Fitting failed")
+                raise RuntimeError(f"Fitting error: {e}")
+            return params, loss
 
 
     def _prep_data(self, spectra: Union[List[Any], jnp.ndarray], inner_limits: Optional[Tuple[float, float]], outer_limits: Optional[Tuple[float, float]], force_cut: bool,
@@ -558,19 +574,14 @@ class SheapModelFitting:
             self.profile_params_index_list.append(np.arange(idx, idx + len(constraints.param_names)))
             idx += len(constraints.param_names)
 
-        # if add_linear:
-        #     print("Continuum profile not found a linear profile will be added")
-        #     init_,upper_,lower_,spl=self._add_linear(idx)
-        #     init_list.extend(init_)
-        #     high_list.extend(upper_)
-        #     low_list.extend(lower_)
-            
-        #     region_list.append(spl)
             
         self.initial_params = jnp.array(init_list).astype(jnp.float32)
         self.constraints = self._stack_constraints(low_list, high_list)  # constrains or limits
         self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
-        self.region_list = region_list #region_list_list?
+        #cold_init_
+        self.dependencies = parse_dependencies([])
+        self.params_class = self._build_params_class(self.initial_params)
+        self.region_list = region_list
     
 
     def _build_tied(self, tied_params):
@@ -588,7 +599,14 @@ class SheapModelFitting:
             Dependency expressions for the minimizer.
         """
         return build_tied(tied_params,self.get_param_coord_value)
-    
+        
+    def _build_params_class(self,initial_params,shared_params=[]):
+        tied_map = {T[1]: T[2:] for  T in self.dependencies}
+        self.tied_map  = flatten_tied_map(tied_map)
+        return build_Parameters(tied_map,self.params_dict,initial_params,self.constraints,shared_params=shared_params)
+
+
+
     @staticmethod
     def _stack_constraints(low: List[float], high: List[float]) -> jnp.ndarray:
         """

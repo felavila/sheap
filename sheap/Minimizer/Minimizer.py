@@ -96,7 +96,7 @@ class Minimizer:
         non_optimize_in_axis: int = 3,
         num_steps: int = 1_000,
         learning_rate: Optional[float] = None,
-        list_dependencies: List[str] = [],
+        #list_dependencies: List[str] = [],
         weighted: bool = True,
         method: str = "adam",
         lbfgs_options: Optional[Dict] = None,
@@ -112,7 +112,7 @@ class Minimizer:
         self.non_optimize_in_axis = non_optimize_in_axis
         self.num_steps = num_steps
         self.learning_rate = learning_rate or 1e-2
-        self.list_dependencies = list_dependencies
+        #self.list_dependencies = list_dependencies
         self.param_converter = param_converter
         self.method = method.lower()
         self.lbfgs_options = lbfgs_options or {}
@@ -124,7 +124,7 @@ class Minimizer:
             curvature_weight=curvature_weight, learning_rate = learning_rate, smoothness_weight=smoothness_weight, max_weight=max_weight,
             method=self.method, lbfgs_options=self.lbfgs_options, num_steps = num_steps)
 
-    def __call__(self, initial_params, y, x, yerror, constraints,):
+    def __call__(self, initial_params, y, x, yerror, constraints):
         """
         Execute the optimization process across batches.
 
@@ -159,6 +159,8 @@ class Minimizer:
             initial_params = self.param_converter.phys_to_raw(initial_params)
             raw_params,loss = vmap_optimize_model(initial_params,y,x,yerror,constraints,)
             return self.param_converter.raw_to_phys(raw_params),loss
+
+
         else:
             #print warning sayng about no param class is defined
             return vmap_optimize_model(initial_params,y,x,yerror,constraints,)

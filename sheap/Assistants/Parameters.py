@@ -586,6 +586,9 @@ class Parameters:
                 }
             )
         return rows
+    @property
+    def params_dict(self) -> Dict:
+        return {p.name:i for i,p in enumerate(self._list)}
 
 
 
@@ -594,6 +597,7 @@ def build_Parameters(
     params_dict: Dict[str, int],
     initial_params: Iterable[float],
     constraints: jnp.ndarray,
+    shared_params = []
 ) -> Parameters:
     r"""
     Construct a :class:`Parameters` object from initialization arrays, constraints,
@@ -641,13 +645,13 @@ def build_Parameters(
     for name, idx in params_dict.items():
         val = jnp.atleast_2d(initial_params)[:,idx]
         min_val, max_val = constraints[idx]
-        
+        shared = name in shared_params
         if idx in tied_map.keys():
             src_idx, op, operand = tied_map[idx]
             src_name = list(params_dict.keys())[src_idx]
             tie = (name, src_name, op, operand)
-            params_obj.add(name, val, min=min_val, max=max_val, tie=tie)
+            params_obj.add(name, val, min=min_val, max=max_val, tie=tie,shared=shared)
         else:
-            params_obj.add(name, val, min=min_val, max=max_val)
+            params_obj.add(name, val, min=min_val, max=max_val,shared=shared)
     params_obj.n_obj = initial_params.shape[0]
     return params_obj
