@@ -8,11 +8,13 @@ This requiere alot of cleaning
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple
 
 #import pandas as pd
 #from collections.abc import Mapping
+import jax
 import jax.numpy as jnp
+import numpy as np
 from jax import jit, vmap
 
 
@@ -73,6 +75,7 @@ class MoldelSpectraReconstruction:
 
 		# registry + models
 		self._registry: Dict[str, RegionInfo] = {}
+		self._model_raw = None
 		self._model = None
 		self._batched_model = None
 		self._batched_region: Dict[str, Any] = {}
@@ -101,15 +104,35 @@ class MoldelSpectraReconstruction:
 			)
 
 		fused = make_fused_profiles(sheapmodel.profile_functions)
+		self._model_raw = fused
 		self._model = jit(fused) if self._jit_compile else fused
 
 	def _build_batched_evalers(self) -> None:
-		self._batched_model = vmap(vmap(self._model, in_axes=(None, 0)), in_axes=(None, 0))
+		"""Build vectorized evaluators and JIT the complete batched operation.
+
+		The original implementation applied ``vmap`` around an already-jitted
+		single-parameter evaluator.  Jitting the complete nested ``vmap`` gives
+		XLA the full object/sample batch and normally produces a better single
+		accelerator program.
+		"""
+		model_batched = vmap(
+			vmap(self._model_raw, in_axes=(None, 0)),
+			in_axes=(None, 0),
+		)
+		self._batched_model = (
+			jit(model_batched) if self._jit_compile else model_batched
+		)
 
 		self._batched_region.clear()
 		for region_name, info in self._registry.items():
 			f = info.combined_profile
-			self._batched_region[region_name] = vmap(vmap(f, in_axes=(None, 0)), in_axes=(None, 0))
+			region_batched = vmap(
+				vmap(f, in_axes=(None, 0)),
+				in_axes=(None, 0),
+			)
+			self._batched_region[region_name] = (
+				jit(region_batched) if self._jit_compile else region_batched
+			)
 
 	# ----------------------------- posterior --------------------------------
 
@@ -156,6 +179,31 @@ class MoldelSpectraReconstruction:
 			raise KeyError(f"Region '{region_name}' not found. Available: {self.region_names}")
 		return self._registry[region_name]
 
+	def _existing_regions(
+		self,
+		region_names: Iterable[str],
+	) -> Tuple[str, ...]:
+		"""Return only requested regions that are present in this model.
+
+		Model configurations may omit any of the optional components, such as
+		``narrow``, ``balmer``, ``fe``, ``broad``, ``winds``, or ``outflows``.
+		This helper preserves the requested order and silently skips components
+		that are absent from the current model registry.
+		"""
+		return tuple(
+			region_name
+			for region_name in region_names
+			if region_name in self._registry
+		)
+
+	def _require_region(self, region_name: str, *, purpose: str) -> None:
+		"""Raise a clear error when a region required by an operation is absent."""
+		if region_name not in self._registry:
+			raise ValueError(
+				f"The region '{region_name}' is required to {purpose}, but it is not "
+				f"part of this model. Available regions: {self.region_names}."
+			)
+
 	def _require_samples(self, all_samples: Optional[jnp.ndarray]) -> jnp.ndarray:
 		if all_samples is not None:
 			return self.samples[all_samples,:,:]
@@ -191,6 +239,230 @@ class MoldelSpectraReconstruction:
 		return vmap(f, in_axes=(None, 0))(wl, p_reg)
 
 
+	def _samples_for_evaluation(
+		self,
+		*,
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+	) -> jnp.ndarray:
+		"""Resolve an explicit sample array or select objects from cached samples."""
+		if samples is None:
+			if self.samples is None:
+				raise ValueError(
+					"No posterior samples are available. Pass samples=... or "
+					"load them with autoload_posterior=True."
+				)
+			S = self.samples
+		else:
+			S = jnp.asarray(samples)
+
+		if S.ndim != 3:
+			raise ValueError(
+				"samples must have shape (N_obj, N_samp, N_global); "
+				f"received shape {S.shape}."
+			)
+
+		if object_indices is not None:
+			S = S[jnp.asarray(object_indices, dtype=jnp.int32)]
+
+		return S
+
+	@staticmethod
+	def _pad_object_chunk(
+		chunk: jnp.ndarray,
+		target_size: int,
+	) -> Tuple[jnp.ndarray, int]:
+		"""Pad the final object chunk to avoid compiling a second batch shape."""
+		actual_size = int(chunk.shape[0])
+		if actual_size == 0:
+			raise ValueError("Cannot evaluate an empty object chunk.")
+		if actual_size == target_size:
+			return chunk, actual_size
+
+		padding = jnp.repeat(
+			chunk[-1:, ...],
+			target_size - actual_size,
+			axis=0,
+		)
+		return jnp.concatenate((chunk, padding), axis=0), actual_size
+
+	def _evaluate_object_chunks(
+		self,
+		evaluator: Any,
+		x: jnp.ndarray,
+		parameters: jnp.ndarray,
+		*,
+		object_batch_size: Optional[int],
+		return_numpy: bool,
+	) -> Any:
+		"""Evaluate object batches; each batch is vectorized over objects/samples."""
+		n_objects = int(parameters.shape[0])
+		if n_objects == 0:
+			raise ValueError("No objects were selected for evaluation.")
+
+		if object_batch_size is None:
+			object_batch_size = n_objects
+		object_batch_size = int(object_batch_size)
+		if object_batch_size <= 0:
+			raise ValueError("object_batch_size must be a positive integer or None.")
+		object_batch_size = min(object_batch_size, n_objects)
+
+		results = []
+		for start in range(0, n_objects, object_batch_size):
+			stop = min(start + object_batch_size, n_objects)
+			chunk = parameters[start:stop]
+			chunk, actual_size = self._pad_object_chunk(
+				chunk,
+				object_batch_size,
+			)
+
+			value = evaluator(x, chunk)[:actual_size]
+
+			# JAX dispatch is asynchronous.  device_get both synchronizes and moves
+			# the result to host memory, which is useful for memory-heavy runs.
+			if return_numpy:
+				value = np.asarray(jax.device_get(value))
+			else:
+				value.block_until_ready()
+			results.append(value)
+
+		if return_numpy:
+			return np.concatenate(results, axis=0)
+		return jnp.concatenate(results, axis=0)
+
+	def eval_batched_model_parallel(
+		self,
+		wavelength: float,
+		*,
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+		object_batch_size: Optional[int] = 128,
+		return_numpy: bool = False,
+	) -> Any:
+		"""Evaluate all objects and posterior samples using chunked JAX batching.
+
+		This is the recommended optional ``parallel`` path for one CPU/GPU.  JAX
+		parallelizes the operations inside every chunk; Python only controls the
+		chunk size to limit peak memory.
+
+		Parameters
+		----------
+		wavelength
+			Rest-frame wavelength evaluated for every object/sample.
+		samples
+			Optional array with shape ``(N_obj, N_samp, N_global)``.  Cached
+			posterior samples are used when omitted.
+		object_indices
+			Optional subset of object indices.
+		object_batch_size
+			Number of objects evaluated in one compiled call. Use ``None`` to run
+			all objects at once. Values such as 32, 64, 128, or 256 are sensible
+			starting points.
+		return_numpy
+			Move each completed chunk to host memory and return ``numpy.ndarray``.
+			The calculations themselves remain JAX/XLA compiled.
+		"""
+		wl = self._wl_array(wavelength)
+		S = self._samples_for_evaluation(
+			samples=samples,
+			object_indices=object_indices,
+		)
+		return self._evaluate_object_chunks(
+			self._batched_model,
+			wl,
+			S,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+
+	def eval_batched_region_parallel(
+		self,
+		region_name: str,
+		wavelength: float,
+		*,
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+		object_batch_size: Optional[int] = 128,
+		return_numpy: bool = False,
+	) -> Any:
+		"""Chunked JAX evaluation of one named model region."""
+		wl = self._wl_array(wavelength)
+		info = self.get_region_info(region_name)
+		S = self._samples_for_evaluation(
+			samples=samples,
+			object_indices=object_indices,
+		)
+		region_parameters = S[:, :, info.idx_global]
+		return self._evaluate_object_chunks(
+			self._batched_region[region_name],
+			wl,
+			region_parameters,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+
+	def stars_cont_ratio_parallel(
+		self,
+		wavelength: float,
+		*,
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+		host_region: str = "host",
+		subtract_regions: Tuple[str, ...] = (
+			"narrow",
+			"balmer",
+			"fe",
+			"broad",
+			"winds",
+			"outflows",
+		),
+		object_batch_size: Optional[int] = 128,
+		return_numpy: bool = False,
+		squeeze: bool = True,
+	) -> Any:
+		"""Memory-controlled parallel version of :meth:`stars_cont_ratio`.
+
+		Only subtraction regions present in the current model are evaluated.
+		Therefore all optional regions can be enabled or omitted independently.
+		"""
+		self._require_region(
+			host_region,
+			purpose="compute the stellar-to-continuum ratio",
+		)
+		available_subtract_regions = self._existing_regions(subtract_regions)
+
+		model = self.eval_batched_model_parallel(
+			wavelength,
+			samples=samples,
+			object_indices=object_indices,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+		host = self.eval_batched_region_parallel(
+			host_region,
+			wavelength,
+			samples=samples,
+			object_indices=object_indices,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+
+		denominator = model
+		for region_name in available_subtract_regions:
+			denominator = denominator - self.eval_batched_region_parallel(
+				region_name,
+				wavelength,
+				samples=samples,
+				object_indices=object_indices,
+				object_batch_size=object_batch_size,
+				return_numpy=return_numpy,
+			)
+
+		ratio = host / denominator
+		if not squeeze:
+			return ratio
+		return np.squeeze(ratio) if return_numpy else jnp.squeeze(ratio)
+
 	def eval_batched_model(self, wavelength: float, all_samples: Optional[jnp.ndarray] = None) -> jnp.ndarray:
 		wl = self._wl_array(wavelength)
 		#print(all_samples)
@@ -206,36 +478,74 @@ class MoldelSpectraReconstruction:
 		f_batched = self._batched_region[region_name]
 		return f_batched(wl, reg_params)
 
-	def eval_batched_components(self, wavelength: float,all_samples: Optional[jnp.ndarray] = None,*,regions: Optional[Iterable[str]] = None, include_model: bool = True,) -> Dict[str, jnp.ndarray]:
+	def eval_batched_components(
+		self,
+		wavelength: float,
+		all_samples: Optional[jnp.ndarray] = None,
+		*,
+		regions: Optional[Iterable[str]] = None,
+		include_model: bool = True,
+		skip_missing: bool = False,
+	) -> Dict[str, jnp.ndarray]:
 		if regions is None:
 			regions = self.region_names
+		elif skip_missing:
+			regions = self._existing_regions(regions)
 
 		out: Dict[str, jnp.ndarray] = {}
 
 		if include_model:
 			out["model"] = self.eval_batched_model(wavelength, all_samples)
 
-		for r in regions:
-			out[r] = self.eval_batched_region(r, wavelength, all_samples)
+		for region_name in regions:
+			out[region_name] = self.eval_batched_region(
+				region_name,
+				wavelength,
+				all_samples,
+			)
 
 		return out
 
-
-	def stars_cont_ratio(self,wavelength: float,all_samples: Optional[jnp.ndarray] = None,
+	def stars_cont_ratio(
+		self,
+		wavelength: float,
+		all_samples: Optional[jnp.ndarray] = None,
 		*,
 		host_region: str = "host",
-		subtract_regions: Tuple[str, ...] = ("narrow", "balmer", "fe", "broad"),
-		squeeze: bool = True,) -> jnp.ndarray:
-		comps = self.eval_batched_components(wavelength,all_samples,regions=(host_region,) + subtract_regions,include_model=True,)
+		subtract_regions: Tuple[str, ...] = (
+			"narrow",
+			"balmer",
+			"fe",
+			"broad",
+			"winds",
+			"outflows",
+		),
+		squeeze: bool = True,
+	) -> jnp.ndarray:
+		"""Compute host / continuum while allowing optional model regions.
+
+		Every entry in ``subtract_regions`` is subtracted only when that region
+		exists in the current model. Missing optional components are ignored.
+		"""
+		self._require_region(
+			host_region,
+			purpose="compute the stellar-to-continuum ratio",
+		)
+		available_subtract_regions = self._existing_regions(subtract_regions)
+		comps = self.eval_batched_components(
+			wavelength,
+			all_samples,
+			regions=(host_region,) + available_subtract_regions,
+			include_model=True,
+		)
 		host = comps[host_region]
 		denom = comps["model"]
-		for r in subtract_regions:
-			denom = denom - comps[r]
+		for region_name in available_subtract_regions:
+			denom = denom - comps[region_name]
 
 		ratio = host / denom
 		return jnp.squeeze(ratio) if squeeze else ratio
 
-	#@property
 	def stars_Cont_5100(self, all_samples=None):
 		"""
 		Uses cached samples by default.
@@ -252,7 +562,14 @@ class MoldelSpectraReconstruction:
 		wavelength: float,
 		*,
 		host_region: str = "host",
-		subtract_regions: Tuple[str, ...] = ("narrow", "balmer", "fe", "broad"),
+		subtract_regions: Tuple[str, ...] = (
+			"narrow",
+			"balmer",
+			"fe",
+			"broad",
+			"winds",
+			"outflows",
+		),
 		squeeze: bool = True,
 	) -> jnp.ndarray:
 		"""
@@ -261,14 +578,23 @@ class MoldelSpectraReconstruction:
 
 		Uses self.obj.result.params (best-fit global params), NOT posterior samples.
 		"""
+		self._require_region(
+			host_region,
+			purpose="compute the best-fit stellar-to-continuum ratio",
+		)
+		available_subtract_regions = self._existing_regions(subtract_regions)
+
 		# evaluate fused model at best-fit
 		model = self.eval_bestfit_model(wavelength)  # (N_obj, 1, ...)
 
-		# evaluate host + subtract regions at best-fit
+		# Evaluate the host and subtract only regions available in this model.
 		host = self.eval_bestfit_region(host_region, wavelength)
 		denom = model
-		for r in subtract_regions:
-			denom = denom - self.eval_bestfit_region(r, wavelength)
+		for region_name in available_subtract_regions:
+			denom = denom - self.eval_bestfit_region(
+				region_name,
+				wavelength,
+			)
 
 		ratio = host / denom
 		return jnp.squeeze(ratio) if squeeze else ratio
@@ -411,6 +737,85 @@ class MoldelSpectraReconstruction:
 		out["flux_region_sum_draws"] = region_sum_draws
 
 		return out
+
+	def fe_integrated_flux_parallel(
+		self,
+		*,
+		x_min: float = 2250,
+		x_max: float = 2650,
+		n_grid: int = 2_000,
+		region_name: str = "fe",
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+		include_bestfit: bool = True,
+		object_batch_size: Optional[int] = 64,
+		return_numpy: bool = True,
+	) -> Dict[str, Any]:
+		"""Chunked Fe integration without retaining the full 3-D flux cube.
+
+		For 1800 objects, 50 samples, and 2000 wavelength points, the temporary
+		flux array contains 180 million values (about 687 MiB in float32), before
+		counting compiler intermediates.  This method integrates one object chunk
+		at a time and only retains ``(N_obj, N_samp)`` integrated values.
+		"""
+		x_grid = jnp.linspace(
+			float(x_min),
+			float(x_max),
+			int(n_grid),
+			dtype=jnp.float32,
+		)
+
+		info = self.get_region_info(region_name)
+		S = self._samples_for_evaluation(
+			samples=samples,
+			object_indices=object_indices,
+		)
+		region_parameters = S[:, :, info.idx_global]
+
+		def integrated_evaluator(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+			flux = self._batched_region[region_name](x, params)
+			return jnp.trapezoid(flux, x, axis=-1)
+
+		# JIT the integration together with the model evaluation, so the large
+		# flux cube is an internal temporary rather than a returned object.
+		if self._jit_compile:
+			integrated_evaluator = jit(integrated_evaluator)
+
+		integrated_samples = self._evaluate_object_chunks(
+			integrated_evaluator,
+			x_grid,
+			region_parameters,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+
+		bestfit = None
+		if include_bestfit:
+			bestfit_parameters = self.obj.result.params[:, info.idx_global]
+			if object_indices is not None:
+				bestfit_parameters = bestfit_parameters[
+					jnp.asarray(object_indices, dtype=jnp.int32)
+				]
+
+			f = info.combined_profile
+			bestfit_evaluator = vmap(f, in_axes=(None, 0))
+			if self._jit_compile:
+				bestfit_evaluator = jit(bestfit_evaluator)
+			bestfit_flux = bestfit_evaluator(x_grid, bestfit_parameters)
+			bestfit = jnp.trapezoid(bestfit_flux, x_grid, axis=-1)
+			if return_numpy:
+				bestfit = np.asarray(jax.device_get(bestfit))
+			else:
+				bestfit.block_until_ready()
+
+		wavelength_grid = (
+			np.asarray(jax.device_get(x_grid)) if return_numpy else x_grid
+		)
+		return {
+			"wavelength_grid": wavelength_grid,
+			"samples": integrated_samples,
+			"bestfit": bestfit,
+		}
 
 	def fe_integrated_flux(
 		self,

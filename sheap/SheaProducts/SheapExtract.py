@@ -352,11 +352,11 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     df_basic = pd.DataFrame(rows_basic)
     if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]) and calculate_host:
         print("----Running host reconstruction-----")
-        ra = MoldelSpectraReconstruction(sheapspectral, jit_compile=True,posterior_group=method)
-        stars = ra.stars_Cont_5100(all_samples = selected_index)
-        if len(stars.shape) != 2:
-            stars = stars[:,None]
-        med, _low, _up= median_with_errors(stars,axis=1, low=low, high=high)
+        reconstruction = MoldelSpectraReconstruction(sheapspectral,jit_compile=True,)
+        stellar_fraction = reconstruction.stars_cont_ratio_parallel(wavelength=5100.0,object_batch_size=128,return_numpy=True,object_indices=selected_index)
+        if len(stellar_fraction.shape) != 2:
+            stellar_fraction = stellar_fraction[:,None].T
+        med, _low, _up= median_with_errors(stellar_fraction,axis=1, low=low, high=high)
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
                             "quantity":["cont_ratio"]*len(selected_index),"n_obj":selected_index})
         df_cont=pd.concat([df_cont, row], ignore_index=True)
