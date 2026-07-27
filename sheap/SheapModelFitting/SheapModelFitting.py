@@ -303,7 +303,7 @@ class SheapModelFitting:
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
                                         curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight,shared_params=shared_params)
-            #params.block_until_ready()
+            params.block_until_ready()
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
             elapsed = end_time - start_time
@@ -363,46 +363,19 @@ class SheapModelFitting:
         if verbose:
             print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
         self.params_class = self._build_params_class(initial_params,shared_params=shared_params)
-        if len(shared_params)>0:
-            print("runing shared parameter methods experimental.")
-            import optax
-            import jax 
-            sp_model_vmap = jax.vmap(model)
-            P=self.params_class
-            raw0 = P.raw_init()  # packed 1D raw vector (handled internally)
-            raw0 = P.phys_to_raw(P.phys_init())  # packed 1D raw vector (handled internally)
-            def loss_fn(raw_vec):
-                phys = P.raw_to_phys(raw_vec)
-                params = [phys[:, P.names.index(p)] for p in P.params_dict]
-                yhat = sp_model_vmap(norm_spec[:,0,:],params)
-                r = (norm_spec[:,1,:] - yhat) / norm_spec[:,2,:]
-                chi2 = jnp.sum(r * r, axis=1)
-                return jnp.mean(chi2)
-            loss_and_grad = jax.jit(jax.value_and_grad(loss_fn))
-            opt = optax.adam(learning_rate=0.05)
-            state = opt.init(raw0)
-            raw = raw0
-            for step in range(1000):
-                val, g = loss_and_grad(raw)
-                updates, state = opt.update(g, state, raw)
-                raw = optax.apply_updates(raw, updates)
-    
-            params = P.raw_to_phys(raw)
-            return params,0
-        else:
-            minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_class,
-                penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+        minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_class,
+            penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
 
-            try:
-                #faster why?
-                params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
-                self.minimizer = minimizer
-                self.norm_spec = norm_spec
-                
-            except Exception as e:
-                logger.exception("Fitting failed")
-                raise RuntimeError(f"Fitting error: {e}")
-            return params, loss
+        try:
+            #faster why?
+            params, loss = minimizer(initial_params, *norm_spec.transpose(1, 0, 2), self.constraints)
+            self.minimizer = minimizer
+            self.norm_spec = norm_spec
+            
+        except Exception as e:
+            logger.exception("Fitting failed")
+            raise RuntimeError(f"Fitting error: {e}")
+        return params, loss
 
 
     def _prep_data(self, spectra: Union[List[Any], jnp.ndarray], inner_limits: Optional[Tuple[float, float]], outer_limits: Optional[Tuple[float, float]], force_cut: bool,

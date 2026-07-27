@@ -86,10 +86,9 @@ class MonteCarloSampler:
 		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
 		self.tied_params = self.fitkwargs[-1]["tied"] #the tied params of the last iteration.
 		self.constraints = jnp.asarray(estimator.constraints, dtype=jnp.float32) #this will be moved
-		self.params_class = self._build_params_class()
+		self.params_class = estimator.params_class #self._build_params_class()
 		self.best_params = descale_amp(self.params_dict,self.params,self.scale).astype(jnp.float32) #thescaled
 
-	
 
 	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
 		from tqdm import tqdm
@@ -114,8 +113,7 @@ class MonteCarloSampler:
 		else:
 			print(f"Running posterior params")
 			monte_params.append(self.best_params)
-			#monte_params.append(self.best_params)
-			#monte_params.append(self.best_params)
+
 		_monte_params = np.moveaxis(np.stack(monte_params),0,1)
 		dic_posterior_params = {}
   

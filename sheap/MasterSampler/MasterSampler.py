@@ -323,7 +323,7 @@ class MasterSampler:
         self.sheapmodel = result.sheapmodel
         self.fitkwargs = result.fitkwargs
         self.initial_params = result.initial_params
-        
+        self.params_class =   sheap.params_class
 
     def _from_sheapresult(self, result, spectra, z):
         """
@@ -356,3 +356,4 @@ class MasterSampler:
         self.constraints = result.constraints
         self.fitkwargs = result.fitkwargs
         self.initial_params = result.initial_params
+         

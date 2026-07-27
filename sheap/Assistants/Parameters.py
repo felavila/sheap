@@ -116,7 +116,7 @@ class Parameters:
         self._raw_shared_list = None
         self._raw_local_list = None
         self._n_spectra = None
-
+        self._any_shared = False
     # -------------------------
     # mutation / cache invalidation
     # -------------------------
@@ -133,7 +133,7 @@ class Parameters:
     ):
         lo = -jnp.inf if min is None else float(min)
         hi =  jnp.inf if max is None else float(max)
-
+        self._any_shared = shared
         self._list.append(
             Parameter(
                 name=name,
@@ -468,6 +468,7 @@ class Parameters:
 
         local_raws = jax.vmap(local_raws_one)(phys)  # (n_spec, n_local)
         return jnp.concatenate([shared_raws, local_raws.ravel()])
+
     def linear_phys_indices(self) -> jnp.ndarray:
         """
         Return the indices in physical parameter space corresponding to linear parameters.

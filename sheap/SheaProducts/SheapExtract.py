@@ -79,10 +79,10 @@ def _extract_extra_params(
 
                     base_row = {
                         "n_obj": n_obj,
-                        "name": obj_name,
+                        "obj_name": obj_name,
                         "line": line,
                         "SMBHEstimator": combo,
-                        "quantity_name": quantity_name,
+                        "quantity": quantity_name,
                         "extra_key": extra_key,
                     }
 
@@ -232,10 +232,10 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
 
                         row = {
                             "n_obj": n_obj,
-                            "name": obj_name,
+                            "obj_name": obj_name,
                             "region": region_name,
                             "basic_param": basic_param,
-                            "quantity_name": quantity_name,
+                            "quantity": quantity_name,
                             "lines": lines[i],
                             "component": components[i],
                         }
@@ -287,10 +287,10 @@ def _extract_basic_params(n_obj, obj_name, available_basic_params, values, low=0
 
                         row = {
                             "n_obj": n_obj,
-                            "name": obj_name,
+                            "obj_name": obj_name,
                             "region": region_name,
                             "basic_param": basic_param,
-                            "quantity_name": quantity_name,
+                            "quantity": quantity_name,
                             "line": lines[i],
                             "component": components[i],
                             "median": med[i] if med.ndim > 0 else med.item(),

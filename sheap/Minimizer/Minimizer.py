@@ -124,7 +124,7 @@ class Minimizer:
             curvature_weight=curvature_weight, learning_rate = learning_rate, smoothness_weight=smoothness_weight, max_weight=max_weight,
             method=self.method, lbfgs_options=self.lbfgs_options, num_steps = num_steps)
 
-    def __call__(self, initial_params, y, x, yerror, constraints):
+    def __call__(self, initial_params, x, y, yerror, constraints):
         """
         Execute the optimization process across batches.
 
@@ -148,22 +148,44 @@ class Minimizer:
         list
             Final loss history.
         """
-        optimize_in_axis = (
-            (None, 0, 0, 0, None)
-            if self.non_optimize_in_axis == 3
-            else (0, 0, 0, 0, None)
-        )
-        
-        vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
-        if self.param_converter:
-            initial_params = self.param_converter.phys_to_raw(initial_params)
-            raw_params,loss = vmap_optimize_model(initial_params,y,x,yerror,constraints,)
-            return self.param_converter.raw_to_phys(raw_params),loss
-
-
+        if self.param_converter._any_shared:
+            print("Runing shared parameter method it is in a experimental face experimental.")
+            sp_model_vmap = vmap(self.func)
+            P = self.param_converter
+            raw0 = P.raw_init()  # packed 1D raw vector (handled internally)
+            raw0 = P.phys_to_raw(P.phys_init())  # packed 1D raw vector (handled internally)
+            def loss_fn(raw_vec):
+                phys = P.raw_to_phys(raw_vec)
+                params = [phys[:, P.names.index(p)] for p in P.params_dict]
+                yhat = sp_model_vmap(x,params)
+                r = (y - yhat) /yerror
+                chi2 = jnp.sum(r * r, axis=1)
+                return jnp.mean(chi2)
+            loss_and_grad = jit(value_and_grad(loss_fn))
+            opt = optax.adam(learning_rate=0.05) #we keep this for now
+            state = opt.init(raw0)
+            raw = raw0
+            for step in range(self.num_steps):
+                val, g = loss_and_grad(raw)
+                updates, state = opt.update(g, state, raw)
+                raw = optax.apply_updates(raw, updates)
+    
+            params = P.raw_to_phys(raw)
+            return params,0
         else:
-            #print warning sayng about no param class is defined
-            return vmap_optimize_model(initial_params,y,x,yerror,constraints,)
+            optimize_in_axis = (
+                        (None, 0, 0, 0, None)
+                        if self.non_optimize_in_axis == 3
+                        else (0, 0, 0, 0, None)
+                    )
+            vmap_optimize_model = vmap(self.optimize_model, in_axes=optimize_in_axis, out_axes=0)
+            if self.param_converter:
+                initial_params = self.param_converter.phys_to_raw(initial_params)
+                raw_params,loss = vmap_optimize_model(initial_params,x,y,yerror,constraints,)
+                return self.param_converter.raw_to_phys(raw_params),loss
+            else:
+                #print warning sayng about no param class is defined
+                return vmap_optimize_model(initial_params,x,y,yerror,constraints,)
 
     @staticmethod
     def minimization_function(
@@ -389,6 +411,8 @@ class Minimizer:
             return final_params, loss_history
         optimize_model = jit(optimize_model) #powerfull when we apply montecarlo-in in 1-2 objects sample not much impact +3 sec
         return loss_function, optimize_model
+
+
     
 
 class Minimizer_:
