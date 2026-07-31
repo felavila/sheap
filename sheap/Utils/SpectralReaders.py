@@ -177,6 +177,23 @@ def fits_reader_sdss(file: str):
     header_array = np.array([hdul[0].header["PLUG_RA"], hdul[0].header["PLUG_DEC"]])
     return data_array, header_array
 
+def json_reader(file):
+    #this only wrok for desijson
+    import json
+    import pandas as pd
+
+    json_path = (file)
+
+    with open(json_path, "r", encoding="utf-8") as file:
+        raw_json = json.load(file)
+
+    # print(type(raw_json))
+
+    # if isinstance(raw_json, dict):
+    #     for key, value in raw_json.items():
+    #         length = len(value) if hasattr(value, "__len__") else None
+    #         print(key, type(value).__name__, length)
+
 
 def fits_reader_pyqso(file: str):
     """
