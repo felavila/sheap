@@ -390,7 +390,10 @@ class Sheapectral:
 
 	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2] ,covariance_error = False,profile: str ='gaussian'
 				,add_penalty_function=False,method="adam",limits_overrides={},mask_list=[],shared_params = [],
-				penalty_weight: float = 0.00 ,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0):
+				penalty_weight: float = 0.00 ,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0, 
+				batch_mode: str = "independent",
+				convergence_options: Optional[Dict] = None,
+				global_reduction: str = "sum",):
 		"""
 		Execute fitting of the prepared region on the spectra.
 
@@ -426,9 +429,10 @@ class Sheapectral:
 		if run_fit:
 			Warning(f"You selected run_fit = {run_fit}, if you want run the fit change to True")
 			self.fitting_class(spectra,list_num_steps = list_num_steps,list_learning_rate =list_learning_rate,
-							covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
+								covariance_error= covariance_error,add_penalty_function=add_penalty_function,method=method,
 								penalty_weight= penalty_weight, curvature_weight= curvature_weight,
-										smoothness_weight= smoothness_weight,max_weight= max_weight,mask_list=mask_list,shared_params=shared_params)
+								smoothness_weight= smoothness_weight,max_weight= max_weight,mask_list=mask_list,shared_params=shared_params,
+								batch_mode = batch_mode,convergence_options=convergence_options,global_reduction=global_reduction)
 
 			self.spectral_model = self.fitting_class.model #the actual model is
 			self.params_class = self.fitting_class.params_class

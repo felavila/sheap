@@ -230,7 +230,10 @@ class SheapModelFitting:
         smoothness_weight: float = 0.0,
         max_weight: float = 0.1,
         mask_list= [],
-        shared_params = []
+        shared_params = [],
+        batch_mode: str = "global_independent",
+        convergence_options: Optional[Dict] = None,
+        global_reduction: str = "sum",
         ) -> None:
         """
         Execute the full fitting routine on provided spectra.
@@ -302,7 +305,8 @@ class SheapModelFitting:
             start_time = time.time()
             self.dependencies = parse_dependencies(self._build_tied(step["tied"]))
             params, loss = self._fit(norm_spec, self.model, params, **step,penalty_function=penalty_function,method=method,penalty_weight = penalty_weight,
-                                        curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight,shared_params=shared_params)
+                                        curvature_weight = curvature_weight, smoothness_weight = smoothness_weight, max_weight = max_weight,shared_params=shared_params,
+                                        batch_mode = batch_mode,convergence_options=convergence_options,global_reduction=global_reduction)
             params.block_until_ready()
             uncertainty_params = jnp.zeros_like(params)
             end_time = time.time() 
@@ -332,7 +336,9 @@ class SheapModelFitting:
         self.to_result()
     
     def _fit(self, norm_spec: jnp.ndarray, model, initial_params, tied: List[List[str]], learning_rate=1e-1, weighted: bool = True, num_steps: int = 1000, non_optimize_in_axis=3, penalty_function = None,
-            method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1,shared_params=[],verbose = True) -> Tuple[jnp.ndarray, list]:
+            method = None, penalty_weight: float = 0.01, curvature_weight: float = 1e5, smoothness_weight: float = 0.0, max_weight: float = 0.1,shared_params=[],verbose = True,
+             batch_mode: str = "global_independent",convergence_options: Optional[Dict] = None,global_reduction: str = "sum",
+            ) -> Tuple[jnp.ndarray, list]:
         """
         Perform the JAX‑based minimization using Minimizer.
 
@@ -364,7 +370,9 @@ class SheapModelFitting:
             print("learning_rate:",learning_rate,"num_steps:",num_steps,"non_optimize_in_axis:",non_optimize_in_axis,)
         self.params_class = self._build_params_class(initial_params,shared_params=shared_params)
         minimizer = Minimizer(model,non_optimize_in_axis=non_optimize_in_axis,num_steps=num_steps,weighted=weighted,learning_rate=learning_rate,param_converter=self.params_class,
-            penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight)
+            penalty_function = penalty_function,method=method, penalty_weight= penalty_weight,curvature_weight= curvature_weight,smoothness_weight= smoothness_weight,max_weight= max_weight,
+            batch_mode = batch_mode,convergence_options=convergence_options,global_reduction=global_reduction
+            )
 
         try:
             #faster why?
