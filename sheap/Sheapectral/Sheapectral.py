@@ -709,29 +709,6 @@ class Sheapectral:
 		with open(filepath, "wb") as f:
 			pickle.dump(self._save(), f)
 	
-	@property
-	def modelplot(self):
-		"""
-		Get or initialize the SheapPlot plotting interface.
-		TODO modelplot or plotter?
-
-		Returns
-		-------
-		SheapPlot
-			Plotting backend for spectra and fit results.
-
-		Raises
-		------
-		RuntimeError
-			If no fit result exists.
-		"""
-		if not hasattr(self, "plotter"):
-			if hasattr(self, "result"):
-				self.plotter = SheapPlot(sheap=self)
-			else:
-				raise RuntimeError("No fit result found. Run `fitmodel()` first.")
-		return self.plotter
-	
    
 	def result_panda(self, n: int, param_filter: str | None = None,
 				 regex: bool = False, case: bool = True) -> pd.DataFrame:
@@ -789,6 +766,7 @@ class Sheapectral:
 
 		return df
 
+	#Plots
 	def quicklook(self, idx: list, ax=None, xlim=None, ylim=None,add_text=True,figsize= (15, 5)):
 		"""
 		Produce a quick errorbar plot of flux vs. wavelength.
@@ -866,7 +844,6 @@ class Sheapectral:
 
 		return ax
 
-	#extra plots
 	@property
 	def plot_redshift_signal2noise_distribution(self):
 		import matplotlib.pyplot as plt
@@ -1013,18 +990,7 @@ class Sheapectral:
 			else:
 				raise RuntimeError("No fit result found. Run `fitmodel()` first.")
 		return self.plotter
-	
-   
-	# def result_panda(self, n:number {param_index}")
-	# 	ax.tick_params(axis="both", labelsize=14)
-	# 	ax.axvline(init_value, linestyle="--",label="init value",c="r")
-	# 	ax.axvline(constraints[0], linestyle="--",label="min value",c="k")
-	# 	ax.axvline(constraints[1], linestyle="--",label="max value",c="k")
-	# 	ax.legend(fontsize=14, frameon=False)
-	# 	fig.tight_layout()
-	# 	plt.show()
-	# 	return param_values
-	
+
 	def _calcualte_d(self,cosmo=None,H0=70,Om0=0.3):
 		from astropy.cosmology import FlatLambdaCDM
 		from sheap.Utils.Constants import cm_per_mpc
