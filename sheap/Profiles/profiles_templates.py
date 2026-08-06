@@ -150,40 +150,63 @@ def make_template_function(
         fixed_dispersion = float(user_fd)
 
     param_names = ["logamp", "logFWHM", "vshift_kms"]
-
+   
     # Pre-pack constants as JAX arrays once
-    wl_jax = jnp.asarray(wl)
-    unit_flux_jax = jnp.asarray(unit_flux)
+    wl_jax = jnp.asarray(wl, dtype=np.float32)
+    unit_flux_jax = jnp.asarray(unit_flux, dtype=np.float32)
 
     @with_param_names(param_names)
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+        # Enforce single precision for all model calculations
+        x = jnp.asarray(x, dtype=jnp.float32)
+        params = jnp.asarray(params, dtype=jnp.float32)
+
         logamp, logFWHM, vshift_kms = params
 
-        amp  = 10.0 ** logamp
-        FWHM = 10.0 ** logFWHM              # km/s
-        sigma_model = FWHM / 2.355          # km/s
+        c_kms = jnp.asarray(DEFAULT_C_KMS, dtype=jnp.float32)
+        sigma_template = jnp.asarray(sigmatemplate, dtype=jnp.float32)
+        dispersion = jnp.asarray(fixed_dispersion, dtype=jnp.float32)
 
-        # Quadratic subtraction of template intrinsic sigma (km/s), made safe
-        diff_sq = sigma_model**2 - sigmatemplate**2
-        diff_sq_safe = jax.nn.softplus(diff_sq / 10.0) * 10.0 + 1e-12
-        delta_sigma = jnp.sqrt(diff_sq_safe)  # km/s
+        amp = jnp.power(jnp.float32(10.0), logamp)
+        FWHM = jnp.power(jnp.float32(10.0), logFWHM)
+        sigma_model = FWHM / jnp.float32(2.355)
 
-        # Convert km/s broadening -> pixels (fixed_dispersion is km/s per pixel)
-        sigma_pix = delta_sigma / fixed_dispersion
+        # Quadratic subtraction
+        diff_sq = sigma_model**2 - sigma_template**2
+        diff_sq_safe = (
+            jax.nn.softplus(diff_sq / jnp.float32(10.0))
+            * jnp.float32(10.0)
+            + jnp.float32(1e-12)
+        )
+        delta_sigma = jnp.sqrt(diff_sq_safe)
+
+        # Broadening in pixels
+        sigma_pix = delta_sigma / dispersion
 
         n_pix = unit_flux_jax.shape[0]
-        freq = jnp.fft.fftfreq(n_pix, d=1.0)  # pixel-frequency
-        gauss_tf = jnp.exp(-2.0 * (jnp.pi * freq * sigma_pix) ** 2)
+        freq = jnp.fft.fftfreq(n_pix, d=1.0).astype(jnp.float32)
 
-        spec_fft = jnp.fft.fft(unit_flux_jax)
-        broadened = jnp.real(jnp.fft.ifft(spec_fft * gauss_tf))
+        gauss_tf = jnp.exp(jnp.float32(-2.0)* (jnp.pi * freq * sigma_pix) ** 2)
 
-        # --- velocity shift (positive -> redder features) ---
-        beta = vshift_kms / DEFAULT_C_KMS
-        xp = wl_jax * (1.0 + beta)
+        # FFT of float32 input is complex64; preserve the imaginary component
+        spec_fft = jnp.fft.fft(unit_flux_jax).astype(jnp.complex64)
+        broadened = jnp.fft.ifft(
+            spec_fft * gauss_tf.astype(jnp.complex64)
+        ).real.astype(jnp.float32)
 
-        interp = jnp.interp(x, xp, broadened, left=0.0, right=0.0)
-        return amp * interp
+        # Positive velocity means redder features
+        beta = vshift_kms / c_kms
+        xp = wl_jax * (jnp.float32(1.0) + beta)
+
+        interpolated = jnp.interp(
+            x,
+            xp,
+            broadened,
+            left=jnp.float32(0.0),
+            right=jnp.float32(0.0),
+        )
+
+        return (amp * interpolated).astype(jnp.float32)
 
     return {
         "model": model,
@@ -348,7 +371,7 @@ def make_host_function(
     # dln is ~constant if wave is log-sampled in Angstrom
     dln = float(np.mean(np.gradient(np.log(wave.astype(np.float64)))))
     freq = jnp.fft.fftfreq(n_pix, d=dln).astype(jnp.float32)
-    @with_param_names(param_names,linear_param_names=linear_params)
+    @with_param_names(param_names,linear_param_names=linear_params,profile_name="host")
     def model(x: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
         logamp = params[0]
         logFWHM = params[1]

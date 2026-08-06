@@ -114,12 +114,15 @@ class Minimizer:
         self.non_optimize_in_axis = non_optimize_in_axis
         self.num_steps = num_steps
         self.learning_rate = learning_rate or 1e-2
-        #self.list_dependencies = list_dependencies
+        #TODO param_converter ->param_class 
         self.param_converter = param_converter
         self.method = method.lower()
         self.lbfgs_options = lbfgs_options or {}
         self.batch_mode = batch_mode.lower()
         self.global_reduction = global_reduction.lower()
+        self.weighted = weighted
+        self.penalty_weight = penalty_weight
+        self.curvature_weight=curvature_weight
 
         valid_batch_modes = {"independent", "global_independent"}
         if self.batch_mode not in valid_batch_modes:
@@ -144,12 +147,15 @@ class Minimizer:
         required_fraction = self.convergence_options["required_fraction"]
         if not 0.0 < required_fraction <= 1.0:
             raise ValueError("required_fraction must be in the interval (0, 1].")
-        #self.optimizer = kwargs.get("optimizer", optax.adam(self.learning_rate))
-        #print(method,penalty_weight,curvature_weight,smoothness_weight,max_weight)
-        #self.parsed_dependencies_tuple = parse_dependencies(self.list_dependencies)
 
-        self.loss_function, self.optimize_model = Minimizer.minimization_function(self.func, weighted=weighted, penalty_function=penalty_function, penalty_weight=penalty_weight,param_converter=self.param_converter,
-            curvature_weight=curvature_weight, learning_rate=self.learning_rate, smoothness_weight=smoothness_weight, max_weight=max_weight,
+        
+        self.kwargs = vars(self).copy()
+        self.kwargs.pop("func")
+        self.kwargs.pop("param_converter")
+
+        self.loss_function, self.optimize_model = Minimizer.minimization_function(self.func, weighted=self.weighted, penalty_function=penalty_function, 
+                                                                                  penalty_weight=self.penalty_weight,param_converter=self.param_converter,
+            curvature_weight=self.curvature_weight, learning_rate=self.learning_rate, smoothness_weight=smoothness_weight, max_weight=max_weight,
             method=self.method, lbfgs_options=self.lbfgs_options, num_steps = num_steps)
 
         optimize_in_axis = (
@@ -158,8 +164,6 @@ class Minimizer:
             else (0, 0, 0, 0, None)
         )
 
-        # Callable with signature
-        # (initial_params, x, y, yerror, constraints).
         self.independent_batch_optimizer = vmap(
             self.optimize_model,
             in_axes=optimize_in_axis,
@@ -168,9 +172,7 @@ class Minimizer:
 
         self.optimize_global_model = None
         self.global_batch_optimizer = None
-        self.batch_optimizers = {
-            "independent": self.independent_batch_optimizer,
-        }
+        self.batch_optimizers = {"independent": self.independent_batch_optimizer,}
 
         # The global-independent implementation currently uses Adam. Build it
         # for every Adam Minimizer so either batch callable remains available.
@@ -193,6 +195,7 @@ class Minimizer:
             raise NotImplementedError(
                 "global_independent currently supports method='adam' only."
             )
+       
 
     def __call__(self, initial_params, x, y, yerror, constraints):
         """
@@ -899,7 +902,7 @@ class Minimizer:
         return loss_function, optimize_model
 
 
-    
+  
 class Minimizer_c:
     """
     Handles constrained optimization for a given model function using JAX and Optax.

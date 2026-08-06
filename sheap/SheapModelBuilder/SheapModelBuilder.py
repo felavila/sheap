@@ -45,7 +45,7 @@ add_balmerhighorder_continuum : bool, optional
     Include Balmer high‑order continuum template (default: False).
 add_uncommon_narrow : bool, optional
     Include lines marked as uncommon (default: False).
-add_host_miles : bool | dict, optional
+add_host : bool | dict, optional
     Include a host‑galaxy template from MILES (``True`` for defaults or a dict of kwargs).
 tied_narrow_to : str | dict, optional
     Main line (or per‑component map) to which narrow lines are tied.
@@ -150,7 +150,7 @@ class SheapModelBuilder:
         Include Balmer high order continuum component, by default False.
     add_uncommon_narrow : bool, optional
         Include uncommon narrow lines, by default False.
-    add_host_miles : bool or dict, optional
+    add_host : bool or dict, optional
         Include host‐galaxy template from MILES; if dict, passes its keys to the builder.
     verbose : bool, optional
         Print informational messages during building, by default True.
@@ -173,19 +173,13 @@ class SheapModelBuilder:
     >>> routine = rb._make_fitting_routine(list_num_steps=[2000,2000], list_learning_rate=[1e-1,1e-2])
     """
     
-
-    lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]","[OII]","[NeIII]"]#,"NIIb","NIIa","SIIb","SIIa",]
-    lines_prone_winds = ["Lyalpha","CIV","AlIII","MgII","Halpha","Hbeta"]#,"HeIe","HeIk","HeIId"] Lyα
-    lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"]#,"HeIe","HeIk","HeIId"]
-    available_fe_modes = ["template","model","none"] # none is like No fe
-    
+    #All of this should go as self.
+            #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
+        #fe_tied_params=('center', 'fwhm'),
+        #verbose=True,
+    available_fe_modes = ["template","model","none"] # none means no Fe
     available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys()) + ["none"]
     LINEAR_RANGE_THRESHOLD = 1000
-    known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [(('OIIIb', 'OIIIc'),['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3'],),
-        (('NIIa', 'NIIb'),['amplitude_NIIa_component_narrow', 'amplitude_NIIb_component_narrow', '*0.3'],),
-        (('NIIa', 'NIIb'), ['center_NIIa_component_narrow', 'center_NIIb_component_narrow']),
-        (('OIIIb', 'OIIIc'),['center_OIIIb_component_narrow', 'center_OIIIc_component_narrow'],),]
-    
     def __init__(
         self,
         xmin: float,
@@ -202,15 +196,20 @@ class SheapModelBuilder:
         add_uncommon_narrow = False,
         add_BAL = False,
         add_balmerhighorder_continuum = False,
-        add_host_miles: Optional[Union[Dict,bool]] = None,
+        add_host: Optional[Union[Dict,bool]] = None,
         tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         tied_broad_to: Optional[Union[str, Dict[int, Dict[str, int]]]] = None,
         n_max_component_outflow = 1,
         n_max_component_winds = 1,
         n_max_component_bal = 1,
-        #fe_regions=['fe_uv', "feii_IZw1", "feii_forbidden", "feii_coronal"],
-        #fe_tied_params=('center', 'fwhm'),
-        #verbose=True,
+        lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]","[OII]","[NeIII]"],#,"NIIb","NIIa","SIIb","SIIa",]
+        lines_prone_winds = ["Lyalpha","CIV","AlIII","MgII","Halpha","Hbeta"],#,"HeIe","HeIk","HeIId"] Lyα
+        lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"],#,"HeIe","HeIk","HeIId"]
+        known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [(('OIIIb', 'OIIIc'),['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3'],),
+                (('NIIa', 'NIIb'),['amplitude_NIIa_component_narrow', 'amplitude_NIIb_component_narrow', '*0.3'],),
+                (('NIIa', 'NIIb'), ['center_NIIa_component_narrow', 'center_NIIb_component_narrow']),
+                (('OIIIb', 'OIIIc'),['center_OIIIb_component_narrow', 'center_OIIIc_component_narrow'],),],
+        lines_to_use = None,
         **kwargs) -> None:
         """
         Initialize the SheapModelBuilder with region bounds and options.
@@ -241,7 +240,7 @@ class SheapModelBuilder:
             Whether to include Balmer continuum.
         add_uncommon_narrow : bool, optional
             Whether to include uncommon narrow lines.
-        add_host_miles : bool or dict, optional
+        add_host : bool or dict, optional
             Host-galaxy template inclusion or options dict.
         verbose : bool, optional
             Print status messages.
@@ -258,17 +257,21 @@ class SheapModelBuilder:
         self.add_uncommon_narrow = add_uncommon_narrow
         self.add_balmerhighorder_continuum = add_balmerhighorder_continuum
         self.verbose = kwargs.get("verbose",False)
-        self.add_host_miles = add_host_miles
+        self.add_host = add_host
         self.tied_broad_to = tied_broad_to
         self.tied_narrow_to = tied_narrow_to
         self.add_BAL = add_BAL
         self.n_max_component_outflow = n_max_component_outflow
         self.n_max_component_winds = n_max_component_winds
         self.n_max_component_bal = n_max_component_bal
+        self.lines_prone_outflow = lines_prone_outflow
+        self.lines_prone_winds = lines_prone_winds
+        self.lines_prone_bal = lines_prone_bal #experimental 
+        self.known_tied_relations = known_tied_relations
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
-        ###
+        #TODO is best 5500 fix or use the mean between xmin and xmax?
         if isinstance(continuum_profile,str):
             continuum_profile = {"name":continuum_profile.lower(),"keywords":{"delta0":5500}}
         self.continuum_profile = continuum_profile
@@ -277,12 +280,15 @@ class SheapModelBuilder:
             print(f"continuum_profile: {self.continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
             #print(self.continuum_profile)
             self.continuum_profile = {"name": "powerlaw", "keywords": {"delta0": 5500}} 
-        
+        self.lines_to_use = lines_to_use
+        self.kwargs = vars(self).copy()
         if not line_repository_path:
             TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "SuportData" / "LineRepository"
             self.line_repository_path = list(TEMPLATES_PATH.glob("*.yaml"))
-        self.lines_available: Dict[str, Any] = {}
         self._load_lines(self.line_repository_path) #this should be always here?
+        if not lines_to_use:
+            print("The model will be build with all the lines in the repository")
+            self.lines_to_use = self.lines_available
         self.make_region()
         
     def make_region(
@@ -298,7 +304,7 @@ class SheapModelBuilder:
         add_winds = None,
         add_balmer_continuum = None,
         add_uncommon_narrow = None,
-        add_host_miles = None,
+        add_host = None,
         tied_broad_to= None,
         tied_narrow_to = None,
         add_BAL = None,
@@ -330,7 +336,7 @@ class SheapModelBuilder:
             Override for Balmer continuum.
         add_uncommon_narrow : bool, optional
             Override for uncommon narrow-line inclusion.
-        add_host_miles : bool or dict, optional
+        add_host : bool or dict, optional
             Override for host-galaxy options.
         """
         def get(val, fallback):
@@ -345,7 +351,7 @@ class SheapModelBuilder:
         add_balmer_continuum = get(add_balmer_continuum, self.add_balmer_continuum)
         add_winds = get(add_winds, self.add_winds)
         add_uncommon_narrow = get(add_uncommon_narrow,self.add_uncommon_narrow)
-        add_host_miles = get(add_host_miles,self.add_host_miles)
+        add_host = get(add_host,self.add_host)
         add_BAL = get(add_BAL,self.add_BAL)
         add_balmerhighorder_continuum = get(add_balmerhighorder_continuum,self.add_balmerhighorder_continuum)
         # continuum_profile => only can be a dict?
@@ -368,26 +374,29 @@ class SheapModelBuilder:
         self.group_method = get(group_method,self.group_method)
         
         self.region_list = [] #place holder name  
+        lines_to_use = {}
         for pseudo_region_name,list_dict in self.lines_available.items():
             comps = []
+            lines_to_use[pseudo_region_name] = []
             for raw_line in list_dict:
                 center = float(raw_line.get('center', -np.inf))
                 if not (xmin <= center <= xmax):
                     continue
                 base = SpectralLine(**raw_line)
+                lines_to_use[pseudo_region_name].append(raw_line)
                 if pseudo_region_name == "broad_and_narrow": #search of name
                     comps = self._handle_broad_and_narrow_lines(base, n_narrow, n_broad,add_winds=add_winds,add_BAL=add_BAL,add_outflow=add_outflow)
                 elif pseudo_region_name == "narrows" and (n_narrow>0 or add_outflow):
-                    #print("jeje")
                     comps = self._handle_narrow_line(base, n_narrow,add_outflow=add_outflow,add_uncommon_narrow=add_uncommon_narrow)
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds,add_BAL=add_BAL) 
-                self.region_list.extend(comps)        
-        if add_host_miles:
-            self._handle_host(add_host_miles,xmin,xmax)
+                self.region_list.extend(comps)
+        self.kwargs["lines_to_use"] = lines_to_use
+        if add_host:
+            print(f"Adding host: {add_host}")
+            self._handle_host(add_host,xmin,xmax)
         #print(fe_mode)
         self.region_list.extend(self._handle_fe(fe_mode,xmin,xmax))
-        
         self.region_list.extend(self._continuum_handle(continuum_profile,xmin,xmax,add_balmer_continuum=add_balmer_continuum,add_balmerhighorder_continuum = add_balmerhighorder_continuum))#here we already are able to create the sheapmodel
         #sheapmodel
         self.sheapmodel = SheapModel(self.region_list)
@@ -397,11 +406,8 @@ class SheapModelBuilder:
         if self.group_method:
              self.sheapmodel = self._apply_group_method(self.sheapmodel,fe_mode,self.known_tied_relations)
         else:
-            #todo add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
-            #print(self.known_tied_relations)
+            #TODO add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
             self._ties,self._known_ties =_maketies(self.sheapmodel,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
-            #self.tied_relations.extend([*_ties,*_known_ties])
-            #self._ties = []
             if fe_mode not in ["none","template"]:
                 routine_fe_tied = {"by":"subregion","tied_params": ('center', 'fwhm')}
                 self._feties = fe_ties(self.sheapmodel.group_by("region").get("fe").lines, routine_fe_tied)
@@ -727,13 +733,13 @@ class SheapModelBuilder:
                 new_region_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
         return SheapModel(new_region_list)
 
-    def _handle_host(self,add_host_miles,xmin,xmax):
+    def _handle_host(self,add_host,xmin,xmax):
         """
         Add a host-galaxy template component using MILES SSP models.
 
         Parameters
         ----------
-        add_host_miles : dict or bool
+        add_host : dict or bool
             Configuration for host model (kwargs for `make_host_function` or True for defaults).
         xmin : float
             Lower wavelength bound.
@@ -753,13 +759,13 @@ class SheapModelBuilder:
         defaults["xmax"] = xmax
         defaults["xmin"] = xmin
         defaults["verbose"] = False
-        if isinstance(add_host_miles,bool):
+        if isinstance(add_host,bool):
             _host_model = make_host_function(**defaults)
-        elif isinstance(add_host_miles,Dict):
-            add_host_miles.update({"xmax":xmax,"xmin":xmin})
-            _host_model = make_host_function(**add_host_miles)
+        elif isinstance(add_host,Dict):
+            add_host.update({"xmax":xmax,"xmin":xmin})
+            _host_model = make_host_function(**add_host)
         else:
-            Warning("Not accepted type of add_host_moles")
+            Warning("Not accepted type of add_host")
             return self.region_list
         line = SpectralLine(line_name="host",region="host",component=1,template_info=_host_model["host_info"],profile="hostmiles")    
         self.region_list.extend([line])
@@ -829,7 +835,7 @@ class SheapModelBuilder:
             """
             if not paths:
                 raise ValueError("No YAML paths provided for region templates.")
-
+            self.lines_available: Dict[str, Any] = {}
             for p in paths:
                 path = Path(p)
                 if not path.is_file():

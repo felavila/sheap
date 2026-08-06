@@ -352,9 +352,11 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     df_basic = pd.DataFrame(rows_basic)
     if np.any(["host" in  line.line_name for line in sheapspectral.result.region_list]) and calculate_host:
         print("----Running host reconstruction-----")
-        reconstruction = MoldelSpectraReconstruction(sheapspectral,jit_compile=True,)
+        reconstruction = MoldelSpectraReconstruction(sheapspectral,jit_compile=True,posterior_group=method)
         stellar_fraction = reconstruction.stars_cont_ratio_parallel(wavelength=5100.0,object_batch_size=128,return_numpy=True,object_indices=selected_index)
-        if len(stellar_fraction.shape) != 2:
+        if len(stellar_fraction.shape) ==1:
+            stellar_fraction = stellar_fraction[:,None]
+        elif len(stellar_fraction.shape) > 2:
             stellar_fraction = stellar_fraction[:,None].T
         med, _low, _up= median_with_errors(stellar_fraction,axis=1, low=low, high=high)
         row = pd.DataFrame({"median":med,"err_minus":_low,"err_plus":_up,"obj_name": obj_list,"wavelenght":[5100]*len(selected_index),
@@ -363,8 +365,8 @@ def posterior_param_extraction(sheapspectral, low=0.16, high=0.84, method="monte
     df_chi = pd.DataFrame({"obj_name":obj_list,"n_obj":selected_index,
                            "chi_2_reduced":chi2_red[selected_index],"snr":snr[selected_index],"z":z[selected_index]})
 
-    if df_extra.empty:
-        return df_extra
+    #if df_extra.empty:
+     #   return df_extra
 
     non_numeric = {"n_obj", "name","line", "SMBHEstimator", "quantity", "method", "vwidth_def", "component", "extra_key",}
 

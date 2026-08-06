@@ -222,6 +222,7 @@ class MonteCarloSampler:
 		
 		
 		return minimizer  
+
 	def _normalize_spectra(self):
 		"from the clasical shape to the one that is use during the fitting"
 		scale = jnp.atleast_1d(self.scale.astype(jnp.float32))
@@ -231,10 +232,10 @@ class MonteCarloSampler:
 		return norm_spectra.astype(jnp.float32).transpose(1, 0, 2)
 
  
-	def _build_params_class(self):
-		dependencies = build_tied(self.tied_params,self.get_param_coord_value)
-		list_dependencies = parse_dependencies(dependencies)
-		tied_map = {T[1]: T[2:] for  T in list_dependencies}
-		tied_map = flatten_tied_map(tied_map)
-		params_class = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
-		return params_class
+	# def _build_params_class(self):
+	# 	dependencies = build_tied(self.tied_params,self.get_param_coord_value)
+	# 	list_dependencies = parse_dependencies(dependencies)
+	# 	tied_map = {T[1]: T[2:] for  T in list_dependencies}
+	# 	tied_map = flatten_tied_map(tied_map)
+	# 	params_class = build_Parameters(tied_map,self.params_dict,self.initial_params,self.constraints)
+	# 	return params_class

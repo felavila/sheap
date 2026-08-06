@@ -58,7 +58,6 @@ class Parameter:
             self.value = jnp.array(value, dtype=jnp.float32)
         else:
             self.value = float(value)
-
         self.min = jnp.float32(min)
         self.max = jnp.float32(max)
         self.tie = tie
@@ -591,68 +590,119 @@ class Parameters:
     def params_dict(self) -> Dict:
         return {p.name:i for i,p in enumerate(self._list)}
 
-
+    def linear_bounds(self) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        """
+        Return (lo, hi) bound arrays for the linear parameters, in the
+        same order as `linear_phys_indices()` (both iterate `self._list`
+        filtering on `p.linear_param`, so the two line up by construction).
+ 
+        Unbounded sides come through as -inf / +inf, which `jnp.clip`
+        treats as a no-op -- safe to use directly as a FISTA/projected-
+        gradient box constraint without special-casing.
+ 
+        Returns
+        -------
+        (lo, hi) : each jnp.ndarray of shape (n_linear,)
+        """
+        lo = jnp.array(
+            [float(p.min) for p in self._list if p.linear_param],
+            dtype=jnp.float32,
+        )
+        hi = jnp.array(
+            [float(p.max) for p in self._list if p.linear_param],
+            dtype=jnp.float32,
+        )
+        return lo, hi
 
 def build_Parameters(
-    tied_map: Dict[int, Tuple[int, str, float]],
-    params_dict: Dict[str, int],
-    initial_params: Iterable[float],
-    constraints: jnp.ndarray,
-    shared_params = []
-) -> Parameters:
-    r"""
-    Construct a :class:`Parameters` object from initialization arrays, constraints,
-    and tie definitions.
-
-    This helper builds a container of :class:`Parameter` instances ready for fitting,
-    applying bounds, fixed values, and tied relationships.
-
-    Parameters
-    ----------
-    tied_map : dict[int, tuple[int, str, float]]
-        Mapping of parameter indices to tie definitions.
-        Each entry is of the form
-        ``idx_target -> (idx_source, op, operand)``, where:
-          * ``idx_target`` is the index of the tied parameter,
-          * ``idx_source`` is the index of the source parameter,
-          * ``op`` is an arithmetic operator string (``'*'``, ``'/'``, ``'+'``, ``'-'``),
-          * ``operand`` is a numeric factor or offset.
-    params_dict : dict[str, int]
-        Dictionary mapping parameter names to their index positions
-        in the parameter vector.
-    initial_params : array-like, shape (n_params,)
-        Initial physical parameter values.
-    constraints : array-like, shape (n_params, 2)
-        Lower and upper bounds per parameter.
-
-    Returns
-    -------
-    Parameters
-        A populated container with names, values, bounds, and tie definitions.
-
-    Notes
-    -----
-    * Tied parameters are added with their ``tie`` attribute and are not optimized
-        directly; their values are reconstructed from the source parameter during
-        raw→physical mapping.
-    * Untied parameters are added with their initial value and bounds taken from
-        ``constraints``.
-    * Fixed parameters are not assigned here; add them via
-        :meth:`Parameters.add(..., fixed=True) <Parameters.add>` if needed.
-    * Typically called by higher-level fitting routines (e.g., :class:`RegionFitting`)
-        when preparing parameter sets.
+    tied_map,
+    params_dict,
+    initial_params,
+    constraints,
+    shared_params=None,
+):
     """
+    Construct a Parameters object while preserving the distinction between:
+
+    - one spectrum: each parameter is a scalar
+    - multiple spectra: local parameters have shape (n_spectra,)
+    - shared parameters: always represented by one scalar
+    """
+    if shared_params is None:
+        shared_params = []
+
+    shared_params = set(shared_params)
+
+    initial_params = jnp.asarray(initial_params, dtype=jnp.float32)
+    constraints = jnp.asarray(constraints, dtype=jnp.float32)
+
+    # Normalize to (n_spectra, n_params)
+    if initial_params.ndim == 1:
+        initial_params = initial_params[None, :]
+    elif initial_params.ndim != 2:
+        raise ValueError("initial_params must have shape (n_params,) or "f"(n_spectra, n_params), got {initial_params.shape}")
+
+    n_spectra, n_params = initial_params.shape
+
+    if constraints.shape != (n_params, 2):
+        raise ValueError(
+            f"constraints must have shape {(n_params, 2)}, "
+            f"got {constraints.shape}"
+        )
+
     params_obj = Parameters()
+
+    # Safer than assuming dictionary insertion order matches parameter indices
+    index_to_name = {
+        idx: name
+        for name, idx in params_dict.items()
+    }
+
     for name, idx in params_dict.items():
-        val = jnp.atleast_2d(initial_params)[:,idx]
-        min_val, max_val = constraints[idx]
         shared = name in shared_params
-        if idx in tied_map.keys():
-            src_idx, op, operand = tied_map[idx]
-            src_name = list(params_dict.keys())[src_idx]
-            tie = (name, src_name, op, operand)
-            params_obj.add(name, val, min=min_val, max=max_val, tie=tie,shared=shared)
+        parameter_column = initial_params[:, idx]
+
+        # One spectrum must use scalar parameters.
+        # Shared parameters must also have only one optimized value.
+        if n_spectra == 1 or shared:
+            val = parameter_column[0]
         else:
-            params_obj.add(name, val, min=min_val, max=max_val,shared=shared)
-    params_obj.n_obj = initial_params.shape[0]
+            val = parameter_column
+
+        min_val, max_val = constraints[idx]
+
+        if idx in tied_map:
+            src_idx, op, operand = tied_map[idx]
+            src_name = index_to_name[src_idx]
+
+            tie = (
+                name,
+                src_name,
+                op,
+                operand,
+            )
+
+            params_obj.add(
+                name,
+                val,
+                min=min_val,
+                max=max_val,
+                tie=tie,
+                shared=shared,
+            )
+        else:
+            params_obj.add(
+                name,
+                val,
+                min=min_val,
+                max=max_val,
+                shared=shared,
+            )
+
+    params_obj.n_obj = n_spectra
+
+    # print("Input physical shape:", initial_params.shape)
+    # print("Physical initial shape:", params_obj.phys_init().shape)
+    # print("Raw initial shape:", params_obj.raw_init().shape)
+
     return params_obj

@@ -37,6 +37,7 @@ import time
 import jax.numpy as jnp
 import numpy as np
 from jax import jit,vmap
+from jax.scipy.stats import chi2
 
 from sheap.Core import FittingLimits, SpectralLine,SheapResult
 
@@ -471,10 +472,18 @@ class SheapModelFitting:
             y_model  = self.model_vmap(self.spec[:,0,:],self.params)
             mask = self.mask
             y_error = self.spec[:,2,:]#.at[mask].set(1e41) #already in 1e41 error
-            self.residuals = (y_model-self.spec[:,1,:])/y_error
-            self.free_params = jnp.sum(~mask,axis=1) - self.params.shape[1]- len(self.dependencies)
-            self.chi2_red = jnp.sum(self.residuals**2,axis=1)/self.free_params
-            
+            #self.residuals = (y_model-self.spec[:,1,:])/y_error
+            self.free_params = jnp.sum(~mask,axis=1) - self.params.shape[1] + len(self.dependencies)
+            #self.chi2_red = jnp.sum(self.residuals**2,axis=1)/self.free_params
+            valid = (~mask & jnp.isfinite(self.spec[:, 1, :]) & jnp.isfinite(y_model) & jnp.isfinite(y_error) & (y_error > 0))
+
+            self.residuals = jnp.where(valid,(y_model - self.spec[:, 1, :]) / y_error,0.0,)
+            n_valid = jnp.sum(valid, axis=1)
+            n_fitted_params = self.params.shape[1]
+            self.dof = n_valid - n_fitted_params
+            self.chi2_red = jnp.where(self.dof > 0, jnp.sum(self.residuals**2, axis=1) / self.dof,jnp.nan,)
+            from scipy.special import gammaincc
+            self.p_value = gammaincc(0.5 * np.asarray(self.dof),0.5 * np.asarray(self.chi2_red) * np.asarray(self.dof),)
         except Exception as e:
             logger.exception("Renormalization failed")
             raise ValueError(f"Renormalization error: {e}")
@@ -507,7 +516,6 @@ class SheapModelFitting:
         idx = 0  # parameter_position
         region_list = []
         for _,sp in enumerate(self.sheapmodel.lines):
-            #print(sp)
             region_name = sp.region
             holder_profile = getattr(sp, "profile", None) or profile
             sp.profile = holder_profile
@@ -688,7 +696,6 @@ class SheapModelFitting:
         """
     
         region_dict = builder._make_fitting_routine(**builder_kwargs)
-        #print(region_dict)
         return cls(region_dict, profile=profile,limits_overrides= limits_overrides)
     
     def init_linear(self,norm_spec,params):

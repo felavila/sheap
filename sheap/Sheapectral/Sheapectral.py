@@ -201,22 +201,20 @@ class Sheapectral:
 			#     
 		self.coords = coords  # may be None – handle carefully downstream
 		if self.coords is None:
-			print("no inform coords")
+			print("Coords not informed the code will assume extinction_correction = done")
 			self.extinction_correction = "done"#<
 		self.ebv = ebv
 		self.z = self._prepare_z(z, self.spectra.shape[0])
 		self.names = (np.atleast_1d(names) if names is not None else np.arange(self.spectra.shape[0]).astype(str))
+		assert len(self.z) == self.spectra.shape[0], ("The number of redshifts and spectra must be the same. " f"Got {len(self.z)} redshifts and {self.spectra.shape[0]} spectra.")
+
 		if self.names.shape[0] !=self.spectra.shape[0]:
 			print(f"The number of names ({len(self.names.shape[0])}) is different from the number of spectra ({self.spectra.shape[0]}) the code will use the inner names")
 			self.names = np.arange(self.spectra.shape[0]).astype(str)
-		#print(self.names.shape,self.spectra.shape)
-		
 		if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
-			
 			print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
 			self._apply_extinction()
 			self.extinction_correction = "done"
-
 		if self.redshift_correction == "pending" and self.z is not None:
 			print("redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step")
 			self._apply_redshift()
@@ -249,10 +247,14 @@ class Sheapectral:
 			arr = np.loadtxt(spectra)
 			return jnp.array(arr).T  # ensure (c, λ) then transpose later
 		elif isinstance(spectra, np.ndarray):
+			if len(spectra.shape)==2 and spectra.shape[0]>2:
+				spectra = spectra[None,:]
 			return jnp.array(spectra)
 		elif isinstance(spectra,list):
 			return jnp.array(spectra)
 		elif isinstance(spectra, jnp.ndarray):
+			if len(spectra.shape)==2 and spectra.shape[0]>2:
+				spectra = spectra[None,:]
 			return spectra
 		raise TypeError("spectra must be a path or ndarray")
 
@@ -273,6 +275,8 @@ class Sheapectral:
 			Array of length nobj or None if z was None.
 		"""
 		if z is None:
+			print("Redshift not informed the code will use z=0 and redshift_correction = done")
+			self.redshift_correction = "done"
 			return jnp.repeat(0, nobj)
 		if isinstance(z, (int, float)):
 			return jnp.repeat(z, nobj)
@@ -373,27 +377,29 @@ class Sheapectral:
 		-------
 		None
 		"""
-		if not limits:
-			print(f"We will use the defualt limits {self.default_limits}")
-			xmin,xmax = self.default_limits
-		else:
-			xmin,xmax = min(limits),max(limits)
-		if xmin < 3600 and add_balmer_continuum:
+		if "xmax" not in kwargs.keys() and "xmin" not in  kwargs.keys():
+			if not limits: 
+				
+				kwargs["xmin"],kwargs["xmax"] = self.default_limits
+			else:
+				kwargs["xmin"],kwargs["xmax"] = min(limits),max(limits)
+		print(f"The restframe wavelenght limites are {kwargs["xmin"]}-{kwargs["xmax"]}")
+		if kwargs["xmin"] < 3600 and add_balmer_continuum:
 			#3000–3646
 			add_balmer_continuum = add_balmer_continuum
-		if (3700 > xmin and 3910 < xmax) and add_balmerhighorder_continuum:
+		if (3700 > kwargs["xmin"] and 3910 < kwargs["xmax"]) and add_balmerhighorder_continuum:
 			#3646-3910
 			add_balmerhighorder_continuum = add_balmerhighorder_continuum
-		self.modelbuild = SheapModelBuilder(xmin=xmin,xmax=xmax,n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
+		self.modelbuild = SheapModelBuilder(n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
 										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
 	
 
-	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2] ,covariance_error = False,profile: str ='gaussian'
+	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2],profile: str ='gaussian'
 				,add_penalty_function=False,method="adam",limits_overrides={},mask_list=[],shared_params = [],
 				penalty_weight: float = 0.00 ,curvature_weight: float = 0.0,smoothness_weight: float = 0.0,max_weight: float = 0.0, 
 				batch_mode: str = "independent",
 				convergence_options: Optional[Dict] = None,
-				global_reduction: str = "sum",):
+				global_reduction: str = "sum" ,covariance_error = False):
 		"""
 		Execute fitting of the prepared region on the spectra.
 
@@ -525,16 +531,10 @@ class Sheapectral:
 			return PM 
 		
 		if sampling_method == "single":
-			#self.result.posterior[sampling_method] = {}
-			#print("You chose single: parameter estimation using " "only fitting uncertainties.")
-			#SP = SheaProducts(samplerclass=PM,method="direct")
-			#dic_posterior_params = SP.calculate_sheap_products(summarize=summarize)
-			#self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"summarize": summarize,}
 			time_init = time.time()
 			dic_posterior_params = PM.montecarlosampler(num_samples=1,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
 			self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params,"num_samples": num_samples,"key_seed": key_seed,"summarize": summarize,"time_elapsed": time.time() - time_init}
-
-
+			
 		elif sampling_method == "montecarlo":
 			time_init = time.time()
 			dic_posterior_params = PM.montecarlosampler(num_samples=num_samples,key_seed=key_seed,summarize=summarize,frac_box_sigma=frac_box_sigma,k_sigma=k_sigma)
@@ -608,7 +608,10 @@ class Sheapectral:
 		if "complex_region" in data.keys():
 			region_list = data.get("complex_region", [])
 		obj.region_list = [SpectralLine(**i) for i in region_list]
-
+		if "SheapModelBuilder_kwargs" in data.keys():
+			print("Model loaded")
+			
+			obj.makemodel(**data.get("SheapModelBuilder_kwargs"))
 		profile_names = data.get("profile_names", [])
 		
 		obj.result = SheapResult(
@@ -680,7 +683,8 @@ class Sheapectral:
 			'chi2_red' : np.array(self.result.chi2_red),
 			"posterior" : self.result.posterior,
 			"fitkwargs":self.result.fitkwargs,
-			"elapsed_time":self.result.elapsed_time
+			"elapsed_time":self.result.elapsed_time,
+			"SheapModelBuilder_kwargs":self.modelbuild.kwargs
 		}
 
 		estimated_size = sys.getsizeof(pickle.dumps(dic_))
@@ -1034,3 +1038,7 @@ class Sheapectral:
 		d = self.cosmo.luminosity_distance(self.z).value * cm_per_mpc
 		return d
 	
+#  def _build_params_class(self,initial_params,shared_params=[]):
+# 		tied_map = {T[1]: T[2:] for  T in self.dependencies}
+# 		self.tied_map  = flatten_tied_map(tied_map)
+# 		return build_Parameters(tied_map,self.params_dict,initial_params,self.constraints,shared_params=shared_params)

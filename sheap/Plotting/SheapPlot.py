@@ -205,7 +205,7 @@ class SheapPlot:
             def fmt_num(value, ndigits=4):
                 """Format number with up to ndigits decimals, removing trailing zeros."""
                 return f"{float(value):.{ndigits}f}".rstrip("0").rstrip(".")
-            if len(self.names[n])>45:
+            if len(str(self.names[n]))>45:
                 x0 -=  0.1
             name_line = f"ID {self.names[n]} ({n})"
 
