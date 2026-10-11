@@ -52,7 +52,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import jax.numpy as jnp
 import optax
-from jax import jit, vmap, lax, value_and_grad
+from jax import jit, vmap, lax, value_and_grad,pmap
 
 #from sheap.Assistants.parser_mapper import parse_dependencies, project_params
 from .loss_builder import build_loss_function

@@ -46,7 +46,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.Profiles.Utils import with_param_names
+from sheap.Profiles.Utils import with_param_names,add_linear_design_builder
 
 
 """
@@ -228,32 +228,47 @@ def make_linear_function(delta0: float = 5500.0):
         return intercept + slope * x
     return linear
 
-def make_powerlaw_function(delta0: float = 5500.0):
-    @with_param_names(["logamp","alpha"])
-    def powerlaw(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+def make_powerlaw_function(
+    delta0: float = 5500.0,
+):
+
+    @with_param_names(
+        ["logamp", "alpha"]
+    )
+    def powerlaw(
+        xs: jnp.ndarray,
+        params: jnp.ndarray,
+    ) -> jnp.ndarray:
         r"""
         Power-law continuum profile.
 
         .. math::
-            f(\lambda) = A \cdot \left(\frac{\lambda}{\lambda_0}\right)^{\alpha}
-
-        Parameters
-        ----------
-        xs : jnp.ndarray
-            Wavelengths in Ångström.
-        params : array-like
-            - `params[0]`: Slope :math:`\alpha`
-            - `params[1]`: Amplitude :math:`A`
-        Returns
-        -------
-        jnp.ndarray
-            Evaluated flux.
+            f(\lambda)
+            =
+            10^A
+            \left(
+                \frac{\lambda}{\lambda_0}
+            \right)^\alpha
         """
-        A, alpha = params
-        x = xs / delta0
-        return 10**A * x ** alpha
-    return powerlaw
 
+        A, alpha = params
+
+        x = xs / delta0
+
+        return (
+            10.0**A
+            * x**alpha
+        )
+
+    def design_builder(xs: jnp.ndarray,params: jnp.ndarray,):
+        offset = powerlaw(xs,params,)
+        columns = jnp.empty((xs.shape[0],0,),dtype=offset.dtype,)
+        return (offset,columns,)
+
+    # Attach it to the normal function
+    powerlaw.design_builder = (design_builder)
+
+    return powerlaw
 
 def make_brokenpowerlaw_function(delta0: float = 5500.0):
     @with_param_names(["logamp", "alpha1", "alpha2", "x_break"])

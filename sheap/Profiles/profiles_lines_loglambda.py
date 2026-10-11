@@ -77,7 +77,7 @@ from jax import jit, vmap,lax
 from jax.scipy.special import erfc
 from jax.scipy.stats import norm #maybe dosent exist xd
 
-from sheap.Profiles.Utils import with_param_names,trapz_jax
+from sheap.Profiles.Utils import with_param_names,trapz_jax,add_linear_amplitude_design_builder
 from sheap.Utils.Constants import DEFAULT_C_KMS,FWHM_TO_SIGMA
 
 
@@ -88,7 +88,7 @@ __all__ = ["gaussian_fwhm_loglambda",
     "top_hat_loglambda",
     "voigt_pseudo_loglambda",
     "emg_fwhm_loglambda",]
-
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
 def gaussian_fwhm_loglambda(x_lambda, params):
     """
@@ -115,7 +115,7 @@ def gaussian_fwhm_loglambda(x_lambda, params):
     z = (y - vshift_kms) / sigma_v
     return amp * jnp.exp(-0.5 * z * z)
 
-
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
 def lorentzian_fwhm_loglambda(x_lambda, params):
     """
@@ -144,6 +144,7 @@ def lorentzian_fwhm_loglambda(x_lambda, params):
 
     return amp / (1.0 + z * z)
 
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "alpha", "lambda0"])
 def skewed_gaussian_loglambda(x_lambda, params):
     """
@@ -175,7 +176,7 @@ def skewed_gaussian_loglambda(x_lambda, params):
     Phi = 0.5 * (1.0 + jnp.erf(alpha * t / jnp.sqrt(2.0)))
 
     return amp * 2.0 * phi * Phi
-
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "lambda0"])
 def top_hat_loglambda(x_lambda, params):
     """
@@ -203,7 +204,7 @@ def top_hat_loglambda(x_lambda, params):
 
     return amp * (jnp.abs(y - vshift_kms) <= half)
 
-
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "eta", "lambda0"])
 def voigt_pseudo_loglambda(x_lambda, params):
     """
@@ -241,7 +242,7 @@ def voigt_pseudo_loglambda(x_lambda, params):
 
     return amp * (eta * L + (1.0 - eta) * G)
 
-
+@add_linear_amplitude_design_builder()
 @with_param_names(["amplitude", "vshift_kms", "fwhm_v_kms", "tau_kms", "lambda0"])
 def emg_fwhm_loglambda(x_lambda, params):
     """

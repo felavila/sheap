@@ -80,7 +80,550 @@ TEMPLATES: Dict[str, Dict[str, Any]] = {
                 }
 }
 
+
 def make_template_function(
+    name: str,
+    x_min: Optional[float] = None,
+    x_max: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Factory for a template model with optional wavelength cuts.
+
+    Parameters
+    ----------
+    name
+        Template name in TEMPLATES.
+
+    x_min, x_max
+        Optional wavelength limits in Angstrom.
+
+    Returns
+    -------
+    dict
+        {
+            "model": model,
+            "design_builder": design_builder,
+            "template_info": {...},
+        }
+
+    Notes
+    -----
+    Parameters remain fully nonlinear:
+
+        [logamp, logFWHM, vshift_kms]
+
+    Therefore the design builder returns:
+
+        offset  = complete template model
+        columns = empty array with shape (n_pixels, 0)
+
+    The intrinsic template rFFT is precomputed once, but the
+    FWHM-dependent broadening kernel and velocity shift are
+    recomputed for every parameter evaluation.
+    """
+
+    # ============================================================
+    # Template configuration
+    # ============================================================
+
+    cfg = TEMPLATES.get(name)
+
+    if cfg is None:
+        raise KeyError(
+            f"No such template: {name}"
+        )
+
+    path = cfg["file"]
+    central_wl = cfg["central_wl"]
+    sigmatemplate = cfg["sigmatemplate"]
+
+    user_fd = cfg.get(
+        "fixed_dispersion",
+        None,
+    )
+
+    # ============================================================
+    # Read template
+    # ============================================================
+
+    data = np.loadtxt(
+        path,
+        comments="#",
+    ).T
+
+    wl = np.asarray(
+        data[0],
+        dtype=np.float64,
+    )
+
+    flux = np.asarray(
+        data[1],
+        dtype=np.float64,
+    )
+
+    # ============================================================
+    # Optional wavelength cut
+    # ============================================================
+
+    if (
+        x_min is not None
+        or x_max is not None
+    ):
+
+        mask = np.ones_like(
+            wl,
+            dtype=bool,
+        )
+
+        if x_min is not None:
+            mask &= (
+                wl
+                >= max(
+                    float(x_min) - 50.0,
+                    float(wl.min()),
+                )
+            )
+
+        if x_max is not None:
+            mask &= (
+                wl
+                <= min(
+                    float(x_max) + 50.0,
+                    float(wl.max()),
+                )
+            )
+
+        if not np.any(mask):
+            raise ValueError(
+                f"No wavelength values left after "
+                f"applying x_min/x_max cut for {name}"
+            )
+
+        wl = wl[mask]
+
+        flux = flux[mask]
+
+    # ============================================================
+    # Validate wavelength grid
+    # ============================================================
+
+    if wl.size < 3:
+        raise ValueError(
+            "Template too short after cutting; "
+            "need at least 3 points."
+        )
+
+    dl = float(
+        wl[1] - wl[0]
+    )
+
+    # ============================================================
+    # Normalize template
+    # ============================================================
+
+    unit_flux = (
+        flux
+        / np.clip(
+            np.sum(flux),
+            1e-10,
+            np.inf,
+        )
+    ).astype(
+        np.float32
+    )
+
+    # ============================================================
+    # Intrinsic template dispersion
+    # ============================================================
+
+    if user_fd is None:
+
+        fixed_dispersion = (
+            dl
+            / central_wl
+            * DEFAULT_C_KMS
+        )
+
+    else:
+
+        fixed_dispersion = float(
+            user_fd
+        )
+
+    # ============================================================
+    # Parameters
+    #
+    # ALL remain nonlinear.
+    # ============================================================
+
+    param_names = [
+        "logamp",
+        "logFWHM",
+        "vshift_kms",
+    ]
+
+    # ============================================================
+    # Fixed arrays / constants
+    # ============================================================
+
+    wl_jax = jnp.asarray(
+        wl,
+        dtype=jnp.float32,
+    )
+
+    c_kms = jnp.asarray(
+        DEFAULT_C_KMS,
+        dtype=jnp.float32,
+    )
+
+    sigma_template = jnp.asarray(
+        sigmatemplate,
+        dtype=jnp.float32,
+    )
+
+    dispersion = jnp.asarray(
+        fixed_dispersion,
+        dtype=jnp.float32,
+    )
+
+    ten = jnp.asarray(
+        10.0,
+        dtype=jnp.float32,
+    )
+
+    two = jnp.asarray(
+        2.0,
+        dtype=jnp.float32,
+    )
+
+    two355 = jnp.asarray(
+        2.355,
+        dtype=jnp.float32,
+    )
+
+    tiny = jnp.asarray(
+        1e-12,
+        dtype=jnp.float32,
+    )
+
+    # ============================================================
+    # PRECOMPUTE intrinsic template rFFT
+    #
+    # This is fixed because unit_flux never changes.
+    # ============================================================
+
+    n_pix = unit_flux.shape[0]
+
+    template_rfft_np = np.fft.rfft(
+        unit_flux
+    ).astype(
+        np.complex64
+    )
+
+    template_rfft = jnp.asarray(
+        template_rfft_np,
+        dtype=jnp.complex64,
+    )
+
+    # Frequencies corresponding to the rFFT
+    freq = jnp.asarray(
+        np.fft.rfftfreq(
+            n_pix,
+            d=1.0,
+        ),
+        dtype=jnp.float32,
+    )
+
+    # ============================================================
+    # Shared nonlinear template shape
+    # ============================================================
+
+    def build_profile(
+        x,
+        logFWHM,
+        vshift_kms,
+    ):
+        """
+        Generate broadened and shifted unit-amplitude template.
+
+        Depends only on nonlinear shape parameters:
+            logFWHM
+            vshift_kms
+        """
+
+        x = jnp.asarray(
+            x,
+            dtype=jnp.float32,
+        )
+
+        # --------------------------------------------------------
+        # Fitted FWHM
+        # --------------------------------------------------------
+
+        FWHM = jnp.power(
+            ten,
+            logFWHM,
+        )
+
+        sigma_model = (
+            FWHM
+            / two355
+        )
+
+        # --------------------------------------------------------
+        # Remove intrinsic template resolution
+        # --------------------------------------------------------
+
+        diff_sq = (
+            sigma_model**2
+            - sigma_template**2
+        )
+
+        diff_sq_safe = (
+            jax.nn.softplus(
+                diff_sq / ten
+            )
+            * ten
+            + tiny
+        )
+
+        delta_sigma = jnp.sqrt(
+            diff_sq_safe
+        )
+
+        # --------------------------------------------------------
+        # Broadening in template pixels
+        # --------------------------------------------------------
+
+        sigma_pix = (
+            delta_sigma
+            / dispersion
+        )
+
+        # --------------------------------------------------------
+        # Current Gaussian transfer function
+        #
+        # THIS changes with logFWHM.
+        # --------------------------------------------------------
+
+        gauss_tf = jnp.exp(
+            -two
+            * (
+                jnp.pi
+                * freq
+                * sigma_pix
+            ) ** 2
+        )
+
+        # --------------------------------------------------------
+        # Apply broadening to precomputed template FFT
+        # --------------------------------------------------------
+
+        broadened = jnp.fft.irfft(
+            template_rfft
+            * gauss_tf,
+            n=n_pix,
+        ).astype(
+            jnp.float32
+        )
+
+        # --------------------------------------------------------
+        # Current fitted velocity shift
+        # --------------------------------------------------------
+
+        beta = (
+            vshift_kms
+            / c_kms
+        )
+
+        xp = (
+            wl_jax
+            * (
+                jnp.float32(1.0)
+                + beta
+            )
+        )
+
+        # --------------------------------------------------------
+        # Interpolate onto requested wavelength grid
+        # --------------------------------------------------------
+
+        profile = jnp.interp(
+            x,
+            xp,
+            broadened,
+            left=jnp.float32(0.0),
+            right=jnp.float32(0.0),
+        )
+
+        return profile.astype(
+            jnp.float32
+        )
+
+    # ============================================================
+    # Normal model
+    # ============================================================
+
+    @with_param_names(param_names,profile_name=name,)
+    def model(
+        x: jnp.ndarray,
+        params: jnp.ndarray,
+    ) -> jnp.ndarray:
+
+        params = jnp.asarray(
+            params,
+            dtype=jnp.float32,
+        )
+
+        logamp = params[0]
+        logFWHM = params[1]
+        vshift_kms = params[2]
+
+        # --------------------------------------------------------
+        # Nonlinear amplitude
+        # --------------------------------------------------------
+
+        amplitude = jnp.power(
+            ten,
+            logamp,
+        )
+
+        # --------------------------------------------------------
+        # Nonlinear shape
+        # --------------------------------------------------------
+
+        profile = build_profile(
+            x,
+            logFWHM,
+            vshift_kms,
+        )
+
+        return (
+            amplitude
+            * profile
+        ).astype(
+            jnp.float32
+        )
+
+    # ============================================================
+    # Design builder
+    #
+    # There are NO linear parameters in this profile.
+    # Therefore the entire model is the offset.
+    # ============================================================
+
+    def design_builder(
+        x: jnp.ndarray,
+        params: jnp.ndarray,
+    ):
+
+        x = jnp.asarray(
+            x,
+            dtype=jnp.float32,
+        )
+
+        params = jnp.asarray(
+            params,
+            dtype=jnp.float32,
+        )
+
+        logamp = params[0]
+        logFWHM = params[1]
+        vshift_kms = params[2]
+
+        amplitude = jnp.power(
+            ten,
+            logamp,
+        )
+
+        profile = build_profile(
+            x,
+            logFWHM,
+            vshift_kms,
+        )
+
+        # --------------------------------------------------------
+        # Complete nonlinear contribution
+        # --------------------------------------------------------
+
+        offset = (
+            amplitude
+            * profile
+        ).astype(
+            jnp.float32
+        )
+
+        # --------------------------------------------------------
+        # Zero linear columns
+        #
+        # Shape:
+        #     (n_data_pixels, 0)
+        # --------------------------------------------------------
+
+        columns = jnp.empty(
+            (
+                x.shape[0],
+                0,
+            ),
+            dtype=jnp.float32,
+        )
+
+        return (
+            offset,
+            columns,
+        )
+
+    # ============================================================
+    # Attach builder
+    # ============================================================
+
+    model.design_builder = (
+        design_builder
+    )
+
+    # ============================================================
+    # Return
+    # ============================================================
+
+    return {
+        "model": model,
+
+        "design_builder": design_builder,
+
+        "template_info": {
+            "name": name,
+
+            "file": str(path),
+
+            "central_wl": float(
+                central_wl
+            ),
+
+            "sigmatemplate": float(
+                sigmatemplate
+            ),
+
+            "fixed_dispersion": float(
+                fixed_dispersion
+            ),
+
+            "x_min": (
+                None
+                if x_min is None
+                else float(x_min)
+            ),
+
+            "x_max": (
+                None
+                if x_max is None
+                else float(x_max)
+            ),
+
+            "dl": dl,
+        },
+    }
+
+def make_template_function_(
     name: str,
     x_min: Optional[float] = None,  # Angstroms (linear)
     x_max: Optional[float] = None,
@@ -221,6 +764,7 @@ def make_template_function(
             "dl": dl,
         },
     }
+
 
 def make_host_function(
     filename: str | Path = TEMPLATES_PATH / "miles_cube_log.npz",
@@ -397,6 +941,100 @@ def make_host_function(
         xp = wave_jax * jnp.exp(vshift_kms / DEFAULT_C_KMS)
 
         return amplitude * jnp.interp(x * f, xp, conv, left=0.0, right=0.0)
+
+    def design_builder(x: jnp.ndarray,params: jnp.ndarray,):
+        """
+        Build the profiled linear representation of the host model.
+
+        Parameters
+        ----------
+        x : (n_pix_data,)
+        params :
+            [logamp, logFWHM, vshift_kms, weight_0, weight_1, ...]
+
+        Returns
+        -------
+        offset : (n_pix_data,)
+            Zero for this model because all host flux is carried
+            by the linear SSP weights.
+
+        columns : (n_pix_data, n_templates)
+            One broadened/shifted SSP template per linear weight.
+        """
+
+        x = jnp.asarray(x, dtype=jnp.float32)
+        params = jnp.asarray(params, dtype=jnp.float32)
+
+        logamp = params[0]
+        logFWHM = params[1]
+        vshift_kms = params[2]
+
+        # IMPORTANT:
+        # params[3:] are linear coefficients and are NOT used here.
+
+        amplitude = jnp.power(jnp.float32(10.0),logamp,)
+
+        FWHM = jnp.power(jnp.float32(10.0),logFWHM,)
+
+        sigma_model = FWHM / jnp.float32(2.355)
+
+        diff_sq = (sigma_model**2 - jnp.float32(sigmatemplate)**2)
+
+        diff_sq_safe = (jax.nn.softplus(diff_sq / jnp.float32(10.0)) * jnp.float32(10.0) + jnp.float32(1e-12))
+
+        delta_sigma = jnp.sqrt(diff_sq_safe)
+
+        sigma_y = (delta_sigma / jnp.float32(DEFAULT_C_KMS))
+
+        gauss_tf = jnp.exp(-jnp.float32(2.0)* (jnp.pi* freq* sigma_y) ** 2)
+
+        # --------------------------------------------------
+        # Broaden ALL templates simultaneously
+        #
+        # templates_jax:
+        #     (n_templates, n_template_pixels)
+        # --------------------------------------------------
+
+        templates_fft = jnp.fft.fft(templates_jax,axis=-1,)
+
+        broadened_templates = jnp.fft.ifft(templates_fft* gauss_tf[None, :],axis=-1,).real.astype(jnp.float32)
+
+        # --------------------------------------------------
+        # Common velocity shift
+        # --------------------------------------------------
+
+        xp = (wave_jax* jnp.exp(vshift_kms/ jnp.float32(DEFAULT_C_KMS)))
+
+        # --------------------------------------------------
+        # Interpolate every template to x
+        # --------------------------------------------------
+
+        def interpolate_one(template):
+            return jnp.interp(
+                x * jnp.float32(f),
+                xp,
+                template,
+                left=jnp.float32(0.0),
+                right=jnp.float32(0.0),
+            )
+
+        columns = jax.vmap(interpolate_one)(broadened_templates)
+
+        # currently:
+        # (n_templates, n_data_pixels)
+        #
+        # design matrix wants:
+        # (n_data_pixels, n_templates)
+
+        columns = jnp.swapaxes(columns,0,1,)
+
+        columns = (amplitude* columns)
+
+        offset = jnp.zeros_like(x,dtype=jnp.float32,)
+
+        return offset, columns
+
+    model.design_builder = design_builder
 
     return {
         "model": model,

@@ -29,7 +29,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Iterable
 
 import jax
 import jax.numpy as jnp
-
+import numpy as np 
 
 default_inf = float("inf")
 # self.value = jnp.asarray(value, dtype=jnp.float32)
@@ -54,7 +54,7 @@ class Parameter:
         #linear_param: bool = None 
     ):
         self.name = name
-        if isinstance(value, (jnp.ndarray, list, tuple)):
+        if isinstance(value, (jnp.ndarray, list, tuple,np.ndarray)):
             self.value = jnp.array(value, dtype=jnp.float32)
         else:
             self.value = float(value)

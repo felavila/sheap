@@ -46,7 +46,7 @@ import jax
 import jax.numpy as jnp
 from jax import jit, vmap
 
-from sheap.Profiles.Utils import with_param_names
+from sheap.Profiles.Utils import with_param_names,add_linear_amplitude_design_builder
 
 def _softplus(x):
     # numerically stable softplus
@@ -69,6 +69,7 @@ def _planck_ratio_lambda(lam_m, lam_ref_m, T):
         jnp.expm1(z_r) / jnp.clip(jnp.expm1(z), 1e-300, jnp.inf)
     )
 
+@add_linear_amplitude_design_builder(amplitude_index=0,)
 @with_param_names(["amplitude", "T_raw", "tau_raw", "v_raw"])
 def balmercontinuum(x, pars):
     """

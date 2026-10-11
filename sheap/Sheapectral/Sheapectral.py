@@ -52,7 +52,7 @@ import numpy as np
 
 from sheap.Core import SpectralLine,SheapResult,ArrayLike
 
-from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data,profile_functions_from_region_list
+from sheap.Sheapectral.Utils.SpectralSetup import pad_error_channel,ensure_sfd_data,profile_functions_from_region_list,paramclass2list,list2paramclass
 from sheap.SheapModelFitting.SheapModelFitting import SheapModelFitting
 from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
 from sheap.SheaProducts.SheaProducts import SheaProducts
@@ -609,11 +609,14 @@ class Sheapectral:
 			region_list = data.get("complex_region", [])
 		obj.region_list = [SpectralLine(**i) for i in region_list]
 		if "SheapModelBuilder_kwargs" in data.keys():
-			print("Model loaded")
-			
+			print("Model loaded as modelbuild")
 			obj.makemodel(**data.get("SheapModelBuilder_kwargs"))
+
+		if "paramclass_list" in data.keys():
+			print("params_class loaded")
+			obj.params_class = list2paramclass(data.get("paramclass_list"))
+
 		profile_names = data.get("profile_names", [])
-		
 		obj.result = SheapResult(
 			params=jnp.array(data.get("params")),
 			uncertainty_params=jnp.array(data.get("uncertainty_params", jnp.zeros_like(data.get("params")))), 
@@ -684,7 +687,8 @@ class Sheapectral:
 			"posterior" : self.result.posterior,
 			"fitkwargs":self.result.fitkwargs,
 			"elapsed_time":self.result.elapsed_time,
-			"SheapModelBuilder_kwargs":self.modelbuild.kwargs
+			"SheapModelBuilder_kwargs":self.modelbuild.kwargs,
+			"paramclass_list": paramclass2list(self.params_class)
 		}
 
 		estimated_size = sys.getsizeof(pickle.dumps(dic_))

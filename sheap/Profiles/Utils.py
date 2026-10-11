@@ -475,3 +475,253 @@ class GaussianSum:
         """
         
         return self.sum_gaussians_jit(x, params)
+    
+def add_linear_amplitude_design_builder(amplitude_index=0,):
+    """
+    Attach a design_builder to a profile whose amplitude enters linearly.
+
+    Assumes:
+
+        model(x, params) = amplitude * shape(x, nonlinear_params)
+
+    The returned design builder gives:
+
+        offset  = 0
+        columns = unit-amplitude profile[:, None]
+
+    Parameters
+    ----------
+    amplitude_index : int
+        Local position of the linear amplitude parameter.
+        For SHEAP log-lambda profiles this is normally 0.
+    """
+
+    def decorator(func):
+
+        def design_builder(x,params,):
+            params = jnp.asarray(params)
+
+            # Set amplitude = 1.
+            # Everything else stays exactly the same.
+            unit_params = params.at[amplitude_index].set(jnp.asarray(1.0,dtype=params.dtype,))
+
+            # Exact unit-amplitude basis
+            shape = func(x,unit_params,)
+
+            offset = jnp.zeros_like(shape)
+
+            columns = shape[:,None,]
+
+            return (offset,columns,)
+
+        func.design_builder = design_builder
+
+        return func
+
+    return decorator
+
+
+def add_linear_design_builder(linear_indices=None,zero_offset=False,):
+    """
+    Attach a generic design_builder to a function that is affine
+    in one or more parameters.
+
+    The function must satisfy:
+
+        model(x, params)
+        =
+        offset(x, nonlinear_params)
+        + sum_i linear_i * column_i(x, nonlinear_params)
+
+    Parameters
+    ----------
+    linear_indices : sequence[int] or None
+        Local indices of the linear parameters.
+
+        If None, they are obtained automatically from:
+
+            func.linear_param_mask
+
+        which must already exist.
+
+    zero_offset : bool
+        If True, assume that setting all linear parameters to zero
+        gives exactly zero.
+
+        This avoids one model evaluation.
+
+        Good for profiles like:
+
+            amplitude * shape
+
+        or:
+
+            slope*x + intercept
+
+        where no nonlinear additive component exists.
+
+    Returns
+    -------
+    Decorated function with:
+
+        func.design_builder(x, params)
+            -> offset, columns
+    """
+
+    def decorator(func):
+        if linear_indices is None:
+            linear_mask = getattr(func,"linear_param_mask",None,)
+
+            if linear_mask is None:
+                raise ValueError(
+                    f"{func.__name__} does not expose "
+                    "'linear_param_mask'.")
+
+            indices = tuple(i for i, is_linear in enumerate(linear_mask) if is_linear)
+
+        else:
+
+            indices = tuple(int(i) for i in linear_indices)
+
+        if len(indices) == 0:
+            raise ValueError(f"{func.__name__} has no linear parameters.")
+
+        # JAX static array containing local linear positions.
+        linear_idx = jnp.asarray(indices,dtype=jnp.int32,)
+
+
+        def design_builder(x,params,):
+
+            params = jnp.asarray(params)
+
+            dtype = params.dtype
+
+            # ====================================================
+            # Set ALL linear parameters to zero.
+            # ====================================================
+
+            params_zero = params.at[linear_idx].set(jnp.zeros(len(indices),dtype=dtype,))
+
+            # ====================================================
+            # Offset
+            # ====================================================
+
+            if zero_offset:
+
+                offset = jnp.zeros_like(x,dtype=x.dtype,)
+
+            else:
+
+                offset = func(x,params_zero,)
+
+            # ====================================================
+            # Build one column for each linear parameter.
+            # ====================================================
+
+            columns = []
+
+            for idx in indices:
+
+                params_one = params_zero.at[idx].set(jnp.asarray(1.0,dtype=dtype,))
+
+                column = func(x,params_one,)
+
+                # Required for a nonzero nonlinear offset.
+                if not zero_offset:
+                    column = (column - offset)
+
+                columns.append(column)
+
+            columns = jnp.stack(columns,axis=1,)
+
+            return (offset,columns,)
+
+        # --------------------------------------------------------
+        # Attach metadata
+        # --------------------------------------------------------
+
+        func.design_builder = (design_builder)
+
+        func.design_linear_indices = (indices)
+
+        return func
+
+    return decorator
+
+def add_design_builder():
+    """
+    Attach a generic design_builder using the linear parameter
+    information provided by @with_param_names.
+
+    Assumes the model is affine in the parameters marked as linear:
+
+        model = offset(nonlin) + columns(nonlin) @ linear_params
+
+    If there are no linear parameters:
+        offset = full model
+        columns = empty
+    """
+
+    def decorator(func):
+
+        linear_mask = getattr(func,"linear_param_mask",None,)
+
+        if linear_mask is None:
+            raise ValueError(
+                f"{func.__name__} must first be decorated "
+                "with @with_param_names."
+            )
+
+        linear_indices = tuple(i for i, is_linear in enumerate(linear_mask) if is_linear)
+
+        n_linear = len(linear_indices)
+
+        # ========================================================
+        # No linear parameters
+        # ========================================================
+        if n_linear == 0:
+
+            def design_builder(x, params):
+
+                offset = func(x,params,)
+
+                columns = jnp.empty((x.shape[0],0,),dtype=offset.dtype,)
+
+                return offset, columns
+
+        # ========================================================
+        # One or more linear parameters
+        # ========================================================
+
+        else:
+
+            linear_idx = jnp.asarray(linear_indices,dtype=jnp.int32,)
+
+            def design_builder(x, params):
+
+                params = jnp.asarray(params)
+
+
+                params_zero = params.at[linear_idx].set(jnp.zeros(n_linear,dtype=params.dtype,))
+
+                offset = func(x,params_zero,)
+
+
+                columns = []
+
+                for idx in linear_indices:
+
+                    params_one = params_zero.at[idx].set(jnp.asarray(1.0,dtype=params.dtype,))
+
+                    column = (func(x,params_one,)- offset)
+
+                    columns.append(column)
+
+                columns = jnp.stack(columns,axis=1,)
+                return offset, columns
+
+        func.design_builder = design_builder
+
+        return func
+
+    return decorator
