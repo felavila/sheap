@@ -358,7 +358,7 @@ class Sheapectral:
 		#self.spectra = spec
   
 	def makemodel(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
-					add_balmer_continuum = True ,add_balmerhighorder_continuum = True ,**kwargs):
+					add_balmer_continuum = True ,add_balmerhighorder_continuum = True,**kwargs):
 		"""
 		Initialize a SheapModelBuilder for later fitting.
 
@@ -379,11 +379,11 @@ class Sheapectral:
 		"""
 		if "xmax" not in kwargs.keys() and "xmin" not in  kwargs.keys():
 			if not limits: 
-				
 				kwargs["xmin"],kwargs["xmax"] = self.default_limits
 			else:
 				kwargs["xmin"],kwargs["xmax"] = min(limits),max(limits)
-		print(f"The restframe wavelenght limites are {kwargs["xmin"]}-{kwargs["xmax"]}")
+		if kwargs["verbose"]:
+			print(f"The restframe wavelenght limites are {kwargs["xmin"]}-{kwargs["xmax"]}")
 		if kwargs["xmin"] < 3600 and add_balmer_continuum:
 			#3000–3646
 			add_balmer_continuum = add_balmer_continuum
@@ -575,7 +575,7 @@ class Sheapectral:
 										
 	
 	@classmethod
-	def from_pickle(cls, filepath: Union[str, Path]) -> Sheapectral:
+	def from_pickle(cls, filepath: Union[str, Path],verbose=True) -> Sheapectral:
 		"""
 		Load a saved Sheapectral instance from a pickle file.
 
@@ -609,13 +609,15 @@ class Sheapectral:
 			region_list = data.get("complex_region", [])
 		obj.region_list = [SpectralLine(**i) for i in region_list]
 		if "SheapModelBuilder_kwargs" in data.keys():
-			print("Model loaded as modelbuild")
+			if verbose:
+				print("Model loaded as modelbuild")
+			data.get("SheapModelBuilder_kwargs")["verbose"] = verbose
 			obj.makemodel(**data.get("SheapModelBuilder_kwargs"))
 
 		if "paramclass_list" in data.keys():
-			print("params_class loaded")
+			if verbose:
+				print("params_class loaded")
 			obj.params_class = list2paramclass(data.get("paramclass_list"))
-
 		profile_names = data.get("profile_names", [])
 		obj.result = SheapResult(
 			params=jnp.array(data.get("params")),
@@ -866,6 +868,7 @@ class Sheapectral:
 		axes[1].tick_params(axis='both', which='major', labelsize=14)
 		plt.tight_layout()
 		return axes
+	
 	@property
 	def plot_chi2(self):
 		import matplotlib.pyplot as plt

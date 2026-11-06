@@ -124,6 +124,173 @@ def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
 
     return ties
 
+
+
+
+
+
+def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[int, Tuple[float, int]]:
+    """
+    Resolve index-based tie dependencies into coefficient + free parameter mapping.
+
+    Parameters
+    ----------
+    index_ties : list of tuple
+        Each entry is (target_idx, source_idx, operation, value).
+
+    Returns
+    -------
+    dict
+        Mapping from target index to (coefficient, source index).
+    """
+    resolved: Dict[int, Tuple[float, int]] = {}
+    free_indices = set()
+
+    sources = {src for _, src, _, _ in index_ties}
+    targets = {tgt for tgt, _, _, _ in index_ties}
+    free_indices.update(sources - targets)
+
+    for i in free_indices:
+        resolved[i] = (1.0, i)
+
+    for tgt, src, op, val in index_ties:
+        if src not in resolved:
+            resolved[src] = (1.0, src)
+        coef_src, free_idx = resolved[src]
+
+        if op == '*':
+            coef = coef_src * val
+        elif op == '/':
+            coef = coef_src / val
+        else:
+            raise ValueError(f"Unsupported operation: {op}")
+
+        resolved[tgt] = (coef, free_idx)
+
+    return resolved
+
+#?
+def group_lines(
+    lines: SpectralLineList,
+    region: str,
+    profile: str = "gaussian",
+    mode: str = "region",
+    known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [],
+) -> SpectralLineList:
+    """
+    Collapse multiple spectral lines into grouped pseudo-lines with SPAF profiles.
+
+    Parameters
+    ----------
+    lines : list of SpectralLine
+        Full list of lines in the region.
+    region : str
+        Region name to group (e.g., "fe", "narrow").
+    profile : str, default "gaussian"
+        Base profile to assign to grouped line.
+    mode : {"region", "subregion", "element"}
+        Grouping logic applied.
+    known_tied_relations : list, optional
+        Amplitude tie relations to apply.
+
+    Returns
+    -------
+    list of SpectralLine
+        Lines with some collapsed into SPAF composite profiles.
+    """
+    grouped = defaultdict(list)
+    collapsed_lines = []
+    lines_to_remove = set()
+
+    for line in lines:
+        if line.region != region:
+            continue
+
+        if mode == "region":
+            key_base = line.region
+        elif mode == "subregion":
+            key_base = line.subregion
+        elif mode == "element":
+            key_base = line.element
+        else:
+            continue
+
+        key = (key_base, line.component)
+        grouped[key].append(line)
+
+    for (region_key, comp), group in grouped.items():
+        name_to_idx = {line.line_name: i for i, line in enumerate(group)}
+        name_to_comp = {line.line_name: line.component for line in group}
+        index_ties = []
+        for pair, factor in known_tied_relations:
+            print(pair,factor)
+            if all(name in name_to_idx for name in pair):
+                if len(factor) < 3:
+                    factor += ["*1"]
+                target_str, source_str, op_val = factor
+                if "amplitude" in target_str:
+                    target_name = target_str.split("_")[1]
+                    source_name = source_str.split("_")[1]
+                    if name_to_comp[target_name] != name_to_comp[source_name]:
+                        continue
+                    target_idx = name_to_idx[target_name]
+                    source_idx = name_to_idx[source_name]
+                    op, val = op_val[0], float(op_val[1:])
+                    index_ties.append((target_idx, source_idx, op, val))
+
+        resolved_map = flatten_index_ties(index_ties)
+        full_rules: List[Tuple[int, float, int]] = []
+        
+        dependent_list = []
+        for dx in range(len(group)):
+            if dx in resolved_map:
+                coef, idx = resolved_map[dx]
+                if idx != dx:
+                    dependent_list.append(int(dx))
+                full_rules.append((dx, float(coef) , idx))
+            else:
+                full_rules.append((dx, 1.0, dx))
+        amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list])
+        arg_max = np.argmax(amplitudes)
+
+        if region == "fe" and mode == "element":
+            full_rules = []
+            dependent_list = []
+            for n, coef in enumerate(amplitudes):
+                full_rules.append((n, float(coef/ np.max(amplitudes)), int(arg_max)))
+                if n != arg_max:
+                    dependent_list.append(n)
+            amplitudes = np.array([
+                float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list])
+
+        centers = [line.center for line in group]
+        region_lines = [line.line_name for line in group]
+        elements = [line.element for line in group]
+        subregions = [line.subregion for line in group]
+        line_name = f"{region_key}{comp}" if mode=="region" else f"{region}{region_key}{comp}"
+        #print(line_name)
+        collapsed = SpectralLine(
+            center=centers,
+            line_name=line_name,
+            region=region,
+            component=comp,
+            profile=profile,
+            region_lines=region_lines,
+            element=elements,
+            subregion = subregions,
+            amplitude=amplitudes.tolist(),
+            amplitude_relations=full_rules,
+        )
+        print(full_rules)
+        collapsed_lines.append(collapsed)
+        lines_to_remove.update(id(line) for line in group)
+
+    new_lines = [line for line in lines if id(line) not in lines_to_remove]
+    new_lines.extend(collapsed_lines)
+
+    return new_lines
+
+
 def _maketies(
     sheapmodel,
     tied_narrow_to: Optional[Union[str, Dict[int, Dict[str, Any]]]] = None,
@@ -232,232 +399,59 @@ def _maketies(
                     #_ties.append([f.replace("component", str(k)) for f in factor])
                     #print([f.replace("component", str(k)) for f in factor])
                     _known_ties.append([f.replace("component", str(k)) for f in factor])
-    #     if only_known:
-    #         return local_ties
-    # ties_ = []
-    # for t in ties:
-    #     if t not in ties_:
-    #         ties_.append(t)
-    #print(_known_ties)
+    print(known_tied_relations)
     return ties,_known_ties
 
 
+# #TODO check how this affect the combination e.g what happends when hbeta depends on halpha and hg and hd depends on hbeta
+# def default_known_tied_relations(
+#     include_balmer: bool = True,
+#     include_forbidden: bool = True,
+# ) -> List[Tuple[Tuple[str, ...], List[str]]]:
+#     ties: List[Tuple[Tuple[str, ...], List[str]]] = []
+#     """
+#     Return default tied relations for common line doublets and multiplets.
 
+#     Parameters
+#     ----------
+#     include_balmer : bool
+#         If True, include Balmer series constraints.
+#     include_forbidden : bool
+#         If True, include [O III], [N II], [S III], [O I], and [O II] constraints.
 
-def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[int, Tuple[float, int]]:
-    """
-    Resolve index-based tie dependencies into coefficient + free parameter mapping.
+#     Returns
+#     -------
+#     list of tuple
+#         Each tuple contains (line_name pair, constraint expression list).
+#     """
 
-    Parameters
-    ----------
-    index_ties : list of tuple
-        Each entry is (target_idx, source_idx, operation, value).
+#     ties += [
+#         (("OIIIb", "OIIIc"), ["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.33"]),
+#         (("OIIIb", "OIIIc"), ["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),
+#         (("NIIa", "NIIb"), ["amplitude_NIIa_component_narrow", "amplitude_NIIb_component_narrow", "*0.33"]),
+#         (("NIIa", "NIIb"), ["center_NIIa_component_narrow", "center_NIIb_component_narrow"]),
+#     ]
 
-    Returns
-    -------
-    dict
-        Mapping from target index to (coefficient, source index).
-    """
-    resolved: Dict[int, Tuple[float, int]] = {}
-    free_indices = set()
+#     if include_forbidden:
+#         ties += [
+#             (("OIa", "OIb"), ["amplitude_OIa_component_narrow", "amplitude_OIb_component_narrow", "*3.0"]),
+#             (("OIa", "OIb"), ["center_OIa_component_narrow", "center_OIb_component_narrow"]),
+#             (("SIIIa", "SIIIb"), ["amplitude_SIIIa_component_narrow", "amplitude_SIIIb_component_narrow", "*0.4"]),
+#             (("OIIa", "OIIb"), ["amplitude_OIIa_component_narrow", "amplitude_OIIb_component_narrow", "*0.77"]),
+#             (("OIIa", "OIIb"), ["center_OIIa_component_narrow", "center_OIIb_component_narrow"]),
+#         ]
 
-    sources = {src for _, src, _, _ in index_ties}
-    targets = {tgt for tgt, _, _, _ in index_ties}
-    free_indices.update(sources - targets)
-
-    for i in free_indices:
-        resolved[i] = (1.0, i)
-
-    for tgt, src, op, val in index_ties:
-        if src not in resolved:
-            resolved[src] = (1.0, src)
-        coef_src, free_idx = resolved[src]
-
-        if op == '*':
-            coef = coef_src * val
-        elif op == '/':
-            coef = coef_src / val
-        else:
-            raise ValueError(f"Unsupported operation: {op}")
-
-        resolved[tgt] = (coef, free_idx)
-
-    return resolved
-
-#?
-def group_lines(
-    lines: SpectralLineList,
-    region: str,
-    profile: str = "gaussian",
-    mode: str = "region",
-    known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [],
-) -> SpectralLineList:
-    """
-    Collapse multiple spectral lines into grouped pseudo-lines with SPAF profiles.
-
-    Parameters
-    ----------
-    lines : list of SpectralLine
-        Full list of lines in the region.
-    region : str
-        Region name to group (e.g., "fe", "narrow").
-    profile : str, default "gaussian"
-        Base profile to assign to grouped line.
-    mode : {"region", "subregion", "element"}
-        Grouping logic applied.
-    known_tied_relations : list, optional
-        Amplitude tie relations to apply.
-
-    Returns
-    -------
-    list of SpectralLine
-        Lines with some collapsed into SPAF composite profiles.
-    """
-    grouped = defaultdict(list)
-    collapsed_lines = []
-    lines_to_remove = set()
-
-    for line in lines:
-        if line.region != region:
-            continue
-
-        if mode == "region":
-            key_base = line.region
-        elif mode == "subregion":
-            key_base = line.subregion
-        elif mode == "element":
-            key_base = line.element
-        else:
-            continue
-
-        key = (key_base, line.component)
-        grouped[key].append(line)
-
-    for (region_key, comp), group in grouped.items():
-        name_to_idx = {line.line_name: i for i, line in enumerate(group)}
-        name_to_comp = {line.line_name: line.component for line in group}
-        index_ties = []
-
-        for pair, factor in known_tied_relations:
-            if all(name in name_to_idx for name in pair):
-                if len(factor) < 3:
-                    factor += ["*1"]
-                target_str, source_str, op_val = factor
-                if "amplitude" in target_str:
-                    target_name = target_str.split("_")[1]
-                    source_name = source_str.split("_")[1]
-                    if name_to_comp[target_name] != name_to_comp[source_name]:
-                        continue
-                    target_idx = name_to_idx[target_name]
-                    source_idx = name_to_idx[source_name]
-                    op, val = op_val[0], float(op_val[1:])
-                    index_ties.append((target_idx, source_idx, op, val))
-
-        resolved_map = flatten_index_ties(index_ties)
-        full_rules: List[Tuple[int, float, int]] = []
-        
-        dependent_list = []
-        for dx in range(len(group)):
-            if dx in resolved_map:
-                coef, idx = resolved_map[dx]
-                if idx != dx:
-                    dependent_list.append(int(dx))
-                full_rules.append((dx, float(coef) , idx))
-            else:
-                full_rules.append((dx, 1.0, dx))
-        #print("dependent_list",dependent_list)
-        amplitudes = np.array([line.amplitude for i, line in enumerate(group) if i not in dependent_list])
-        
-        arg_max = np.argmax(amplitudes)
-
-        if region == "fe" and mode == "element":
-            full_rules = []
-            dependent_list = []
-            for n, coef in enumerate(amplitudes):
-                full_rules.append((n, float(coef/ np.max(amplitudes)), int(arg_max)))
-                if n != arg_max:
-                    dependent_list.append(n)
-            amplitudes = np.array([
-                float(line.amplitude) for i, line in enumerate(group) if i not in dependent_list])
-
-        centers = [line.center for line in group]
-        region_lines = [line.line_name for line in group]
-        elements = [line.element for line in group]
-        subregions = [line.subregion for line in group]
-        line_name = f"{region_key}{comp}" if mode=="region" else f"{region}{region_key}{comp}"
-        #print(line_name)
-        collapsed = SpectralLine(
-            center=centers,
-            line_name=line_name,
-            region=region,
-            component=comp,
-            profile=profile,
-            region_lines=region_lines,
-            element=elements,
-            subregion = subregions,
-            amplitude=amplitudes.tolist(),
-            amplitude_relations=full_rules,
-        )
-
-        collapsed_lines.append(collapsed)
-        lines_to_remove.update(id(line) for line in group)
-
-    new_lines = [line for line in lines if id(line) not in lines_to_remove]
-    new_lines.extend(collapsed_lines)
-
-    return new_lines
-
-
-#TODO check how this affect the combination e.g what happends when hbeta depends on halpha and hg and hd depends on hbeta
-def default_known_tied_relations(
-    include_balmer: bool = True,
-    include_forbidden: bool = True,
-) -> List[Tuple[Tuple[str, ...], List[str]]]:
-    ties: List[Tuple[Tuple[str, ...], List[str]]] = []
-    """
-    Return default tied relations for common line doublets and multiplets.
-
-    Parameters
-    ----------
-    include_balmer : bool
-        If True, include Balmer series constraints.
-    include_forbidden : bool
-        If True, include [O III], [N II], [S III], [O I], and [O II] constraints.
-
-    Returns
-    -------
-    list of tuple
-        Each tuple contains (line_name pair, constraint expression list).
-    """
-
-    ties += [
-        (("OIIIb", "OIIIc"), ["amplitude_OIIIb_component_narrow", "amplitude_OIIIc_component_narrow", "*0.33"]),
-        (("OIIIb", "OIIIc"), ["center_OIIIb_component_narrow", "center_OIIIc_component_narrow"]),
-        (("NIIa", "NIIb"), ["amplitude_NIIa_component_narrow", "amplitude_NIIb_component_narrow", "*0.33"]),
-        (("NIIa", "NIIb"), ["center_NIIa_component_narrow", "center_NIIb_component_narrow"]),
-    ]
-
-    if include_forbidden:
-        ties += [
-            (("OIa", "OIb"), ["amplitude_OIa_component_narrow", "amplitude_OIb_component_narrow", "*3.0"]),
-            (("OIa", "OIb"), ["center_OIa_component_narrow", "center_OIb_component_narrow"]),
-            (("SIIIa", "SIIIb"), ["amplitude_SIIIa_component_narrow", "amplitude_SIIIb_component_narrow", "*0.4"]),
-            (("OIIa", "OIIb"), ["amplitude_OIIa_component_narrow", "amplitude_OIIb_component_narrow", "*0.77"]),
-            (("OIIa", "OIIb"), ["center_OIIa_component_narrow", "center_OIIb_component_narrow"]),
-        ]
-
-    if include_balmer:
-        ties += [
-            (("Hbeta", "Halpha"), ["amplitude_Hbeta_component_narrow", "amplitude_Halpha_component_narrow", "*0.35"]),
-            (("Hg", "Hbeta"), ["amplitude_Hgamma_component_narrow", "amplitude_Hbeta_component_narrow", "*0.47"]),
-            (("Hd", "Hbeta"), ["amplitude_Hdelta_component_narrow", "amplitude_Hbeta_component_narrow", "*0.26"]),
-        ]
+#     if include_balmer:
+#         ties += [
+#             (("Hbeta", "Halpha"), ["amplitude_Hbeta_component_narrow", "amplitude_Halpha_component_narrow", "*0.35"]),
+#             (("Hg", "Hbeta"), ["amplitude_Hgamma_component_narrow", "amplitude_Hbeta_component_narrow", "*0.47"]),
+#             (("Hd", "Hbeta"), ["amplitude_Hdelta_component_narrow", "amplitude_Hbeta_component_narrow", "*0.26"]),
+#         ]
     
-    # if include_helium:
-    #     ties += [
-    #         (("HeId", "HeI5876"), ["amplitude_HeI4471_component_narrow", "amplitude_HeI5876_component_narrow", "*0.3"]),
-    #         (("HeI6678", "HeI5876"), ["amplitude_HeI6678_component_narrow", "amplitude_HeI5876_component_narrow", "*0.2"]),
-    #     ]
+#     # if include_helium:
+#     #     ties += [
+#     #         (("HeId", "HeI5876"), ["amplitude_HeI4471_component_narrow", "amplitude_HeI5876_component_narrow", "*0.3"]),
+#     #         (("HeI6678", "HeI5876"), ["amplitude_HeI6678_component_narrow", "amplitude_HeI5876_component_narrow", "*0.2"]),
+#     #     ]
     
-    return ties
-
+#     return ties

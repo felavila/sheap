@@ -1,258 +1,357 @@
-# Strong, frequently‐seen forbidden narrow lines
-- line_name: CII]
+# ==========================================
+# Strong, frequently seen narrow lines
+# ==========================================
+
+- line_name: "CII]2325"
   center: 2325.0
   element: Carbon
   rarity: common
-# - line_name: CII]b
-#   center: 2326.0
-#   element: Carbon
-#   rarity: uncommon
-# - line_name: CII]c
-#   center: 2327.0
-#   element: Carbon
-#   rarity: uncommon
-# - line_name: CII]d
-#   center: 2328.0
-#   element: Carbon
-#   rarity: uncommon
-- line_name: "[NeIV]"
+
+- line_name: "[NeIV]2424"
   center: 2423.83
   element: Neon
   rarity: common
-- line_name: "[NeV]a"
+
+- line_name: "[NeV]3347"
   center: 3346.79
   element: Neon
-  #[Ne V] 3346.79
-- line_name: "[NeV]b"
+
+- line_name: "[NeV]3427"
   center: 3426.85
   element: Neon
-#blend double
-- center: 3728
-  line_name: "[OII]"
+
+# Blended [O II] doublet
+- line_name: "[OII]3728"
+  center: 3728
   element: Oxygen
   rarity: common
-- center: 6300.304
-  line_name: OIa
-  element: Oxygen
-  rarity: common
-- center: 6363.776
-  line_name: OIb
-  element: Oxygen
-  rarity: common
-- center: 3868.760
-  line_name: "[NeIII]"
+
+- line_name: "[NeIII]3869"
+  center: 3868.760
   element: Neon
   rarity: common
-- center: 4958.896072
-  line_name: OIIIb
+
+- line_name: "[OIII]4959"
+  center: 4958.896072
   element: Oxygen
   rarity: common
-- center: 5006.803341
-  line_name: OIIIc
+
+- line_name: "[OIII]5007"
+  center: 5006.803341
   element: Oxygen
   rarity: common
-- center: 6548.05
-  line_name: NIIa
+
+- line_name: "[OI]6300"
+  center: 6300.304
+  element: Oxygen
+  rarity: common
+
+- line_name: "[OI]6364"
+  center: 6363.776
+  element: Oxygen
+  rarity: common
+
+- line_name: "[NII]6548"
+  center: 6548.05
   element: Nitrogen
   rarity: common
-- center: 6583.46
-  line_name: NIIb
+
+- line_name: "[NII]6583"
+  center: 6583.46
   element: Nitrogen
   rarity: common
-- center: 6716.44
-  line_name: SIIa
+
+- line_name: "[SII]6716"
+  center: 6716.44
   element: Sulfur
   rarity: common
-- center: 6730.81
-  line_name: SIIb
+
+- line_name: "[SII]6731"
+  center: 6730.81
   element: Sulfur
   rarity: common
-- center: 9068.6
-  line_name: SIIIb
+
+- line_name: "[SIII]9069"
+  center: 9068.6
   element: Sulfur
   rarity: common
-- center: 9531.00
-  line_name: SIIIc
+
+- line_name: "[SIII]9531"
+  center: 9531.00
   element: Sulfur
   rarity: common
-# Weak auroral lines, semi‐forbidden and rare metal transitions
-- center: 4363.213686
-  line_name: OIIIa
-  element: Oxygen
-  rarity: common
-- center: 7330.73
-  line_name: OIIc
-  element: Oxygen
-  rarity: uncommon
-- center: 1908.734
-  line_name: CIII]
+
+
+# ==========================================
+# Weak auroral and semi-forbidden lines
+# ==========================================
+
+- line_name: "CIII]1909"
+  center: 1908.734
   element: Carbon
   rarity: uncommon
-- center: 4003.328107
-  line_name: CrII194a
+
+- line_name: "[OIII]4363"
+  center: 4363.213686
+  element: Oxygen
+  rarity: common
+
+- line_name: "[SII]4069"
+  center: 4068.621034
+  element: Sulfur
+  rarity: uncommon
+
+- line_name: "[SII]4076"
+  center: 4076.219045
+  element: Sulfur
+  rarity: uncommon
+
+- line_name: "[NI]5200"
+  center: 5200.261862
+  element: Nitrogen
+  rarity: uncommon
+
+- line_name: "[NII]5755"
+  center: 5754.590
+  element: Nitrogen
+  rarity: uncommon
+
+- line_name: "[SIII]6312"
+  center: 6312.06
+  element: Sulfur
+  rarity: uncommon
+
+- line_name: "[OII]7331"
+  center: 7330.73
+  element: Oxygen
+  rarity: uncommon
+
+
+# ==========================================
+# Chromium II
+# ==========================================
+
+- line_name: CrII4003
+  center: 4003.328107
   element: Chromium
   rarity: uncommon
-- center: 4015.504925
-  line_name: NiII12a
+
+- line_name: CrII4064
+  center: 4063.942258
+  element: Chromium
+  rarity: uncommon
+
+- line_name: CrII4617
+  center: 4616.636803
+  element: Chromium
+  rarity: uncommon
+
+- line_name: CrII4698
+  center: 4697.595379
+  element: Chromium
+  rarity: uncommon
+
+- line_name: CrII4824
+  center: 4824.131846
+  element: Chromium
+  rarity: uncommon
+
+- line_name: CrII4876
+  center: 4876.477958
+  element: Chromium
+  rarity: uncommon
+
+
+# ==========================================
+# Nickel II and Nickel III
+# ==========================================
+
+- line_name: NiII4016
+  center: 4015.504925
   element: Nickel
   rarity: uncommon
-- center: 4053.814908
-  line_name: TiII87a
-  element: Titanium
-  rarity: uncommon
-- center: 4063.942258
-  line_name: CrII19a
-  element: Chromium
-  rarity: uncommon
-- center: 4068.621034
-  line_name: SII1Fa
-  element: Sulfur
-  rarity: uncommon
-- center: 4076.219045
-  line_name: SII1Fb
-  element: Sulfur
-  rarity: uncommon
-- center: 4097.33
-  line_name: NIIIa
-  element: Nitrogen
-  rarity: uncommon
-- center: 4103.43
-  line_name: NIIIb
-  element: Nitrogen
-  rarity: uncommon
-- center: 4163.63614
-  line_name: TiII105a
-  element: Titanium
-  rarity: uncommon
-- center: 4395.025307
-  line_name: TiII19a
-  element: Titanium
-  rarity: uncommon
-- center: 4414.899
-  line_name: OIIc
-  element: Oxygen
-  rarity: uncommon
-- center: 4421.948211
-  line_name: TiII93a
-  element: Titanium
-  rarity: uncommon
-- center: 4443.802449
-  line_name: TiII19b
-  element: Titanium
-  rarity: uncommon
-- center: 4450.490685
-  line_name: TiII19c
-  element: Titanium
-  rarity: uncommon
-- center: 4510.91
-  line_name: NIII1a
-  element: Nitrogen
-  rarity: uncommon
-- center: 4616.636803
-  line_name: CrII44a
-  element: Chromium
-  rarity: uncommon
-- center: 4640.64
-  line_name: NIIIc
-  element: Nitrogen
-  rarity: uncommon
-- center: 4643.09
-  line_name: NII5a
-  element: Nitrogen
-  rarity: uncommon
-- center: 4647.42
-  line_name: CIIIa
-  element: Carbon
-  rarity: uncommon
-- center: 4650.25
-  line_name: CIIIb
-  element: Carbon
-  rarity: uncommon
-- center: 4651.47
-  line_name: CIIIc
-  element: Carbon
-  rarity: uncommon
-- center: 4697.595379
-  line_name: CrIIa
-  element: Chromium
-  rarity: uncommon
-- center: 4824.131846
-  line_name: CrII30a
-  element: Chromium
-  rarity: uncommon
-- center: 4876.477958
-  line_name: CrII30b
-  element: Chromium
-  rarity: uncommon
-- center: 4911.19874
-  line_name: TiII114a
-  element: Titanium
-  rarity: uncommon
-- center: 5072.275931
-  line_name: TiII113a
-  element: Titanium
-  rarity: uncommon
-- center: 5200.261862
-  line_name: NIa
+
+- line_name: NiII7378
+  center: 7377.83
   element: Nickel
   rarity: uncommon
-- center: 5754.590
-  line_name: NIIpa
+
+- line_name: NiII7411
+  center: 7411.16
+  element: Nickel
+  rarity: uncommon
+
+- line_name: NiIII7890
+  center: 7889.9
+  element: Nickel
+  rarity: uncommon
+
+
+# ==========================================
+# Titanium II
+# ==========================================
+
+- line_name: TiII4054
+  center: 4053.814908
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4164
+  center: 4163.63614
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4395
+  center: 4395.025307
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4422
+  center: 4421.948211
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4444
+  center: 4443.802449
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4450
+  center: 4450.490685
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII4911
+  center: 4911.19874
+  element: Titanium
+  rarity: uncommon
+
+- line_name: TiII5072
+  center: 5072.275931
+  element: Titanium
+  rarity: uncommon
+
+
+# ==========================================
+# Nitrogen II and Nitrogen III
+# ==========================================
+
+- line_name: NIII4097
+  center: 4097.33
   element: Nitrogen
   rarity: uncommon
-- center: 5666.64
-  line_name: NIIpb
+
+- line_name: NIII4103
+  center: 4103.43
   element: Nitrogen
   rarity: uncommon
-- center: 5676.02
-  line_name: NIIpc
+
+- line_name: NIII4511
+  center: 4510.91
   element: Nitrogen
   rarity: uncommon
-- center: 5679.56
-  line_name: NIIpd
+
+- line_name: NIII4641
+  center: 4640.64
   element: Nitrogen
   rarity: uncommon
-- center: 5686.21
-  line_name: NIIpe
+
+- line_name: NII4643
+  center: 4643.09
   element: Nitrogen
   rarity: uncommon
-- center: 5695.920
-  line_name: CIIId
+
+- line_name: NII5667
+  center: 5666.64
+  element: Nitrogen
+  rarity: uncommon
+
+- line_name: NII5676
+  center: 5676.02
+  element: Nitrogen
+  rarity: uncommon
+
+- line_name: NII5680
+  center: 5679.56
+  element: Nitrogen
+  rarity: uncommon
+
+- line_name: NII5686
+  center: 5686.21
+  element: Nitrogen
+  rarity: uncommon
+
+
+# ==========================================
+# Carbon III
+# ==========================================
+
+- line_name: CIII4647
+  center: 4647.42
   element: Carbon
   rarity: uncommon
-- center: 5957.56
-  line_name: SiIIa
+
+- line_name: CIII4650
+  center: 4650.25
+  element: Carbon
+  rarity: uncommon
+
+- line_name: CIII4651
+  center: 4651.47
+  element: Carbon
+  rarity: uncommon
+
+- line_name: CIII5696
+  center: 5695.920
+  element: Carbon
+  rarity: uncommon
+
+
+# ==========================================
+# Oxygen II
+# ==========================================
+
+- line_name: OII4415
+  center: 4414.899
+  element: Oxygen
+  rarity: uncommon
+
+
+# ==========================================
+# Silicon II
+# ==========================================
+
+- line_name: SiII5958
+  center: 5957.56
   element: Silicon
   rarity: uncommon
-- center: 6046.440
-  line_name: OIba
+
+- line_name: SiII6347
+  center: 6347.10
+  element: Silicon
+  rarity: uncommon
+
+- line_name: SiII6371
+  center: 6371.36
+  element: Silicon
+  rarity: uncommon
+
+
+# ==========================================
+# Oxygen I
+# ==========================================
+
+- line_name: OI6046
+  center: 6046.440
   element: Oxygen
   rarity: uncommon
-- center: 6288.0859
-  line_name: SIIa
+
+
+# ==========================================
+# Sulfur II
+# ==========================================
+
+- line_name: SII6288
+  center: 6288.0859
   element: Sulfur
-  rarity: uncommon
-- center: 6312.06
-  line_name: SIIIa
-  element: Sulfur
-  rarity: uncommon
-- center: 6347.10
-  line_name: SiIIb
-  element: Silicon
-  rarity: uncommon
-- center: 6371.36
-  line_name: SiIIc
-  element: Silicon
-  rarity: uncommon
-- center: 7377.83
-  line_name: NiIIa
-  element: Nickel
-  rarity: uncommon
-- center: 7411.16
-  line_name: NiIIb
-  element: Nickel
-  rarity: uncommon
-- center: 7889.9
-  line_name: NiIIIa
-  element: Nickel
   rarity: uncommon

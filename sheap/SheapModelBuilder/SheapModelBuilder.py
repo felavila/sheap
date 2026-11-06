@@ -180,6 +180,28 @@ class SheapModelBuilder:
     available_fe_modes = ["template","model","none"] # none means no Fe
     available_continuum_profiles = list(PROFILE_CONTINUUM_FUNC_MAP.keys()) + ["none"]
     LINEAR_RANGE_THRESHOLD = 1000
+    lines_prone_outflow = ["CII]2325","[NeIV]2424","[NeV]3347", "[NeV]3427", "[OII]3728", "[NeIII]3869", "[OIII]4959", "[OIII]5007",
+    # "[NII]6548", "[NII]6583",  "[SII]6716", "[SII]6731",
+    ]
+    lines_prone_winds = ["Lyalpha", "CIV", "AlIII1855", "AlIII1863", "MgII2796", "MgII2803", "Halpha", "Hbeta",
+    # "HeI5877", "HeI10830", "HeII4686",
+    ]
+    lines_prone_bal = ["CIV","AlIII1855", "AlIII1863", "MgII2796", "MgII2803", "NV", "SiIV", "OIV]", "OVI1032","OVI1038",]
+    known_tied_relations = [
+    # [OIII] 4959 / 5007 amplitude ratio
+    (("[OIII]4959", "[OIII]5007"),["amplitude_[OIII]4959_component_narrow","amplitude_[OIII]5007_component_narrow","*0.3"],),
+    # [NII] 6548 / 6583 amplitude ratio
+    (("[NII]6548", "[NII]6583"),["amplitude_[NII]6548_component_narrow","amplitude_[NII]6583_component_narrow","*0.3"],),
+    #MgII
+    [("MgII2796", "MgII2803"),["amplitude_MgII2796_component_broad","amplitude_MgII2803_component_broad","*1.0"],],
+    # [NII] tied centers
+    (("[NII]6548", "[NII]6583"),["center_[NII]6548_component_narrow","center_[NII]6583_component_narrow", '*1'],),
+    # [OIII] tied centers
+    (("[OIII]4959", "[OIII]5007"),["center_[OIII]4959_component_narrow","center_[OIII]5007_component_narrow", '*1'],),]
+    # MgII tied centers
+    [(("MgII2796", "MgII2803"),["center_MgII2796_component_broad","center_MgII2803_component_broad","*1"],),]
+
+
     def __init__(
         self,
         xmin: float,
@@ -202,13 +224,10 @@ class SheapModelBuilder:
         n_max_component_outflow = 1,
         n_max_component_winds = 1,
         n_max_component_bal = 1,
-        lines_prone_outflow = ["CII]","[NeV]a","[NeV]b","OIIIc","OIIIb","NeIIIa","OIIb","OIIa","[NeIV]","[OII]","[NeIII]"],#,"NIIb","NIIa","SIIb","SIIa",]
-        lines_prone_winds = ["Lyalpha","CIV","AlIII","MgII","Halpha","Hbeta"],#,"HeIe","HeIk","HeIId"] Lyα
-        lines_prone_bal = ["CIV","AlIII","MgII","NV","SiIV","OIV]"," OVIa"," OVIb"],#,"HeIe","HeIk","HeIId"]
-        known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = [(('OIIIb', 'OIIIc'),['amplitude_OIIIb_component_narrow', 'amplitude_OIIIc_component_narrow', '*0.3'],),
-                (('NIIa', 'NIIb'),['amplitude_NIIa_component_narrow', 'amplitude_NIIb_component_narrow', '*0.3'],),
-                (('NIIa', 'NIIb'), ['center_NIIa_component_narrow', 'center_NIIb_component_narrow']),
-                (('OIIIb', 'OIIIc'),['center_OIIIb_component_narrow', 'center_OIIIc_component_narrow'],),],
+        lines_prone_outflow = lines_prone_outflow,
+        lines_prone_winds = lines_prone_winds,
+        lines_prone_bal = lines_prone_bal,
+        known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = known_tied_relations,
         lines_to_use = None,
         **kwargs) -> None:
         """
@@ -308,7 +327,9 @@ class SheapModelBuilder:
         tied_broad_to= None,
         tied_narrow_to = None,
         add_BAL = None,
-        add_balmerhighorder_continuum = None):
+        add_balmerhighorder_continuum = None,
+        lines2remove = []
+        ):
         """
         Build a `SheapModel` of `SpectralLine` objects based on settings.
 
@@ -368,7 +389,6 @@ class SheapModelBuilder:
             fe_mode = "template"
         if continuum_profile.get("name") not in self.available_continuum_profiles:
             print(f"continuum_profile: {continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
-            #print(self.continuum_profile)
             self.continuum_profile = {"name": "powerlaw"} 
             
         self.group_method = get(group_method,self.group_method)
@@ -382,6 +402,9 @@ class SheapModelBuilder:
                 center = float(raw_line.get('center', -np.inf))
                 if not (xmin <= center <= xmax):
                     continue
+                if raw_line["line_name"] in lines2remove:
+                    print("removed line",raw_line)
+                    continue
                 base = SpectralLine(**raw_line)
                 lines_to_use[pseudo_region_name].append(raw_line)
                 if pseudo_region_name == "broad_and_narrow": #search of name
@@ -391,9 +414,11 @@ class SheapModelBuilder:
                 elif pseudo_region_name == "broads" and n_broad>0:
                     comps = self._handle_broad_line(base, n_broad,add_winds=add_winds,add_BAL=add_BAL) 
                 self.region_list.extend(comps)
+        
         self.kwargs["lines_to_use"] = lines_to_use
         if add_host:
-            print(f"Adding host: {add_host}")
+            if self.verbose:
+                print(f"Adding host: {add_host}")
             self._handle_host(add_host,xmin,xmax)
         #print(fe_mode)
         self.region_list.extend(self._handle_fe(fe_mode,xmin,xmax))
@@ -522,6 +547,7 @@ class SheapModelBuilder:
             comps.append(new)
         #->ok.
         if add_outflow and entry.line_name in self.lines_prone_outflow:
+            #print(entry.line_name)
             out = SpectralLine(
                 center= entry.center,
                 line_name=entry.line_name,

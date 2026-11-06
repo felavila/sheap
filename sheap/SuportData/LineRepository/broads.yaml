@@ -1,52 +1,80 @@
-# Broad-only lines (no significant narrow counterpart)
-# - center: 1854.716
-#   line_name: AlIIIa
-#   element: Aluminum
-# - center: 1862.79
-#   line_name: AlIIIb
-#   element: Aluminum
-- center: 1892
-  line_name: SiIII]
-  element: Silicon
-- center: 1908.73
-  line_name: CIII]
-  element: Carbon
-- center: 1858.753   # simple mean of 1854.716 and 1862.79
-  line_name: AlIII
+# ==========================================
+# UV emission lines
+# ==========================================
+
+- line_name: AlIII1855
+  center: 1854.716
   element: Aluminum
-- center: 5890
-  line_name: NaIa
-  element: Sodium
-- center: 5896
-  line_name: NaI1a
-  element: Sodium
-- center: 6046.440
-  line_name: OIa
-  element: Oxygen
-- center: 7002.230
-  line_name: OIb
-  element: Oxygen
-- center: 7254.448
-  line_name: OIc
-  element: Oxygen
-- center: 7774.17
-  line_name: OId
-  element: Oxygen
-- center: 8498.02
-  line_name: CaIIa
-  element: Calcium
-- center: 8542.09
-  line_name: CaIIb
-  element: Calcium
-- center: 8662.14
-  line_name: CaIIc
-  element: Calcium
-- center: 2799
-  line_name: MgII
+
+- line_name: AlIII1863
+  center: 1862.790
+  element: Aluminum
+
+- line_name: SiIII]1892
+  center: 1892.0
+  element: Silicon
+
+- line_name: CIII]1909
+  center: 1908.73
+  element: Carbon
+
+- line_name: MgII2796
+  center: 2796.352
+  element: Magnesium
   rarity: common
 
-#MgII double
-# - center: 2796.352
-#   line_name: MgIIa
-# - center: 2803.531
-#   line_name: MgIIb
+- line_name: MgII2803
+  center: 2803.531
+  element: Magnesium
+  rarity: common
+
+
+# ==========================================
+# Sodium I doublet
+# ==========================================
+
+- line_name: NaI5890
+  center: 5890.0
+  element: Sodium
+
+- line_name: NaI5896
+  center: 5896.0
+  element: Sodium
+
+
+# ==========================================
+# Oxygen I
+# ==========================================
+
+- line_name: OI6046
+  center: 6046.440
+  element: Oxygen
+
+- line_name: OI7002
+  center: 7002.230
+  element: Oxygen
+
+- line_name: OI7254
+  center: 7254.448
+  element: Oxygen
+
+- line_name: OI7774
+  center: 7774.17
+  element: Oxygen
+
+
+# ==========================================
+# Calcium II triplet
+# ==========================================
+
+- line_name: CaII8498
+  center: 8498.02
+  element: Calcium
+
+- line_name: CaII8542
+  center: 8542.09
+  element: Calcium
+
+- line_name: CaII8662
+  center: 8662.14
+  element: Calcium

@@ -1,135 +1,191 @@
-# yaml of lines that can show broad and narrow lines.
-#Hδ (H I) λ4101.742
-#our hight balmer tempalte BalHiOrd_FWHM1000 limit is "key": "H8",  "name": "Hzeta", 3889.065
-- line_name: Hε
+# ==========================================
+# Hydrogen — Lyman and Balmer series
+# ==========================================
+
+- line_name: Lyalpha
+  center: 1215.67
+  element: Hydrogen
+
+- line_name: Hepsilon
   center: 3970.072
   element: Hydrogen
   rarity: common
-- line_name: Hδ
+
+- line_name: Hdelta
   center: 4101.742
   element: Hydrogen
   rarity: common
-- line_name: OI+SiII
-  center: 1304.35
-  element: OxygenSilicon
-  rarity: common
-- center: 1215.67
-  line_name: Lyalpha
+
+- line_name: Hgamma
+  center: 4340.471
   element: Hydrogen
-# - line_name: NVa
-#   center: 1238.821
-#   element: Nitrogen
-# - line_name: NVb
-#   center: 1242.804
-#   element: Nitrogen
+
+- line_name: Hbeta
+  center: 4861.333
+  element: Hydrogen
+
+- line_name: Halpha
+  center: 6562.82
+  element: Hydrogen
+
+
+# ==========================================
+# Hydrogen — Paschen series
+# ==========================================
+
+- line_name: Pa14
+  center: 8598.392
+  element: Hydrogen
+
+- line_name: Pa13
+  center: 8665.019
+  element: Hydrogen
+
+- line_name: Pa12
+  center: 8750.472
+  element: Hydrogen
+
+- line_name: Pa11
+  center: 8862.782
+  element: Hydrogen
+
+- line_name: Pa10
+  center: 9014.909
+  element: Hydrogen
+
+- line_name: Pa9
+  center: 9229.014
+  element: Hydrogen
+
+- line_name: Paepsilon
+  center: 9545.969
+  element: Hydrogen
+
+- line_name: Padelta
+  center: 10049.368
+  element: Hydrogen
+
+- line_name: Pagamma
+  center: 10938.086
+  element: Hydrogen
+
+
+# ==========================================
+# Helium I
+# ==========================================
+
+- line_name: HeI2945
+  center: 2945.106
+  element: Helium
+
+- line_name: HeI3188
+  center: 3187.745
+  element: Helium
+
+- line_name: HeI4144
+  center: 4143.761
+  element: Helium
+
+- line_name: HeI4471
+  center: 4471.479
+  element: Helium
+
+- line_name: HeI5877
+  center: 5877.2539
+  element: Helium
+
+- line_name: HeI6678
+  center: 6678.2
+  element: Helium
+
+- line_name: HeI7065
+  center: 7065.196
+  element: Helium
+
+- line_name: HeI7281
+  center: 7281.349
+  element: Helium
+
+- line_name: HeI7816
+  center: 7816.136
+  element: Helium
+
+- line_name: HeI10028
+  center: 10027.73
+  element: Helium
+
+- line_name: HeI10031
+  center: 10031.16
+  element: Helium
+
+- line_name: HeI10830
+  center: 10830.34
+  element: Helium
+
+
+# ==========================================
+# Helium II
+# ==========================================
+
+- line_name: HeII1640
+  center: 1640.42
+  element: Helium
+
+- line_name: HeII2733
+  center: 2733.29
+  element: Helium
+
+- line_name: HeII3203
+  center: 3203.10
+  element: Helium
+
+- line_name: HeII4686
+  center: 4685.710
+  element: Helium
+
+- line_name: HeII8237
+  center: 8236.79
+  element: Helium
+
+
+# ==========================================
+# Oxygen, Silicon, Carbon and Nitrogen
+# ==========================================
+
+- line_name: OVI1032
+  center: 1031.926
+  element: Oxygen
+
+- line_name: OVI1038
+  center: 1037.617
+  element: Oxygen
 
 - line_name: NV
   center: 1240.8125
   element: Nitrogen
-- line_name: OVIa
-  center: 1031.926
-  element: Oxigen
-- line_name: OVIb
-  center: 1037.617
-  element: Oxigen
-- line_name: SiIV #+OIV]a
+
+- line_name: OI1304
+  center: 1303.50
+  element: Oxygen
+  rarity: common
+
+- line_name: SiII1308
+  center: 1307.63
+  element: Silicon
+  rarity: common
+
+- line_name: SiIV
   center: 1393.755
-  element: Silicon #Oxygen
+  element: Silicon
+
 - line_name: OIV]
   center: 1402.770
   element: Oxygen
-- center: 1549.4795 #1548.187
-  line_name: CIV
+
+- line_name: CIV
+  center: 1549.4795
   element: Carbon
-#- center: 1550.772
-#  line_name: CIVb
-#  element: Carbon
-- center: 1640.42
-  line_name: HeIIa
-  element: Helium
-- center: 2733.29
-  line_name: HeIIb
-  element: Helium
-- center: 2945.106
-  line_name: HeIa
-  element: Helium
-- center: 3187.745
-  line_name: HeIb
-  element: Helium
-- center: 3203.10
-  line_name: HeIIc
-  element: Helium
-- center: 4143.761
-  line_name: HeIc
-  element: Helium
-- center: 4340.471
-  line_name: Hg
-  element: Hydrogen
-- center: 4471.479
-  line_name: HeId
-  element: Helium
-- center: 4685.710
-  line_name: HeIId
-  element: Helium
-- center: 4861.333
-  line_name: Hbeta
-  element: Hydrogen
-- center: 5877.2539
-  line_name: HeIe
-  element: Helium
-- center: 6562.82
-  line_name: Halpha
-  element: Hydrogen
-- center: 6678.2
-  line_name: HeIf
-  element: Helium
-- center: 7065.196
-  line_name: HeIg
-  element: Helium
-- center: 7281.349
-  line_name: HeIh
-  element: Helium
-- center: 7816.136
-  line_name: HeIi
-  element: Helium
-- center: 8236.79
-  line_name: HeIIe
-  element: Helium
-- center: 8446.36
-  line_name: OIe
-- center: 8598.392
-  line_name: Pa14
-  element: Hydrogen
-- center: 8665.019
-  line_name: Pa13
-  element: Hydrogen
-- center: 8750.472
-  line_name: Pa12
-  element: Hydrogen
-- center: 8862.782
-  line_name: Pa11
-  element: Hydrogen
-- center: 9014.909
-  line_name: Pa10
-  element: Hydrogen
-- center: 9229.014
-  line_name: Pa9
-  element: Hydrogen
-- center: 9545.969
-  line_name: Pae
-  element: Hydrogen
-- center: 10049.368
-  line_name: Pad
-  element: Hydrogen
-- center: 10027.73
-  line_name: HeIj
-  element: Helium
-- center: 10031.16
-  line_name: HeIk
-  element: Helium
-- center: 10830.34
-  line_name: HeIk
-  element: Helium
-- center: 10938.086
-  line_name: Pag
-  element: Hydrogen
+
+- line_name: OI8446
+  center: 8446.36
+  element: Oxygen
