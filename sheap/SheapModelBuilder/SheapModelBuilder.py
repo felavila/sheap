@@ -464,50 +464,24 @@ class SheapModelBuilder:
         """
         comps: List[SpectralLine] = []
         total = n_narrow + n_broad
+        n_outflow = 0
+        n_winds = 0 
         for idx in range(total):
             region = 'narrow' if idx < n_narrow else 'broad'
             comp_num = idx + 1 if region == 'narrow' else idx - n_narrow + 1
             amp = 1.0 #if comp_num == 1 else 1.0/comp_num
-            new = SpectralLine(
-                center=entry.center,
-                line_name=entry.line_name,
-                region=region,
-                component=comp_num,
-                amplitude=amp,
-                element=entry.element,
-            )
+            new = SpectralLine(center=entry.center,line_name=entry.line_name,region=region,component=comp_num,amplitude=amp,element=entry.element,)
             comps.append(new)
-            #self.n_max_component_outflow
-            if add_outflow and comp_num <= self.n_max_component_outflow and new.line_name in self.lines_prone_outflow:
-                out = SpectralLine(
-                    center= entry.center,
-                    line_name=entry.line_name,
-                    region ='outflow',
-                    component = comp_num,
-                    amplitude=1.0,
-                    element = entry.element,
-                    rarity = entry.rarity)
-                
+            if add_outflow and n_outflow < self.n_max_component_outflow and new.line_name in self.lines_prone_outflow:
+                out = SpectralLine(center= entry.center, line_name=entry.line_name, region ='outflow', component = comp_num, amplitude=1.0, element = entry.element, rarity = entry.rarity)
                 comps.append(out)
-            elif add_winds and comp_num <= self.n_max_component_winds  and new.line_name in self.lines_prone_winds:
-                out = SpectralLine(
-                    center= entry.center,
-                    line_name=entry.line_name,
-                    region ='winds',
-                    component = comp_num,
-                    amplitude=1.0,
-                    element = entry.element,
-                )
+                n_outflow += 1
+            elif add_winds and n_winds < self.n_max_component_winds  and new.line_name in self.lines_prone_winds:
+                out = SpectralLine(center= entry.center, line_name=entry.line_name, region ='winds', component = comp_num,amplitude=1.0,element = entry.element,)
                 comps.append(out)
+                n_winds += 1
             elif add_BAL and comp_num <= self.n_max_component_bal and new.line_name in self.lines_prone_bal:
-                out = SpectralLine(
-                    center= entry.center,
-                    line_name=entry.line_name,
-                    region ='bal',
-                    component = comp_num,
-                    amplitude=1.0,
-                    element = entry.element,
-                )
+                out = SpectralLine(center= entry.center,line_name=entry.line_name, region ='bal',component = comp_num,amplitude=1.0,element = entry.element,)
                 comps.append(out)
         return comps
     
