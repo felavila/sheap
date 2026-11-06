@@ -124,11 +124,6 @@ def fe_ties(entries: SpectralLineList, routine_fe_tied) -> List[List[str]]:
 
     return ties
 
-
-
-
-
-
 def flatten_index_ties(index_ties: List[Tuple[int, int, str, float]]) -> Dict[int, Tuple[float, int]]:
     """
     Resolve index-based tie dependencies into coefficient + free parameter mapping.
@@ -217,13 +212,12 @@ def group_lines(
 
         key = (key_base, line.component)
         grouped[key].append(line)
-
     for (region_key, comp), group in grouped.items():
         name_to_idx = {line.line_name: i for i, line in enumerate(group)}
         name_to_comp = {line.line_name: line.component for line in group}
         index_ties = []
         for pair, factor in known_tied_relations:
-            print(pair,factor)
+            #print(pair,factor)
             if all(name in name_to_idx for name in pair):
                 if len(factor) < 3:
                     factor += ["*1"]
@@ -268,10 +262,7 @@ def group_lines(
         elements = [line.element for line in group]
         subregions = [line.subregion for line in group]
         line_name = f"{region_key}{comp}" if mode=="region" else f"{region}{region_key}{comp}"
-        #print(line_name)
-        collapsed = SpectralLine(
-            center=centers,
-            line_name=line_name,
+        collapsed = SpectralLine(center=centers, line_name=line_name,
             region=region,
             component=comp,
             profile=profile,
@@ -281,7 +272,6 @@ def group_lines(
             amplitude=amplitudes.tolist(),
             amplitude_relations=full_rules,
         )
-        print(full_rules)
         collapsed_lines.append(collapsed)
         lines_to_remove.update(id(line) for line in group)
 
@@ -321,8 +311,9 @@ def _maketies(
     """
     # Determine mainline
     #print(known_tied_relations)
-    mainline_candidates_broad = ["Halpha","Hbeta","MgII","CIVb","Lyalpha","Pad",]  # this can be disscuss in the future
-    mainline_candidates_narrow = ["OIIIc","Halpha","NIIb","MgII","CIII]","SIIb","OIIa",]  # this can be disscuss in the future
+    mainline_candidates_broad = ["Halpha", "Hbeta","MgII2796", "MgII2803", "CIV", "Lyalpha", "Padelta",]
+
+    mainline_candidates_narrow = ["[OIII]5007", "Halpha", "[NII]6583", "MgII2796", "MgII2803", "CIII]1909", "[SII]6731","[OII]3728",]
     
     n_components_per_region = sheapmodel.characteristics()["n_components_per_region"]
     n_broad = n_components_per_region["broad"]
@@ -399,7 +390,7 @@ def _maketies(
                     #_ties.append([f.replace("component", str(k)) for f in factor])
                     #print([f.replace("component", str(k)) for f in factor])
                     _known_ties.append([f.replace("component", str(k)) for f in factor])
-    print(known_tied_relations)
+    #print(known_tied_relations)
     return ties,_known_ties
 
 

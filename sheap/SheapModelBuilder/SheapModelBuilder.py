@@ -197,10 +197,12 @@ class SheapModelBuilder:
     # [NII] tied centers
     (("[NII]6548", "[NII]6583"),["center_[NII]6548_component_narrow","center_[NII]6583_component_narrow", '*1'],),
     # [OIII] tied centers
-    (("[OIII]4959", "[OIII]5007"),["center_[OIII]4959_component_narrow","center_[OIII]5007_component_narrow", '*1'],),]
+    (("[OIII]4959", "[OIII]5007"),["center_[OIII]4959_component_narrow","center_[OIII]5007_component_narrow", '*1'],),
     # MgII tied centers
-    [(("MgII2796", "MgII2803"),["center_MgII2796_component_broad","center_MgII2803_component_broad","*1"],),]
-
+    (("MgII2796", "MgII2803"),["center_MgII2796_component_broad","center_MgII2803_component_broad","*1"],),
+    (("MgII2796", "MgII2803"),["center_MgII2796_component_narrow","center_MgII2803_component_narrow","*1"],),
+    (("MgII2796", "MgII2803"),["amplitude_MgII2796_component_narrow","amplitude_MgII2803_component_narrow","*1"],),
+    ]
 
     def __init__(
         self,
