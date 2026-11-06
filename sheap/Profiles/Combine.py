@@ -82,70 +82,6 @@ PROFILE_LINE_FUNC_MAP_loglambda: Dict[str, ProfileFunc] = {
     "emg": emg_fwhm_loglambda,
 }
 
-# def SPAF_loglambda(
-#     centers: list[float],
-#     amplitude_rules: list[tuple[int, float, int]],
-#     profile_name: str,
-# ):
-#     """
-#     SPAF (Sum Profiles Amplitude Free) wrapper for log-lambda line profiles.
-#     """
-#     centers = jnp.asarray(centers, dtype=jnp.float32)
-
-#     base_func = PROFILE_LINE_FUNC_MAP_loglambda.get(profile_name)
-#     if base_func is None:
-#         raise ValueError(
-#             f"Profile '{profile_name}' not found in PROFILE_LINE_FUNC_MAP_loglambda."
-#         )
-
-#     base_param_names = getattr(base_func, "param_names", None)
-#     if not base_param_names:
-#         raise ValueError(
-#             f"Base profile '{profile_name}' must expose 'param_names'."
-#         )
-
-#     if "amplitude" not in base_param_names or "lambda0" not in base_param_names:
-#         raise ValueError(
-#             f"Base profile '{profile_name}' must include 'amplitude' and 'lambda0'. "
-#             f"Got: {base_param_names}"
-#         )
-
-#     shared_names = [n for n in base_param_names if n not in ("amplitude", "lambda0")]
-
-#     raw_free = [r[2] for r in amplitude_rules]
-#     uniq = sorted({int(i) for i in raw_free})
-#     idx_map = {orig: new for new, orig in enumerate(uniq)}
-#     rules = [(int(li), float(coef), idx_map[int(fi)]) for li, coef, fi in amplitude_rules]
-#     n_free = len(uniq)
-
-#     param_names = [f"amplitude{k}" for k in range(n_free)] + shared_names
-#     linear_names = [f"amplitude{k}" for k in range(n_free)]
-
-#     @with_param_names(param_names, linear_param_names=linear_names)
-#     def G(x_lambda, params):
-#         x_dtype = x_lambda.dtype
-#         params = jnp.asarray(params, dtype=x_dtype)
-
-#         amps_linear = params[:n_free]
-#         shared_vals = params[n_free:]
-
-#         total = jnp.array(0.0, dtype=x_dtype)
-
-#         for line_idx, coef, free_idx in rules:
-#             amp_line = coef * amps_linear[free_idx]
-#             lambda0_i = centers[line_idx].astype(x_dtype)
-
-#             pdict = {"amplitude": amp_line, "lambda0": lambda0_i}
-#             for name, val in zip(shared_names, shared_vals):
-#                 pdict[name] = val
-
-#             p_line = jnp.array([pdict[name] for name in base_param_names], dtype=x_dtype)
-#             total = total + base_func(x_lambda, p_line)
-
-#         return total
-
-#     return G
-
 def SPAF_loglambda(
     centers: list[float],
     amplitude_rules: list[tuple[int, float, int]],
@@ -585,3 +521,69 @@ def SPAF_loglambda(
     G.n_free_amplitudes = n_free
 
     return G
+
+
+
+# def SPAF_loglambda(
+#     centers: list[float],
+#     amplitude_rules: list[tuple[int, float, int]],
+#     profile_name: str,
+# ):
+#     """
+#     SPAF (Sum Profiles Amplitude Free) wrapper for log-lambda line profiles.
+#     """
+#     centers = jnp.asarray(centers, dtype=jnp.float32)
+
+#     base_func = PROFILE_LINE_FUNC_MAP_loglambda.get(profile_name)
+#     if base_func is None:
+#         raise ValueError(
+#             f"Profile '{profile_name}' not found in PROFILE_LINE_FUNC_MAP_loglambda."
+#         )
+
+#     base_param_names = getattr(base_func, "param_names", None)
+#     if not base_param_names:
+#         raise ValueError(
+#             f"Base profile '{profile_name}' must expose 'param_names'."
+#         )
+
+#     if "amplitude" not in base_param_names or "lambda0" not in base_param_names:
+#         raise ValueError(
+#             f"Base profile '{profile_name}' must include 'amplitude' and 'lambda0'. "
+#             f"Got: {base_param_names}"
+#         )
+
+#     shared_names = [n for n in base_param_names if n not in ("amplitude", "lambda0")]
+
+#     raw_free = [r[2] for r in amplitude_rules]
+#     uniq = sorted({int(i) for i in raw_free})
+#     idx_map = {orig: new for new, orig in enumerate(uniq)}
+#     rules = [(int(li), float(coef), idx_map[int(fi)]) for li, coef, fi in amplitude_rules]
+#     n_free = len(uniq)
+
+#     param_names = [f"amplitude{k}" for k in range(n_free)] + shared_names
+#     linear_names = [f"amplitude{k}" for k in range(n_free)]
+
+#     @with_param_names(param_names, linear_param_names=linear_names)
+#     def G(x_lambda, params):
+#         x_dtype = x_lambda.dtype
+#         params = jnp.asarray(params, dtype=x_dtype)
+
+#         amps_linear = params[:n_free]
+#         shared_vals = params[n_free:]
+
+#         total = jnp.array(0.0, dtype=x_dtype)
+
+#         for line_idx, coef, free_idx in rules:
+#             amp_line = coef * amps_linear[free_idx]
+#             lambda0_i = centers[line_idx].astype(x_dtype)
+
+#             pdict = {"amplitude": amp_line, "lambda0": lambda0_i}
+#             for name, val in zip(shared_names, shared_vals):
+#                 pdict[name] = val
+
+#             p_line = jnp.array([pdict[name] for name in base_param_names], dtype=x_dtype)
+#             total = total + base_func(x_lambda, p_line)
+
+#         return total
+
+#     return G

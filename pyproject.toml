@@ -28,18 +28,18 @@ keywords = [
 
 dependencies = [
     # Core numerics
-    "numpy>=2.0,<2.3",
+    "numpy>=2.1,<2.3",
     "pandas>=2.2",
-    "scipy>=1.11",
+    "scipy>=1.15",
 
     # Astronomy / plotting
     "astropy>=7.2",
     "matplotlib>=3.8",
 
-    # JAX stack. Keep jax and jaxlib aligned.
-    "jax==0.4.38",
-    "jaxlib==0.4.38",
-    "optax>=0.2.3,<0.3",
+    # JAX stack
+    "jax>=0.11.2,<0.12",
+    "jaxlib>=0.11.2,<0.12",
+    "optax",
 
     # Utilities
     "tqdm>=4.66",
@@ -47,12 +47,8 @@ dependencies = [
 
     # Dust maps
     "sfdmap2",
-    "requests"
-    # # Documentation notebooks currently imported by the docs build
-    # "nbsphinx",
-    # "myst-nb",
+    "requests",
 ]
-
 
 [project.scripts]
 sheap = "sheap.cli:main"

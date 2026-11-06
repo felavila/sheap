@@ -106,7 +106,7 @@ def gaussian_fwhm_loglambda(x_lambda, params):
     """
     amp, vshift_kms, fwhm_v_kms, lambda0 = params
 
-    ratio = jnp.clip(x_lambda / lambda0, a_min=jnp.finfo(x_lambda.dtype).tiny, a_max=jnp.inf)
+    ratio = jnp.clip(x_lambda / lambda0, min=jnp.finfo(x_lambda.dtype).tiny, max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm_linear = 10.0 ** fwhm_v_kms
@@ -134,8 +134,8 @@ def lorentzian_fwhm_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0,
-                      a_min=jnp.finfo(x_lambda.dtype).tiny,
-                      a_max=jnp.inf)
+                      min=jnp.finfo(x_lambda.dtype).tiny,
+                      max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
@@ -164,8 +164,8 @@ def skewed_gaussian_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, alpha, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0,
-                      a_min=jnp.finfo(x_lambda.dtype).tiny,
-                      a_max=jnp.inf)
+                      min=jnp.finfo(x_lambda.dtype).tiny,
+                      max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
@@ -195,8 +195,8 @@ def top_hat_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0,
-                      a_min=jnp.finfo(x_lambda.dtype).tiny,
-                      a_max=jnp.inf)
+                      min=jnp.finfo(x_lambda.dtype).tiny,
+                      max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
@@ -225,8 +225,8 @@ def voigt_pseudo_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, eta, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0,
-                      a_min=jnp.finfo(x_lambda.dtype).tiny,
-                      a_max=jnp.inf)
+                      min=jnp.finfo(x_lambda.dtype).tiny,
+                      max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
@@ -263,15 +263,15 @@ def emg_fwhm_loglambda(x_lambda, params):
     amp, vshift_kms, fwhm_v_kms, tau_kms, lambda0 = params
 
     ratio = jnp.clip(x_lambda / lambda0,
-                      a_min=jnp.finfo(x_lambda.dtype).tiny,
-                      a_max=jnp.inf)
+                      min=jnp.finfo(x_lambda.dtype).tiny,
+                      max=jnp.inf)
     y = DEFAULT_C_KMS * jnp.log(ratio)
 
     fwhm = 10.0 ** fwhm_v_kms
     sigma = fwhm * FWHM_TO_SIGMA
     tau = jnp.clip(tau_kms,
-                   a_min=jnp.finfo(x_lambda.dtype).tiny,
-                   a_max=jnp.inf)
+                   min=jnp.finfo(x_lambda.dtype).tiny,
+                   max=jnp.inf)
 
     arg = (sigma / tau - (y - vshift_kms) / sigma) / jnp.sqrt(2.0)
     core = jnp.exp((sigma * sigma) / (2.0 * tau * tau)
