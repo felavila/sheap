@@ -49,7 +49,6 @@ dependencies = [
     "sfdmap2",
     "requests",
 ]
-
 [project.scripts]
 sheap = "sheap.cli:main"
 
