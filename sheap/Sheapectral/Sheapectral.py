@@ -382,7 +382,7 @@ class Sheapectral:
 				kwargs["xmin"],kwargs["xmax"] = self.default_limits
 			else:
 				kwargs["xmin"],kwargs["xmax"] = min(limits),max(limits)
-		if kwargs["verbose"]:
+		if kwargs.get("verbose",True):
 			print(f"The restframe wavelenght limites are {kwargs["xmin"]}-{kwargs["xmax"]}")
 		if kwargs["xmin"] < 3600 and add_balmer_continuum:
 			#3000–3646

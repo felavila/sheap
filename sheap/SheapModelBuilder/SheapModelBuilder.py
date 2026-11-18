@@ -231,6 +231,8 @@ class SheapModelBuilder:
         lines_prone_bal = lines_prone_bal,
         known_tied_relations: List[Tuple[Tuple[str, ...], List[str]]] = known_tied_relations,
         lines_to_use = None,
+        narrow_mode = "region",
+        broad_mode = "region",
         **kwargs) -> None:
         """
         Initialize the SheapModelBuilder with region bounds and options.
@@ -289,18 +291,22 @@ class SheapModelBuilder:
         self.lines_prone_winds = lines_prone_winds
         self.lines_prone_bal = lines_prone_bal #experimental 
         self.known_tied_relations = known_tied_relations
+        self.narrow_mode = narrow_mode
+        self.broad_mode = broad_mode
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
         #TODO is best 5500 fix or use the mean between xmin and xmax?
         if isinstance(continuum_profile,str):
-            continuum_profile = {"name":continuum_profile.lower(),"keywords":{"delta0":5500}}
+            continuum_profile = [{"name":continuum_profile.lower(),"keywords":{"delta0":5500}}]
+        if isinstance(continuum_profile,dict):
+            continuum_profile = [continuum_profile]
+        for cp in continuum_profile:
+            print(cp)
+            if cp.get("name") not in self.available_continuum_profiles:
+                raise ValueError(f"continuum_profile: '{cp.get('name')}' is not valid. " f"Available profiles: {self.available_continuum_profiles}")     
         self.continuum_profile = continuum_profile
-        
-        if self.continuum_profile.get("name") not in self.available_continuum_profiles:
-            print(f"continuum_profile: {self.continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
-            #print(self.continuum_profile)
-            self.continuum_profile = {"name": "powerlaw", "keywords": {"delta0": 5500}} 
+
         self.lines_to_use = lines_to_use
         self.kwargs = vars(self).copy()
         if not line_repository_path:
@@ -319,7 +325,7 @@ class SheapModelBuilder:
         n_broad: Optional[int] = None,
         n_narrow: Optional[int] = None,
         fe_mode: Optional[str] = None,
-        continuum_profile: Optional[str] = None,
+        continuum_profile: Optional[list[dict]] = None,
         group_method: Optional[bool] = None,
         add_outflow= None,
         add_winds = None,
@@ -330,6 +336,9 @@ class SheapModelBuilder:
         tied_narrow_to = None,
         add_BAL = None,
         add_balmerhighorder_continuum = None,
+        broad_mode =  None,
+        narrow_mode =  None,
+        known_tied_relations =  None,
         lines2remove = []
         ):
         """
@@ -377,9 +386,19 @@ class SheapModelBuilder:
         add_host = get(add_host,self.add_host)
         add_BAL = get(add_BAL,self.add_BAL)
         add_balmerhighorder_continuum = get(add_balmerhighorder_continuum,self.add_balmerhighorder_continuum)
-        # continuum_profile => only can be a dict?
-        continuum_profile = get(continuum_profile, self.continuum_profile)#.lower()
-        #
+        broad_mode = get(broad_mode,self.broad_mode)
+        narrow_mode = get(narrow_mode,self.narrow_mode)
+        known_tied_relations = get(known_tied_relations,self.known_tied_relations)
+        continuum_profile = get(continuum_profile, self.continuum_profile)
+        
+        ##
+        if isinstance(continuum_profile,dict):
+            continuum_profile = [continuum_profile]
+        for cp in continuum_profile:
+            if cp.get("name") not in self.available_continuum_profiles:
+                raise ValueError(f"continuum_profile: '{cp.get('name')}' is not valid. " f"Available profiles: {self.available_continuum_profiles}")     
+        ##   
+
         tied_broad_to = get(tied_broad_to,self.tied_broad_to)
         tied_narrow_to = get(tied_narrow_to,self.tied_narrow_to)
         if add_BAL:
@@ -389,9 +408,7 @@ class SheapModelBuilder:
             print(fe_mode)
             print(f"fe_mode: {fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             fe_mode = "template"
-        if continuum_profile.get("name") not in self.available_continuum_profiles:
-            print(f"continuum_profile: {continuum_profile.get("name")} not recognized moving to powerlaw, the current available are {self.available_continuum_profiles}")
-            self.continuum_profile = {"name": "powerlaw"} 
+       
             
         self.group_method = get(group_method,self.group_method)
         
@@ -431,7 +448,8 @@ class SheapModelBuilder:
         self._known_ties = []
         self._feties = []
         if self.group_method:
-             self.sheapmodel = self._apply_group_method(self.sheapmodel,fe_mode,self.known_tied_relations)
+             #self.sheapmodel = self._apply_group_method(self.sheapmodel,fe_mode,self.known_tied_relations)
+             self.sheapmodel = self._apply_group_method(self.sheapmodel,fe_mode=fe_mode,known_tied_relations = self.known_tied_relations,broad_mode = broad_mode,narrow_mode=narrow_mode)
         else:
             #TODO add the tied_broad_to and narrow_to in cases in where is best use a line selected for the user
             self._ties,self._known_ties =_maketies(self.sheapmodel,tied_narrow_to = tied_narrow_to, tied_broad_to = tied_broad_to,known_tied_relations=self.known_tied_relations)
@@ -694,12 +712,15 @@ class SheapModelBuilder:
                 print("added balmer high order continuum")
             continuum_comps.append(SpectralLine(line_name='balmerhighorder',region='balmer',component=0,profile='template'
                                                 ,template_info = {"name":"BalHiOrd","x_min":xmin,"x_max":xmax}))
-        if continuum_profile != "none":
-            continuum_comps.append(SpectralLine(line_name=continuum_profile.get("name"),region='continuum',component=0,profile=continuum_profile.get("name"),template_info=continuum_profile))
+        for cp in continuum_profile:
+            if cp != "none":
+                continuum_comps.append(SpectralLine(line_name=cp.get("name"),region='continuum',component=0,profile=cp.get("name"),template_info=cp))
+            else:
+                continue  
         return continuum_comps
         
 
-    def _apply_group_method(self,sheapmodel,fe_mode,known_tied_relations):
+    def _apply_group_method(self,sheapmodel,fe_mode,known_tied_relations,broad_mode="element",narrow_mode="element"):
         """
         Group lines by region, apply known ties, and return a new SheapModel.
 
@@ -731,9 +752,12 @@ class SheapModelBuilder:
                     new_region_list.extend(values.lines)
             elif key in ["outflow","winds"]:
                 new_region_list.extend(group_lines(values.lines,key,mode="element",known_tied_relations=known_tied_relations,profile="SPAF"))
-            else:
-                new_region_list.extend(group_lines(values.lines,key,mode="region",known_tied_relations=known_tied_relations,profile="SPAF"))
+            elif key in ["broad"]:
+                new_region_list.extend(group_lines(values.lines,key,mode=broad_mode,known_tied_relations=known_tied_relations,profile="SPAF"))
+            elif key in ["narrow"]:
+                    new_region_list.extend(group_lines(values.lines,key,mode=narrow_mode,known_tied_relations=known_tied_relations,profile="SPAF"))
         return SheapModel(new_region_list)
+
 
     def _handle_host(self,add_host,xmin,xmax):
         """

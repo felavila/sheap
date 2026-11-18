@@ -334,24 +334,35 @@ def make_exp_cutoff_function(delta0: float = 5500.0):
         return A * x ** (-alpha) * jnp.exp(-xs / xcut)
     return exp_cutoff
 
-def make_polynomial_function(degree: int, delta0: float = 5500.0):
+def make_polynomial_function(degree: int,delta0: float = 5500.0,):
     if degree < 0:
         raise ValueError("degree must be >= 0")
 
     param_names = ["logamp"] + [f"c{i}" for i in range(1, degree + 1)]
 
-    @with_param_names(param_names, profile_name="polynomial")
-    def polynomial(xs: jnp.ndarray, params: jnp.ndarray) -> jnp.ndarray:
+    @with_param_names(
+        param_names,
+        profile_name="polynomial",
+    )
+    def polynomial(
+        xs: jnp.ndarray,
+        params: jnp.ndarray,
+    ) -> jnp.ndarray:
+
         A = params[0]
         coeffs = params[1:]
 
         x = (xs - delta0) / delta0
 
-        corr = 0.0
-        for i, c in enumerate(coeffs, start=1):
-            corr = corr + c * x**i
+        # Horner's method
+        corr = jnp.zeros_like(x)
 
-        return 10**A * jnp.exp(corr)
+        for c in coeffs[::-1]:
+            corr = (corr + c) * x
+
+        log_flux = A * jnp.log(10.0) + corr
+
+        return jnp.exp(log_flux)
 
     return polynomial
 
