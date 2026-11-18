@@ -920,3 +920,167 @@ class MoldelSpectraReconstruction:
 
 		return out
 
+
+	def fe_integrated_ew_parallel(
+		self,
+		*,
+		x_min: float = 2250.0,
+		x_max: float = 2650.0,
+		n_grid: int = 2_000,
+		region_name: str = "fe",
+		continuum_subtract_regions: Tuple[str, ...] = (
+			"narrow",
+			"broad",
+			"winds",
+			"outflows",
+			"host",
+		),
+		samples: Optional[jnp.ndarray] = None,
+		object_indices: Optional[Sequence[int]] = None,
+		include_bestfit: bool = True,
+		object_batch_size: Optional[int] = 64,
+		return_numpy: bool = True,
+	) -> Dict[str, Any]:
+		"""
+		Compute Fe equivalent width by integrating Fe/continuum.
+
+		EW = integral[F_Fe(lambda) / F_cont(lambda)] d(lambda)
+
+		By default, the continuum excludes:
+			- Fe emission
+			- narrow emission lines
+			- broad emission lines
+			- winds and outflows
+			- host stellar emission
+
+		The AGN power-law and Balmer continuum are retained.
+
+		Missing optional regions are ignored.
+
+		Returns
+		-------
+		dict
+			wavelength_grid : (N_wave,)
+			samples         : (N_obj, N_samp)
+			bestfit         : (N_obj,) or None
+
+		Positive EW corresponds to emission.
+		"""
+
+		if x_min >= x_max:
+			raise ValueError("x_min must be smaller than x_max.")
+
+		if n_grid < 2:
+			raise ValueError("n_grid must be at least 2.")
+
+		self._require_region(
+			region_name,
+			purpose="compute Fe equivalent width",
+		)
+
+		x_grid = jnp.linspace(
+			float(x_min),
+			float(x_max),
+			int(n_grid),
+			dtype=jnp.float32,
+		)
+
+		# Global posterior parameters
+		S = self._samples_for_evaluation(
+			samples=samples,
+			object_indices=object_indices,
+		)
+
+		# Fe region information
+		fe_info = self.get_region_info(region_name)
+
+		# Remove Fe and optional non-continuum regions.
+		subtract_regions = self._existing_regions(
+			tuple(dict.fromkeys(
+				(region_name,) + tuple(continuum_subtract_regions)
+			))
+		)
+
+		def integrated_evaluator(x, params):
+
+			# params: (N_obj_batch, N_samp, N_global)
+
+			# Fe flux density
+			fe_params = params[:, :, fe_info.idx_global]
+
+			fe_flux = self._batched_region[region_name](
+				x, fe_params
+			)
+
+			# Complete model
+			continuum = self._batched_model(x, params)
+
+			# Recover underlying continuum
+			for name in subtract_regions:
+
+				info = self.get_region_info(name)
+				region_params = params[:, :, info.idx_global]
+
+				region_flux = self._batched_region[name](
+					x, region_params
+				)
+
+				continuum = continuum - region_flux
+
+			# Avoid undefined equivalent widths
+			ew_density = jnp.where(
+				jnp.isfinite(continuum) & (continuum > 0),
+				fe_flux / continuum,
+				jnp.nan,
+			)
+
+			# Integrate for every object and posterior sample
+			return jnp.trapezoid(
+				ew_density,
+				x,
+				axis=-1,
+			)
+
+		if self._jit_compile:
+			integrated_evaluator = jit(integrated_evaluator)
+
+		# Posterior EWs: (N_obj, N_samp)
+		integrated_samples = self._evaluate_object_chunks(
+			integrated_evaluator,
+			x_grid,
+			S,
+			object_batch_size=object_batch_size,
+			return_numpy=return_numpy,
+		)
+
+		# Best-fit EWs
+		bestfit = None
+
+		if include_bestfit:
+
+			bestfit_params = jnp.asarray(
+				self.obj.result.params
+			)
+
+			if object_indices is not None:
+				bestfit_params = bestfit_params[
+					jnp.asarray(object_indices, dtype=jnp.int32)
+				]
+
+			# Add singleton sample dimension
+			bestfit_params = bestfit_params[:, None, :]
+
+			bestfit = self._evaluate_object_chunks(
+				integrated_evaluator,
+				x_grid,
+				bestfit_params,
+				object_batch_size=object_batch_size,
+				return_numpy=return_numpy,
+			)[:, 0]
+
+		wavelength_grid = (
+			np.asarray(jax.device_get(x_grid))
+			if return_numpy else x_grid
+		)
+
+		return {"wavelength_grid": wavelength_grid,"samples": integrated_samples,"bestfit": bestfit,}

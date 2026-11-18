@@ -64,9 +64,10 @@ def fits_reader_desi(file: str):
     header_array : np.ndarray
         Array with RA and DEC from header.
     """
+    #print(file)
     hdul = fits.open(file)
-    flux_scale = float(hdul[1].header["TUNIT2"].split(" ")[0])
-    ivar_scale = float(hdul[1].header["TUNIT3"].split(" ")[0])
+    flux_scale = 1e-17 #float(hdul[1].header["TUNIT2"].split(" ")[0])
+    ivar_scale = 1e34#float(hdul[1].header["TUNIT3"].split(" ")[0])
     data = hdul[1].data
     data_array = np.array([
         data["WAVELENGTH"],
