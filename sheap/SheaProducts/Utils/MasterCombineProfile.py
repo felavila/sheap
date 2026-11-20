@@ -173,8 +173,9 @@ def combine_classical(basic_params,line,distances=0,full_cont_profile=None,full_
 		continuum_vals = full_cont_profile(wave,full_cont_params)
 		cont_safe  = jnp.maximum(continuum_vals, 1e-30)
 		eqw       = jnp.trapezoid(model_sum / cont_safe, wave, axis=1) 
+	#,"luminosity":np.atleast_2d(luminosity).T
 	combined = {"component":components,"flux":np.atleast_2d(flux).T,"sigma_kms":np.atleast_2d(sigma_kms).T
-			 ,"fwhm_kms":np.atleast_2d(fwhm_kms).T,"luminosity":np.atleast_2d(luminosity).T,"eqw":np.atleast_2d(eqw).T} #more to add?
+			 ,"fwhm_kms":np.atleast_2d(fwhm_kms).T,"eqw":np.atleast_2d(eqw).T} #more to add?
 	
 	return combined 
 
@@ -211,7 +212,7 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 
 	fwhm_A = (fwhm_c / C_KMS) * mu_c
 	flux_c = calc_flux(jnp.array(amp_c), jnp.array(fwhm_A))
-	L_line = calc_luminosity(jnp.array(distances), flux_c)
+	#L_line = calc_luminosity(jnp.array(distances), flux_c)
 	if full_cont_profile:
 		cont_c = full_cont_profile(mu_c,full_cont_params)
 		eqw_c = flux_c / cont_c
@@ -219,6 +220,6 @@ def combine_kinematic(basic_params,line, limit_velocity: float, C_KMS: float,ful
 		eqw_c = jnp.zeros_like(flux_c)
 
 	return {"component": components,"flux":np.atleast_2d(flux_c),"fwhm":np.atleast_2d(fwhm_A),"fwhm_kms":np.atleast_2d(fwhm_c),
-		 "center":np.atleast_2d(mu_c),"amplitude":np.atleast_2d(amp_c),"luminosity":np.atleast_2d(L_line),"eqw":np.atleast_2d(eqw_c)}
+		 "center":np.atleast_2d(mu_c),"amplitude":np.atleast_2d(amp_c),"eqw":np.atleast_2d(eqw_c)}
 	
 #cont_c = cont_group(mu_c, cont_params)

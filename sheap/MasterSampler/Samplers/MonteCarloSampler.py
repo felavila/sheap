@@ -91,6 +91,7 @@ class MonteCarloSampler:
 
 
 	def sample_params(self, num_samples: int = 100, key_seed: int = 0, summarize=True,**kwargs) -> jnp.ndarray:
+		#This one is the official one 
 		from tqdm import tqdm
 		norm_spectra = self.norm_spectra
 		model = self.model 
@@ -124,6 +125,7 @@ class MonteCarloSampler:
 			dic_posterior_params[name_i] = {"samples_phys":full_samples}
 			dic_posterior_params[name_i] = samples_func(n,full_samples)
 			dic_posterior_params[name_i].update({"samples_phys":full_samples})
+	
 		return dic_posterior_params	
 	
 

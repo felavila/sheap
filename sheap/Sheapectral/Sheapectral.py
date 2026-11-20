@@ -358,7 +358,7 @@ class Sheapectral:
 		#self.spectra = spec
   
 	def makemodel(self,limits: tuple = None ,n_narrow: int = 1,n_broad: int = 1,group_method=True,
-					add_balmer_continuum = True ,add_balmerhighorder_continuum = True,**kwargs):
+					add_balmer_continuum = True ,add_balmerhighorder_continuum = True,narrow_mode = "region", broad_mode = "region",**kwargs):
 		"""
 		Initialize a SheapModelBuilder for later fitting.
 
@@ -391,7 +391,8 @@ class Sheapectral:
 			#3646-3910
 			add_balmerhighorder_continuum = add_balmerhighorder_continuum
 		self.modelbuild = SheapModelBuilder(n_narrow=n_narrow,n_broad=n_broad,group_method=group_method,
-										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum, **kwargs)
+										add_balmerhighorder_continuum=add_balmerhighorder_continuum, add_balmer_continuum= add_balmer_continuum,
+										narrow_mode = narrow_mode,broad_mode =broad_mode,  **kwargs)
 	
 
 	def fitmodel(self,run_fit=True, list_num_steps=[1_000],list_learning_rate = [1e-2],profile: str ='gaussian'
@@ -545,7 +546,7 @@ class Sheapectral:
 				f"Unknown sampling method '{sampling_method}'. "
 					"Available methods: single, pseudomontecarlo, montecarlo, mcmc.")
 	
-	def _recalculate_products(self,sampling_method=None):
+	def _recalculate_products(self,sampling_method=None,extra_products=False):
 		from sheap.MasterSampler.MasterSampler import MasterSampler
 		import time
 		from tqdm import tqdm
@@ -560,14 +561,16 @@ class Sheapectral:
 			PM.method = sampling_method
 			if sampling_method == "single":
 				SP = SheaProducts(samplerclass=PM,method="direct")
-				dic_posterior_params = SP.calculate_sheap_products(summarize=False)
+				dic_posterior_params = SP.calculate_sheap_products(summarize=False,extra_products=extra_products)
 				self.result.posterior[sampling_method] = {"posterior_result": dic_posterior_params}
+			SP = SheaProducts(samplerclass=PM,method="sampled")
 			previous_producs = self.result.posterior[sampling_method]["posterior_result"]
 			names = list(previous_producs.keys())
 			iterator = tqdm(names, total=len(names), desc="Re-Getting posterior-params")
+			
 			for n, name_i in enumerate(iterator):#SP.calculate_sheap_products_sampled(n,samples,extra_products=True)
 				t0 = time.perf_counter()
-				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.calculate_sheap_products_sampled(n,previous_producs[name_i]["samples_phys"]))
+				self.result.posterior["montecarlo"]["posterior_result"][name_i].update(SP.calculate_sheap_products_sampled(n,previous_producs[name_i]["samples_phys"],extra_products=extra_products))	
 				t1 = time.perf_counter()
 				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
 

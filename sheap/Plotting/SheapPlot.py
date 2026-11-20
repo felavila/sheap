@@ -238,7 +238,6 @@ class SheapPlot:
         ax1.yaxis.offsetText.set_fontsize(25)
         if add_legend:
             handles, labels = ax1.get_legend_handles_labels()
-            # Remove duplicates while keeping order
             unique = {}
             for h, l in zip(handles, labels):
                 if l not in unique:
@@ -251,9 +250,16 @@ class SheapPlot:
             residuals = residuals.at[mask].set(0.0)
             ax2.axhline(0, ls="--", linewidth=5, color="black")
             ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="#4C72B0")
-            ax2.set_ylabel("Norm. Res.", fontsize=25)
+            for sigma in [1, 2, 3]:
+                ax2.axhline(sigma, ls=":", lw=1.2,
+                            color="gray", alpha=0.5)
+                ax2.axhline(-sigma, ls=":", lw=1.2,
+                            color="gray", alpha=0.5)
+
+            ax2.set_ylabel(r"Residuals [$\sigma$]", fontsize=25)
             ax2.set_xlabel("Rest wavelength [Å]", fontsize=25)
             ax2.tick_params(axis='both', labelsize=25, pad=10)
+            ax2.set_ylim(-5,5)
         else:
             ax1.set_xlabel("Rest wavelength [Å]", fontsize=25)
 

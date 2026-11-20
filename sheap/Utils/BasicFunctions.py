@@ -266,37 +266,6 @@ def calc_bolometric_luminosity(monochromatic_lum, correction):
     """
     return monochromatic_lum * correction
 
-def calc_black_hole_mass(L_w, fwhm_kms, estimator):
-    r"""
-    Single-epoch BH mass estimator (continuum-based).
-
-    .. math::
-        \log M_{\rm BH} =
-        a + b \, (\log L - 44) + 2 \, \log \left(\frac{\mathrm{FWHM}}{1000}\right)
-
-    .. math::
-        M_{\rm BH} = \frac{10^{\log M_{\rm BH}}}{f}
-
-    Parameters
-    ----------
-    L_w : float or array
-        Monochromatic luminosity (erg/s).
-    fwhm_kms : float or array
-        Line width in km/s.
-    estimator : dict
-        Coefficients with keys ``a``, ``b``, ``f``.
-
-    Returns
-    -------
-    MBH : jnp.ndarray
-        Black hole mass in solar masses.
-    """
-    a, b, f = estimator["a"], estimator["b"], estimator["f"]
-    log_L = log10(L_w)
-    log_FWHM = log10(fwhm_kms) - 3  # FWHM in 1000 km/s
-    log_M_BH = a + b * (log_L - 44.0) + 2.0 * log_FWHM
-    return (10 ** log_M_BH) / f
-
 def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     r"""
     Greene & Ho (2015) Hα mass estimator (Eq. 6).
@@ -322,3 +291,148 @@ def calc_black_hole_mass_gh2015(L_halpha, fwhm_kms):
     log_FWHM = log10(fwhm_kms) - 3
     log_M_BH = 6.57 + 0.47 * (log_L - 42.0) + 2.06 * log_FWHM
     return 10 ** log_M_BH
+
+
+def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
+    r"""
+    Unified single-epoch (SE) black-hole mass estimator.
+
+    This function keeps the classical behavior of the SE mass formula while providing
+    clear documentation for continuum-based and line-based calibrations. It also supports
+    optional shape terms and Fe II strength corrections.
+
+    Parameters
+    ----------
+    L_in : array-like or float
+        Luminosity used by the calibration:
+        - For ``kind="continuum"``: monochromatic luminosity :math:`L_\lambda \cdot \lambda`
+        (erg s\ :sup:`-1`).
+        - For ``kind="line"``: line luminosity :math:`L_\text{line}` (erg s\ :sup:`-1`).
+    vwidth_kms : array-like or float
+        Velocity width in km/s. Defaults to FWHM, but you can set
+        ``width_def="sigma"`` in ``estimator`` to use :math:`\sigma`.
+    estimator : dict
+        Calibration dictionary. Required keys:
+
+        - ``kind``: "continuum" or "line"
+        - ``a``: intercept term (dimensionless)
+        - ``b``: luminosity slope
+        - ``f``: virial factor (applied multiplicatively to the mass)
+        - ``fwhm_factor`` (alias ``vel_exp``): velocity-width exponent (default 2.0)
+        - ``pivots``: dict with reference values (e.g., ``{"L": 1e44, "FWHM": 1e3}`` for continuum
+        or ``{"L": 1e42, "FWHM": 1e3}`` for line)
+
+        Optional:
+        - ``width_def``: "fwhm" (default) or "sigma"
+        - ``extras``: nested dict with optional switches:
+            * ``le20_shape``: If True and ``width_def="fwhm"``, adds a shape term using
+            :math:`\sigma`.
+            * ``pan25_gamma``: Slope for Fe II strength correction (default :math:`-0.34`).
+
+    extras : dict, optional
+        Runtime extras for optional terms:
+        - ``sigma_kms``: second velocity measure (km/s) for the Le20-like shape term.
+        - ``R_Fe``: Fe II strength (e.g., :math:`R_\mathrm{FeII}`).
+
+    Returns
+    -------
+    numpy-like
+        :math:`M_\mathrm{BH}` in solar masses (:math:`M_\odot`), with the virial factor ``f``
+        already applied.
+
+    Notes
+    -----
+    Base (log) mass relation, valid for both continuum- and line-based inputs:
+
+    .. math::
+    \log_{10} M_\mathrm{BH} = 
+    \log_{10} f + a + b \left[ \log_{10} L - \log_{10} L_0 \right]
+    + \beta \left[ \log_{10} V - \log_{10} V_0 \right] \;,
+
+    where:
+
+    - :math:`L` is :math:`L_\lambda \cdot \lambda` (continuum) or :math:`L_\text{line}` (line),
+    - :math:`V` is the velocity width (FWHM or :math:`\sigma`) in km/s,
+    - :math:`L_0` and :math:`V_0` are the pivot luminosity and velocity from ``pivots``,
+    - :math:`\beta` is ``fwhm_factor`` (or ``vel_exp``), by default 2.0,
+    - :math:`f` is the virial factor.
+
+    If ``width_def="fwhm"`` and ``extras["le20_shape"]`` is True (Leighly+20-like term),
+    and a second velocity measure :math:`\sigma` is provided via ``extras["sigma_kms"]``:
+
+    .. math::
+    \Delta \log_{10} M_\mathrm{BH} =
+    -1.14 \left[ \log_{10}(\mathrm{FWHM}) - \log_{10}(\sigma) \right] + 0.33 \;.
+
+    If ``extras["R_Fe"]`` is provided, a Panessa+25-like correction is added:
+
+    .. math::
+    \Delta \log_{10} M_\mathrm{BH} = \gamma \, R_\mathrm{Fe} \;,
+
+    with :math:`\gamma =` ``estimator["extras"]["pan25_gamma"]`` (default :math:`-0.34`).
+
+    Examples
+    --------
+    Classical continuum-based recipe with FWHM:
+
+    >>> est = {
+    ...     "kind": "continuum",
+    ...     "a": 0.0, "b": 0.5, "f": 1.0,
+    ...     "fwhm_factor": 2.0,
+    ...     "pivots": {"L": 1e44, "FWHM": 1e3},
+    ...     "width_def": "fwhm",
+    ... }
+    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est)
+
+    Same but with the Le20 shape term:
+
+    >>> extras = {"sigma_kms": sigma_kms}
+    >>> est["extras"] = {"le20_shape": True}
+    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est, extras=extras)
+
+    Line-based calibration:
+
+    >>> est_line = {
+    ...     "kind": "line",
+    ...     "a": 6.57, "b": 0.47, "f": 1.0,
+    ...     "fwhm_factor": 2.06,
+    ...     "pivots": {"L": 1e42, "FWHM": 1e3},
+    ...     "width_def": "fwhm",
+    ... }
+    >>> MBH = calc_black_hole_mass(L_Halpha, FWHM_kms, est_line)
+    """
+
+    if extras is None:
+        extras = {}
+
+    kind = str(estimator.get("kind", "continuum")).lower()
+    width_def = str(estimator.get("width_def", "fwhm")).lower()
+
+    piv = estimator.get("pivots", {})
+    L0 = float(piv.get("L", 1e42 if kind == "line" else 1e44))
+    V0 = float(piv.get("FWHM", 1e3))
+    #print(V0,type(V0))
+    a = estimator["a"]
+    b = estimator["b"]
+    beta = estimator.get("fwhm_factor", estimator.get("vel_exp", 2.0))
+    f = estimator.get("f", 1.0)
+    
+    L = L_in
+    V = vwidth_kms
+    #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
+    #logM = log10(f) + a + b * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
+    logM = log10(f) + a  + b    * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
+    # Le20 shape (only if baseline uses FWHM)
+    if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
+        sigma = extras.get("sigma_kms", None)
+        if sigma is not None:
+            sigma = sigma
+            logM += (-1.14 * (log10(V) - log10(sigma)) + 0.33)
+
+    # Pan25 iron term
+    if "R_Fe" in extras:
+        gamma = estimator.get("extras", {}).get("pan25_gamma", -0.21)#-0.34)
+        RFe = extras["R_Fe"]
+        
+        #logM += gamma * RFe  # broadcasts across components
+    return (10.0 ** logM)

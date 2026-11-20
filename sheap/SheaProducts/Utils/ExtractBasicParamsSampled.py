@@ -104,7 +104,7 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
                 "center": np.concatenate(center_parts, axis=1),
                 "amplitude": np.concatenate(amp_parts, axis=1),
                 "eqw": np.concatenate(eqw_parts, axis=1),
-                "luminosity": np.concatenate(lum_parts, axis=1),
+                #"luminosity": np.concatenate(lum_parts, axis=1),
                 "shape_params": concat_dicts(shape_params_list),
                 "idx_by_name": {name: np.where(line_names == name)[0]  for name in np.unique(line_names)},
                 "combined": [False] * len(components)
@@ -114,13 +114,9 @@ def extract_basic_params_sampled(sheapmodel,wavelength,mask,samples,continuum_id
             wstr = str(int(wave))
             if (jnp.isclose(wavelength, wave, atol=2) & ~mask).any():
                 Fcont = cont_profile(jnp.array([wave]), cont_params).squeeze()
-                Lmono = calc_monochromatic_luminosity(distances, Fcont, wave)
-                Lbolval = calc_bolometric_luminosity(Lmono, BOL_CORRECTIONS[wstr])
-                L_w[wstr], L_bol[wstr],F_cont[wstr] = np.array(Lmono), np.array(Lbolval), np.array(Fcont)     
-        
-        
-        #list_to_get_extra_params = ["basic_params"]
-        result = {"basic_params": basic_params, "L_w": L_w, "L_bol": L_bol,"F_cont":F_cont,"distances":distances[0]} #<-
+                F_cont[wstr] = np.array(Fcont)
+                
+        result = {"basic_params": basic_params,"Fcont":F_cont} #<-
         return result
 
     
@@ -190,6 +186,6 @@ def _extract_sampled_profile_quantities(integrator_fn, batch_fwhm, params_by_lin
     
     
     eqw = flux / cont_vals
-    lum_vals = calc_luminosity(distances[:, None], flux)
+    lum_vals = 0#calc_luminosity(distances[:, None], flux)
 
     return amps, centers, shape_params, flux, fwhm, fwhm_kms, eqw, lum_vals

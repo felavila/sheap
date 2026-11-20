@@ -63,11 +63,12 @@ from sheap.SheaProducts.Utils.ExtractBasicParamsSampled import extract_basic_par
 from sheap.SheaProducts.Utils.ExtractBasicParams import extract_basic_params_single
 from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS
 
-from sheap.SheaProducts.Utils.ExtractExtraParams import extra_params_functions
+#from sheap.SheaProducts.Utils.ExtractExtraParams import extra_params_functions
 
 
 #TODO method still usefful ?
 #TODO Fe ratio and Star cont ratio. with model-spectra-reconstruction
+#TODO this will be SheapBasicProducts
 
 class SheaProducts:
     _BASE_REQUIRED = ("model", "dependencies", "spectra", "mask", "sheapmodel", "method", "d")
@@ -114,42 +115,33 @@ class SheaProducts:
         
        # self.MSR = MoldelSpectraReconstruction(self, jit_compile=True)# <-- this should go with the sampler to be able of run it in one run
         
-    def calculate_sheap_products_sampled(self,idx,samples,combine=True,extra_products=True,**kwargs):
+    def calculate_sheap_products_sampled(self,idx,samples,combine=True,extra_products=False,**kwargs):
         #full_samples -> samples
         #d->luminosity_distance?
         wi,mi,samples,luminosity_distance = self.spectra[idx,0,:],self.mask[idx,:],samples,self.d[idx]
-        #wi = jnp.take(self.spectra[:, 0, :], idx, axis=0)  # shape: (Nidx, L)
-        #mi = jnp.take(self.mask, idx, axis=0)              # shape: (Nidx, L)
-        #luminosity_distance = jnp.take(self.d, idx, axis=0)
-        #basic_params should be basic extraction.
-        # fe_out = self.MSR.fe_integrated_flux(all_samples=samples,include_bestfit=False)
-        # stars = self.MSR.stars_Cont_5100(all_samples=samples)     
-        
-        
+          
         products = extract_basic_params_sampled(sheapmodel=self.sheapmodel,wavelength=wi,mask=mi,samples=samples,continuum_idx_all=self.full_cont_idx,cont_profile_all = self.full_cont_profile,
                                                     cont_profile=self.cont_profile,luminosity_distance=luminosity_distance,BOL_CORRECTIONS =self.BOL_CORRECTIONS,C_KMS= self.C_KMS,wavelength_grid=self.wavelength_grid)
-        #products["stars"] = stars
-        #products["feII"] = fe_out
         
         if combine:
             full_cont_params = samples[:,self.full_cont_idx]
             all_params = self.MC.combine_both(products["basic_params"],luminosity_distance,full_cont_params) #<-
             products= {**all_params,**products}
-        if extra_products:
-            products = self._get_extraparams(products)
+        # if extra_products:
+        #     products = self._get_extraparams(products)
         return products
           
-    def _get_extraparams(self,products):
-        L_w,L_bol = products["L_w"],products["L_bol"]
-        new_products = {}
-        for key, local_result in products.items():
-            if "basic_params" in key:
-                key = key.replace("basic","extra")
-                new_products[key] = extra_params_functions(local_result,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)
-            else:
-                pass
-        products.update(new_products)
-        return products
+    # def _get_extraparams(self,products):
+    #     L_w,L_bol = products["L_w"],products["L_bol"]
+    #     new_products = {}
+    #     for key, local_result in products.items():
+    #         if "basic_params" in key:
+    #             key = key.replace("basic","extra")
+    #             new_products[key] = extra_params_functions(local_result,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)
+    #         else:
+    #             pass
+    #     products.update(new_products)
+    #     return products
        
     def _from_any(self, src: object) -> None:
         for name in self._BASE_REQUIRED:
@@ -166,6 +158,7 @@ class SheaProducts:
         missing = [n for n in names if getattr(self, n, None) is None]
         if missing:
             raise ValueError(f"SheaProducts is missing required fields: {missing}")
+    
     def calculate_sheap_products(self,combine=True,extra_products=True,**kwargs):
         "this will be deprecated"
         params = jnp.asarray(self.sheapmodel.params, dtype=jnp.float32)

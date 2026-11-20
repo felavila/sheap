@@ -316,7 +316,6 @@ class MasterSampler:
         self.mask = result.mask
         self.names = sheap.names
         self.model_keywords = result.model_keywords or {}
-        #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions)) #
         self.params_dict = result.params_dict
         self.dependencies = result.dependencies
@@ -350,7 +349,6 @@ class MasterSampler:
         self.mask = result.mask
         self.names = [str(i) for i in range(self.params.shape[0])]
         self.model_keywords = result.model_keywords or {}
-        #self.fe_mode = self.model_keywords.get("fe_mode")
         self.model = jit(make_fused_profiles(self.profile_functions)) #mmm
         self.params_dict = result.params_dict
         self.constraints = result.constraints

@@ -11,173 +11,12 @@ __author__ = 'felavila'
 __all__ = []
 
 import numpy as np 
+from copy import deepcopy
 
-from sheap.Utils.BasicFunctions import log10
-
-#TODO implemented Rfe 
-
-# def _col(x):
-#     """
-#     Ensure input is a 2D column vector repetead.
-#     TODO helper? .
-#     Parameters
-#     ----------
-#     x : array-like
-#         Input data.
-
-#     Returns
-#     -------
-#     array-like
-#         If input is 1D, reshaped to (N, 1).
-#     """
-# #
-#     x = np.asarray(x)
-#     return x[None,:] if x.ndim == 1 else x
+from sheap.Utils.BasicFunctions import calc_black_hole_mass,calc_monochromatic_luminosity,calc_bolometric_luminosity,calc_luminosity
+from sheap.Utils.Constants import DEFAULT_BOL_CORRECTIONS, DEFAULT_SINGLE_EPOCH_ESTIMATORS,DEFAULT_C_KMS
 
 
-def calc_black_hole_mass(L_in, vwidth_kms, estimator, extras=None):
-    r"""
-    Unified single-epoch (SE) black-hole mass estimator.
-
-    This function keeps the classical behavior of the SE mass formula while providing
-    clear documentation for continuum-based and line-based calibrations. It also supports
-    optional shape terms and Fe II strength corrections.
-
-    Parameters
-    ----------
-    L_in : array-like or float
-        Luminosity used by the calibration:
-        - For ``kind="continuum"``: monochromatic luminosity :math:`L_\lambda \cdot \lambda`
-        (erg s\ :sup:`-1`).
-        - For ``kind="line"``: line luminosity :math:`L_\text{line}` (erg s\ :sup:`-1`).
-    vwidth_kms : array-like or float
-        Velocity width in km/s. Defaults to FWHM, but you can set
-        ``width_def="sigma"`` in ``estimator`` to use :math:`\sigma`.
-    estimator : dict
-        Calibration dictionary. Required keys:
-
-        - ``kind``: "continuum" or "line"
-        - ``a``: intercept term (dimensionless)
-        - ``b``: luminosity slope
-        - ``f``: virial factor (applied multiplicatively to the mass)
-        - ``fwhm_factor`` (alias ``vel_exp``): velocity-width exponent (default 2.0)
-        - ``pivots``: dict with reference values (e.g., ``{"L": 1e44, "FWHM": 1e3}`` for continuum
-        or ``{"L": 1e42, "FWHM": 1e3}`` for line)
-
-        Optional:
-        - ``width_def``: "fwhm" (default) or "sigma"
-        - ``extras``: nested dict with optional switches:
-            * ``le20_shape``: If True and ``width_def="fwhm"``, adds a shape term using
-            :math:`\sigma`.
-            * ``pan25_gamma``: Slope for Fe II strength correction (default :math:`-0.34`).
-
-    extras : dict, optional
-        Runtime extras for optional terms:
-        - ``sigma_kms``: second velocity measure (km/s) for the Le20-like shape term.
-        - ``R_Fe``: Fe II strength (e.g., :math:`R_\mathrm{FeII}`).
-
-    Returns
-    -------
-    numpy-like
-        :math:`M_\mathrm{BH}` in solar masses (:math:`M_\odot`), with the virial factor ``f``
-        already applied.
-
-    Notes
-    -----
-    Base (log) mass relation, valid for both continuum- and line-based inputs:
-
-    .. math::
-    \log_{10} M_\mathrm{BH} = 
-    \log_{10} f + a + b \left[ \log_{10} L - \log_{10} L_0 \right]
-    + \beta \left[ \log_{10} V - \log_{10} V_0 \right] \;,
-
-    where:
-
-    - :math:`L` is :math:`L_\lambda \cdot \lambda` (continuum) or :math:`L_\text{line}` (line),
-    - :math:`V` is the velocity width (FWHM or :math:`\sigma`) in km/s,
-    - :math:`L_0` and :math:`V_0` are the pivot luminosity and velocity from ``pivots``,
-    - :math:`\beta` is ``fwhm_factor`` (or ``vel_exp``), by default 2.0,
-    - :math:`f` is the virial factor.
-
-    If ``width_def="fwhm"`` and ``extras["le20_shape"]`` is True (Leighly+20-like term),
-    and a second velocity measure :math:`\sigma` is provided via ``extras["sigma_kms"]``:
-
-    .. math::
-    \Delta \log_{10} M_\mathrm{BH} =
-    -1.14 \left[ \log_{10}(\mathrm{FWHM}) - \log_{10}(\sigma) \right] + 0.33 \;.
-
-    If ``extras["R_Fe"]`` is provided, a Panessa+25-like correction is added:
-
-    .. math::
-    \Delta \log_{10} M_\mathrm{BH} = \gamma \, R_\mathrm{Fe} \;,
-
-    with :math:`\gamma =` ``estimator["extras"]["pan25_gamma"]`` (default :math:`-0.34`).
-
-    Examples
-    --------
-    Classical continuum-based recipe with FWHM:
-
-    >>> est = {
-    ...     "kind": "continuum",
-    ...     "a": 0.0, "b": 0.5, "f": 1.0,
-    ...     "fwhm_factor": 2.0,
-    ...     "pivots": {"L": 1e44, "FWHM": 1e3},
-    ...     "width_def": "fwhm",
-    ... }
-    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est)
-
-    Same but with the Le20 shape term:
-
-    >>> extras = {"sigma_kms": sigma_kms}
-    >>> est["extras"] = {"le20_shape": True}
-    >>> MBH = calc_black_hole_mass(L_5100, FWHM_kms, est, extras=extras)
-
-    Line-based calibration:
-
-    >>> est_line = {
-    ...     "kind": "line",
-    ...     "a": 6.57, "b": 0.47, "f": 1.0,
-    ...     "fwhm_factor": 2.06,
-    ...     "pivots": {"L": 1e42, "FWHM": 1e3},
-    ...     "width_def": "fwhm",
-    ... }
-    >>> MBH = calc_black_hole_mass(L_Halpha, FWHM_kms, est_line)
-    """
-
-    if extras is None:
-        extras = {}
-
-    kind = str(estimator.get("kind", "continuum")).lower()
-    width_def = str(estimator.get("width_def", "fwhm")).lower()
-
-    piv = estimator.get("pivots", {})
-    L0 = float(piv.get("L", 1e42 if kind == "line" else 1e44))
-    V0 = float(piv.get("FWHM", 1e3))
-    #print(V0,type(V0))
-    a = estimator["a"]
-    b = estimator["b"]
-    beta = estimator.get("fwhm_factor", estimator.get("vel_exp", 2.0))
-    f = estimator.get("f", 1.0)
-    
-    L = L_in
-    V = vwidth_kms
-    #print(type(f),type(L),type(L0),type(beta),type(V),type(V0))
-    #logM = log10(f) + a + b * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
-    logM = log10(f) + a  + b    * (log10(L) - log10(L0)) + beta * (log10(V) - log10(V0))
-    # Le20 shape (only if baseline uses FWHM)
-    if width_def == "fwhm" and estimator.get("extras", {}).get("le20_shape", False):
-        sigma = extras.get("sigma_kms", None)
-        if sigma is not None:
-            sigma = sigma
-            logM += (-1.14 * (log10(V) - log10(sigma)) + 0.33)
-
-    # Pan25 iron term
-    if "R_Fe" in extras:
-        gamma = estimator.get("extras", {}).get("pan25_gamma", -0.21)#-0.34)
-        RFe = extras["R_Fe"]
-        
-        #logM += gamma * RFe  # broadcasts across components
-    return (10.0 ** logM)
 
 
 def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta = 0.1,M_sun_g = 1.98847e33,sec_yr = 3.15576e7):
@@ -187,7 +26,7 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
     This routine applies single-epoch (SE) virial estimators to broad-line
     measurements, combining continuum or line luminosities with velocity widths
     to derive black hole masses and accretion-related quantities.
-
+    TODO add R_Fe rutine  
     Parameters
     ----------
     params : dict
@@ -324,10 +163,10 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
 
             out.setdefault(line_name, {})[calib_key] = {
                 "method": "continuum",
-                "wavelength": lam,
+                #"wavelength": lam,
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
-                "log10_smbh": log10(MBH),
+                "log10_smbh": np.log10(MBH),
                 "Lwave": Lmono,
                 "Lbol": Lbol,
                 "Ledd": Ledd,
@@ -346,9 +185,45 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
                 "vwidth_def": width_def,
                 "vwidth_kms": Vwidth,
                 "Lline": L_line,
-                "log10_smbh": log10(MBH),
+                "log10_smbh": np.log10(MBH),
                 "Ledd": Ledd,
                 "component": comp_here,
                 "combined":combined}
 
     return out
+
+
+def process_luminosity(d, dic_posterior_params,BOL_CORRECTIONS=DEFAULT_BOL_CORRECTIONS):
+    dic_posterior_params = deepcopy(dic_posterior_params)
+    dic_posterior_params["Lw"] = {}
+    dic_posterior_params["Lbol"] = {}
+    for key in list(dic_posterior_params.keys()):
+        if "Fcont" in key:
+            for wave, Fcont in dic_posterior_params[key].items():
+                L_w = calc_monochromatic_luminosity(d, Fcont, int(wave))
+                dic_posterior_params["Lw"][wave] = L_w
+                dic_posterior_params["Lbol"][wave] = calc_bolometric_luminosity(L_w, BOL_CORRECTIONS[wave])
+        
+        if key in ['basic_params_combined_kinematic', 'basic_params_combined_classical', 'basic_params']:
+            for region, values in dic_posterior_params[key].items():
+                flux = values["flux"]
+                dic_posterior_params[key][region]["luminosity"] = calc_luminosity(np.asarray(d), flux)
+        else:
+            continue 
+    return dic_posterior_params
+
+def process_smbh(dic_posterior_params, SINGLE_EPOCH_ESTIMATORS=DEFAULT_SINGLE_EPOCH_ESTIMATORS,C_KMS=DEFAULT_C_KMS,):
+    dic_posterior_params = deepcopy(dic_posterior_params)
+
+    L_w = dic_posterior_params["Lw"]
+    L_bol = dic_posterior_params["Lbol"]
+
+    for key, local_result in list(dic_posterior_params.items()):
+        if "basic_params" in key:
+            new_key = key.replace("basic_params", "extra_params")
+            dic_posterior_params[new_key] = extra_params_functions(local_result, L_w, L_bol, SINGLE_EPOCH_ESTIMATORS,C_KMS,)
+
+    return dic_posterior_params
+
+
+

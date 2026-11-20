@@ -117,6 +117,14 @@ from sheap.Profiles.profiles_templates import make_host_function #?
 # 3646.0 limit for balmer continuum after this we can move to another stuff
 # ADD NLR AS KIND LINE SEARCH FOR NLR PRONT IN THE SPECTRA
 
+# TODO add new method of combination 
+# First, the broad emission line tem-
+# plates are now divided into different components considering
+# the following wavelength limits at 2750Å, 4800Å, and 6100Å,
+# giving more freedom to the relevant Hα, Hβ, and Mg II emis-
+# sion lines to have their own kinematic moments (velocity shift,
+# velocity dispersion, skewness, and kurtosis).
+
 class SheapModelBuilder:
     """
     Builds spectral fitting regions given wavelength bounds and YAML templates,
@@ -293,6 +301,10 @@ class SheapModelBuilder:
         self.known_tied_relations = known_tied_relations
         self.narrow_mode = narrow_mode
         self.broad_mode = broad_mode
+        if narrow_mode not in ["region","element"]:
+            raise ValueError(f"narrow_mode: '{narrow_mode}' is not valid. " f"Available mode: ['region','element']")
+        if broad_mode not in ["region","element"]:
+           raise ValueError(f"broad_mode: '{broad_mode}' is not valid. " f"Available mode: ['region','element']")
         if self.fe_mode not in self.available_fe_modes:
             print(f"fe_mode: {self.fe_mode} not recognized moving to template, the current available are {self.available_fe_modes}")
             self.fe_mode = "template"
