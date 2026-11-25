@@ -574,7 +574,6 @@ class Sheapectral:
 				t1 = time.perf_counter()
 				iterator.set_postfix({"it_s": f"{(t1 - t0):.4f}"})
 
-
 										
 	
 	@classmethod

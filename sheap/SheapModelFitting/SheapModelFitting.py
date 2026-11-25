@@ -318,6 +318,7 @@ class SheapModelFitting:
                                             "curvature_weight" : curvature_weight,
                                             "smoothness_weight" : smoothness_weight,
                                             "max_weight" : max_weight})    
+            self._params = params.copy() #test backup
         if covariance_error:
             print("\n==Running error_covariance_matrix==")
             start_time = time.time()  # 

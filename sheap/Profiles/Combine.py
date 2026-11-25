@@ -70,23 +70,13 @@ from sheap.Core import ProfileFunc
 import jax.numpy as jnp
 from typing import List, Tuple, Callable
 from sheap.Profiles.Utils import with_param_names,trapz_jax
-
+import numpy as np 
 from sheap.Profiles.profiles_lines_loglambda import (gaussian_fwhm_loglambda, lorentzian_fwhm_loglambda, skewed_gaussian_loglambda, top_hat_loglambda, voigt_pseudo_loglambda, emg_fwhm_loglambda,)
 
-PROFILE_LINE_FUNC_MAP_loglambda: Dict[str, ProfileFunc] = {
-    "gaussian": gaussian_fwhm_loglambda,
-    "lorentzian": lorentzian_fwhm_loglambda,
-    "skewed_gaussian": skewed_gaussian_loglambda,
-    "top_hat": top_hat_loglambda,
-    "voigt_pseudo": voigt_pseudo_loglambda,
-    "emg": emg_fwhm_loglambda,
-}
+PROFILE_LINE_FUNC_MAP_loglambda: Dict[str, ProfileFunc] = {"gaussian": gaussian_fwhm_loglambda, "lorentzian": lorentzian_fwhm_loglambda,"skewed_gaussian": skewed_gaussian_loglambda,
+    "top_hat": top_hat_loglambda, "voigt_pseudo": voigt_pseudo_loglambda, "emg": emg_fwhm_loglambda,}
 
-def SPAF_loglambda(
-    centers: list[float],
-    amplitude_rules: list[tuple[int, float, int]],
-    profile_name: str,
-):
+def SPAF_loglambda(centers: list[float],amplitude_rules: list[tuple[int, float, int]],profile_name: str,):
     """
     SPAF (Sum Profiles Amplitude Free) wrapper for log-lambda profiles.
 
@@ -121,252 +111,116 @@ def SPAF_loglambda(
     # Fixed line centers
     # ============================================================
 
-    centers = jnp.asarray(
-        centers,
-        dtype=jnp.float32,
-    )
+    # Keep original line-center precision for the NumPy backend.
+    centers64 = np.asarray(centers, dtype=np.float64)
+    centers = jnp.asarray(centers, dtype=jnp.float32,)
 
     # ============================================================
     # Base profile
     # ============================================================
 
-    base_func = PROFILE_LINE_FUNC_MAP_loglambda.get(
-        profile_name
-    )
+    base_func = PROFILE_LINE_FUNC_MAP_loglambda.get(profile_name)
 
     if base_func is None:
-        raise ValueError(
-            f"Profile '{profile_name}' not found in "
-            "PROFILE_LINE_FUNC_MAP_loglambda."
-        )
+        raise ValueError(f"Profile '{profile_name}' not found in " "PROFILE_LINE_FUNC_MAP_loglambda.")
 
-    base_param_names = getattr(
-        base_func,
-        "param_names",
-        None,
-    )
+    base_param_names = getattr(base_func, "param_names",None,)
 
     if not base_param_names:
         raise ValueError(
             f"Base profile '{profile_name}' must expose "
-            "'param_names'."
-        )
+            "'param_names'.")
 
-    base_param_names = list(
-        base_param_names
-    )
+    base_param_names = list(base_param_names)
 
     # ============================================================
     # Required parameters
     # ============================================================
 
-    if (
-        "amplitude" not in base_param_names
-        or "lambda0" not in base_param_names
-    ):
-        raise ValueError(
-            f"Base profile '{profile_name}' must include "
-            "'amplitude' and 'lambda0'. "
-            f"Got: {base_param_names}"
-        )
+    if ("amplitude" not in base_param_names or "lambda0" not in base_param_names):
+        raise ValueError( f"Base profile '{profile_name}' must include " "'amplitude' and 'lambda0'. " f"Got: {base_param_names}")
 
-    amplitude_pos = base_param_names.index(
-        "amplitude"
-    )
+    amplitude_pos = base_param_names.index("amplitude")
 
-    lambda0_pos = base_param_names.index(
-        "lambda0"
-    )
+    lambda0_pos = base_param_names.index("lambda0")
 
     # ============================================================
     # Shared nonlinear parameters
     # ============================================================
 
-    shared_names = [
-        name
-        for name in base_param_names
-        if name not in (
-            "amplitude",
-            "lambda0",
-        )
-    ]
+    shared_names = [name for name in base_param_names if name not in ( "amplitude","lambda0",)]
 
-    shared_positions = [
-        base_param_names.index(name)
-        for name in shared_names
-    ]
+    shared_positions = [ base_param_names.index(name)for name in shared_names]
 
     # ============================================================
     # Normalize free-amplitude indices
     # ============================================================
 
-    raw_free = [
-        rule[2]
-        for rule in amplitude_rules
-    ]
+    raw_free = [rule[2] for rule in amplitude_rules]
 
-    uniq = sorted(
-        {
-            int(i)
-            for i in raw_free
-        }
-    )
+    uniq = sorted({int(i) for i in raw_free})
 
-    idx_map = {
-        original: new
-        for new, original in enumerate(uniq)
-    }
+    idx_map = {original: new for new, original in enumerate(uniq)}
 
-    rules = [
-        (
-            int(line_idx),
-            float(coef),
-            idx_map[int(free_idx)],
-        )
-        for (
-            line_idx,
-            coef,
-            free_idx,
-        ) in amplitude_rules
-    ]
+    rules = [(int(line_idx), float(coef), idx_map[int(free_idx)],) for (line_idx, coef, free_idx,) in amplitude_rules]
 
-    n_free = len(
-        uniq
-    )
+    n_free = len(uniq)
 
     # ============================================================
     # SPAF parameter names
     # ============================================================
 
-    param_names = (
-        [
-            f"amplitude{k}"
-            for k in range(n_free)
-        ]
-        + shared_names
-    )
+    param_names = ([f"amplitude{k}" for k in range(n_free)] + shared_names)
 
-    linear_names = [
-        f"amplitude{k}"
-        for k in range(n_free)
-    ]
+    linear_names = [f"amplitude{k}" for k in range(n_free)]
 
     # ============================================================
     # Helper: construct one base-profile parameter vector
     # ============================================================
 
-    def make_line_params(
-        dtype,
-        amplitude,
-        lambda0,
-        shared_vals,
-    ):
+    def make_line_params(dtype,amplitude, lambda0,shared_vals,):
 
-        p_line = jnp.zeros(
-            len(base_param_names),
-            dtype=dtype,
-        )
+        p_line = jnp.zeros(len(base_param_names), dtype=dtype,)
 
-        p_line = p_line.at[
-            amplitude_pos
-        ].set(
-            amplitude
-        )
+        p_line = p_line.at[amplitude_pos].set(amplitude)
 
-        p_line = p_line.at[
-            lambda0_pos
-        ].set(
-            lambda0
-        )
+        p_line = p_line.at[lambda0_pos].set(lambda0)
 
         # Number of these is static, so Python loop is fine.
-        for local_idx, base_idx in enumerate(
-            shared_positions
-        ):
+        for local_idx, base_idx in enumerate(shared_positions):
 
-            p_line = p_line.at[
-                base_idx
-            ].set(
-                shared_vals[
-                    local_idx
-                ]
-            )
-
+            p_line = p_line.at[base_idx].set(shared_vals[local_idx])
         return p_line
 
     # ============================================================
     # Normal SPAF model
     # ============================================================
 
-    @with_param_names(
-        param_names,
-        linear_param_names=linear_names,
-    )
-    def G(
-        x_lambda,
-        params,
-    ):
+    @with_param_names(param_names,linear_param_names=linear_names,profile_name=f"{profile_name}_SPAF")
+    def G(x_lambda,params,):
 
         dtype = x_lambda.dtype
 
-        params = jnp.asarray(
-            params,
-            dtype=dtype,
-        )
+        params = jnp.asarray(params,dtype=dtype,)
 
-        amps_linear = params[
-            :n_free
-        ]
+        amps_linear = params[:n_free]
 
-        shared_vals = params[
-            n_free:
-        ]
+        shared_vals = params[n_free:]
 
-        total = jnp.zeros_like(
-            x_lambda,
-            dtype=dtype,
-        )
-
+        total = jnp.zeros_like(x_lambda, dtype=dtype,)
         # --------------------------------------------------------
         # Sum all physical lines
         # --------------------------------------------------------
 
-        for (
-            line_idx,
-            coef,
-            free_idx,
-        ) in rules:
+        for (line_idx, coef, free_idx,) in rules:
 
-            amp_line = (
-                jnp.asarray(
-                    coef,
-                    dtype=dtype,
-                )
-                * amps_linear[
-                    free_idx
-                ]
-            )
+            amp_line = (jnp.asarray(coef,dtype=dtype,)* amps_linear[free_idx])
 
-            lambda0_i = centers[
-                line_idx
-            ].astype(
-                dtype
-            )
+            lambda0_i = centers[line_idx].astype(dtype)
 
-            p_line = make_line_params(
-                dtype=dtype,
-                amplitude=amp_line,
-                lambda0=lambda0_i,
-                shared_vals=shared_vals,
-            )
+            p_line = make_line_params(dtype=dtype, amplitude=amp_line, lambda0=lambda0_i, shared_vals=shared_vals,)
 
-            total = (
-                total
-                + base_func(
-                    x_lambda,
-                    p_line,
-                )
-            )
+            total = (total + base_func(x_lambda,p_line,))
 
         return total
 
@@ -374,10 +228,7 @@ def SPAF_loglambda(
     # DIRECT DESIGN BUILDER
     # ============================================================
 
-    def design_builder(
-        x_lambda,
-        params,
-    ):
+    def design_builder(x_lambda,params,):
         """
         Returns
         -------
@@ -394,10 +245,7 @@ def SPAF_loglambda(
 
         dtype = x_lambda.dtype
 
-        params = jnp.asarray(
-            params,
-            dtype=dtype,
-        )
+        params = jnp.asarray(params, dtype=dtype,)
 
         # --------------------------------------------------------
         # SPAF amplitudes intentionally ignored.
@@ -405,38 +253,19 @@ def SPAF_loglambda(
         # FISTA will solve them.
         # --------------------------------------------------------
 
-        shared_vals = params[
-            n_free:
-        ]
+        shared_vals = params[n_free:]
 
-        offset_total = jnp.zeros_like(
-            x_lambda,
-            dtype=dtype,
-        )
+        offset_total = jnp.zeros_like(x_lambda,dtype=dtype,)
 
-        columns = jnp.zeros(
-            (
-                x_lambda.shape[0],
-                n_free,
-            ),
-            dtype=dtype,
-        )
+        columns = jnp.zeros((x_lambda.shape[0], n_free,), dtype=dtype,)
 
         # --------------------------------------------------------
         # Build each physical line once
         # --------------------------------------------------------
 
-        for (
-            line_idx,
-            coef,
-            free_idx,
-        ) in rules:
+        for (line_idx, coef, free_idx,) in rules:
 
-            lambda0_i = centers[
-                line_idx
-            ].astype(
-                dtype
-            )
+            lambda0_i = centers[line_idx].astype(dtype)
 
             # ----------------------------------------------------
             # amplitude value itself is irrelevant to the
@@ -445,15 +274,7 @@ def SPAF_loglambda(
             # Use 1 for clarity.
             # ----------------------------------------------------
 
-            p_line = make_line_params(
-                dtype=dtype,
-                amplitude=jnp.asarray(
-                    1.0,
-                    dtype=dtype,
-                ),
-                lambda0=lambda0_i,
-                shared_vals=shared_vals,
-            )
+            p_line = make_line_params(dtype=dtype, amplitude=jnp.asarray(1.0,dtype=dtype,), lambda0=lambda0_i, shared_vals=shared_vals,)
 
             # ----------------------------------------------------
             # Base profile gives:
@@ -464,18 +285,10 @@ def SPAF_loglambda(
             # for its own amplitude.
             # ----------------------------------------------------
 
-            offset_i, columns_i = (
-                base_func.design_builder(
-                    x_lambda,
-                    p_line,
-                )
-            )
+            offset_i, columns_i = (base_func.design_builder( x_lambda,p_line,))
 
             # Usually zero for your emission-line profiles.
-            offset_total = (
-                offset_total
-                + offset_i
-            )
+            offset_total = (offset_total + offset_i)
 
             # ----------------------------------------------------
             # Add this physical line to the correct FREE
@@ -485,39 +298,89 @@ def SPAF_loglambda(
             # physical lines can share the same free amplitude.
             # ----------------------------------------------------
 
-            columns = columns.at[
-                :,
-                free_idx,
-            ].add(
-                jnp.asarray(
-                    coef,
-                    dtype=dtype,
-                )
-                * columns_i[
-                    :,
-                    0,
-                ]
-            )
+            columns = columns.at[:,free_idx,].add(jnp.asarray(coef,dtype=dtype,)* columns_i[:,0,])
 
-        return (
-            offset_total,
-            columns,
-        )
+        return (offset_total,columns,)
 
     # ============================================================
-    # Attach builder
+    # NumPy float64 backend
     # ============================================================
 
-    G.design_builder = (
-        design_builder
-    )
+    def _numpy_line_params(amplitude, line_idx, shared_vals):
+        """Construct one base-line parameter vector, in physical units."""
+        p_line = np.zeros(len(base_param_names), dtype=np.float64)
+        p_line[amplitude_pos] = amplitude
+        p_line[lambda0_pos] = centers64[line_idx]
+        p_line[shared_positions] = shared_vals
+        return p_line
+
+    def numpy_model(x_lambda, params):
+        """Full SPAF spectrum, using the NumPy base-line implementation."""
+        if not callable(getattr(base_func, "numpy_model", None)):
+            raise NotImplementedError(
+                f"Base profile '{profile_name}' needs numpy_model first")
+
+        x_np = np.asarray(x_lambda, dtype=np.float64).reshape(-1)
+        p = np.asarray(params, dtype=np.float64).reshape(-1)
+        if p.size != len(param_names):
+            raise ValueError(
+                f"SPAF {profile_name}: expected {len(param_names)} "
+                f"local parameters; received {p.shape}")
+
+        amplitudes, shared_vals = p[:n_free], p[n_free:]
+        flux = np.zeros_like(x_np)
+        for line_idx, coef, free_idx in rules:
+            p_line = _numpy_line_params(coef * amplitudes[free_idx], line_idx, shared_vals)
+            flux += np.asarray(base_func.numpy_model(x_np, p_line), dtype=np.float64).reshape(-1)
+        return flux
+
+    def numpy_design_builder(x_lambda, params):
+        """Return (offset, n_pix x n_free) using shared amplitude rules."""
+        if not callable(getattr(base_func, "numpy_design_builder", None)):
+            raise NotImplementedError(
+                f"Base profile '{profile_name}' needs "
+                "numpy_design_builder first")
+
+        x_np = np.asarray(x_lambda, dtype=np.float64).reshape(-1)
+        p = np.asarray(params, dtype=np.float64).reshape(-1)
+        if p.size != len(param_names):
+            raise ValueError(
+                f"SPAF {profile_name}: expected {len(param_names)} "
+                f"local parameters; received {p.shape}")
+
+        shared_vals = p[n_free:]
+        offset = np.zeros_like(x_np)
+        columns = np.zeros((x_np.size, n_free), dtype=np.float64)
+
+        for line_idx, coef, free_idx in rules:
+            p_line = _numpy_line_params(1.0, line_idx, shared_vals)
+            b_i, A_i = base_func.numpy_design_builder(x_np, p_line)
+            b_i = np.asarray(b_i, dtype=np.float64).reshape(-1)
+            A_i = np.asarray(A_i, dtype=np.float64)
+            if b_i.shape != x_np.shape or A_i.shape != (x_np.size, 1):
+                raise ValueError(
+                    f"Base profile '{profile_name}' returned "
+                    f"offset {b_i.shape}, matrix {A_i.shape}; "
+                    f"expected ({x_np.size},), ({x_np.size}, 1)")
+
+            offset += b_i
+            columns[:, free_idx] += coef * A_i[:, 0]
+
+        return offset, columns
+
+    # ============================================================
+    # Attach both backends directly to G
+    # ============================================================
+
+    G.numpy_model = numpy_model
+    G.numpy_design_builder = numpy_design_builder
+
+    G.design_builder = (design_builder)
 
     # Useful metadata
     G.base_func = base_func
     G.centers = centers
-    G.amplitude_rules = tuple(
-        rules
-    )
+    G.amplitude_rules = tuple(rules)
     G.n_free_amplitudes = n_free
 
     return G
@@ -587,3 +450,4 @@ def SPAF_loglambda(
 #         return total
 
 #     return G
+

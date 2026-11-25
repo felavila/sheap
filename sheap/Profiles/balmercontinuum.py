@@ -45,6 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import jax
 import jax.numpy as jnp
 from jax import jit, vmap
+import numpy as np
 
 from sheap.Profiles.Utils import with_param_names,add_linear_amplitude_design_builder
 
@@ -69,8 +70,8 @@ def _planck_ratio_lambda(lam_m, lam_ref_m, T):
         jnp.expm1(z_r) / jnp.clip(jnp.expm1(z), 1e-300, jnp.inf)
     )
 
-@add_linear_amplitude_design_builder(amplitude_index=0,)
-@with_param_names(["amplitude", "T_raw", "tau_raw", "v_raw"])
+@add_linear_amplitude_design_builder(amplitude_index=0)
+@with_param_names(["amplitude", "T_raw", "tau_raw", "v_raw"], linear_param_names=["amplitude"], profile_name="balmer_cont",)
 def balmercontinuum(x, pars):
     """
     Balmer continuum with edge normalization and a global velocity shift.
@@ -123,3 +124,167 @@ def balmercontinuum(x, pars):
 
     f_norm = jnp.nan_to_num(f_norm, 0.0, 0.0, 0.0)
     return A * f_norm
+
+def _softplus_numpy(x):
+    """Stable NumPy softplus."""
+    return np.log1p(np.exp(-np.abs(x))) + np.maximum(x, 0.0)
+
+
+def _planck_ratio_lambda_numpy(lam_m, lam_ref_m, T):
+    """
+    Same Planck ratio as the JAX implementation,
+    evaluated in float64.
+    """
+    wien = 1.438776877e-2
+
+    T = np.clip(T, 1.0, np.inf)
+
+    z = wien / (np.clip(lam_m, 1e-30, np.inf) * T)
+    z_ref = wien / (np.clip(lam_ref_m, 1e-30, np.inf) * T)
+
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        ratio = (
+            (lam_ref_m / lam_m)**5
+            * np.expm1(z_ref)
+            / np.clip(np.expm1(z), 1e-300, np.inf)
+        )
+
+    return ratio
+
+
+def _numpy_balmer_shape(x, params):
+    """
+    Unit-amplitude Balmer continuum.
+
+    Parameter order:
+        [amplitude, T_raw, tau_raw, v_raw]
+
+    Amplitude is excluded from the shape calculation.
+    """
+
+    x = np.asarray(x, dtype=np.float64)
+    params = np.asarray(params, dtype=np.float64)
+
+    _, T_raw, tau_raw, v_raw = params
+
+    # --------------------------------------------------
+    # Physical transformations
+    # --------------------------------------------------
+    T_floor = 4000.0
+    T_scale = 1000.0
+
+    T = np.clip(
+        T_floor + T_scale * _softplus_numpy(T_raw),
+        T_floor,
+        5.0e4,
+    )
+
+    tau0 = _softplus_numpy(tau_raw)
+
+    vmax = 3000.0
+    v = vmax * np.tanh(v_raw)
+
+    c_kms = 299792.458
+    beta = 1.0 + v / c_kms
+
+    # --------------------------------------------------
+    # Shifted Balmer edge
+    # --------------------------------------------------
+    lambda_BE = 3646.0
+
+    x_eff = x / beta
+
+    lam_m = np.clip(x_eff, 1e-6, np.inf) * 1e-10
+    lamBE_m = lambda_BE * 1e-10
+
+    # --------------------------------------------------
+    # Planck continuum
+    # --------------------------------------------------
+    planck_ratio = _planck_ratio_lambda_numpy(lam_m, lamBE_m,T,)
+
+    # --------------------------------------------------
+    # Optical-depth contribution
+    # --------------------------------------------------
+    tau = tau0 * (x_eff / lambda_BE)**3
+
+    one_minus_e_m_tau = -np.expm1(
+        -np.clip(tau, 0.0, np.inf)
+    )
+
+    one_minus_e_m_tau0 = -np.expm1(
+        -np.clip(tau0, 0.0, np.inf)
+    )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        tau_ratio = np.where(
+            one_minus_e_m_tau0 > 0.0,
+            one_minus_e_m_tau / one_minus_e_m_tau0,
+            (x_eff / lambda_BE)**3,
+        )
+
+    f_norm = planck_ratio * tau_ratio
+
+    # --------------------------------------------------
+    # Soft Balmer-edge rolloff
+    # --------------------------------------------------
+    rolloff_width = 120.0
+
+    soft_edge = np.exp(
+        -np.clip(
+            (x_eff - lambda_BE) / rolloff_width,
+            0.0,
+            20.0,
+        )
+    )
+
+    f_norm *= soft_edge
+
+    return np.nan_to_num(
+        f_norm,
+        nan=0.0,
+        posinf=0.0,
+        neginf=0.0,
+    )
+
+
+def numpy_balmer_model(x, params):
+    """
+    Complete Balmer continuum in float64.
+    """
+    params = np.asarray(params, dtype=np.float64)
+
+    amplitude = params[0]
+
+    return amplitude * _numpy_balmer_shape(x, params)
+
+
+def numpy_balmer_design_builder(x, params):
+    """
+    Linear representation:
+
+        F_balmer = offset + A @ weights
+
+    Here:
+        offset = 0
+        A[:, 0] = unit-amplitude Balmer continuum
+        weights = [amplitude]
+    """
+
+    x = np.asarray(x, dtype=np.float64)
+
+    shape = _numpy_balmer_shape(x, params)
+
+    offset = np.zeros_like(x, dtype=np.float64)
+
+    columns = shape[:, None]
+
+    return offset, columns
+
+
+# --------------------------------------------------
+# Attach NumPy backend to existing JAX profile
+# --------------------------------------------------
+
+balmercontinuum.numpy_model = numpy_balmer_model
+
+balmercontinuum.numpy_design_builder = (numpy_balmer_design_builder)
