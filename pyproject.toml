@@ -48,6 +48,7 @@ dependencies = [
     # Dust maps
     "sfdmap2",
     "requests",
+    "joblib"
 ]
 [project.scripts]
 sheap = "sheap.cli:main"
