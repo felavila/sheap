@@ -314,7 +314,7 @@ class SheapModelBuilder:
         if isinstance(continuum_profile,dict):
             continuum_profile = [continuum_profile]
         for cp in continuum_profile:
-            print(cp)
+            #print(cp)
             if cp.get("name") not in self.available_continuum_profiles:
                 raise ValueError(f"continuum_profile: '{cp.get('name')}' is not valid. " f"Available profiles: {self.available_continuum_profiles}")     
         self.continuum_profile = continuum_profile

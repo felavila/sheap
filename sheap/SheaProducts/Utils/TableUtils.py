@@ -2,10 +2,11 @@ import numpy as np
 from collections.abc import Mapping
 import numbers
 import pandas as pd 
+from joblib import Parallel, delayed
 
 from sheap.Utils.Paper import median_with_errors
 from sheap.SheaProducts.Utils.MoldelSpectraReconstruction import MoldelSpectraReconstruction
-
+from sheap.SheaProducts.Utils.ExtractExtraParams import process_luminosity,process_smbh
 
 def _extract_extra_params(n_obj, obj_name, available_extra_params, values, low=0.16, high=0.84,):
     rows = []
@@ -578,11 +579,14 @@ def quantities_to_wide(dataframe, index_columns=("obj_name", "n_obj"), value_col
     return wide
 
 
-def TablExtractor(sheapspectral, low=0.16, high=0.84, method="montecarlo",selected_index = [],calculate_host=True,calculate_fe=True
+def TablExtractor(sheapspectral, low=0.16, high=0.84, method=None,selected_index = [],calculate_host=True,calculate_fe=True
                                ,continuum_wavelengths = [2500.0, 3000.0, 4200.0, 5100.0,6200.0,],fe_windows = {"FE_UV": (2250.0, 2650.0)
-                               ,"FE_OPT": (4434.0, 4684.0),},calculate_lum=True,calculate_extraproducts=True):
-    #TODO next update should put this inside param extraction-combined with Fe ? 
+                               ,"FE_OPT": (4434.0, 4684.0),},calculate_lum=True,calculate_extraproducts=True,verbose=True):
     #TODO selected n_index go for name is to confuse.
+    #TODO Parallel dosent work "great" with CUDA carefull
+    if not method:
+        method = list(sheapspectral.result.posterior.keys())[0]
+        print(f"Default method is {method}")
     posterior = sheapspectral.result.posterior[method]["posterior_result"]
     rows_extra = []
     rows_cont = []
@@ -592,14 +596,14 @@ def TablExtractor(sheapspectral, low=0.16, high=0.84, method="montecarlo",select
     snr = np.array(sheapspectral.snr)
     z = np.array(sheapspectral.z)
     if calculate_lum:
-        print("calculating luminosities")
-        from joblib import Parallel, delayed
-        from sheap.SheaProducts.Utils.ExtractExtraParams import process_luminosity,process_smbh
+        if verbose:
+            print("calculating luminosities")
         distances = sheapspectral._calcualte_d()
         lums = Parallel(n_jobs=-1)(delayed(process_luminosity)(d, xx) for d, xx in zip(distances, posterior.values()))
         posterior.update(zip(posterior.keys(), lums))
     if calculate_extraproducts:
-        print("calculating extra-params")
+        if verbose:
+            print("calculating extra-params")
         mass = Parallel(n_jobs=-1)(delayed(process_smbh)(xx) for xx in posterior.values())
         posterior.update(zip(posterior.keys(), mass))
 
@@ -628,36 +632,19 @@ def TablExtractor(sheapspectral, low=0.16, high=0.84, method="montecarlo",select
     df_basic = pd.DataFrame(rows_basic)
     reconstruction = MoldelSpectraReconstruction(sheapspectral,jit_compile=True,posterior_group=method)
     if (np.any(["host" in line.line_name for line in sheapspectral.result.region_list]) and calculate_host):
-        print("---- Running host reconstruction -----")
+        if verbose:
+            print("---- Running host reconstruction -----")
         rows = []
         for wavelength in continuum_wavelengths:
-
-            print(f"Calculating host fraction at {wavelength:.0f} Å")
+            if verbose:
+                print(f"Calculating host fraction at {wavelength:.0f} Å")
 
             stellar_fraction = reconstruction.stars_cont_ratio_parallel(wavelength=wavelength, object_batch_size=128, return_numpy=True,object_indices=selected_index)
-
-            stellar_fraction = np.asarray(stellar_fraction)
-
+            
             # Ensure shape: (n_objects, n_samples)
-            stellar_fraction = np.squeeze(stellar_fraction)
-
-            if stellar_fraction.ndim == 1:
-                stellar_fraction = stellar_fraction[:, None]
-
-            if stellar_fraction.ndim != 2:
-                raise ValueError(
-                    f"Unexpected stellar_fraction shape: "
-                    f"{stellar_fraction.shape}")
-
-            if stellar_fraction.shape[0] != len(selected_index):
-                if stellar_fraction.shape[1] == len(selected_index):
-                    stellar_fraction = stellar_fraction.T
-                else:
-                    raise ValueError(
-                        f"Shape {stellar_fraction.shape} does not match "
-                        f"{len(selected_index)} selected objects"
-                    )
-
+            stellar_fraction = np.asarray(stellar_fraction)
+            stellar_fraction = stellar_fraction.reshape(len(selected_index), -1)
+            #print(stellar_fraction.shape)
             med, _low, _up = median_with_errors(stellar_fraction,axis=1,low=low,high=high)
 
             row = pd.DataFrame({"median": med, "err_minus": _low, "err_plus": _up, "obj_name": obj_list,"quantity": f"cont_ratio_{int(wavelength)}", "n_obj": selected_index})
@@ -666,14 +653,14 @@ def TablExtractor(sheapspectral, low=0.16, high=0.84, method="montecarlo",select
 
         df_cont = pd.concat([df_cont, *rows],ignore_index=True)
     if (np.any(["fe" in line.line_name for line in sheapspectral.result.region_list])) and calculate_fe:
-
-        print("---- Running Fe EW reconstruction -----")
+        if verbose:
+            print("---- Running Fe EW reconstruction -----")
 
         rows = []
 
         for region, (x_min, x_max) in fe_windows.items():
-
-            print(f"Calculating {region}: {x_min:.0f}-{x_max:.0f} Å")
+            if verbose:
+                print(f"Calculating {region}: {x_min:.0f}-{x_max:.0f} Å")
 
             # Equivalent width
             ew_result = reconstruction.fe_integrated_ew_parallel(x_min=x_min, x_max=x_max, n_grid=2000, region_name="fe", object_indices=selected_index, include_bestfit=False, object_batch_size=64,return_numpy=True,)

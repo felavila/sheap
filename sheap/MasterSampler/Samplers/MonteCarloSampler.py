@@ -82,9 +82,14 @@ class MonteCarloSampler:
 		
 		self.sheapmodel = estimator.sheapmodel
 		self.fitkwargs = estimator.fitkwargs
+		if self.fitkwargs == [{}]:
+			print("Using default")
+			self.fitkwargs = [{'tied': [], 'non_optimize_in_axis': 4, 'learning_rate': 0.01, 'num_steps': 2000, 'method': 'adam', 'penalty_weight': 0.0, 'curvature_weight': 0.0, 'smoothness_weight': 0.0, 'max_weight': 0.0}]
+		#print(self.fitkwargs)
+		#'non_optimize_in_axis', 'num_steps', 'learning_rate', 'method', 'penalty_weight', 'curvature_weight', 'smoothness_weight', and 'max_weight'
 		self.initial_params  = estimator.initial_params
 		self.get_param_coord_value = make_get_param_coord_value(self.params_dict, self.initial_params)  # important
-		self.tied_params = self.fitkwargs[-1]["tied"] #the tied params of the last iteration.
+		self.tied_params = self.fitkwargs[-1].get("tied",[]) #the tied params of the last iteration.
 		self.constraints = jnp.asarray(estimator.constraints, dtype=jnp.float32) #this will be moved
 		self.params_class = estimator.params_class #self._build_params_class()
 		self.best_params = descale_amp(self.params_dict,self.params,self.scale).astype(jnp.float32) #thescaled
@@ -228,7 +233,7 @@ class MonteCarloSampler:
 	def _normalize_spectra(self):
 		"from the clasical shape to the one that is use during the fitting"
 		scale = jnp.atleast_1d(self.scale.astype(jnp.float32))
-		spectra = self.spectra.astype(jnp.float32)
+		spectra = jnp.array(self.spectra).astype(jnp.float32)
 		norm_spectra = spectra.at[:, [1, 2], :].divide(jnp.moveaxis(jnp.tile(scale, (2, 1)), 0, 1)[:, :, None])
 		norm_spectra = norm_spectra.at[:, 2, :].set(jnp.where(self.mask, 1e31, norm_spectra[:, 2, :]))
 		return norm_spectra.astype(jnp.float32).transpose(1, 0, 2)

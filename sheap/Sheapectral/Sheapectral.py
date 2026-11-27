@@ -45,7 +45,6 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
-import time
 
 import jax.numpy as jnp
 import numpy as np
@@ -58,7 +57,7 @@ from sheap.SheapModelBuilder.SheapModelBuilder import SheapModelBuilder
 from sheap.SheaProducts.SheaProducts import SheaProducts
 from sheap.Plotting.SheapPlot import SheapPlot
 from sheap.Utils.Constants  import DEFAULT_C_KMS
-
+from sheap.Utils.BasicFunctions import vac_to_air
 
 
 logger = logging.getLogger(__name__)
@@ -154,6 +153,8 @@ class Sheapectral:
 		names: Optional[list[str]] = None,
 		extinction_correction: str = "pending",  # this only can be pending or done
 		redshift_correction: str = "pending",  # this only can be pending or done
+		vacuum2air: bool =False,
+		verbose=True,
 		**kwargs,):
 		
 		"""
@@ -201,28 +202,38 @@ class Sheapectral:
 			#     
 		self.coords = coords  # may be None – handle carefully downstream
 		if self.coords is None:
-			print("Coords not informed the code will assume extinction_correction = done")
+			if verbose:
+				print("Coords not informed the code will assume extinction_correction = done")
 			self.extinction_correction = "done"#<
 		self.ebv = ebv
 		self.z = self._prepare_z(z, self.spectra.shape[0])
 		self.names = (np.atleast_1d(names) if names is not None else np.arange(self.spectra.shape[0]).astype(str))
 		assert len(self.z) == self.spectra.shape[0], ("The number of redshifts and spectra must be the same. " f"Got {len(self.z)} redshifts and {self.spectra.shape[0]} spectra.")
-
+		if vacuum2air:
+			if verbose:
+				print("Moving from vacuum to air")
+			self.spectra = self.spectra.at[:, 0, :].set(vac_to_air(self.spectra[:, 0, :]))
 		if self.names.shape[0] !=self.spectra.shape[0]:
-			print(f"The number of names ({len(self.names.shape[0])}) is different from the number of spectra ({self.spectra.shape[0]}) the code will use the inner names")
+			if verbose:
+				print(f"The number of names ({len(self.names.shape[0])}) is different from the number of spectra ({self.spectra.shape[0]}) the code will use the inner names")
 			self.names = np.arange(self.spectra.shape[0]).astype(str)
+		
 		if self.extinction_correction == "pending" and (self.coords is not None or self.ebv is not None):
-			print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
+			if verbose:
+				print("extinction correction will be do it, change 'extinction_correction' to done if you want to avoid this step")
 			self._apply_extinction()
 			self.extinction_correction = "done"
+		
 		if self.redshift_correction == "pending" and self.z is not None:
-			print("redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step")
+			if verbose:
+				print("redshift correction will be do it, change 'redshift_correction' to done if you want to avoid this step")
 			self._apply_redshift()
 			self.redshift_correction = "done"
 
 		self.sheap_set_up()
 		self.default_limits = (float(np.min(self.spectra[:,0,:])),float(np.max(self.spectra[:,0,:])))
 		self.snr = np.nanmean(self.spectra[:, 1, :] / self.spectra[:, 2, :], axis=1) #signal to noise
+		
 
 	def _load_spectra(self, spectra: Union[str, ArrayLike]) -> jnp.ndarray:
 		"""
@@ -326,6 +337,7 @@ class Sheapectral:
 		"""
 		from sheap.Sheapectral.Utils.BasicCorrections import deredshift
 		self.spectra = deredshift(self.spectra, self.z)
+	
 
 	def sheap_set_up(self):
 		"""

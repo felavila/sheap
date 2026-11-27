@@ -25,7 +25,8 @@ import functools as ft
 #import jax,jit,
 import jax.numpy as jnp
 from jax import  vmap
-
+import numpy as np 
+from scipy.interpolate import CubicSpline
 from sheap.Utils.Interp_tools import cubic_spline_coefficients, spline_eval
 
 
@@ -108,3 +109,85 @@ def deredshift(spectra, z):
     spectra = spectra.at[[1, 2], :].multiply(1 + z[jnp.newaxis, jnp.newaxis])
     spectra = spectra.at[0, :].divide(1 + z[jnp.newaxis])
     return spectra
+
+#@ft.partial(vmap, in_axes=(0, 0), out_axes=0)
+def deredshift_numpy(spectra, z):
+    z = np.asarray(z)
+    factor = 1.0 + z
+    spectra[:, [1, 2], :] *= factor[:, None, None]
+    spectra[:, 0, :] /= factor[:, None]
+    return spectra
+
+
+def unred_numpy(wave, flux, ebv, R_V=3.1, LMC2=False, AVGLMC=False):
+
+    wave = np.asarray(wave, dtype=float)
+    flux = np.asarray(flux, dtype=float)
+    ebv = np.asarray(ebv, dtype=float)
+
+    x = 10000.0 / wave
+
+    # Default Milky Way coefficients
+    x0 = 4.596
+    gamma = 0.99
+    c3 = 3.23
+    c4 = 0.41
+    c2 = -0.824 + 4.717 / R_V
+    c1 = 2.030 - 3.007 * c2
+
+    if LMC2:
+        x0 = 4.626
+        gamma = 1.05
+        c4 = 0.42
+        c3 = 1.92
+        c2 = 1.31
+        c1 = -2.16
+
+    elif AVGLMC:
+        x0 = 4.596
+        gamma = 0.91
+        c4 = 0.64
+        c3 = 2.73
+        c2 = 1.11
+        c1 = -1.28
+
+    # UV extinction curve
+    def uv_curve(x):
+        delta = np.maximum(x - 5.9, 0.0)
+
+        return (c1+ c2 * x+ c3 * x**2 / ((x**2 - x0**2)**2 + (x * gamma)**2) + c4 * (0.5392 * delta**2+ 0.05644 * delta**3) + R_V)
+
+    xcutuv = 10000.0 / 2700.0
+    xspluv = 10000.0 / np.array([2700.0, 2600.0])
+
+    yspluv = uv_curve(xspluv)
+
+    # Optical and infrared spline points
+    xsplopir = np.concatenate(([0.0],10000.0 / np.array([26500.0, 12200.0, 6000.0, 5470.0, 4670.0, 4110.0])))
+
+    ysplir = np.array([0.0, 0.26469, 0.82925]) * R_V / 3.1
+
+    ysplop = np.array([np.polyval([-4.22809e-01, 1.00270, 2.13572e-04][::-1],R_V),np.polyval([-5.13540e-02, 1.00216, -7.35778e-05][::-1],R_V),
+        np.polyval([7.00127e-01, 1.00184, -3.32598e-05][::-1],R_V),np.polyval(
+            [1.19456,1.01707, -5.46959e-03,7.97809e-04,-4.45636e-05][::-1],R_V)])
+
+    # Construct cubic spline
+    spline = CubicSpline(
+        np.concatenate((xsplopir, xspluv)),
+        np.concatenate((ysplir, ysplop, yspluv)),
+        bc_type="natural")
+
+    # Evaluate only the corresponding wavelength regions
+    curve = np.empty_like(x)
+
+    uv_mask = x >= xcutuv
+    optical_mask = ~uv_mask
+
+    curve[uv_mask] = uv_curve(x[uv_mask])
+    curve[optical_mask] = spline(x[optical_mask])
+
+    # Broadcast E(B-V) across wavelength pixels
+    if ebv.ndim > 0:
+        ebv = ebv[..., None]
+
+    return flux * 10.0**(0.4 * curve * ebv)

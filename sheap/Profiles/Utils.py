@@ -163,6 +163,10 @@ def make_fused_profiles(funcs):
     """
     Fuse multiple profile functions into a single callable while preserving
     parameter metadata, including which parameters are linear.
+
+    Provides both JAX and NumPy implementations:
+        fused_profile(x, params)              # JAX
+        fused_profile.numpy_model(x, params)  # NumPy
     """
     n_params = [f.n_params for f in funcs]
     param_splits = np.cumsum([0] + n_params)
@@ -171,23 +175,35 @@ def make_fused_profiles(funcs):
     fused_linear_mask = []
 
     for i, f in enumerate(funcs):
-        names = list(getattr(f, "param_names", [f"p{i}_{k}" for k in range(f.n_params)]))
-        linear_mask = list(getattr(f, "linear_param_mask", [False] * f.n_params))
+        names = list(
+            getattr(f, "param_names", [f"p{i}_{k}" for k in range(f.n_params)])
+        )
+        linear_mask = list(
+            getattr(f, "linear_param_mask", [False] * f.n_params)
+        )
 
         if len(names) != f.n_params:
-            raise ValueError(f"Function {i} has inconsistent param_names length.")
+            raise ValueError(
+                f"Function {i} has inconsistent param_names length."
+            )
         if len(linear_mask) != f.n_params:
-            raise ValueError(f"Function {i} has inconsistent linear_param_mask length.")
+            raise ValueError(
+                f"Function {i} has inconsistent linear_param_mask length."
+            )
 
         fused_param_names.extend(names)
         fused_linear_mask.extend(linear_mask)
 
+    # JAX implementation
     @with_param_names(
         fused_param_names,
         linear_param_mask=fused_linear_mask,)
     def fused_profile(x, all_args):
         all_args = jnp.asarray(all_args)
-        result = jnp.array(0.0, dtype=x.dtype if hasattr(x, "dtype") else jnp.float32)
+        result = jnp.array(
+            0.0,
+            dtype=x.dtype if hasattr(x, "dtype") else jnp.float32
+        )
 
         for i, f in enumerate(funcs):
             fargs = all_args[param_splits[i]:param_splits[i + 1]]
@@ -195,8 +211,26 @@ def make_fused_profiles(funcs):
 
         return result
 
+    # NumPy implementation
+    def numpy_model(x, all_args):
+        x = np.asarray(x)
+        all_args = np.asarray(all_args)
+
+        result = np.array(
+            0.0,
+            dtype=x.dtype if np.issubdtype(x.dtype, np.floating) else np.float64
+        )
+
+        for i, f in enumerate(funcs):
+            fargs = all_args[param_splits[i]:param_splits[i + 1]]
+            result = result + f.numpy_model(x, fargs)
+
+        return result
+
+    # Attach metadata
     fused_profile.param_splits = tuple(param_splits.tolist())
     fused_profile.sub_funcs = tuple(funcs)
+    fused_profile.numpy_model = numpy_model
 
     return fused_profile
 

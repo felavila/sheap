@@ -241,6 +241,29 @@ def pad_error_channel(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
     return jnp.concatenate((spectra, error), axis=1)
 
 
+def pad_error_channel_numpy(spectra: ArrayLike, frac: float = 0.01) -> ArrayLike:
+    """
+    Ensure a third channel (error) by padding with a fraction of the signal.
+
+    Parameters
+    ----------
+    spectra
+        Array with shape (n_obj, C, N) or (C, N). If C==2 (λ, flux), the error
+        channel is appended as `frac * flux`.
+    frac
+        Error fraction applied to the flux to fabricate uncertainties.
+
+    Returns
+    -------
+    ArrayLike
+        Spectra with shape (..., 3, N).
+    """
+    if spectra.shape[1] != 2:
+        return spectra  # already has ≥3 channels
+    signal = spectra[:, 1, :]
+    error = np.expand_dims(signal * frac, axis=1)
+    return np.concatenate((spectra, error), axis=1)
+
 def ensure_sfd_data(sfd_path: Path = None):
     """
     Ensure the Schlegel, Finkbeiner & Davis (1998) dust maps are available locally.
@@ -326,9 +349,10 @@ def paramclass2list(params_class):
     param_list = [{k: np.asarray(v) if isinstance(v, jax.Array) else v for k, v in i.__dict__.items() if k not in ["linear_param", "transform"]} for i in params_class._list]
     return param_list
 
+
 def list2paramclass(param_dict_list):
     from sheap.Assistants.Parameters import Parameters
     P = Parameters()
     for p in param_dict_list:
-	    P.add(**p)
+        P.add(**p)
     return P

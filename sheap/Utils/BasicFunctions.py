@@ -148,10 +148,7 @@ def air_to_vacuum(lambda_air):
     Valid roughly for 2000-20000 Å.
     """
     l2 = lambda_air ** 2
-    n = (1
-         + 2.735182e-4
-         + 131.4182 / l2
-         + 2.76249e8 / l2**2)
+    n = (1+ 2.735182e-4 + 131.4182 / l2 + 2.76249e8 / l2**2)
     return lambda_air * n
 
 

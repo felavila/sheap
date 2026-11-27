@@ -146,8 +146,11 @@ def extra_params_functions(params, L_w, L_bol, estimators, C_KMS,R_Fe=None,eta =
             wkey = str(int(lam))
             if wkey not in L_w:
                 continue
-            #tile
-            Lmono = np.repeat(L_w[wkey][:, None], Vwidth.shape[1], axis=1) #np.tile(L_w[wkey],)
+            lw = L_w[wkey]
+            if np.shape(lw) == ():
+                lw = np.array([lw])
+            #print(lw)
+            Lmono = np.repeat(lw[:, None], Vwidth.shape[1], axis=1) #np.tile(L_w[wkey],)
             #print(line_name,Lmono.shape,Vwidth.shape,combined)
             MBH = calc_black_hole_mass(Lmono, Vwidth, est, extras=None)
 

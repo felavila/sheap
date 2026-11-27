@@ -89,7 +89,7 @@ class MoldelSpectraReconstruction:
 	# ----------------------------- setup ---------------------------------
 
 	def _build_registry_and_model(self) -> None:
-		if self.obj.__class__.__name__ == "Sheapectral":
+		if (self.obj.__class__.__name__ == "Sheapectral") or (self.obj.__class__.__name__ == "NSheapectral"):
 			res = self.obj.result
 		else:
 			res = self.obj

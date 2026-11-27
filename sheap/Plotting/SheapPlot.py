@@ -46,7 +46,7 @@ class SheapPlot:
         self.scale = result.scale
         self.uncertainty_params = result.uncertainty_params
         self.profile_params_index_list = result.profile_params_index_list
-        self.profile_functions = result.profile_functions
+        
         self.profile_names = result.profile_names
         self.region_list = result.region_list
         self.xlim = result.outer_limits
@@ -56,9 +56,9 @@ class SheapPlot:
         self.z = sheap.z
         self.snr = sheap.snr
         self.chi2_red = result.chi2_red
-        self.model = make_fused_profiles(self.profile_functions)
+        self.model = sheap.spectral_model.numpy_model
+        self.profile_functions = [i.numpy_model for i in sheap.spectral_model.sub_funcs]
         
-
     def _from_fit_result(self, result, spectra):
         self.spec = spectra
         self.scale = jnp.nanmax(spectra[:, 1, :], axis=1)
@@ -76,7 +76,7 @@ class SheapPlot:
         #self.snr = result.snr
         self.chi2_red = result.chi2_red
         #self.fe_mode = self.model_keywords.get("fe_mode")
-        self.model = make_fused_profiles(self.profile_functions)
+        #self.model = make_fused_profiles(self.profile_functions)
 
     def plot(self, n, save=None, add_lines_name=False, residual=True,params=None,add_xline=None,
              flux_unit=r"$\mathrm{erg\,s^{-1}\,cm^{-2}\,\AA^{-1}}$",add_legend=True,add_extra=True, **kwargs):
@@ -85,10 +85,8 @@ class SheapPlot:
         
         # if not isinstance(n,int):
         #     n = np.random.randint(0,self.spec.shape[0]) 
-        default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
-        filtered_colors = [
-            c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f',"blue","green"]
-        ] * 50
+        #default_colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+        #filtered_colors = [c for c in default_colors if c not in ['black', 'red', 'grey', '#7f7f7f',"blue","green"]] * 50
 
         ylim = kwargs.get("ylim", [0,self.scale[n]])
         xlim = kwargs.get("xlim", self.xlim)
@@ -100,13 +98,7 @@ class SheapPlot:
         fit_y = self.model(x_axis, params)
 
         if residual:
-            fig, (ax1, ax2) = plt.subplots(
-                2,
-                1,
-                sharex=True,
-                figsize=(30, 8),
-                gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.1},
-            )
+            fig, (ax1, ax2) = plt.subplots(2,1,sharex=True,figsize=(30, 8),gridspec_kw={'height_ratios': [2, 1], 'hspace': 0.1},)
         else:
             fig, ax1 = plt.subplots(1, 1, sharex=True, figsize=(30, 8))
 
@@ -121,7 +113,7 @@ class SheapPlot:
             #print(profile_name, profile_func, region, idxs)
             values = params[idxs]
             #print(profile_name)
-            
+            #profile_func = profile_func.numpy_model
             if region.region == "continuum" or region.region=="balmer":
                 #print(region.line_name)
                 component_y = profile_func(x_axis, values)
@@ -136,7 +128,6 @@ class SheapPlot:
                 ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region[region.region.lower()],label="Fe II", linewidth=3)
             
             elif "host" in region.region.lower():
-                f = 1.0/0.6028481012658228
                 component_y = profile_func(x_axis, values)
                 ax1.plot(x_axis, component_y, ls=component_ls[1], zorder=3, color=colors_by_region["host"],label="Host", linewidth=3)
             else:
@@ -151,7 +142,6 @@ class SheapPlot:
                 ax1.plot(x_axis, component_y, ls=component_ls[region.component], zorder=zorder, color=colors_by_region[region.region], label=label, linewidth=3)
                 #ax1.axvline(values[1], ls="--", linewidth=1, color="k")
                 if add_lines_name and isinstance(region.region_lines,list):
-                    import numpy as np 
                     idx_shift = np.where("vshift_kms" == np.array(profile_func.param_names))[0]
                     #print(idx_shift)
                     centers = np.array(region.center) *(1+values[*idx_shift]/DEFAULT_C_KMS)#This is only true for gaussian
@@ -162,10 +152,7 @@ class SheapPlot:
                             #print(f"- {region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " "),c)
                             label = f"- {region.region_lines[ii]}_{region.region}_{region.component}".replace("_", " ")
                             ypos = 0.25 if "broad" in label else 0.75
-                            ax1.text(
-                            c,
-                            ypos,
-                            label,
+                            ax1.text(c,ypos, label,
                             transform=trans,
                             rotation=90,
                             fontsize=20,
@@ -247,7 +234,8 @@ class SheapPlot:
                 markerscale=0.8,labelspacing=0.5,frameon=False,ncol=3,columnspacing=1.5,handletextpad=0.4,)
         if residual:
             residuals = (fit_y - y_axis) / yerr
-            residuals = residuals.at[mask].set(0.0)
+            residuals = np.where(mask,0,residuals)
+            #residuals.at[mask].set(0.0)
             ax2.axhline(0, ls="--", linewidth=5, color="black")
             ax2.scatter(x_axis, residuals, alpha=0.9, zorder=10,c="#4C72B0")
             for sigma in [1, 2, 3]:

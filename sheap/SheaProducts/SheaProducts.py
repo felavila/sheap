@@ -130,19 +130,7 @@ class SheaProducts:
         # if extra_products:
         #     products = self._get_extraparams(products)
         return products
-          
-    # def _get_extraparams(self,products):
-    #     L_w,L_bol = products["L_w"],products["L_bol"]
-    #     new_products = {}
-    #     for key, local_result in products.items():
-    #         if "basic_params" in key:
-    #             key = key.replace("basic","extra")
-    #             new_products[key] = extra_params_functions(local_result,L_w,L_bol,self.SINGLE_EPOCH_ESTIMATORS,self.C_KMS)
-    #         else:
-    #             pass
-    #     products.update(new_products)
-    #     return products
-       
+    
     def _from_any(self, src: object) -> None:
         for name in self._BASE_REQUIRED:
             setattr(self, name, getattr(src, name, None))
@@ -166,6 +154,7 @@ class SheaProducts:
         spectra = jnp.asarray(self.spectra, dtype=jnp.float32)
         
         full_cont_profile = make_fused_profiles(np.concatenate([self.by_region[key].profile_functions for key in self.by_region.keys() if key in ["fe", "continuum", "host","balmer"]])) # <- ?
+        
         products = extract_basic_params_single(spectra,self.mask,params,uncertainty_params,continuum_idx_all=self.full_cont_idx,
                                                luminosity_distance=self.d,sheapmodel=self.sheapmodel,cont_profile_all= full_cont_profile,
                                                 BOL_CORRECTIONS =self.BOL_CORRECTIONS,C_KMS= self.C_KMS,wavelength_grid=self.wavelength_grid)

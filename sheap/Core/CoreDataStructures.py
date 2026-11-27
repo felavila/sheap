@@ -273,61 +273,104 @@ class SheapModel:
         return self._subset(mask)
 
     def _subset(self, mask: np.ndarray) -> "SheapModel":
-        # slice the lines + original indices
-        lines2    = [ln for ln, keep in zip(self.lines, mask) if keep]
-        orig2     = [oi for oi, keep in zip(self.original_idx, mask) if keep]
 
-        # slice the DF & reset local index
-        df2 = self._df[mask].reset_index(drop=False)
-        df2.rename(columns={"index": "local_idx"}, inplace=True)
+        mask = np.asarray(mask, dtype=bool)
+
+        if mask.shape != (len(self.lines),):
+            raise ValueError(f"Expected mask shape {(len(self.lines),)}, "
+                f"got {mask.shape}")
+
+        selected = np.flatnonzero(mask)
+
+        # 1. Slice lines and preserve original indices
+        lines2 = [self.lines[i] for i in selected]
+        orig2 = [self.original_idx[i] for i in selected]
+
+        # 2. Slice metadata and reset local indices
+        df2 = self._df.iloc[selected].copy().reset_index(drop=True)
+        df2["local_idx"] = np.arange(len(selected))
         df2["orig_idx"] = orig2
 
-        # if no profiles attached, return minimal
-        if not self.profile_functions:
+        # 3. Handle models without attached profiles
+        if not self.profile_functions or len(selected) == 0:
             new = SheapModel(lines=lines2)
             new.original_idx = orig2
             new._df = df2
+            new._master_param_names = self._master_param_names.copy()
             return new
 
-        # slice profiles + names
-        funcs2 = [f for f, keep in zip(self.profile_functions,   mask) if keep]
-        names2 = [n for n, keep in zip(self.profile_names,       mask) if keep]
+        # 4. Slice profiles and profile names
+        funcs2 = [self.profile_functions[i] for i in selected]
+        names2 = [self.profile_names[i] for i in selected]
 
-        # build subset of the *global* index‐lists
+        # 5. Preserve GLOBAL parameter indices
         glob_lists2 = [
-            self.global_profile_params_index_list[i]
-            for i, keep in enumerate(mask) if keep
+            np.asarray(
+                self.global_profile_params_index_list[i],
+                dtype=int
+            ).copy()
+            for i in selected
         ]
+
+        # 6. Retrieve LOCAL parameter indices of the parent model
+        parent_local_lists2 = [np.asarray(self.profile_params_index_list[i],dtype=int) for i in selected]
+
         flat_global = np.concatenate(glob_lists2).astype(int)
+        flat_local = np.concatenate(parent_local_lists2).astype(int)
 
-        # slice the *original* params by global indices
-        params2 = self.params[:, flat_global]
-        u2      = self.uncertainty_params[:, flat_global]
+        # 7. Validate indices before slicing
+        # Important because JAX may silently clip invalid indices
+        for name, array in (("params", self.params), ("uncertainty_params", self.uncertainty_params),):
+            if array is not None:
+                if np.any(flat_local < 0) or np.any(flat_local >= array.shape[1]):
+                    raise IndexError(
+                        f"Invalid local indices for {name}: "
+                        f"array shape={array.shape}, "
+                        f"indices={flat_local}"
+                    )
 
-        # build local map: global→new‐local
-        local_map = { g: i for i, g in enumerate(flat_global) }
-        local_lists2 = [[ local_map[g] for g in lst ] for lst in glob_lists2]
+        # 8. Slice using LOCAL indices
+        # Compatible with both NumPy and JAX
+        params2 = (self.params[:, flat_local] if self.params is not None else None)
 
-        # rebuild the subsetted params_dict from master names
-        master = np.array(self._master_param_names)
+        u2 = (self.uncertainty_params[:, flat_local] if self.uncertainty_params is not None else None)
+
+        # 9. Build new local parameter indices
+        local_lists2 = []
+        offset = 0
+
+        for indices in glob_lists2:
+            n_params = len(indices)
+
+            local_lists2.append(
+                list(range(offset, offset + n_params))
+            )
+
+            offset += n_params
+
+        # 10. Rebuild parameter dictionary using GLOBAL names
+        master = np.asarray(self._master_param_names)
         names_global = master[flat_global]
-        filtered_dict2 = { nm: i for i, nm in enumerate(names_global) }
 
-        # assemble the child
-        new = SheapModel(
-            lines=lines2,
+        filtered_dict2 = {
+            nm: i for i, nm in enumerate(names_global)
+        }
+
+        # 11. Assemble child model
+        new = SheapModel(lines=lines2,
             profile_functions=funcs2,
             profile_names=names2,
             params_dict=filtered_dict2,
             profile_params_index_list=local_lists2,
             params=params2,
-            uncertainty_params=u2,
-        )
-        new._master_param_names             = self._master_param_names
+            uncertainty_params=u2,)
+
+        # 12. Preserve global metadata
+        new._master_param_names = self._master_param_names.copy()
         new.global_profile_params_index_list = glob_lists2
-        new.original_idx                     = orig2
-        new._df                              = df2
-        new._combined_func                   = make_fused_profiles(funcs2)
+        new.original_idx = orig2
+        new._df = df2
+
         return new
 
     def __getitem__(self, key: Union[int, slice, np.ndarray, List[int]]) -> "SheapModel":
